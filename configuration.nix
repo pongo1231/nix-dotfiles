@@ -1,0 +1,245 @@
+{
+  config,
+  pkgs,
+  nixpkgs,
+  nur,
+  lib,
+  ...
+}: let
+  nur-no-pkgs = import nur {
+    nurpkgs = nixpkgs.legacyPackages.x86_64-linux;
+    pkgs = nixpkgs.legacyPackages.x86_64-linux;
+  };
+in {
+  imports = [
+    #nur-no-pkgs.repos.ilya-fedin.modules.flatpak-icons
+
+    ./hardware-configuration.nix
+    ./persist.nix
+    ./nvidia.nix
+    ./intel.nix
+    ./snapper.nix
+    ./udev.nix
+    ./libvirt.nix
+    ./tlp.nix
+  ];
+
+  nix = {
+    extraOptions = ''
+      experimental-features = ca-derivations nix-command flakes
+    '';
+    settings.auto-optimise-store = true;
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 7d";
+      persistent = true;
+    };
+  };
+
+  nixpkgs.config.allowUnfree = true;
+
+  boot = {
+    loader = {
+      systemd-boot = {
+        enable = true;
+        configurationLimit = 20;
+      };
+      efi.canTouchEfiVariables = true;
+      timeout = lib.mkForce 0;
+    };
+    tmpOnTmpfs = true;
+    kernel = {
+      sysctl."vm_swappiness" = 100;
+      sysctl."dev.i915.perf_stream_paranoid" = 0;
+      sysctl."kernel.sysrq" = 1;
+    };
+    kernelPackages = pkgs.linuxPackages_latest;
+    extraModulePackages = with config.boot.kernelPackages; [xpadneo];
+    kernelParams = [
+      "quiet"
+      "splash"
+      "loglevel=3"
+      "nowatchdog"
+      "mitigations=off"
+      "kvm.ignore_msrs=1"
+      "intel_iommu=on"
+      "i915.enable_guc=3"
+      "i915.enable_fbc=1"
+      "i915.enable_gvt=1"
+      "intel_pstate=passive"
+    ];
+    initrd = {
+      systemd.enable = true;
+      kernelModules = ["i915" "kvmgt" "vfio-iommu-type1" "mdev"];
+    };
+    plymouth.enable = true;
+  };
+  powerManagement.cpuFreqGovernor = "schedutil";
+
+  zramSwap.enable = true;
+
+  hardware.bluetooth = {
+    enable = true;
+    hsphfpd.enable = true;
+  };
+  # show bluetooth headset battery level in kde
+  systemd.services.bluetooth.serviceConfig.ExecStart = [
+    ""
+    "${pkgs.bluez}/libexec/bluetooth/bluetoothd --experimental"
+  ];
+
+  networking.hostName = "pongo-nixos";
+  networking.networkmanager.enable = true;
+
+  time.timeZone = "Europe/Berlin";
+
+  i18n.defaultLocale = "en_US.UTF-8";
+  console = {
+    useXkbConfig = true;
+  };
+
+  services.xserver = {
+    enable = true;
+    displayManager.sddm = {
+      enable = true;
+      autoNumlock = true;
+    };
+    desktopManager.plasma5.enable = true;
+    tty = lib.mkForce 1;
+    layout = "de";
+  };
+
+  security.rtkit.enable = true;
+  hardware.pulseaudio.enable = false;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+  };
+
+  services.undervolt = {
+    enable = true;
+    coreOffset = -125;
+    gpuOffset = -120;
+    uncoreOffset = -120;
+    analogioOffset = -100;
+  };
+
+  services.nvoc = {
+    enable = true;
+    coreOffset = 75;
+    memOffset = 950;
+  };
+
+  services.nbfc-linux.enable = true;
+
+  services.flatpak.enable = true;
+
+  services.openssh.enable = true;
+
+  services.persistent-evdev = {
+    enable = true;
+    devices = {
+      persist-mouse1 = "usb-PixArt_OpticalMouse-event-mouse";
+    };
+  };
+
+  services.samba = {
+    enable = true;
+    configText = ''
+      [global]
+      security = user
+      map to guest = bad user
+      guest account = guest
+      load printers = no
+      printing = bsd
+      printcap name = /dev/null
+      disable spoolss = yes
+      show add printer wizard = no
+      server multi channel support = yes
+      deadtime = 30
+      use sendfile = yes
+      min receivefile size = 16384
+      aio read size = 1
+      aio write size = 1
+      socket options = IPTOS_LOWDELAY TCP_NODELAY IPTOS_THROUGHPUT SO_RCVBUF=131072 SO_SNDBUF=131072
+      min protocol = SMB2
+      max protocol = SMB3
+      client min protocol = SMB2
+      client max protocol = SMB3
+      client ipc min protocol = SMB2
+      client ipc max protocol = SMB3
+      server min protocol = SMB2
+      server max protocol = SMB3
+      smb ports = 445
+      allow insecure wide links = yes
+
+      [guest]
+      comment = guest
+      path = /media/ssd/public
+      public = yes
+      only guest = yes
+      writable = yes
+      printable = no
+      inherit permissions = yes
+      follow symlinks = yes
+      wide links = yes
+    '';
+  };
+
+  services.fstrim.enable = true;
+
+  networking.firewall.enable = false;
+
+  virtualisation.podman.enable = true;
+
+  programs.fish = {
+    enable = true;
+    shellAliases = {
+      nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";
+      turbo_off = "echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo";
+      turbo_on = "echo 0 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo";
+      "cd.." = "cd ..";
+      cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
+    };
+  };
+
+  users = {
+    mutableUsers = false;
+    defaultUserShell = pkgs.fish;
+    users.pongo = {
+      isNormalUser = true;
+      home = "/home/pongo";
+      extraGroups = ["wheel" "libvirtd"];
+      hashedPassword = "$6$jTFwtF9QaSc/j2sI$W9nNE/f6QK1NE3uinzPYBffvxck86lmKf772auIG/8uESh.H1U9ZUUndd.DpW0tZKWOehfpJOxnGOVIxqmvh00";
+    };
+
+    # for samba
+    users.guest = {
+      isNormalUser = true;
+    };
+  };
+
+  environment.systemPackages = with pkgs; [
+    home-manager
+    pulseaudio
+    distrobox
+    duperemove
+    dconf
+  ];
+
+  environment.sessionVariables = {
+    GTK_USE_PORTAL = "1";
+  };
+
+  /*
+    xdg.icons = {
+    enable = true;
+    icons = with pkgs; [papirus-icon-theme breeze-icons];
+  };
+  */
+
+  system.stateVersion = "22.05";
+}
