@@ -1,12 +1,12 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 with lib; let
   cfg = config.services.nvoc;
-in {
+in
+{
   options.services.nvoc = {
     enable = mkEnableOption ''
       Enable nvidia GPU overclock
@@ -26,7 +26,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    environment.etc."nvoc.d/gpu0.conf".text = generators.toKeyValue {} {
+    environment.etc."nvoc.d/gpu0.conf".text = generators.toKeyValue { } {
       gpu = 0;
       gpu_core_clock_offset_low = toString cfg.coreOffset;
       gpu_core_clock_offset_medium = toString cfg.coreOffset;
@@ -38,7 +38,7 @@ in {
 
     systemd.services.nvoc = {
       description = "Nvidia GPU overclock utility";
-      wantedBy = ["graphical.target"];
+      wantedBy = [ "graphical.target" ];
       serviceConfig = {
         ExecStart = "${pkgs.nvoc}/bin/nvoc --apply";
       };

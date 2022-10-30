@@ -1,16 +1,16 @@
 # This module provides the proprietary NVIDIA X11 / OpenGL drivers.
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 with lib; let
-  nvidia_x11 = let
-    drivers = config.services.xserver.videoDrivers;
-    isDeprecated = str: (hasPrefix "nvidia" str) && (str != "nvidia");
-    hasDeprecated = drivers: any isDeprecated drivers;
-  in
+  nvidia_x11 =
+    let
+      drivers = config.services.xserver.videoDrivers;
+      isDeprecated = str: (hasPrefix "nvidia" str) && (str != "nvidia");
+      hasDeprecated = drivers: any isDeprecated drivers;
+    in
     if (hasDeprecated drivers)
     then
       throw ''
@@ -31,13 +31,14 @@ with lib; let
   nvidiaPersistencedEnabled = cfg.nvidiaPersistenced;
   nvidiaSettings = cfg.nvidiaSettings;
   busIDType = types.strMatching "([[:print:]]+\:[0-9]{1,3}\:[0-9]{1,2}\:[0-9])?";
-in {
+in
+{
   imports = [
-    (mkRenamedOptionModule ["hardware" "nvidia" "optimus_prime" "enable"] ["hardware" "nvidia" "prime" "sync" "enable"])
-    (mkRenamedOptionModule ["hardware" "nvidia" "optimus_prime" "allowExternalGpu"] ["hardware" "nvidia" "prime" "allowExternalGpu"])
-    (mkRenamedOptionModule ["hardware" "nvidia" "prime" "sync" "allowExternalGpu"] ["hardware" "nvidia" "prime" "allowExternalGpu"])
-    (mkRenamedOptionModule ["hardware" "nvidia" "optimus_prime" "nvidiaBusId"] ["hardware" "nvidia" "prime" "nvidiaBusId"])
-    (mkRenamedOptionModule ["hardware" "nvidia" "optimus_prime" "intelBusId"] ["hardware" "nvidia" "prime" "intelBusId"])
+    (mkRenamedOptionModule [ "hardware" "nvidia" "optimus_prime" "enable" ] [ "hardware" "nvidia" "prime" "sync" "enable" ])
+    (mkRenamedOptionModule [ "hardware" "nvidia" "optimus_prime" "allowExternalGpu" ] [ "hardware" "nvidia" "prime" "allowExternalGpu" ])
+    (mkRenamedOptionModule [ "hardware" "nvidia" "prime" "sync" "allowExternalGpu" ] [ "hardware" "nvidia" "prime" "allowExternalGpu" ])
+    (mkRenamedOptionModule [ "hardware" "nvidia" "optimus_prime" "nvidiaBusId" ] [ "hardware" "nvidia" "prime" "nvidiaBusId" ])
+    (mkRenamedOptionModule [ "hardware" "nvidia" "optimus_prime" "intelBusId" ] [ "hardware" "nvidia" "prime" "intelBusId" ])
   ];
 
   options = {
@@ -243,16 +244,17 @@ in {
     };
   };
 
-  config = let
-    igpuDriver =
-      if pCfg.intelBusId != ""
-      then "modesetting"
-      else "amdgpu";
-    igpuBusId =
-      if pCfg.intelBusId != ""
-      then pCfg.intelBusId
-      else pCfg.amdgpuBusId;
-  in
+  config =
+    let
+      igpuDriver =
+        if pCfg.intelBusId != ""
+        then "modesetting"
+        else "amdgpu";
+      igpuBusId =
+        if pCfg.intelBusId != ""
+        then pCfg.intelBusId
+        else pCfg.amdgpuBusId;
+    in
     mkIf enabled {
       assertions = [
         {
@@ -342,25 +344,26 @@ in {
       hardware.nvidia.prime.offload.enable = mkDefault reverseSyncCfg.enable;
 
       services.xserver.drivers =
-        optional primeEnabled {
-          name = igpuDriver;
-          display = !syncCfg.enable;
-          modules = optional (igpuDriver == "amdgpu") [pkgs.xorg.xf86videoamdgpu];
-          deviceSection = ''
-            BusID "${igpuBusId}"
-            ${optionalString (syncCfg.enable && igpuDriver != "amdgpu") ''Option "AccelMethod" "none"''}
-          '';
-        }
+        optional primeEnabled
+          {
+            name = igpuDriver;
+            display = !syncCfg.enable;
+            modules = optional (igpuDriver == "amdgpu") [ pkgs.xorg.xf86videoamdgpu ];
+            deviceSection = ''
+              BusID "${igpuBusId}"
+              ${optionalString (syncCfg.enable && igpuDriver != "amdgpu") ''Option "AccelMethod" "none"''}
+            '';
+          }
         ++ singleton {
           name = "nvidia";
-          modules = [nvidia_x11.bin];
+          modules = [ nvidia_x11.bin ];
           display = syncCfg.enable;
           deviceSection =
             optionalString primeEnabled
-            ''
-              BusID "${pCfg.nvidiaBusId}"
-              ${optionalString pCfg.allowExternalGpu "Option \"AllowExternalGpus\""}
-            '';
+              ''
+                BusID "${pCfg.nvidiaBusId}"
+                ${optionalString pCfg.allowExternalGpu "Option \"AllowExternalGpus\""}
+              '';
           screenSection =
             ''
               Option "RandRRotation" "on"
@@ -386,18 +389,19 @@ in {
           Option "AllowNVIDIAGPUScreens"
         '';
 
-      services.xserver.displayManager.setupCommands = let
-        gpuProviderName =
-          if igpuDriver == "amdgpu"
-          then
+      services.xserver.displayManager.setupCommands =
+        let
+          gpuProviderName =
+            if igpuDriver == "amdgpu"
+            then
             # find the name of the provider if amdgpu
-            "`${pkgs.xorg.xrandr}/bin/xrandr --listproviders | ${pkgs.gnugrep}/bin/grep -i AMD | ${pkgs.gnused}/bin/sed -n 's/^.*name://p'`"
-          else igpuDriver;
-        providerCmdParams =
-          if syncCfg.enable
-          then "\"${gpuProviderName}\" NVIDIA-0"
-          else "NVIDIA-G0 \"${gpuProviderName}\"";
-      in
+              "`${pkgs.xorg.xrandr}/bin/xrandr --listproviders | ${pkgs.gnugrep}/bin/grep -i AMD | ${pkgs.gnused}/bin/sed -n 's/^.*name://p'`"
+            else igpuDriver;
+          providerCmdParams =
+            if syncCfg.enable
+            then "\"${gpuProviderName}\" NVIDIA-0"
+            else "NVIDIA-G0 \"${gpuProviderName}\"";
+        in
         optionalString (syncCfg.enable || reverseSyncCfg.enable) ''
           # Added by nvidia configuration module for Optimus/PRIME.
           ${pkgs.xorg.xrandr}/bin/xrandr --setprovideroutputsource ${providerCmdParams}
@@ -421,9 +425,9 @@ in {
       ];
 
       environment.systemPackages =
-        [nvidia_x11.bin]
-        ++ optionals cfg.nvidiaSettings [nvidia_x11.settings]
-        ++ optionals nvidiaPersistencedEnabled [nvidia_x11.persistenced]
+        [ nvidia_x11.bin ]
+        ++ optionals cfg.nvidiaSettings [ nvidia_x11.settings ]
+        ++ optionals nvidiaPersistencedEnabled [ nvidia_x11.persistenced ]
         ++ optionals offloadCfg.enableOffloadCmd [
           (pkgs.writeShellScriptBin "nvidia-offload" ''
             export __NV_PRIME_RENDER_OFFLOAD=1
@@ -436,40 +440,41 @@ in {
 
       systemd.packages = optional cfg.powerManagement.enable nvidia_x11.out;
 
-      systemd.services = let
-        baseNvidiaService = state: {
-          description = "NVIDIA system ${state} actions";
+      systemd.services =
+        let
+          baseNvidiaService = state: {
+            description = "NVIDIA system ${state} actions";
 
-          path = with pkgs; [kbd];
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${nvidia_x11.out}/bin/nvidia-sleep.sh '${state}'";
-          };
-        };
-
-        nvidiaService = sleepState:
-          (baseNvidiaService sleepState)
-          // {
-            before = ["systemd-${sleepState}.service"];
-            requiredBy = ["systemd-${sleepState}.service"];
+            path = with pkgs; [ kbd ];
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = "${nvidia_x11.out}/bin/nvidia-sleep.sh '${state}'";
+            };
           };
 
-        services =
-          (builtins.listToAttrs (map (t: nameValuePair "nvidia-${t}" (nvidiaService t)) ["hibernate" "suspend"]))
-          // {
-            nvidia-resume =
-              (baseNvidiaService "resume")
-              // {
-                after = ["systemd-suspend.service" "systemd-hibernate.service"];
-                requiredBy = ["systemd-suspend.service" "systemd-hibernate.service"];
-              };
-          };
-      in
+          nvidiaService = sleepState:
+            (baseNvidiaService sleepState)
+            // {
+              before = [ "systemd-${sleepState}.service" ];
+              requiredBy = [ "systemd-${sleepState}.service" ];
+            };
+
+          services =
+            (builtins.listToAttrs (map (t: nameValuePair "nvidia-${t}" (nvidiaService t)) [ "hibernate" "suspend" ]))
+            // {
+              nvidia-resume =
+                (baseNvidiaService "resume")
+                // {
+                  after = [ "systemd-suspend.service" "systemd-hibernate.service" ];
+                  requiredBy = [ "systemd-suspend.service" "systemd-hibernate.service" ];
+                };
+            };
+        in
         optionalAttrs cfg.powerManagement.enable services
         // optionalAttrs nvidiaPersistencedEnabled {
           "nvidia-persistenced" = mkIf nvidiaPersistencedEnabled {
             description = "NVIDIA Persistence Daemon";
-            wantedBy = ["multi-user.target"];
+            wantedBy = [ "multi-user.target" ];
             serviceConfig = {
               Type = "forking";
               Restart = "always";
@@ -482,20 +487,20 @@ in {
 
       systemd.tmpfiles.rules =
         optional config.virtualisation.docker.enableNvidia
-        "L+ /run/nvidia-docker/bin - - - - ${nvidia_x11.bin}/origBin"
+          "L+ /run/nvidia-docker/bin - - - - ${nvidia_x11.bin}/origBin"
         ++ optional (nvidia_x11.persistenced != null && config.virtualisation.docker.enableNvidia)
-        "L+ /run/nvidia-docker/extras/bin/nvidia-persistenced - - - - ${nvidia_x11.persistenced}/origBin/nvidia-persistenced";
+          "L+ /run/nvidia-docker/extras/bin/nvidia-persistenced - - - - ${nvidia_x11.persistenced}/origBin/nvidia-persistenced";
 
       boot.extraModulePackages =
         if cfg.open
-        then [nvidia_x11.open]
-        else [nvidia_x11.bin];
+        then [ nvidia_x11.open ]
+        else [ nvidia_x11.bin ];
       hardware.firmware = lib.optional cfg.open nvidia_x11.firmware;
 
       # nvidia-uvm is required by CUDA applications.
       boot.kernelModules =
-        ["nvidia-uvm"]
-        ++ optionals config.services.xserver.enable ["nvidia" "nvidia_modeset" "nvidia_drm"];
+        [ "nvidia-uvm" ]
+        ++ optionals config.services.xserver.enable [ "nvidia" "nvidia_modeset" "nvidia_drm" ];
 
       # If requested enable modesetting via kernel parameter.
       boot.kernelParams =
@@ -539,7 +544,7 @@ in {
         options nvidia "NVreg_DynamicPowerManagement=0x02"
       '';
 
-      boot.blacklistedKernelModules = ["nouveau" "nvidiafb"];
+      boot.blacklistedKernelModules = [ "nouveau" "nvidiafb" ];
 
       services.acpid.enable = true;
     };
