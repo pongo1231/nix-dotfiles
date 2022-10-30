@@ -1,9 +1,9 @@
-{
-  pkgs,
-  config,
-  lib,
-  ...
-}: let
+{ pkgs
+, config
+, lib
+, ...
+}:
+let
   prime-run = pkgs.writeShellScriptBin "prime-run" ''
     export __NV_PRIME_RENDER_OFFLOAD=1
     # export __NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0
@@ -11,7 +11,8 @@
     export __VK_LAYER_NV_optimus=NVIDIA_only
     exec -a "$0" "$@"
   '';
-in {
+in
+{
   nixpkgs.overlays = [
     (self: super: {
       nvidia_custom = config.boot.kernelPackages.nvidiaPackages.stable.overrideAttrs (finalAttrs: previousAttrs: {
@@ -21,7 +22,7 @@ in {
     })
   ];
 
-  environment.systemPackages = with pkgs; [prime-run nvoc];
+  environment.systemPackages = with pkgs; [ prime-run nvoc ];
 
   services.xserver = {
     /*
@@ -39,32 +40,32 @@ in {
       EndSection
 
       Section "Device"
-      	Identifier "iGPU"
-      	Driver     "intel"
-      	BusID      "PCI:0:2:0"
+       	Identifier "iGPU"
+       	Driver     "intel"
+       	BusID      "PCI:0:2:0"
       EndSection
 
       Section "Screen"
-      	Identifier "iGPU"
-      	Device     "iGPU"
+       	Identifier "iGPU"
+       	Device     "iGPU"
       EndSection
 
       Section "Device"
-      	Identifier "dGPU"
-      	Driver     "nvidia"
-      	BusID      "PCI:1:0:0"
-      	Option     "Coolbits" "8"
+       	Identifier "dGPU"
+       	Driver     "nvidia"
+       	BusID      "PCI:1:0:0"
+       	Option     "Coolbits" "8"
       EndSection
 
       Section "Screen"
-      	Identifier "dGPU"
-      	Device     "dGPU"
-      	Option     "AllowEmptyInitialConfiguration"
+       	Identifier "dGPU"
+       	Device     "dGPU"
+       	Option     "AllowEmptyInitialConfiguration"
       EndSection
-    '';
+      '';
     */
 
-    videoDrivers = ["nvidia"];
+    videoDrivers = [ "nvidia" ];
     deviceSection = ''
       Option "Coolbits" "8"
     '';
@@ -73,7 +74,7 @@ in {
       sessionCommands = ''
       # ${pkgs.xorg.xrandr}/bin/xrandr --setprovideroutputsource 1 0
       # ${pkgs.xorg.xrandr}/bin/xrandr --auto
-    '';
+      '';
     */
     #};
     serverLayoutSection = ''
@@ -100,7 +101,7 @@ in {
     nvidiaPersistenced = true;
   };
 
-  services.dbus.packages = [pkgs.nvidia_custom];
+  services.dbus.packages = [ pkgs.nvidia_custom ];
 
   /*
     environment.etc."X11/xorg.conf.d/10-prime.conf".text = ''
@@ -114,29 +115,29 @@ in {
     EndSection
 
     Section "Device"
-    	Identifier "iGPU"
-    	Driver     "intel"
-    	BusID      "PCI:0:2:0"
+     	Identifier "iGPU"
+     	Driver     "intel"
+     	BusID      "PCI:0:2:0"
     EndSection
 
     Section "Screen"
-    	Identifier "iGPU"
-    	Device     "iGPU"
+     	Identifier "iGPU"
+     	Device     "iGPU"
     EndSection
 
     Section "Device"
-    	Identifier "dGPU"
-    	Driver     "nvidia"
-    	BusID      "PCI:1:0:0"
-    	Option     "Coolbits" "24"
+     	Identifier "dGPU"
+     	Driver     "nvidia"
+     	BusID      "PCI:1:0:0"
+     	Option     "Coolbits" "24"
       Option     "Interactive" "0"
     EndSection
 
     Section "Screen"
-    	Identifier "dGPU"
-    	Device     "dGPU"
-    	Option     "AllowEmptyInitialConfiguration"
+     	Identifier "dGPU"
+     	Device     "dGPU"
+     	Option     "AllowEmptyInitialConfiguration"
     EndSection
-  '';
+    '';
   */
 }

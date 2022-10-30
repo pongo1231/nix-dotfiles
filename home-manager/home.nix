@@ -1,8 +1,7 @@
-{
-  config,
-  pkgs,
-  nixpkgs,
-  ...
+{ config
+, pkgs
+, nixpkgs
+, ...
 }: {
   nixpkgs.overlays = [
     (self: super: {
@@ -22,7 +21,6 @@
   home.packages = with pkgs; [
     firefox
     gotop
-    alejandra
     vscodium
     kate
     flameshot
@@ -42,11 +40,13 @@
     authy
     lsof
     (discord.overrideAttrs (finalAttrs: previousAttrs: rec {
-      desktopItem = previousAttrs.desktopItem.override {exec = "Discord --disable-smooth-scrolling";};
-      installPhase = builtins.replaceStrings ["${previousAttrs.desktopItem}"] ["${desktopItem}"] previousAttrs.installPhase;
+      desktopItem = previousAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling"; };
+      installPhase = builtins.replaceStrings [ "${previousAttrs.desktopItem}" ] [ "${desktopItem}" ] previousAttrs.installPhase;
     }))
     ocs-url
     gparted
+    nil
+    nixpkgs-fmt
   ];
 
   programs.git = {
@@ -59,7 +59,10 @@
   home.file.".mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json".source = "${pkgs.plasma-browser-integration}/lib/mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json";
 
   # to allow distrobox apps to access x server
-  home.file.".xinitrc".text = "xhost +si:localuser:$USER";
+  home.file.".xprofile" = {
+    text = "xhost +si:localuser:$USER";
+    executable = true;
+  };
 
   home.stateVersion = "22.05";
 }

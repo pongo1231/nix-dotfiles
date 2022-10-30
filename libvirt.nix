@@ -1,10 +1,10 @@
-{
-  config,
-  fetchpatch,
-  pkgs,
-  lib,
-  ...
-}: let
+{ config
+, fetchpatch
+, pkgs
+, lib
+, ...
+}:
+let
   qemu_file = ''
     #!/usr/bin/env bash
 
@@ -38,7 +38,8 @@
     #!/usr/bin/env sh
     echo 1 > "/sys/bus/pci/devices/0000:00:02.0/286d3cce-2b6e-4e71-8045-8904caaa3ab0/remove"
   '';
-in {
+in
+{
   nixpkgs.overlays = [
     (self: super: {
       qemu_patched = super.qemu_kvm.overrideAttrs (finalAttrs: previousAttrs: {
@@ -46,7 +47,7 @@ in {
         cephSupport = true;
         patches =
           previousAttrs.patches
-          or []
+            or [ ]
           ++ [
             (super.fetchpatch {
               url = "https://gopong.dev/patches/qemu-device-fix.patch";

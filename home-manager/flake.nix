@@ -7,20 +7,20 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    home-manager,
-    ...
-  }: {
-    #home-manager.useGlobalPkgs = true;
+  outputs =
+    { self
+    , nixpkgs
+    , home-manager
+    , ...
+    }: {
+      #home-manager.useGlobalPkgs = true;
 
-    homeConfigurations.pongo = home-manager.lib.homeManagerConfiguration {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      homeConfigurations.pongo = home-manager.lib.homeManagerConfiguration {
+        pkgs = nixpkgs.legacyPackages.x86_64-linux;
 
-      modules = [
-        ./home.nix
-      ];
+        modules = [
+          ./home.nix
+        ];
+      };
     };
-  };
 }

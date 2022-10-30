@@ -1,16 +1,17 @@
-{
-  config,
-  pkgs,
-  nixpkgs,
-  nur,
-  lib,
-  ...
-}: let
+{ config
+, pkgs
+, nixpkgs
+, nur
+, lib
+, ...
+}:
+let
   nur-no-pkgs = import nur {
     nurpkgs = nixpkgs.legacyPackages.x86_64-linux;
     pkgs = nixpkgs.legacyPackages.x86_64-linux;
   };
-in {
+in
+{
   imports = [
     #nur-no-pkgs.repos.ilya-fedin.modules.flatpak-icons
 
@@ -54,7 +55,7 @@ in {
       sysctl."kernel.sysrq" = 1;
     };
     kernelPackages = pkgs.linuxPackages_latest;
-    extraModulePackages = with config.boot.kernelPackages; [xpadneo];
+    extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
     kernelParams = [
       "quiet"
       "splash"
@@ -70,7 +71,7 @@ in {
     ];
     initrd = {
       systemd.enable = true;
-      kernelModules = ["i915" "kvmgt" "vfio-iommu-type1" "mdev"];
+      kernelModules = [ "i915" "kvmgt" "vfio-iommu-type1" "mdev" ];
     };
     plymouth.enable = true;
   };
@@ -211,7 +212,7 @@ in {
     users.pongo = {
       isNormalUser = true;
       home = "/home/pongo";
-      extraGroups = ["wheel" "libvirtd"];
+      extraGroups = [ "wheel" "libvirtd" ];
       hashedPassword = "$6$jTFwtF9QaSc/j2sI$W9nNE/f6QK1NE3uinzPYBffvxck86lmKf772auIG/8uESh.H1U9ZUUndd.DpW0tZKWOehfpJOxnGOVIxqmvh00";
     };
 
@@ -237,7 +238,7 @@ in {
     xdg.icons = {
     enable = true;
     icons = with pkgs; [papirus-icon-theme breeze-icons];
-  };
+    };
   */
 
   system.stateVersion = "22.05";

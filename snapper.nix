@@ -1,4 +1,5 @@
-{config, ...}: let
+{ config, ... }:
+let
   extraConfig = ''
     ALLOW_GROUPS="wheel"
     BACKGROUND_COMPARISON="yes"
@@ -17,7 +18,8 @@
     EMPTY_PRE_POST_CLEANUP="yes"
     EMPTY_PRE_POST_MIN_AGE="1800"
   '';
-in {
+in
+{
   services.snapper.configs = {
     home = {
       subvolume = "/home";

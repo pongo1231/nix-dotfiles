@@ -1,16 +1,15 @@
-{
-  pkgs,
-  fetchgit,
-  libglvnd,
-  llvmPackages,
-  libclc,
-  glslang,
-  cmake,
-  ...
+{ pkgs
+, fetchgit
+, libglvnd
+, llvmPackages
+, libclc
+, glslang
+, cmake
+, ...
 }: {
   nixpkgs.overlays = [
     /*
-    (self: super: {
+      (self: super: {
       mesa = super.mesa.overrideAttrs (finalAttrs: previousAttrs: {
         version = "22.3.0";
         enableOpenCL = false;
@@ -75,12 +74,12 @@
           #"-Dclang-libdir=${super.llvmPackages.clang-unwrapped.lib}/lib"
         ];
       });
-    })
+      })
     */
   ];
 
   nixpkgs.config.packageOverrides = pkgs: {
-    vaapiIntel = pkgs.vaapiIntel.override {enableHybridCodec = true;};
+    vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
   };
 
   hardware.opengl = {
@@ -90,7 +89,7 @@
     extraPackages = with pkgs; [
       intel-media-driver
     ];
-    extraPackages32 = with pkgs.pkgsi686Linux; [intel-media-driver];
+    extraPackages32 = with pkgs.pkgsi686Linux; [ intel-media-driver ];
   };
 
   #services.xserver.videoDrivers = ["intel"];
