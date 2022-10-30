@@ -18,46 +18,27 @@
   boot.extraModulePackages = [];
 
   fileSystems."/" = {
-    device = "/dev/disk/by-uuid/6b5fbcaf-dd85-42e1-80aa-d4dd304c1c66";
+    device = "/dev/disk/by-uuid/bb7eda0c-17b1-4399-a3a0-fa1c72b45877";
     fsType = "btrfs";
     options = ["subvol=root" "noatime" "compress-force=zstd"];
   };
 
   boot.initrd.luks.devices = {
     root = {
-      device = "/dev/disk/by-uuid/5ce689b9-15a6-488b-a3dd-465c877e65f9";
+      device = "/dev/disk/by-uuid/7d13a11e-2245-4878-bab9-f6372627c0f3";
       allowDiscards = true;
     };
   };
 
   environment.etc."crypttab".text = ''
-    ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /persist/keyfile    discard
-    hdd     UUID=065c2b5a-3b56-478f-b5e0-b3b5c6a78ff1       /persist/keyfile
+    ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard
+    hdd     UUID=065c2b5a-3b56-478f-b5e0-b3b5c6a78ff1       /keyfile
   '';
 
   fileSystems."/home" = {
-    device = "/dev/disk/by-uuid/6b5fbcaf-dd85-42e1-80aa-d4dd304c1c66";
+    device = "/dev/disk/by-uuid/bb7eda0c-17b1-4399-a3a0-fa1c72b45877";
     fsType = "btrfs";
     options = ["subvol=home" "noatime"];
-  };
-
-  fileSystems."/nix" = {
-    device = "/dev/disk/by-uuid/6b5fbcaf-dd85-42e1-80aa-d4dd304c1c66";
-    fsType = "btrfs";
-    options = ["subvol=nix" "noatime"];
-  };
-
-  fileSystems."/persist" = {
-    device = "/dev/disk/by-uuid/6b5fbcaf-dd85-42e1-80aa-d4dd304c1c66";
-    fsType = "btrfs";
-    options = ["subvol=persist" "noatime"];
-  };
-
-  fileSystems."/var/log" = {
-    device = "/dev/disk/by-uuid/6b5fbcaf-dd85-42e1-80aa-d4dd304c1c66";
-    fsType = "btrfs";
-    options = ["subvol=log" "noatime"];
-    neededForBoot = true;
   };
 
   fileSystems."/boot" = {

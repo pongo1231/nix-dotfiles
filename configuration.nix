@@ -15,7 +15,6 @@ in {
     #nur-no-pkgs.repos.ilya-fedin.modules.flatpak-icons
 
     ./hardware-configuration.nix
-    ./persist.nix
     ./nvidia.nix
     ./intel.nix
     ./snapper.nix

@@ -41,6 +41,12 @@
     kdeconnect
     authy
     lsof
+    (discord.overrideAttrs (finalAttrs: previousAttrs: rec {
+      desktopItem = previousAttrs.desktopItem.override {exec = "Discord --disable-smooth-scrolling";};
+      installPhase = builtins.replaceStrings ["${previousAttrs.desktopItem}"] ["${desktopItem}"] previousAttrs.installPhase;
+    }))
+    ocs-url
+    gparted
   ];
 
   programs.git = {
