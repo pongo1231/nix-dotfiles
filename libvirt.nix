@@ -6,7 +6,7 @@
 }:
 let
   qemu_file = ''
-    #!/usr/bin/env bash
+    #!${pkgs.stdenv.shell}
 
     GUEST_NAME="$1"
     HOOK_NAME="$2"
@@ -31,13 +31,20 @@ let
     fi
   '';
   begin_file = ''
-    #!/usr/bin/env sh
+    #!${pkgs.stdenv.shell}
+
     echo "286d3cce-2b6e-4e71-8045-8904caaa3ab0" > "/sys/bus/pci/devices/0000:00:02.0/mdev_supported_types/i915-GVTg_V5_4/create"
   '';
   end_file = ''
-    #!/usr/bin/env sh
+    #!${pkgs.stdenv.shell}
+    
     echo 1 > "/sys/bus/pci/devices/0000:00:02.0/286d3cce-2b6e-4e71-8045-8904caaa3ab0/remove"
   '';
+
+  hooks = [
+    "win10_igpu"
+    "win10_igpu_dgpu"
+  ];
 in
 {
   nixpkgs.overlays = [
@@ -70,14 +77,24 @@ in
     };
   };
 
-  systemd.services.libvirtd-config.script = lib.mkAfter ''
-    mkdir -p /run/libvirt/hooks
-    echo '${qemu_file}' > /run/libvirt/hooks/qemu
+  systemd.services.libvirtd-config.script = lib.mkAfter (''
+    mkdir -p /var/lib/libvirt/hooks
+    rm -rf /var/lib/libvirt/hooks/*
+    
+    echo '${qemu_file}' > /var/lib/libvirt/hooks/qemu
+    chmod +x /var/lib/libvirt/hooks/qemu
+  '' + lib.strings.concatMapStrings
+    (hook:
+      ''
 
-    mkdir -p /run/libvirt/hooks/qemu.d/win10_igpu_dgpu/prepare
-    echo '${begin_file}' > /run/libvirt/hooks/qemu.d/win10_igpu_dgpu/prepare/begin
+        mkdir -p /var/lib/libvirt/hooks/qemu.d/${hook}/prepare/begin
+        echo '${begin_file}' > /var/lib/libvirt/hooks/qemu.d/${hook}/prepare/begin/begin.sh
+        chmod +x /var/lib/libvirt/hooks/qemu.d/${hook}/prepare/begin/begin.sh
 
-    mkdir -p /run/libvirt/hooks/qemu.d/win10_igpu_dgpu/release
-    echo '${end_file}' > /run/libvirt/hooks/qemu.d/win10_igpu_dgpu/release/end
-  '';
+        mkdir -p /var/lib/libvirt/hooks/qemu.d/${hook}/release/end
+        echo '${end_file}' > /var/lib/libvirt/hooks/qemu.d/${hook}/release/end/end.sh
+        chmod +x /var/lib/libvirt/hooks/qemu.d/${hook}/release/end/end.sh
+      ''
+    )
+    hooks);
 }

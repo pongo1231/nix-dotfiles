@@ -52,12 +52,22 @@
     compsize
     powertop
     htop
+    ungoogled-chromium
   ];
 
   programs.git = {
     enable = true;
     userName = "pongo1231";
     userEmail = "pongo1999712@gmail.com";
+  };
+
+  programs.firefox = {
+    profiles = {
+      settings = {
+        "gfx.webrender.all" = true;
+        "media.ffmpeg.vaapi.enabled" = true;
+      };
+    };
   };
 
   # workaround for plasma-browser-integration
