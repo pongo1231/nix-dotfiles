@@ -1,7 +1,10 @@
 { config
 , pkgs
 , nixpkgs
-, ...
+, lib
+, options
+, specialArgs
+, modulesPath
 }: {
   nixpkgs.overlays = [
     (self: super: {
@@ -29,8 +32,6 @@
     pciutils
     ark
     virt-manager
-    comma
-    nix-index
     nvtop
     intel-gpu-tools
     papirus-icon-theme
@@ -47,6 +48,8 @@
     gparted
     nil
     nixpkgs-fmt
+    filelight
+    compsize
   ];
 
   programs.git = {

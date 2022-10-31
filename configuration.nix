@@ -1,4 +1,5 @@
-{ config
+{ self
+, config
 , pkgs
 , nixpkgs
 , nur
@@ -14,6 +15,7 @@ in
 {
   imports = [
     #nur-no-pkgs.repos.ilya-fedin.modules.flatpak-icons
+    self.inputs.nix-ld.nixosModules.nix-ld
 
     ./hardware-configuration.nix
     ./nvidia.nix
@@ -222,12 +224,17 @@ in
     };
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = with pkgs; with self.inputs.nix-alien.packages.${system}; [
     home-manager
     pulseaudio
     distrobox
     duperemove
     dconf
+    nix-alien
+    nix-index
+    nix-index-update
+    comma
+    krunner-translator
   ];
 
   environment.sessionVariables = {
