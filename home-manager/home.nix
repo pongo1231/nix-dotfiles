@@ -50,6 +50,8 @@
     nixpkgs-fmt
     filelight
     compsize
+    powertop
+    htop
   ];
 
   programs.git = {

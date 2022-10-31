@@ -56,7 +56,7 @@ in
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
-    kernelPackages = pkgs.linuxPackages_latest;
+    kernelPackages = pkgs.linuxPackages_zen;
     extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
     kernelParams = [
       "quiet"
@@ -69,7 +69,8 @@ in
       "i915.enable_guc=3"
       "i915.enable_fbc=1"
       "i915.enable_gvt=1"
-      "intel_pstate=passive"
+      "nohz_full=1-3,5-7"
+      #"intel_pstate=passive"
     ];
     initrd = {
       systemd.enable = true;
@@ -77,7 +78,7 @@ in
     };
     plymouth.enable = true;
   };
-  powerManagement.cpuFreqGovernor = "schedutil";
+  #powerManagement.cpuFreqGovernor = "schedutil";
 
   zramSwap.enable = true;
 
@@ -235,6 +236,7 @@ in
     nix-index-update
     comma
     krunner-translator
+    sddm-kcm
   ];
 
   environment.sessionVariables = {
