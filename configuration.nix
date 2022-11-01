@@ -231,6 +231,13 @@ in
 
   services.fstrim.enable = true;
 
+  # get x11 to recognize the nitro key on my acer nitro 5 laptop
+  services.udev.extraHwdb = ''                                         
+    evdev:input:b0011v0001p0001*
+      KEYBOARD_KEY_F5=prog1
+      KEYBOARD_KEY_F6=power
+  '';
+
   networking.firewall.enable = false;
 
   virtualisation.podman.enable = true;
@@ -249,7 +256,7 @@ in
   programs.ccache = {
     enable = true;
     cacheDir = "/nix/var/cache/ccache";
-    packageNames = [ "linuxPackages_latest.kernel" ];
+    packageNames = [ "linuxPackages_latest.kernel" "qemu_kvm" "intel-media-driver" ];
   };
 
   users = {
@@ -285,6 +292,8 @@ in
   environment.sessionVariables = {
     GTK_USE_PORTAL = "1";
   };
+
+  xdg.portal.enable = true;
 
   /*
     xdg.icons = {

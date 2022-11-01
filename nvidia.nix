@@ -40,27 +40,27 @@ in
       EndSection
 
       Section "Device"
-       	Identifier "iGPU"
-       	Driver     "intel"
-       	BusID      "PCI:0:2:0"
+           	Identifier "iGPU"
+           	Driver     "intel"
+           	BusID      "PCI:0:2:0"
       EndSection
 
       Section "Screen"
-       	Identifier "iGPU"
-       	Device     "iGPU"
+           	Identifier "iGPU"
+           	Device     "iGPU"
       EndSection
 
       Section "Device"
-       	Identifier "dGPU"
-       	Driver     "nvidia"
-       	BusID      "PCI:1:0:0"
-       	Option     "Coolbits" "8"
+           	Identifier "dGPU"
+           	Driver     "nvidia"
+           	BusID      "PCI:1:0:0"
+           	Option     "Coolbits" "8"
       EndSection
 
       Section "Screen"
-       	Identifier "dGPU"
-       	Device     "dGPU"
-       	Option     "AllowEmptyInitialConfiguration"
+           	Identifier "dGPU"
+           	Device     "dGPU"
+           	Option     "AllowEmptyInitialConfiguration"
       EndSection
       '';
     */
@@ -87,7 +87,7 @@ in
     modesetting.enable = true;
     prime = {
       offload.enable = true;
-      reverse_sync.enable = true;
+      reverse_sync.enable = false;
       nvidiaBusId = "PCI:1:0:0";
       intelBusId = "PCI:0:2:0";
       allowExternalGpu = true;
@@ -115,28 +115,28 @@ in
     EndSection
 
     Section "Device"
-     	Identifier "iGPU"
-     	Driver     "intel"
-     	BusID      "PCI:0:2:0"
+         	Identifier "iGPU"
+         	Driver     "intel"
+         	BusID      "PCI:0:2:0"
     EndSection
 
     Section "Screen"
-     	Identifier "iGPU"
-     	Device     "iGPU"
+         	Identifier "iGPU"
+         	Device     "iGPU"
     EndSection
 
     Section "Device"
-     	Identifier "dGPU"
-     	Driver     "nvidia"
-     	BusID      "PCI:1:0:0"
-     	Option     "Coolbits" "24"
+         	Identifier "dGPU"
+         	Driver     "nvidia"
+         	BusID      "PCI:1:0:0"
+         	Option     "Coolbits" "24"
       Option     "Interactive" "0"
     EndSection
 
     Section "Screen"
-     	Identifier "dGPU"
-     	Device     "dGPU"
-     	Option     "AllowEmptyInitialConfiguration"
+         	Identifier "dGPU"
+         	Device     "dGPU"
+         	Option     "AllowEmptyInitialConfiguration"
     EndSection
     '';
   */
