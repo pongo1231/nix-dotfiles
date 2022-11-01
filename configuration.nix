@@ -1,4 +1,5 @@
 { self
+, ccache
 , config
 , pkgs
 , nixpkgs
@@ -26,11 +27,30 @@ in
     ./tlp.nix
   ];
 
+  nixpkgs.overlays = [
+    (self: prev: {
+      kernel_cache = (prev.linuxPackages_latest.kernel.override {
+        stdenv = self.ccacheStdenv;
+        buildPackages = prev.buildPackages // {
+          stdenv = self.ccacheStdenv;
+        };
+      }).overrideDerivation (attrs: {
+        preConfigure = ''
+          export CCACHE_DIR=/nix/var/cache/ccache
+          export CCACHE_UMASK=007
+        '';
+      });
+    })
+  ];
+
   nix = {
     extraOptions = ''
       experimental-features = ca-derivations nix-command flakes
     '';
-    settings.auto-optimise-store = true;
+    settings = {
+      auto-optimise-store = true;
+      extra-sandbox-paths = [ "/nix/var/cache/ccache" ];
+    };
     gc = {
       automatic = true;
       dates = "weekly";
@@ -56,7 +76,7 @@ in
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
-    kernelPackages = pkgs.linuxPackages_zen;
+    kernelPackages = pkgs.linuxPackagesFor pkgs.kernel_cache;
     extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
     kernelParams = [
       "quiet"
@@ -71,6 +91,23 @@ in
       "i915.enable_gvt=1"
       "nohz_full=1-3,5-7"
       #"intel_pstate=passive"
+    ];
+    kernelPatches = [
+      {
+        patch = ./patches/linux/0001-gvt-handle-buggy-guest-driver-ppgtt-access.patch;
+      }
+      {
+        patch = ./patches/linux/drm-i915-Enable-atomics-in-L3-for-gen9.patch;
+      }
+      {
+        patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
+      }
+      {
+        patch = ./patches/linux/faster_memchr.patch;
+      }
+      {
+        patch = ./patches/linux/zstd-upstream.patch;
+      }
     ];
     initrd = {
       systemd.enable = true;
@@ -87,9 +124,9 @@ in
     hsphfpd.enable = true;
   };
   # show bluetooth headset battery level in kde
-  systemd.services.bluetooth.serviceConfig.ExecStart = [
+  systemd.services.bluetooth.serviceConfig.ExecStart = lib.mkForce [
     ""
-    "${pkgs.bluez}/libexec/bluetooth/bluetoothd --experimental"
+    "${pkgs.bluez}/libexec/bluetooth/bluetoothd -f /etc/bluetooth/main.conf --experimental"
   ];
 
   networking.hostName = "pongo-nixos";
@@ -207,6 +244,12 @@ in
       "cd.." = "cd ..";
       cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
     };
+  };
+
+  programs.ccache = {
+    enable = true;
+    cacheDir = "/nix/var/cache/ccache";
+    packageNames = [ "linuxPackages_latest.kernel" ];
   };
 
   users = {

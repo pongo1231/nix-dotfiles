@@ -56,14 +56,8 @@ in
           previousAttrs.patches
             or [ ]
           ++ [
-            (super.fetchpatch {
-              url = "https://gopong.dev/patches/qemu-device-fix.patch";
-              sha256 = "pauLaBoyZ7VFV9QEfIzEWgs1ne1o6qHat8JbWcjUWEk=";
-            })
-            (super.fetchpatch {
-              url = "https://gopong.dev/patches/qemu_higher_gui_refresh_rate.patch";
-              sha256 = "44/EXk4g1udxAwtlL/OMvHI08ndFoh6QIX3ZjhFHia8=";
-            })
+            ./patches/qemu/qemu-device-fix.patch
+            ./patches/qemu/qemu_higher_gui_refresh_rate.patch
           ];
       });
     })

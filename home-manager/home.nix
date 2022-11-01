@@ -53,6 +53,8 @@
     powertop
     htop
     ungoogled-chromium
+    wget
+    smartmontools
   ];
 
   programs.git = {
