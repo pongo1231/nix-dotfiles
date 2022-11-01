@@ -94,6 +94,13 @@ in
     ];
     kernelPatches = [
       {
+        patch = null;
+        extraConfig = ''
+          HZ_300 y
+          HZ 300
+        '';
+      }
+      {
         patch = ./patches/linux/0001-gvt-handle-buggy-guest-driver-ppgtt-access.patch;
       }
       {
