@@ -65,7 +65,7 @@ in
     loader = {
       systemd-boot = {
         enable = true;
-        configurationLimit = 20;
+        configurationLimit = 10;
       };
       efi.canTouchEfiVariables = true;
       timeout = lib.mkForce 0;
