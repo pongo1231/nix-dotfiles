@@ -56,6 +56,7 @@
     ungoogled-chromium
     wget
     smartmontools
+    libreoffice
   ];
 
   programs.git = {
