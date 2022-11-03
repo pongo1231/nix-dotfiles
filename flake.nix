@@ -40,8 +40,6 @@
 
                   #config.hardware.xpadneo.extraModulePackages = [xpadneo];
                 })
-
-                self.inputs.nix-alien.overlays.default
               ];
 
               disabledModules = [ "hardware/video/nvidia.nix" ];

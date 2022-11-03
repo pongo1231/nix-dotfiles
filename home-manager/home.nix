@@ -6,6 +6,10 @@
 , specialArgs
 , modulesPath
 }: {
+  imports = [
+    ./suspender.nix
+  ];
+
   nixpkgs.overlays = [
     (self: super: {
       vgmstream = super.vgmstream.overrideAttrs (finalAttrs: previousAttrs: {
@@ -57,6 +61,7 @@
     wget
     smartmontools
     libreoffice
+    direnv
   ];
 
   programs.git = {
