@@ -62,6 +62,7 @@
     smartmontools
     libreoffice
     direnv
+    usbutils
   ];
 
   programs.git = {
