@@ -4,6 +4,7 @@
 , options
 , modulesPath
 , pkgs
+, inputs
 }:
 {
   home.packages = [

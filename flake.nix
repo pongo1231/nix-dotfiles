@@ -13,12 +13,11 @@
     , nur
     , nix-alien
     , nix-ld
-    , ...
-    }: {
+    }@inputs: {
       nixosConfigurations = {
         pongo-nixos = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          specialArgs = { inherit self; };
+          specialArgs = { inherit inputs; };
 
           modules = [
             #nur.nixosModules.nur
@@ -31,6 +30,7 @@
              , modulesPath
              , pkgs
              , libsForQt5
+             , inputs
              }: {
               nixpkgs.overlays = [
                 (final: prev: {

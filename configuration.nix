@@ -2,21 +2,22 @@
 , ccache
 , config
 , pkgs
-, nixpkgs
-, nur
 , lib
-, ...
+, specialArgs
+, options
+, modulesPath
+, inputs
 }:
 let
-  nur-no-pkgs = import nur {
-    nurpkgs = nixpkgs.legacyPackages.x86_64-linux;
-    pkgs = nixpkgs.legacyPackages.x86_64-linux;
+  nur-no-pkgs = import inputs.nur {
+    nurpkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+    pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
   };
 in
 {
   imports = [
     #nur-no-pkgs.repos.ilya-fedin.modules.flatpak-icons
-    self.inputs.nix-ld.nixosModules.nix-ld
+    inputs.nix-ld.nixosModules.nix-ld
 
     ./hardware-configuration.nix
     ./nvidia.nix
@@ -28,11 +29,11 @@ in
   ];
 
   nixpkgs.overlays = [
-    (self: prev: {
-      kernel_cache = (prev.linuxPackages_latest.kernel.override {
-        stdenv = self.ccacheStdenv;
+    (final: prev: {
+      kernel_cache = (pkgs.linuxPackages_latest.kernel.override {
+        stdenv = pkgs.ccacheStdenv;
         buildPackages = prev.buildPackages // {
-          stdenv = self.ccacheStdenv;
+          stdenv = pkgs.ccacheStdenv;
         };
       }).overrideDerivation (attrs: {
         preConfigure = ''
@@ -282,7 +283,7 @@ in
     };
   };
 
-  environment.systemPackages = with pkgs; with self.inputs.nix-alien.packages.${system}; [
+  environment.systemPackages = with pkgs; with inputs.nix-alien.packages.${system}; [
     home-manager
     pulseaudio
     distrobox

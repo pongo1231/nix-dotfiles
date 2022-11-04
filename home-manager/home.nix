@@ -1,10 +1,10 @@
 { config
 , pkgs
-, nixpkgs
 , lib
 , options
 , specialArgs
 , modulesPath
+, inputs
 }: {
   imports = [
     ./suspender.nix
