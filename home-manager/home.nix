@@ -63,6 +63,7 @@
     libreoffice
     direnv
     usbutils
+    vlc
   ];
 
   programs.git = {
