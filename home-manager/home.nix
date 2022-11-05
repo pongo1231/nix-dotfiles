@@ -41,7 +41,6 @@
     papirus-icon-theme
     killall
     xorg.xhost
-    kdeconnect
     authy
     lsof
     ((discord.override { nss = nss_latest; /* workaround to fix links not opening browsers */ }).overrideAttrs (finalAttrs: previousAttrs: rec {

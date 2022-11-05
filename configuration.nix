@@ -302,6 +302,7 @@ in
     libsForQt5.qtstyleplugin-kvantum
     qogir-kde
     qogir-theme
+    kdeconnect
   ];
 
   environment.sessionVariables = {
