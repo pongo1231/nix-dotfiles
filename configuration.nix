@@ -307,6 +307,10 @@ in
 
   environment.sessionVariables = {
     GTK_USE_PORTAL = "1";
+    QT_XCB_GL_INTEGRATION = "xcb_egl";
+    KWIN_OPENGL_INTERFACE = "egl";
+    #QT_WAYLAND_CLIENT_BUFFER_INTEGRATION = "xcomposite-egl";
+    #QT_QPA_PLATFORM = "eglfs";
   };
 
   xdg.portal.enable = true;

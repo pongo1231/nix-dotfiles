@@ -15,10 +15,14 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      nvidia_custom = config.boot.kernelPackages.nvidiaPackages.stable.overrideAttrs (finalAttrs: previousAttrs: {
-        useGLVND = false; # stop KDE wayland session from waking up dgpu
-        builder = ./nvidia/builder.sh;
-      });
+      linuxPackages = super.linuxPackages.extend
+        (selfLinux: superLinux: {
+          nvidia_x11 =
+            superLinux.nvidia_x11.overrideAttrs (finalAttrs: previousAttrs: {
+              useGLVND = false; # stop KDE wayland session from waking up dgpu
+              builder = ./nvidia/builder.sh;
+            });
+        });
     })
   ];
 
@@ -40,27 +44,27 @@ in
       EndSection
 
       Section "Device"
-           	Identifier "iGPU"
-           	Driver     "intel"
-           	BusID      "PCI:0:2:0"
+      Identifier "iGPU"
+      Driver     "intel"
+      BusID      "PCI:0:2:0"
       EndSection
 
       Section "Screen"
-           	Identifier "iGPU"
-           	Device     "iGPU"
+      Identifier "iGPU"
+      Device     "iGPU"
       EndSection
 
       Section "Device"
-           	Identifier "dGPU"
-           	Driver     "nvidia"
-           	BusID      "PCI:1:0:0"
-           	Option     "Coolbits" "8"
+      Identifier "dGPU"
+      Driver     "nvidia"
+      BusID      "PCI:1:0:0"
+      Option     "Coolbits" "8"
       EndSection
 
       Section "Screen"
-           	Identifier "dGPU"
-           	Device     "dGPU"
-           	Option     "AllowEmptyInitialConfiguration"
+      Identifier "dGPU"
+      Device     "dGPU"
+      Option     "AllowEmptyInitialConfiguration"
       EndSection
       '';
     */
@@ -97,47 +101,44 @@ in
       enable = true;
       finegrained = true;
     };
-    package = pkgs.nvidia_custom;
     nvidiaPersistenced = true;
   };
 
-  services.dbus.packages = [ pkgs.nvidia_custom ];
-
   /*
-    environment.etc."X11/xorg.conf.d/10-prime.conf".text = ''
-    Section "OutputClass"
+            environment.etc."X11/xorg.conf.d/10-prime.conf".text = ''
+            Section "OutputClass"
       Identifier "nvidia"
       MatchDriver "nvidia-drm"
       Driver "nvidia"
       Option "AllowEmptyInitialConfiguration"
       ModulePath "/run/current-system/sw/lib/xorg/modules/extensions"
       ModulePath "/run/current-system/sw/lib/xorg/modules"
-    EndSection
+            EndSection
 
-    Section "Device"
-         	Identifier "iGPU"
-         	Driver     "intel"
-         	BusID      "PCI:0:2:0"
-    EndSection
+            Section "Device"
+                                                                                    	Identifier "iGPU"
+                                                                                    	Driver     "intel"
+                                                                                    	BusID      "PCI:0:2:0"
+            EndSection
 
-    Section "Screen"
-         	Identifier "iGPU"
-         	Device     "iGPU"
-    EndSection
+            Section "Screen"
+                                                                                    	Identifier "iGPU"
+                                                                                    	Device     "iGPU"
+            EndSection
 
-    Section "Device"
-         	Identifier "dGPU"
-         	Driver     "nvidia"
-         	BusID      "PCI:1:0:0"
-         	Option     "Coolbits" "24"
+            Section "Device"
+                                                                                    	Identifier "dGPU"
+                                                                                    	Driver     "nvidia"
+                                                                                    	BusID      "PCI:1:0:0"
+                                                                                    	Option     "Coolbits" "24"
       Option     "Interactive" "0"
-    EndSection
+            EndSection
 
-    Section "Screen"
-         	Identifier "dGPU"
-         	Device     "dGPU"
-         	Option     "AllowEmptyInitialConfiguration"
-    EndSection
-    '';
-  */
+            Section "Screen"
+                                                                                    	Identifier "dGPU"
+                                                                                    	Device     "dGPU"
+                                                                                    	Option     "AllowEmptyInitialConfiguration"
+            EndSection
+            '';
+            */
 }
