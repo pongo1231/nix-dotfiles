@@ -63,6 +63,8 @@
     direnv
     usbutils
     vlc
+    unrar
+    file
   ];
 
   programs.git = {
