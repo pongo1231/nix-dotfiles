@@ -303,6 +303,7 @@ in
     qogir-kde
     qogir-theme
     kdeconnect
+    snapperS
   ];
 
   environment.sessionVariables = {

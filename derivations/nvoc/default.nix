@@ -3,7 +3,6 @@
 , fetchFromGitHub
 , nvidia_x11
 , makeWrapper
-,
 }:
 let
   version = "1.0.3";
