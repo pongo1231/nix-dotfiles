@@ -41,6 +41,8 @@ in
           export CCACHE_UMASK=007
         '';
       });
+
+      plasma5Packages = pkgs.unstable.plasma5Packages;
     })
   ];
 

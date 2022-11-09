@@ -103,42 +103,4 @@ in
     };
     nvidiaPersistenced = true;
   };
-
-  /*
-            environment.etc."X11/xorg.conf.d/10-prime.conf".text = ''
-            Section "OutputClass"
-      Identifier "nvidia"
-      MatchDriver "nvidia-drm"
-      Driver "nvidia"
-      Option "AllowEmptyInitialConfiguration"
-      ModulePath "/run/current-system/sw/lib/xorg/modules/extensions"
-      ModulePath "/run/current-system/sw/lib/xorg/modules"
-            EndSection
-
-            Section "Device"
-                                                                                    	Identifier "iGPU"
-                                                                                    	Driver     "intel"
-                                                                                    	BusID      "PCI:0:2:0"
-            EndSection
-
-            Section "Screen"
-                                                                                    	Identifier "iGPU"
-                                                                                    	Device     "iGPU"
-            EndSection
-
-            Section "Device"
-                                                                                    	Identifier "dGPU"
-                                                                                    	Driver     "nvidia"
-                                                                                    	BusID      "PCI:1:0:0"
-                                                                                    	Option     "Coolbits" "24"
-      Option     "Interactive" "0"
-            EndSection
-
-            Section "Screen"
-                                                                                    	Identifier "dGPU"
-                                                                                    	Device     "dGPU"
-                                                                                    	Option     "AllowEmptyInitialConfiguration"
-            EndSection
-            '';
-            */
 }

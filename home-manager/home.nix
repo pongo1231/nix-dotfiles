@@ -65,6 +65,7 @@
     vlc
     unrar
     file
+    ncdu
   ];
 
   programs.git = {

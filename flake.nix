@@ -1,6 +1,7 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs?rev=3bacde6273b09a21a8ccfba15586fb165078fb62";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nur.url = "github:nix-community/NUR";
 
     nix-alien.url = "github:thiagokokada/nix-alien";
@@ -10,6 +11,7 @@
   outputs =
     { self
     , nixpkgs
+    , nixpkgs-unstable
     , nur
     , nix-alien
     , nix-ld
@@ -34,6 +36,8 @@
              }: {
               nixpkgs.overlays = [
                 (final: prev: {
+                  unstable = inputs.nixpkgs-unstable.legacyPackages.x86_64-linux.pkgs;
+
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   nvoc = final.callPackage ./derivations/nvoc { nvidia_x11 = pkgs.linuxPackages.nvidia_x11; };
                   krunner-translator = final.libsForQt5.callPackage ./derivations/krunner-translator { };
