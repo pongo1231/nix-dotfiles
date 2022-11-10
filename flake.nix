@@ -47,10 +47,10 @@
                 })
               ];
 
-              disabledModules = [ "hardware/video/nvidia.nix" ];
-              imports = [
-                ./derivations/nvidia.nix
-              ];
+              #disabledModules = [ "hardware/video/nvidia.nix" ];
+              #imports = [
+              #  ./derivations/nvidia.nix
+              #];
             })
 
             ./derivations/nbfc-linux/service.nix

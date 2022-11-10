@@ -91,10 +91,8 @@ in
     modesetting.enable = true;
     prime = {
       offload.enable = true;
-      reverse_sync.enable = false;
       nvidiaBusId = "PCI:1:0:0";
       intelBusId = "PCI:0:2:0";
-      allowExternalGpu = true;
       sync.enable = false;
     };
     powerManagement = {

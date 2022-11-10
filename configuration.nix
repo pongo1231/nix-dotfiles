@@ -288,7 +288,16 @@ in
   environment.systemPackages = with pkgs; with inputs.nix-alien.packages.${system}; [
     home-manager
     pulseaudio
-    distrobox
+    (distrobox.overrideAttrs
+      (finalAttrs: previousAttrs: {
+        version = "unstable-acb36a4";
+        src = pkgs.fetchFromGitHub {
+          owner = "89luca89";
+          repo = "distrobox";
+          rev = "acb36a427a35f451b42dd5d0f29f1c4e2fe447b9";
+          sha256 = "nIqkptnP3fOviGcm8WWJkBQ0NcTE9z/BNLH/ox6qIoA=";
+        };
+      })) # master includes fixes regarding whitespaces in arguments passed to exported apps
     duperemove
     dconf
     nix-alien

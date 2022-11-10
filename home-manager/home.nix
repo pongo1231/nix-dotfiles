@@ -44,7 +44,6 @@
     authy
     lsof
     ((discord.override { nss = nss_latest; /* workaround to fix links not opening browsers */ }).overrideAttrs (finalAttrs: previousAttrs: rec {
-
       desktopItem = previousAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling"; };
       installPhase = builtins.replaceStrings [ "${previousAttrs.desktopItem}" ] [ "${desktopItem}" ] previousAttrs.installPhase;
     }))
