@@ -261,6 +261,9 @@ in
       "cd.." = "cd ..";
       cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
     };
+    shellInit = ''
+      fish_add_path -maP ~/.local/bin
+    '';
   };
 
   programs.ccache = {
