@@ -66,6 +66,7 @@
     file
     ncdu
     nix-diff
+    e2fsprogs
   ];
 
   programs.git = {
