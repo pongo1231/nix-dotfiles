@@ -26,6 +26,7 @@ in
     ./udev.nix
     ./libvirt.nix
     ./tlp.nix
+    ./gpu_passthrough.nix
   ];
 
   nixpkgs.overlays = [
