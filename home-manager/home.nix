@@ -65,6 +65,7 @@
     unrar
     file
     ncdu
+    nix-diff
   ];
 
   programs.git = {
