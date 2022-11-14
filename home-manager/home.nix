@@ -67,6 +67,12 @@
     ncdu
     nix-diff
     e2fsprogs
+    manix
+    nix-du
+    nix-prefetch
+    nix-tree
+    nvd
+    statix
   ];
 
   programs.git = {
