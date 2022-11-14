@@ -73,6 +73,7 @@
     nix-tree
     nvd
     statix
+    nixpkgs-review
   ];
 
   programs.git = {
