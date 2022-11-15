@@ -54,7 +54,7 @@
   fileSystems."/media/hdd" = {
     device = "/dev/disk/by-uuid/c3a302d7-34c8-42c3-98c9-f8e38f0ba245";
     fsType = "btrfs";
-    options = [ "noatime" "compress-force=zstd:6" "autodefrag" ];
+    options = [ "noatime" "compress-force=zstd" "autodefrag" ];
   };
 
   swapDevices = [ ];
