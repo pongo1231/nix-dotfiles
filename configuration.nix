@@ -76,7 +76,7 @@ in
     };
     tmpOnTmpfs = true;
     kernel = {
-      sysctl."vm_swappiness" = 100;
+      sysctl."vm.swappiness" = 100;
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
