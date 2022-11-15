@@ -40,7 +40,6 @@
     intel-gpu-tools
     papirus-icon-theme
     killall
-    xorg.xhost
     authy
     lsof
     ((discord.override { nss = nss_latest; /* workaround to fix links not opening browsers */ }).overrideAttrs (finalAttrs: previousAttrs: rec {
@@ -96,7 +95,7 @@
 
   # to allow distrobox apps to access x server
   home.file.".xprofile" = {
-    text = "xhost +si:localuser:$USER";
+    text = "${pkgs.xorg.xhost}/bin/xhost +si:localuser:$USER";
     executable = true;
   };
 
