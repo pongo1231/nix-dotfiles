@@ -73,6 +73,7 @@
     nvd
     statix
     nixpkgs-review
+    gimp
   ];
 
   programs.git = {
