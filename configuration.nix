@@ -276,6 +276,7 @@ in
   users = {
     mutableUsers = false;
     defaultUserShell = pkgs.fish;
+
     users.pongo = {
       isNormalUser = true;
       home = "/home/pongo";
@@ -286,6 +287,8 @@ in
     # for samba
     users.guest = {
       isNormalUser = true;
+      createHome = false;
+      shell = pkgs.shadow;
     };
   };
 
