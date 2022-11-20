@@ -49,7 +49,7 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      qemu_patched = super.qemu_kvm.overrideAttrs (finalAttrs: previousAttrs: {
+      qemu_patched = pkgs.unstable.qemu_kvm.overrideAttrs (finalAttrs: previousAttrs: {
         # for gvt-g to work
         cephSupport = true;
         patches =
