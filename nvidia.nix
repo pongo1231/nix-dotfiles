@@ -15,7 +15,7 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      linuxPackages = super.linuxPackages.extend
+      linuxPackages = (super.linuxPackagesFor self.kernel_cache).extend
         (selfLinux: superLinux: {
           nvidia_x11 =
             superLinux.nvidia_x11.overrideAttrs (finalAttrs: previousAttrs: {
@@ -26,7 +26,7 @@ in
     })
   ];
 
-  environment.systemPackages = with pkgs; [ prime-run nvoc ];
+  environment.systemPackages = with pkgs; [ prime-run ];
 
   services.xserver = {
     /*

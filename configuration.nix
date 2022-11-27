@@ -178,11 +178,11 @@ in
     analogioOffset = -100;
   };
 
-  services.nvoc = {
-    enable = true;
-    coreOffset = 75;
-    memOffset = 950;
-  };
+  #services.nvoc = {
+  #  enable = true;
+  #  coreOffset = 75;
+  #  memOffset = 950;
+  #};
 
   services.nbfc-linux.enable = true;
 
