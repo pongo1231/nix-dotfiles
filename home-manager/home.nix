@@ -74,6 +74,7 @@
     statix
     nixpkgs-review
     gimp
+    quickemu
   ];
 
   programs.git = {
