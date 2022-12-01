@@ -1,6 +1,7 @@
 { pkgs
 , config
 , lib
+, inputs
 , ...
 }:
 let
@@ -15,18 +16,24 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      linuxPackages = (super.linuxPackagesFor self.kernel_cache).extend
-        (selfLinux: superLinux: {
-          nvidia_x11 =
-            superLinux.nvidia_x11.overrideAttrs (finalAttrs: previousAttrs: {
-              useGLVND = false; # stop KDE wayland session from waking up dgpu
-              builder = ./nvidia/builder.sh;
-            });
-        });
+      linuxPackages = (pkgs.linuxPackagesFor pkgs.kernel_cache).extend
+        (selfLinux: superLinux:
+          let generic = args: superLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
+          in {
+            nvidiaPackages.production = generic {
+              version = "525.60.11";
+              sha256_64bit = "sha256-gW7mwuCBPMw9SnlY9x/EmjfGDv4dUdYUbBznJAOYPV0=";
+              openSha256 = "sha256-33ATZuYu+SOOxM6UKXp6J+f1+zbmHvaK4v13X3UZTTM=";
+              settingsSha256 = "sha256-gA1x6oEpnkr/OPP4eR1L5gC5srvEKtDrSpnv2QEaEpE=";
+              persistencedSha256 = "sha256-AFMy3agoJ6yVsGgUvTfOzHlz30iApBpAReckq9iS7AA=";
+            };
+          });
     })
   ];
 
-  environment.systemPackages = with pkgs; [ prime-run ];
+  environment.systemPackages = [ prime-run ];
+
+  hardware.nvidia.package = pkgs.linuxPackages.nvidiaPackages.production;
 
   services.xserver = {
     /*
