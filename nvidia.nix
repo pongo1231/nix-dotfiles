@@ -16,9 +16,9 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      linuxPackages = (pkgs.linuxPackagesFor pkgs.kernel_cache).extend
+      linuxPackages = config.boot.kernelPackages.extend
         (selfLinux: superLinux:
-          let generic = args: superLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
+          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
             nvidiaPackages.production = generic {
               version = "525.60.11";

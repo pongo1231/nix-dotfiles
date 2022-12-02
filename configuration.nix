@@ -115,6 +115,14 @@ in
         patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
       }
       {
+        patch = ./patches/linux/mglru.patch;
+        extraConfig = ''
+          LRU_GEN y
+          LRU_GEN_ENABLED y
+          LRU_GEN_STATS n
+        '';
+      }
+      {
         patch = ./patches/linux/faster_memchr.patch;
       }
       {
@@ -271,7 +279,7 @@ in
   programs.ccache = {
     enable = true;
     cacheDir = "/nix/var/cache/ccache";
-    packageNames = [ "linuxPackages_latest.kernel" "qemu_kvm" "intel-media-driver" ];
+    packageNames = [ "kernel_cache" "qemu_kvm" "intel-media-driver" ];
   };
 
   users = {

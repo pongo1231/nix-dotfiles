@@ -75,6 +75,7 @@
     nixpkgs-review
     gimp
     quickemu
+    audacity
   ];
 
   programs.git = {
