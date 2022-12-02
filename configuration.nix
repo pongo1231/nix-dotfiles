@@ -27,6 +27,7 @@ in
     ./libvirt.nix
     ./tlp.nix
     ./gpu_passthrough.nix
+    ./flatpak-fonts-icons.nix
   ];
 
   nixpkgs.overlays = [
