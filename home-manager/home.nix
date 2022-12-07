@@ -64,6 +64,7 @@
     unrar
     file
     ncdu
+    btdu
     nix-diff
     e2fsprogs
     manix
