@@ -94,7 +94,9 @@ in
       "i915.enable_guc=3"
       "i915.enable_fbc=1"
       "i915.enable_gvt=1"
+      "i915.enable_psr=1"
       "nohz_full=1-3,5-7"
+      "workqueue.power_efficient=true"
       #"intel_pstate=passive"
     ];
     kernelPatches = [
