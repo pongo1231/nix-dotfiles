@@ -341,6 +341,7 @@ in
     KWIN_OPENGL_INTERFACE = "egl";
     #QT_WAYLAND_CLIENT_BUFFER_INTEGRATION = "xcomposite-egl";
     #QT_QPA_PLATFORM = "eglfs";
+    WINEFSYNC = "1";
   };
 
   xdg.portal.enable = true;
