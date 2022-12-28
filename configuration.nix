@@ -342,6 +342,10 @@ in
     #QT_WAYLAND_CLIENT_BUFFER_INTEGRATION = "xcomposite-egl";
     #QT_QPA_PLATFORM = "eglfs";
     WINEFSYNC = "1";
+    WINEDEBUG = "-all";
+    DXVK_LOG_LEVEL = "none";
+    VKD3D_DEBUG = "none";
+    VKD3D_SHADER_DEBUG = "none";
   };
 
   xdg.portal.enable = true;
