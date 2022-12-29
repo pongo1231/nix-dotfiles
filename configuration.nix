@@ -110,20 +110,20 @@ in
       {
         patch = ./patches/linux/0001-gvt-handle-buggy-guest-driver-ppgtt-access.patch;
       }
-      {
-        patch = ./patches/linux/drm-i915-Enable-atomics-in-L3-for-gen9.patch;
-      }
+      #{
+      #  patch = ./patches/linux/drm-i915-Enable-atomics-in-L3-for-gen9.patch;
+      #}
       {
         patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
       }
-      {
-        patch = ./patches/linux/mglru.patch;
-        extraConfig = ''
-          LRU_GEN y
-          LRU_GEN_ENABLED y
-          LRU_GEN_STATS n
-        '';
-      }
+      #{
+      #  patch = ./patches/linux/mglru.patch;
+      #  extraConfig = ''
+      #    LRU_GEN y
+      #    LRU_GEN_ENABLED y
+      #    LRU_GEN_STATS n
+      #  '';
+      #}
       {
         patch = ./patches/linux/faster_memchr.patch;
       }
