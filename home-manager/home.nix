@@ -77,7 +77,6 @@
     gimp
     quickemu
     audacity
-    easyeffects
   ];
 
   programs.git = {
