@@ -18,14 +18,14 @@ in
     (self: super: {
       linuxPackages = config.boot.kernelPackages.extend
         (selfLinux: superLinux:
-          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
+          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs-unstable + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
             nvidiaPackages.production = generic {
-              version = "525.60.11";
-              sha256_64bit = "sha256-gW7mwuCBPMw9SnlY9x/EmjfGDv4dUdYUbBznJAOYPV0=";
-              openSha256 = "sha256-33ATZuYu+SOOxM6UKXp6J+f1+zbmHvaK4v13X3UZTTM=";
-              settingsSha256 = "sha256-gA1x6oEpnkr/OPP4eR1L5gC5srvEKtDrSpnv2QEaEpE=";
-              persistencedSha256 = "sha256-AFMy3agoJ6yVsGgUvTfOzHlz30iApBpAReckq9iS7AA=";
+              version = "525.78.01";
+              sha256_64bit = "sha256-Q9pC0r9pvDfqnHwPoC9S2w3MSDwnL1LtrK2JpctJWpM=";
+              openSha256 = "sha256-33ATZuYu+SOOxM6UKXp6B+f1+zbmHvaK4v13X3UZTTM=";
+              settingsSha256 = "sha256-1d3Cn+7Gm1ORQxmTKr18GFmYHVb8t050XVLler1dCtw=";
+              persistencedSha256 = "sha256-t6dViuvA2fw28w4kh4koIoxh9pQ8f7KI1PIUFJcGlYA=";
             };
           });
     })
