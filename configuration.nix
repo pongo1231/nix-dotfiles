@@ -32,7 +32,7 @@ in
 
   nixpkgs.overlays = [
     (final: prev: {
-      kernel_cache = (pkgs.linuxPackages_latest.kernel.override {
+      kernel_cache = (pkgs.unstable.linuxPackages_latest.kernel.override {
         stdenv = pkgs.ccacheStdenv;
         buildPackages = prev.buildPackages // {
           stdenv = pkgs.ccacheStdenv;
@@ -116,14 +116,6 @@ in
       {
         patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
       }
-      #{
-      #  patch = ./patches/linux/mglru.patch;
-      #  extraConfig = ''
-      #    LRU_GEN y
-      #    LRU_GEN_ENABLED y
-      #    LRU_GEN_STATS n
-      #  '';
-      #}
       {
         patch = ./patches/linux/faster_memchr.patch;
       }
@@ -137,7 +129,6 @@ in
     };
     plymouth.enable = true;
   };
-  #powerManagement.cpuFreqGovernor = "schedutil";
 
   zramSwap.enable = true;
 
