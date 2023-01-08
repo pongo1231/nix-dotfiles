@@ -82,7 +82,7 @@ in
       sysctl."kernel.sysrq" = 1;
     };
     kernelPackages = pkgs.linuxPackagesFor pkgs.kernel_cache;
-    extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
+    extraModulePackages = with config.boot.kernelPackages; [ xpadneo (callPackage ./derivations/nullfsvfs { }) ];
     kernelParams = [
       "quiet"
       "splash"
