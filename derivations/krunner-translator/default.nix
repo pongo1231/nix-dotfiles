@@ -1,4 +1,4 @@
-{ mkDerivation
+{ stdenv
 , lib
 , fetchFromGitHub
 , cmake
@@ -15,7 +15,7 @@
 , qtlocation
 }:
 
-mkDerivation rec {
+stdenv.mkDerivation rec {
   pname = "krunner-translator";
   version = "1.5.0";
 
@@ -27,6 +27,8 @@ mkDerivation rec {
   };
 
   nativeBuildInputs = [ cmake extra-cmake-modules ];
+
+  dontWrapQtApps = true;
 
   buildInputs = [
     krunner
