@@ -10,8 +10,8 @@
 }:
 let
   nur-no-pkgs = import inputs.nur {
-    nurpkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-    pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+    nurpkgs = inputs.nixpkgs.legacyPackages.${self.system};
+    pkgs = inputs.nixpkgs.legacyPackages.${self.system};
   };
 in
 {

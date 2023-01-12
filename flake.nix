@@ -17,7 +17,7 @@
     , nix-ld
     }@inputs: {
       nixosConfigurations = {
-        pongo-nixos = nixpkgs.lib.nixosSystem {
+        pongo-nixos = nixpkgs.lib.nixosSystem rec {
           system = "x86_64-linux";
           specialArgs = { inherit inputs; };
 
@@ -36,7 +36,7 @@
              }: {
               nixpkgs.overlays = [
                 (final: prev: {
-                  unstable = inputs.nixpkgs-unstable.legacyPackages.x86_64-linux.pkgs;
+                  unstable = inputs.nixpkgs-unstable.legacyPackages.${system}.pkgs;
 
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   #nvoc = final.callPackage ./derivations/nvoc { nvidia_x11 = pkgs.linuxPackages.nvidia_x11; };
