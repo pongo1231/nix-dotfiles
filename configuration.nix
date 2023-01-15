@@ -45,6 +45,9 @@ in
       });
 
       plasma5Packages = pkgs.unstable.plasma5Packages;
+      podman = pkgs.unstable.podman;
+      podman-unwrapped = pkgs.unstable.podman-unwrapped;
+      skopeo = pkgs.unstable.skopeo;
     })
   ];
 
@@ -180,6 +183,8 @@ in
     analogioOffset = -100;
   };
 
+  services.dnsmasq.enable = true;
+
   #services.nvoc = {
   #  enable = true;
   #  coreOffset = 75;
@@ -298,13 +303,13 @@ in
     home-manager
     pulseaudio
     (distrobox.overrideAttrs
-      (finalAttrs: previousAttrs: {
-        version = "unstable-acb36a4";
+      (finalAttrs: previousAttrs: rec {
+        version = "1.4.2.1";
         src = pkgs.fetchFromGitHub {
           owner = "89luca89";
           repo = "distrobox";
-          rev = "acb36a427a35f451b42dd5d0f29f1c4e2fe447b9";
-          sha256 = "nIqkptnP3fOviGcm8WWJkBQ0NcTE9z/BNLH/ox6qIoA=";
+          rev = version;
+          sha256 = "sha256-s3lq1Xr2y29cmyT1nY5/amiDA9dNfyGaMtjTvUINSD8=";
         };
       })) # master includes fixes regarding whitespaces in arguments passed to exported apps
     duperemove
