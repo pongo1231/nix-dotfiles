@@ -313,6 +313,10 @@ in
           rev = version;
           sha256 = "sha256-s3lq1Xr2y29cmyT1nY5/amiDA9dNfyGaMtjTvUINSD8=";
         };
+
+        patches = previousAttrs.patches or [] ++ [
+          ./patches/distrobox/478.patch # https://github.com/89luca89/distrobox/pull/478.patch
+        ];
       })) # master includes fixes regarding whitespaces in arguments passed to exported apps
     duperemove
     dconf
