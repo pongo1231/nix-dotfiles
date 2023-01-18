@@ -193,6 +193,8 @@ in
 
   services.nbfc-linux.enable = true;
 
+  services.thermald.enable = true;
+
   services.flatpak.enable = true;
 
   services.openssh.enable = true;
