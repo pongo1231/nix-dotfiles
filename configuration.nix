@@ -32,7 +32,7 @@ in
 
   nixpkgs.overlays = [
     (final: prev: {
-      kernel_cache = (pkgs.unstable.linuxPackages_latest.kernel.override {
+      kernel_cache = (pkgs.linuxPackages_latest.kernel.override {
         stdenv = pkgs.ccacheStdenv;
         buildPackages = prev.buildPackages // {
           stdenv = pkgs.ccacheStdenv;
@@ -108,14 +108,14 @@ in
         extraConfig = ''
           HZ_300 y
           HZ 300
+
+          LRU_GEN y
+          LRU_GEN_ENABLED y
         '';
       }
       {
         patch = ./patches/linux/0001-gvt-handle-buggy-guest-driver-ppgtt-access.patch;
       }
-      #{
-      #  patch = ./patches/linux/drm-i915-Enable-atomics-in-L3-for-gen9.patch;
-      #}
       {
         patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
       }
