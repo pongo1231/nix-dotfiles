@@ -40,7 +40,7 @@
 
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   #nvoc = final.callPackage ./derivations/nvoc { nvidia_x11 = pkgs.linuxPackages.nvidia_x11; };
-                  krunner-translator = final.libsForQt5.callPackage ./derivations/krunner-translator { };
+                  krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
                   snapperS = final.callPackage ./derivations/snapperS { };
 
                   #config.hardware.xpadneo.extraModulePackages = [xpadneo];

@@ -44,6 +44,7 @@ in
         '';
       });
 
+      libsForQt5 = pkgs.unstable.libsForQt5;
       plasma5Packages = pkgs.unstable.plasma5Packages;
       podman = pkgs.unstable.podman;
       podman-unwrapped = pkgs.unstable.podman-unwrapped;
