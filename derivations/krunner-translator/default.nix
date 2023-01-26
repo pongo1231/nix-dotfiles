@@ -6,7 +6,6 @@
 , krunner
 , kconfigwidgets
 , ktextwidgets
-, kauth
 , kservice
 , ki18n
 , translate-shell

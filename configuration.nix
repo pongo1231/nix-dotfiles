@@ -259,6 +259,10 @@ in
       KEYBOARD_KEY_F6=power
   '';
 
+  services.journald.extraConfig = ''
+    SystemMaxUse=1G
+  '';
+
   networking.firewall.enable = false;
 
   virtualisation.podman.enable = true;
