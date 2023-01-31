@@ -23,11 +23,12 @@
     root = {
       device = "/dev/disk/by-uuid/7d13a11e-2245-4878-bab9-f6372627c0f3";
       allowDiscards = true;
+      bypassWorkqueues = true;
     };
   };
 
   environment.etc."crypttab".text = ''
-    ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard
+    ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard,no-read-workqueue,no-write-workqueue
     hdd     UUID=065c2b5a-3b56-478f-b5e0-b3b5c6a78ff1       /keyfile
   '';
 
