@@ -36,7 +36,10 @@
              }: {
               nixpkgs.overlays = [
                 (final: prev: {
-                  unstable = inputs.nixpkgs-unstable.legacyPackages.${system}.pkgs;
+                  unstable = import nixpkgs-unstable {
+                    inherit system;
+                    config.allowUnfree = true;
+                  };
 
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   #nvoc = final.callPackage ./derivations/nvoc { nvidia_x11 = pkgs.linuxPackages.nvidia_x11; };

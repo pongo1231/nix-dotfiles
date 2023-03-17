@@ -14,7 +14,7 @@ let
   '';
 in
 {
-  nixpkgs.overlays = [
+  /*nixpkgs.overlays = [
     (self: super: {
       linuxPackages = config.boot.kernelPackages.extend
         (selfLinux: superLinux:
@@ -29,11 +29,11 @@ in
             };
           });
     })
-  ];
+  ];*/
 
-  environment.systemPackages = [ prime-run ];
+  environment.systemPackages = [ prime-run ];  
 
-  hardware.nvidia.package = pkgs.linuxPackages.nvidiaPackages.production;
+  #hardware.nvidia.package = pkgs.linuxPackages.nvidiaPackages.production;
 
   services.xserver = {
     /*
