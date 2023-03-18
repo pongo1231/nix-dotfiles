@@ -33,7 +33,7 @@ in
 
   environment.systemPackages = [ prime-run ];  
 
-  #hardware.nvidia.package = pkgs.linuxPackages.nvidiaPackages.production;
+  hardware.nvidia.package = pkgs.unstable.linuxPackages_latest.nvidiaPackages.production;
 
   services.xserver = {
     /*

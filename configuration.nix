@@ -85,8 +85,8 @@ in
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
-    #kernelPackages = pkgs.linuxPackagesFor pkgs.kernel_cache;
-    kernelPackages = pkgs.unstable.linuxPackages_latest;
+    kernelPackages = pkgs.linuxPackagesFor pkgs.kernel_cache;
+    #kernelPackages = pkgs.unstable.linuxPackages_latest;
     extraModulePackages = with config.boot.kernelPackages; [ xpadneo (callPackage ./derivations/nullfsvfs { }) ];
     kernelParams = [
       "quiet"
@@ -104,12 +104,12 @@ in
       "workqueue.power_efficient=true"
       #"intel_pstate=passive"
     ];
-    /*kernelPatches = [
+    kernelPatches = [
       {
         patch = null;
         extraConfig = ''
-          HZ_250 y
-          HZ 250
+          HZ_300 y
+          HZ 300
 
           LRU_GEN y
           LRU_GEN_ENABLED y
@@ -127,7 +127,7 @@ in
       {
         patch = ./patches/linux/zstd-upstream.patch;
       }
-    ];*/
+    ];
     initrd = {
       systemd.enable = true;
       kernelModules = [ "i915" "kvmgt" "vfio-iommu-type1" "mdev" ];
