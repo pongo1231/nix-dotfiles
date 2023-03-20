@@ -14,11 +14,11 @@ let
   '';
 in
 {
-  /*nixpkgs.overlays = [
+  nixpkgs.overlays = [
     (self: super: {
-      linuxPackages = config.boot.kernelPackages.extend
+      linuxPackages_custom = super.linuxPackages_6_1.extend
         (selfLinux: superLinux:
-          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs-unstable + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
+          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
             nvidiaPackages.production = generic {
               version = "525.89.02";
@@ -29,11 +29,11 @@ in
             };
           });
     })
-  ];*/
+  ];
 
   environment.systemPackages = [ prime-run ];  
 
-  #hardware.nvidia.package = pkgs.unstable.linuxPackages_latest.nvidiaPackages.production;
+  hardware.nvidia.package = pkgs.linuxPackages_custom.nvidiaPackages.production;
 
   services.xserver = {
     /*
