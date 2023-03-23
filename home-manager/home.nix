@@ -38,7 +38,6 @@
     virt-manager
     nvtop
     intel-gpu-tools
-    papirus-icon-theme
     killall
     authy
     lsof
