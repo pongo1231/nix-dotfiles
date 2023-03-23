@@ -336,7 +336,6 @@ in
     gst_all_1.gst-plugins-good
     gst_all_1.gst-plugins-bad
     gst_all_1.gst-plugins-ugly
-    libsForQt5.qtstyleplugin-kvantum
     kdeconnect
     snapperS
   ];
