@@ -338,6 +338,7 @@ in
     gst_all_1.gst-plugins-ugly
     kdeconnect
     snapperS
+    ubuntu_font_family
   ];
 
   environment.sessionVariables = {
