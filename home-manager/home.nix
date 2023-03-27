@@ -63,7 +63,7 @@
     vlc
     unrar
     file
-    ncdu
+    gdu
     btdu
     nix-diff
     e2fsprogs
