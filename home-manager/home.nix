@@ -8,6 +8,7 @@
 }: {
   imports = [
     ./suspender.nix
+    ./helpers.nix
   ];
 
   nixpkgs.overlays = [
