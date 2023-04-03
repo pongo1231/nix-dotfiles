@@ -44,12 +44,13 @@ in
         '';
       });
 
-      #libsForQt5 = pkgs.unstable.libsForQt5;
+      libsForQt5 = pkgs.unstable.libsForQt5.overrideScope (qt5Final: qt5Prev: {
+	fcitx-qt5 = qt5Prev.fcitx5-qt;
+      });
       plasma5Packages = pkgs.unstable.plasma5Packages;
       podman = pkgs.unstable.podman;
       podman-unwrapped = pkgs.unstable.podman-unwrapped;
       skopeo = pkgs.unstable.skopeo;
-      fcitx5-qt = pkgs.unstable.fcitx-qt5;
     })
   ];
 
