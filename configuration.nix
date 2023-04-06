@@ -188,7 +188,7 @@ in
     analogioOffset = -100;
   };
 
-  services.dnsmasq.enable = true;
+  #services.dnsmasq.enable = true;
 
   #services.nvoc = {
   #  enable = true;
