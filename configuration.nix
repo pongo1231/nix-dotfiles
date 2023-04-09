@@ -291,6 +291,8 @@ in
     packageNames = [ "kernel_cache" "qemu_kvm" "intel-media-driver" ];
   };
 
+  programs.extra-container.enable = true;
+
   users = {
     mutableUsers = false;
     defaultUserShell = pkgs.fish;
