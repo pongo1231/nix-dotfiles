@@ -75,7 +75,6 @@
     statix
     nixpkgs-review
     gimp
-    quickemu
     audacity
   ];
 
