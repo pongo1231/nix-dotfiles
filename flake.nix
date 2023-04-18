@@ -43,10 +43,10 @@
                     config.allowUnfree = true;
                   };
 
-                  linuxKernel = (import nixpkgs-kernel {
+                  kernel_pin = (import nixpkgs-kernel {
                     inherit system;
                     config.allowUnfree = true;
-                  }).linuxKernel;
+                  });
 
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   #nvoc = final.callPackage ./derivations/nvoc { nvidia_x11 = pkgs.linuxPackages.nvidia_x11; };

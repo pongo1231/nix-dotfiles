@@ -32,7 +32,7 @@ in
 
   nixpkgs.overlays = [
     (final: prev: {
-      kernel_cache = (pkgs.linuxPackages_6_1.kernel.override {
+      kernel_cache = (pkgs.kernel_pin.linuxPackages_6_1.kernel.override {
         stdenv = pkgs.ccacheStdenv;
         buildPackages = prev.buildPackages // {
           stdenv = pkgs.ccacheStdenv;

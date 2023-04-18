@@ -16,7 +16,7 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      linuxPackages_custom = super.linuxPackages_6_1.extend
+      linuxPackages_custom = self.kernel_pin.linuxPackages_6_1.extend
         (selfLinux: superLinux:
           let generic = args: selfLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
