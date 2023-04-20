@@ -3832,7 +3832,7 @@ index 0f1f63be25d9..44b95b25344a 100644
 -MODULE_LICENSE("Dual BSD/GPL");
 -MODULE_DESCRIPTION("Zstd Common");
 diff --git a/lib/zstd/common/zstd_deps.h b/lib/zstd/common/zstd_deps.h
-index 7a5bf44839c9..670c5fa2a952 100644
+index f06df065dec0..670c5fa2a952 100644
 --- a/lib/zstd/common/zstd_deps.h
 +++ b/lib/zstd/common/zstd_deps.h
 @@ -1,6 +1,6 @@
@@ -3843,15 +3843,6 @@ index 7a5bf44839c9..670c5fa2a952 100644
   * All rights reserved.
   *
   * This source code is licensed under both the BSD-style license (found in the
-@@ -84,7 +84,7 @@ static uint64_t ZSTD_div64(uint64_t dividend, uint32_t divisor) {
- 
- #include <linux/kernel.h>
- 
--#define assert(x) WARN_ON((x))
-+#define assert(x) WARN_ON(!(x))
- 
- #endif /* ZSTD_DEPS_ASSERT */
- #endif /* ZSTD_DEPS_NEED_ASSERT */
 diff --git a/lib/zstd/common/zstd_internal.h b/lib/zstd/common/zstd_internal.h
 index fc6f3a9b40c0..7f023e4d4774 100644
 --- a/lib/zstd/common/zstd_internal.h

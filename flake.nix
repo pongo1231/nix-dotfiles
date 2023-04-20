@@ -2,7 +2,6 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=5233fd2ba76a3accb5aaa999c00509a11fd0793c";
     nur.url = "github:nix-community/NUR";
 
     nix-alien.url = "github:thiagokokada/nix-alien";
@@ -13,7 +12,6 @@
     { self
     , nixpkgs
     , nixpkgs-unstable
-    , nixpkgs-kernel
     , nur
     , nix-alien
     , nix-ld
@@ -42,11 +40,6 @@
                     inherit system;
                     config.allowUnfree = true;
                   };
-
-                  kernel_pin = (import nixpkgs-kernel {
-                    inherit system;
-                    config.allowUnfree = true;
-                  });
 
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   #nvoc = final.callPackage ./derivations/nvoc { nvidia_x11 = pkgs.linuxPackages.nvidia_x11; };

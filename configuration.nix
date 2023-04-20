@@ -1,5 +1,4 @@
 { self
-, ccache
 , config
 , pkgs
 , lib
@@ -32,18 +31,6 @@ in
 
   nixpkgs.overlays = [
     (final: prev: {
-      kernel_cache = (pkgs.kernel_pin.linuxPackages_6_1.kernel.override {
-        stdenv = pkgs.ccacheStdenv;
-        buildPackages = prev.buildPackages // {
-          stdenv = pkgs.ccacheStdenv;
-        };
-      }).overrideDerivation (attrs: {
-        preConfigure = ''
-          export CCACHE_DIR=/nix/var/cache/ccache
-          export CCACHE_UMASK=007
-        '';
-      });
-
       libsForQt5 = pkgs.unstable.libsForQt5.overrideScope (qt5Final: qt5Prev: {
 	fcitx-qt5 = qt5Prev.fcitx5-qt;
       });
@@ -60,7 +47,6 @@ in
     '';
     settings = {
       auto-optimise-store = true;
-      extra-sandbox-paths = [ "/nix/var/cache/ccache" ];
     };
     gc = {
       automatic = true;
@@ -88,7 +74,7 @@ in
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
-    kernelPackages = pkgs.linuxPackagesFor pkgs.kernel_cache;
+    kernelPackages = pkgs.linuxPackages_6_1;
     #kernelPackages = pkgs.unstable.linuxPackages_latest;
     extraModulePackages = with config.boot.kernelPackages; [ xpadneo (callPackage ./derivations/nullfsvfs { }) ];
     kernelParams = [
@@ -283,12 +269,6 @@ in
     shellInit = ''
       fish_add_path -maP ~/.local/bin
     '';
-  };
-
-  programs.ccache = {
-    enable = true;
-    cacheDir = "/nix/var/cache/ccache";
-    packageNames = [ "kernel_cache" "qemu_kvm" "intel-media-driver" ];
   };
 
   programs.extra-container.enable = true;
