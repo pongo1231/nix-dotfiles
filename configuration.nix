@@ -41,7 +41,7 @@
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
-    kernelPackages = pkgs.linuxPackages_6_1;
+    kernelPackages = pkgs.kernel.linuxPackages_6_1;
     extraModulePackages = with config.boot.kernelPackages; [ xpadneo (callPackage ./derivations/nullfsvfs { }) ];
     kernelParams = [
       "quiet"

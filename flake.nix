@@ -2,6 +2,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=3d302c67ab8647327dba84fbdb443cdbf0e82744";
 
     nix-alien.url = "github:thiagokokada/nix-alien";
     nix-ld.url = "github:Mic92/nix-ld/main";
@@ -11,6 +12,7 @@
     { self
     , nixpkgs
     , nixpkgs-unstable
+    , nixpkgs-kernel
     , nix-alien
     , nix-ld
     }@inputs: {
@@ -24,6 +26,11 @@
               nixpkgs.overlays = [
                 (final: prev: {
                   unstable = import nixpkgs-unstable {
+                    inherit system;
+                    config.allowUnfree = true;
+                  };
+
+                  kernel = import nixpkgs-kernel {
                     inherit system;
                     config.allowUnfree = true;
                   };
