@@ -20,16 +20,7 @@
           specialArgs = { inherit inputs; };
 
           modules = [
-            ({ self
-             , config
-             , lib
-             , specialArgs
-             , options
-             , modulesPath
-             , pkgs
-             , libsForQt5
-             , inputs
-             }: {
+            ({ ... }: {
               nixpkgs.overlays = [
                 (final: prev: {
                   unstable = import nixpkgs-unstable {
