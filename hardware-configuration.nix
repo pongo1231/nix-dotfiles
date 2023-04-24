@@ -55,12 +55,6 @@
     options = [ "noatime" "compress-force=zstd:10" "autodefrag" ];
   };
 
-  #fileSystems."/media/null" = {
-  #  device = "nodev";
-  #  fsType = "nullfs";
-  #  options = [ "noatime" ];
-  #};
-
   swapDevices = [ ];
 
   networking.useDHCP = lib.mkDefault true;

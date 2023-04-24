@@ -7,15 +7,8 @@
 , modulesPath
 , inputs
 }:
-let
-  nur-no-pkgs = import inputs.nur {
-    nurpkgs = inputs.nixpkgs.legacyPackages.${self.system};
-    pkgs = inputs.nixpkgs.legacyPackages.${self.system};
-  };
-in
 {
   imports = [
-    #nur-no-pkgs.repos.ilya-fedin.modules.flatpak-icons
     inputs.nix-ld.nixosModules.nix-ld
 
     ./hardware-configuration.nix
@@ -75,7 +68,6 @@ in
       sysctl."kernel.sysrq" = 1;
     };
     kernelPackages = pkgs.linuxPackages_6_1;
-    #kernelPackages = pkgs.unstable.linuxPackages_latest;
     extraModulePackages = with config.boot.kernelPackages; [ xpadneo (callPackage ./derivations/nullfsvfs { }) ];
     kernelParams = [
       "quiet"
@@ -91,7 +83,6 @@ in
       "i915.enable_psr=1"
       "nohz_full=1-3,5-7"
       "workqueue.power_efficient=true"
-      #"intel_pstate=passive"
     ];
     kernelPatches = [
       {
@@ -173,14 +164,6 @@ in
     uncoreOffset = -120;
     analogioOffset = -100;
   };
-
-  #services.dnsmasq.enable = true;
-
-  #services.nvoc = {
-  #  enable = true;
-  #  coreOffset = 75;
-  #  memOffset = 950;
-  #};
 
   services.nbfc-linux.enable = true;
 
@@ -330,8 +313,6 @@ in
     GTK_USE_PORTAL = "1";
     QT_XCB_GL_INTEGRATION = "xcb_egl";
     KWIN_OPENGL_INTERFACE = "egl";
-    #QT_WAYLAND_CLIENT_BUFFER_INTEGRATION = "xcomposite-egl";
-    #QT_QPA_PLATFORM = "eglfs";
     WINEFSYNC = "1";
     WINEDEBUG = "-all";
     DXVK_LOG_LEVEL = "none";
@@ -340,13 +321,6 @@ in
   };
 
   xdg.portal.enable = true;
-
-  /*
-    xdg.icons = {
-    enable = true;
-    icons = with pkgs; [papirus-icon-theme breeze-icons];
-    };
-  */
 
   system.stateVersion = "22.05";
 }

@@ -36,58 +36,10 @@ in
   hardware.nvidia.package = pkgs.linuxPackages_custom.nvidiaPackages.production;
 
   services.xserver = {
-    /*
-      videoDrivers = ["intel" "nvidia"];
-
-      config = lib.mkForce ''
-      Section "OutputClass"
-        Identifier "nvidia"
-        MatchDriver "nvidia-drm"
-        Driver "nvidia"
-        Option "AllowEmptyInitialConfiguration"
-        Option     "Coolbits" "8"
-        ModulePath "/run/current-system/sw/lib/xorg/modules/extensions"
-        ModulePath "/run/current-system/sw/lib/xorg/modules"
-      EndSection
-
-      Section "Device"
-      Identifier "iGPU"
-      Driver     "intel"
-      BusID      "PCI:0:2:0"
-      EndSection
-
-      Section "Screen"
-      Identifier "iGPU"
-      Device     "iGPU"
-      EndSection
-
-      Section "Device"
-      Identifier "dGPU"
-      Driver     "nvidia"
-      BusID      "PCI:1:0:0"
-      Option     "Coolbits" "8"
-      EndSection
-
-      Section "Screen"
-      Identifier "dGPU"
-      Device     "dGPU"
-      Option     "AllowEmptyInitialConfiguration"
-      EndSection
-      '';
-    */
-
     videoDrivers = [ "nvidia" ];
     deviceSection = ''
       Option "Coolbits" "8"
     '';
-    #displayManager = {
-    /*
-      sessionCommands = ''
-      # ${pkgs.xorg.xrandr}/bin/xrandr --setprovideroutputsource 1 0
-      # ${pkgs.xorg.xrandr}/bin/xrandr --auto
-      '';
-    */
-    #};
     serverLayoutSection = ''
       Inactive "Device-nvidia[0]"
     '';
