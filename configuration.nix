@@ -38,6 +38,7 @@
     tmpOnTmpfs = true;
     kernel = {
       sysctl."vm.swappiness" = 100;
+      sysctl."vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
     };
