@@ -40,6 +40,14 @@
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                   krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
                   snapperS = final.callPackage ./derivations/snapperS { };
+
+                  libsForQt5 = final.unstable.libsForQt5.overrideScope (qt5Final: qt5Prev: {
+                    fcitx-qt5 = qt5Prev.fcitx5-qt;
+                  });
+                  plasma5Packages = final.unstable.plasma5Packages;
+                  podman = final.unstable.podman;
+                  podman-unwrapped = final.unstable.podman-unwrapped;
+                  skopeo = final.unstable.skopeo;
                 })
               ];
 
@@ -66,9 +74,20 @@
               ];
             })
 
+            nix-ld.nixosModules.nix-ld
+
             ./derivations/nbfc-linux/service.nix
 
             ./configuration.nix
+            ./hardware-configuration.nix
+            ./nvidia.nix
+            ./intel.nix
+            ./snapper.nix
+            ./udev.nix
+            ./libvirt.nix
+            ./tlp.nix
+            ./gpu_passthrough.nix
+            ./flatpak-fonts-icons.nix
           ];
         };
       };

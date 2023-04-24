@@ -8,32 +8,6 @@
 , inputs
 }:
 {
-  imports = [
-    inputs.nix-ld.nixosModules.nix-ld
-
-    ./hardware-configuration.nix
-    ./nvidia.nix
-    ./intel.nix
-    ./snapper.nix
-    ./udev.nix
-    ./libvirt.nix
-    ./tlp.nix
-    ./gpu_passthrough.nix
-    ./flatpak-fonts-icons.nix
-  ];
-
-  nixpkgs.overlays = [
-    (final: prev: {
-      libsForQt5 = pkgs.unstable.libsForQt5.overrideScope (qt5Final: qt5Prev: {
-	fcitx-qt5 = qt5Prev.fcitx5-qt;
-      });
-      plasma5Packages = pkgs.unstable.plasma5Packages;
-      podman = pkgs.unstable.podman;
-      podman-unwrapped = pkgs.unstable.podman-unwrapped;
-      skopeo = pkgs.unstable.skopeo;
-    })
-  ];
-
   nix = {
     extraOptions = ''
       experimental-features = ca-derivations nix-command flakes
