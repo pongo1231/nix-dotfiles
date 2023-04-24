@@ -6,21 +6,6 @@
 , modulesPath
 , inputs
 }: {
-  imports = [
-    ./suspender.nix
-    ./helpers.nix
-  ];
-
-  nixpkgs.overlays = [
-    (self: super: {
-      vgmstream = super.vgmstream.overrideAttrs (finalAttrs: previousAttrs: {
-        cmakeFlags = [
-          "-DUSE_CELT=OFF"
-        ];
-      });
-    })
-  ];
-
   home.username = "pongo";
   home.homeDirectory = "/home/pongo";
 

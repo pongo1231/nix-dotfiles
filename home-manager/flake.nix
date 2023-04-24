@@ -19,6 +19,8 @@
 
         modules = [
           ./home.nix
+          ./suspender.nix
+          ./helpers.nix
         ];
       };
     };
