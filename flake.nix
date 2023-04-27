@@ -39,7 +39,7 @@
                   krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
                   snapperS = final.callPackage ./derivations/snapperS { };
 
-                  libsForQt5 = final.unstable.libsForQt5.overrideScope (qt5Final: qt5Prev: {
+                  libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
                     fcitx-qt5 = qt5Prev.fcitx5-qt;
                   });
                   plasma5Packages = final.unstable.plasma5Packages;
