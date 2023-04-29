@@ -119,8 +119,9 @@
       autoNumlock = true;
     };
     desktopManager.plasma5.enable = true;
-    tty = lib.mkForce 1;
+    #tty = lib.mkForce 1;
     layout = "de";
+    libinput.enable = true;
   };
 
   security.rtkit.enable = true;
