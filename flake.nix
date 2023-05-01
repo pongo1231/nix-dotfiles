@@ -4,8 +4,14 @@
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=3d302c67ab8647327dba84fbdb443cdbf0e82744";
 
-    nix-alien.url = "github:thiagokokada/nix-alien";
-    nix-ld.url = "github:Mic92/nix-ld/main";
+    nix-alien = {
+      url = "github:thiagokokada/nix-alien";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-ld = {
+      url = "github:Mic92/nix-ld/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

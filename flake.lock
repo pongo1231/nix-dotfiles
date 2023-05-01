@@ -39,7 +39,9 @@
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils",
         "nix-index-database": "nix-index-database",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": [
+          "nixpkgs"
+        ]
       },
       "locked": {
         "lastModified": 1681752940,
@@ -78,7 +80,9 @@
     },
     "nix-ld": {
       "inputs": {
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
         "utils": "utils"
       },
       "locked": {
@@ -98,16 +102,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1681510139,
-        "narHash": "sha256-pmZoMRkTxEp/EIqUPScTUOOhpPOSLJSL4eahsiP2mxI=",
-        "owner": "NixOS",
+        "lastModified": 1682538316,
+        "narHash": "sha256-YuHgVsR7S9zxJWHo7lo2ugd+uDC4ESWg1hA4bEZQv3Y=",
+        "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "639d4f17218568afd6494dbd807bebb2beb9d6b3",
+        "rev": "15b75800dce80225b44f067c9012b09de37dfad2",
         "type": "github"
       },
       "original": {
-        "owner": "NixOS",
-        "ref": "nixpkgs-unstable",
+        "owner": "nixos",
+        "ref": "nixos-22.11",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -144,42 +148,11 @@
         "type": "github"
       }
     },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1671467162,
-        "narHash": "sha256-1MRYdkLH7vyz9A/69KeDE+4RaEI6D83GfuJLMOGjN/8=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "9bf4ec690947311dd0b080bb8d86a3019d5f4f24",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
-      "locked": {
-        "lastModified": 1682538316,
-        "narHash": "sha256-YuHgVsR7S9zxJWHo7lo2ugd+uDC4ESWg1hA4bEZQv3Y=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "15b75800dce80225b44f067c9012b09de37dfad2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "ref": "nixos-22.11",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "nix-alien": "nix-alien",
         "nix-ld": "nix-ld",
-        "nixpkgs": "nixpkgs_3",
+        "nixpkgs": "nixpkgs",
         "nixpkgs-kernel": "nixpkgs-kernel",
         "nixpkgs-unstable": "nixpkgs-unstable"
       }
