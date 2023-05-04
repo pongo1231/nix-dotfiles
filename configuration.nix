@@ -232,6 +232,8 @@
 
   programs.extra-container.enable = true;
 
+  virtualisation.waydroid.enable = true;
+
   users = {
     mutableUsers = false;
     defaultUserShell = pkgs.fish;
