@@ -296,6 +296,7 @@
     DXVK_LOG_LEVEL = "none";
     VKD3D_DEBUG = "none";
     VKD3D_SHADER_DEBUG = "none";
+    NIXPKGS_ALLOW_UNFREE = "1";
   };
 
   xdg.portal.enable = true;
