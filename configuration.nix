@@ -43,7 +43,7 @@
       sysctl."kernel.sysrq" = 1;
     };
     kernelPackages = pkgs.kernel.linuxPackages_6_1;
-    extraModulePackages = with config.boot.kernelPackages; [ xpadneo (callPackage ./derivations/nullfsvfs { }) ];
+    extraModulePackages = with config.boot.kernelPackages; [ zfs xpadneo (callPackage ./derivations/nullfsvfs { }) ];
     kernelParams = [
       "quiet"
       "splash"
@@ -102,8 +102,11 @@
     "${pkgs.bluez}/libexec/bluetooth/bluetoothd -f /etc/bluetooth/main.conf --experimental"
   ];
 
-  networking.hostName = "pongo-nixos";
-  networking.networkmanager.enable = true;
+  networking = {
+    hostName = "pongo-nixos";
+    hostId = "47fb2c6f";
+    networkmanager.enable = true;
+  };
 
   time.timeZone = "Europe/Berlin";
 
@@ -285,6 +288,7 @@
     kdeconnect
     snapperS
     ubuntu_font_family
+    kernel.zfs
   ];
 
   environment.sessionVariables = {
