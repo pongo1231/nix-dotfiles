@@ -32,7 +32,6 @@
       installPhase = builtins.replaceStrings [ "${previousAttrs.desktopItem}" ] [ "${desktopItem}" ] previousAttrs.installPhase;
     }))
     ocs-url
-    gparted
     nil
     nixpkgs-fmt
     filelight

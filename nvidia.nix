@@ -18,15 +18,15 @@ in
     (self: super: {
       linuxPackages_custom = self.kernel.linuxPackages_6_1.extend
         (selfLinux: superLinux:
-          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
+          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs-kernel + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
-            /*nvidiaPackages.production = generic {
+            nvidiaPackages.production = generic {
               version = "530.41.03";
               sha256_64bit = "sha256-riehapaMhVA/XRYd2jQ8FgJhKwJfSu4V+S4uoKy3hLE=";
               openSha256 = lib.fakeSha256;
               settingsSha256 = "sha256-8KB6T9f+gWl8Ni+uOyrJKiiH5mNx9eyfCcW/RjPTQQA=";
               persistencedSha256 = "sha256-zrstlt/0YVGnsPGUuBbR9ULutywi2wNDVxh7OhJM7tM=";
-            };*/
+            };
           });
     })
   ];
