@@ -38,7 +38,6 @@
     compsize
     powertop
     htop
-    ungoogled-chromium
     wget
     smartmontools
     libreoffice
@@ -60,6 +59,7 @@
     nixpkgs-review
     gimp
     audacity
+    kdeconnect
   ];
 
   programs.git = {
