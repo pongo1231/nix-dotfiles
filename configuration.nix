@@ -24,7 +24,12 @@
     nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
   };
 
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config = {
+    allowUnfree = true;
+    permittedInsecurePackages = [
+      "python-2.7.18.6"
+    ];
+  };
 
   boot = {
     loader = {
@@ -35,7 +40,7 @@
       efi.canTouchEfiVariables = true;
       timeout = lib.mkForce 0;
     };
-    tmpOnTmpfs = true;
+    tmp.useTmpfs = true;
     kernel = {
       sysctl."vm.swappiness" = 0;
       sysctl."vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count

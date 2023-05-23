@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=897876e4c484f1e8f92009fd11b7d988a121a4e7";
 
@@ -45,17 +45,17 @@
                   krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
                   snapperS = final.callPackage ./derivations/snapperS { };
 
-                  libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
+                  /*libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
                     fcitx-qt5 = qt5Prev.fcitx5-qt;
                   });
                   plasma5Packages = final.unstable.plasma5Packages;
                   podman = final.unstable.podman;
                   podman-unwrapped = final.unstable.podman-unwrapped;
-                  skopeo = final.unstable.skopeo;
+                  skopeo = final.unstable.skopeo;*/
                 })
               ];
 
-              disabledModules = [
+              /*disabledModules = [
                 "virtualisation/container-config.nix"
                 "virtualisation/containers.nix"
                 "virtualisation/nixos-containers.nix"
@@ -75,7 +75,7 @@
                 "${inputs.nixpkgs-unstable}/nixos/modules/virtualisation/podman/network-socket.nix"
                 "${inputs.nixpkgs-unstable}/nixos/modules/tasks/lvm.nix"
                 "${inputs.nixpkgs-unstable}/nixos/modules/services/networking/dnsmasq.nix"
-              ];
+              ];*/
             })
 
             nix-ld.nixosModules.nix-ld

@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, ... }:
 let
   extraConfig = ''
     ALLOW_GROUPS="wheel"
@@ -22,16 +22,16 @@ in
 {
   services.snapper.configs = {
     home = {
-      subvolume = "/home";
-      inherit extraConfig;
+      SUBVOLUME = "/home";
+      inherit (lib.attrNames extraConfig);
     };
     ssd = {
-      subvolume = "/media/ssd";
-      inherit extraConfig;
+      SUBVOLUME = "/media/ssd";
+      inherit (lib.attrNames extraConfig);
     };
     hdd = {
-      subvolume = "/media/hdd";
-      inherit extraConfig;
+      SUBVOLUME = "/media/hdd";
+      inherit (lib.attrNames extraConfig);
     };
   };
 }
