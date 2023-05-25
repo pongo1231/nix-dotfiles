@@ -42,7 +42,10 @@
     };
     tmp.useTmpfs = true;
     kernel = {
-      sysctl."vm.swappiness" = 0;
+      sysctl."vm.swappiness" = 180;
+      sysctl."vm.page-cluster" = 0;
+      sysctl."vm.watermark_boost_factor" = 0;
+      sysctl."vm.watermark_scale_factor" = 125;
       sysctl."vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
       sysctl."dev.i915.perf_stream_paranoid" = 0;
       sysctl."kernel.sysrq" = 1;
