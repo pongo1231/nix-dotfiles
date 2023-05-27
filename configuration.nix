@@ -21,7 +21,7 @@
       options = "--delete-older-than 7d";
       persistent = true;
     };
-    nixPath = [ "nixpkgs=${inputs.nixpkgs}" ];
+    nixPath = [ "nixpkgs=/etc/nix/inputs/nixpkgs" ];
     registry.nixpkgs.flake = inputs.nixpkgs;
   };
 
@@ -306,6 +306,8 @@
     VKD3D_SHADER_DEBUG = "none";
     NIXPKGS_ALLOW_UNFREE = "1";
   };
+
+  environment.etc."nix/inputs/nixpkgs".source = inputs.nixpkgs;
 
   xdg.portal.enable = true;
 

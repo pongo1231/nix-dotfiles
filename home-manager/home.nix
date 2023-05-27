@@ -8,6 +8,11 @@
 }: {
   home.username = "pongo";
   home.homeDirectory = "/home/pongo";
+  home.sessionVariables.NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs$\{NIX_PATH:+:$NIX_PATH}";
+
+  xdg.configFile."nix/inputs/nixpkgs".source = inputs.nixpkgs;
+
+  nix.registry.nixpkgs.flake = inputs.nixpkgs;
 
   nixpkgs.config.allowUnfreePredicate = pkg: true;
 
