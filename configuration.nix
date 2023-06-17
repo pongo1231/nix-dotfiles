@@ -270,18 +270,15 @@
     pulseaudio
     (distrobox.overrideAttrs
       (finalAttrs: previousAttrs: rec {
-        version = "1.4.2.1";
+        version = "1.5.0";
         src = pkgs.fetchFromGitHub {
           owner = "89luca89";
           repo = "distrobox";
           rev = version;
-          sha256 = "sha256-s3lq1Xr2y29cmyT1nY5/amiDA9dNfyGaMtjTvUINSD8=";
+          sha256 = "sha256-6VsQLouK9gwBwbTdprtOgcBKJ0VD8pC/h49AcjS4F3U=";
         };
-
-        patches = previousAttrs.patches or [] ++ [
-          ./patches/distrobox/478.patch # https://github.com/89luca89/distrobox/pull/478.patch
-        ];
-      })) # master includes fixes regarding whitespaces in arguments passed to exported apps
+      })
+    )
     duperemove
     dconf
     nix-alien
