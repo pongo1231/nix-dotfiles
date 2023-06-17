@@ -42,7 +42,7 @@
                   };
 
                   nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
-                  krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
+                  #krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
                   snapperS = final.callPackage ./derivations/snapperS { };
 
                   /*libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
