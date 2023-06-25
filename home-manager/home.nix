@@ -65,6 +65,7 @@
     gimp
     audacity
     kdeconnect
+    ffmpeg
   ];
 
   programs.git = {
