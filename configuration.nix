@@ -161,6 +161,8 @@
 
   services.openssh.enable = true;
 
+  services.earlyoom.enable = true;
+
   services.persistent-evdev = {
     enable = true;
     devices = {
