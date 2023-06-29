@@ -99,7 +99,10 @@
     plymouth.enable = true;
   };
 
-  zramSwap.enable = true;
+  zramSwap = {
+    enable = true;
+    memoryPercent = 100;
+  };
 
   hardware.bluetooth = {
     enable = true;
