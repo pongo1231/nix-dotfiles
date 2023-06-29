@@ -270,17 +270,7 @@
   environment.systemPackages = with pkgs; with inputs.nix-alien.packages.${system}; [
     home-manager
     pulseaudio
-    (distrobox.overrideAttrs
-      (finalAttrs: previousAttrs: rec {
-        version = "1.5.0";
-        src = pkgs.fetchFromGitHub {
-          owner = "89luca89";
-          repo = "distrobox";
-          rev = version;
-          sha256 = "sha256-6VsQLouK9gwBwbTdprtOgcBKJ0VD8pC/h49AcjS4F3U=";
-        };
-      })
-    )
+    unstable.distrobox
     duperemove
     dconf
     nix-alien
