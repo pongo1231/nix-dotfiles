@@ -301,7 +301,10 @@
 
   environment.etc."nix/inputs/nixpkgs".source = inputs.nixpkgs;
 
-  xdg.portal.enable = true;
+  xdg.portal = {
+    enable = true;
+    xdgOpenUsePortal = true;
+  };
 
   system.stateVersion = "22.05";
 }
