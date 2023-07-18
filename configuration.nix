@@ -289,8 +289,8 @@
 
   environment.sessionVariables = {
     GTK_USE_PORTAL = "1";
-    QT_XCB_GL_INTEGRATION = "xcb_egl";
-    KWIN_OPENGL_INTERFACE = "egl";
+    #QT_XCB_GL_INTEGRATION = "xcb_egl";
+    #KWIN_OPENGL_INTERFACE = "egl";
     WINEFSYNC = "1";
     WINEDEBUG = "-all";
     DXVK_LOG_LEVEL = "none";

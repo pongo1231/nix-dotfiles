@@ -37,13 +37,56 @@ in
 
   services.xserver = {
     videoDrivers = [ "nvidia" ];
-    deviceSection = ''
-      Option "Coolbits" "8"
-    '';
-    serverLayoutSection = ''
-      Inactive "Device-nvidia[0]"
-    '';
+    #deviceSection = ''
+    #  Option "Coolbits" "8"
+    #'';
+    #serverLayoutSection = ''
+    #  Inactive "Device-nvidia[0]"
+    #'';
     exportConfiguration = true;
+    config = ''
+      Section "ServerLayout"
+        Identifier "layout"
+        Screen "intel" 0 0
+        Screen "nvidia" 0 0
+      EndSection
+
+      #Section "Module"
+      #    Load "intel"
+      #    Load "glx"
+      #EndSection
+
+      Section "Device"
+        Identifier "nvidia"
+        Driver "nvidia"
+        BusID "PCI:1:0:0"
+        Option "AllowEmptyInitialConfiguration"
+        Option "Coolbits" "8"
+      EndSection
+
+      Section "Device"
+        Identifier "intel"
+        Driver "modesetting"
+        #Option "AccelMethod" "sna"
+        BusID "PCI:0:2:0"
+      EndSection
+
+      Section "Screen"
+        Identifier     "nvidia"
+        Device         "nvidia"
+        DefaultDepth    24
+        Option         "AllowEmptyInitialConfiguration"
+        SubSection     "Display"
+          Depth       24
+          Modes      "nvidia-auto-select"
+        EndSubSection
+      EndSection
+
+      Section "Screen"
+        Identifier "intel"
+        Device "intel"
+      EndSection
+   '';
   };
 
   hardware.nvidia = {
