@@ -21,11 +21,11 @@ in
           let generic = args: selfLinux.callPackage (import (inputs.nixpkgs-kernel + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
             nvidiaPackages.production = generic {
-              version = "535.86.05";
-              sha256_64bit = "sha256-QH3wyjZjLr2Fj8YtpbixJP/DvM7VAzgXusnCcaI69ts=";
+              version = "535.43.02";
+              sha256_64bit = "sha256-4KTdk4kGDmBGyHntMIzWRivUpEpzmra+p7RBsTL8mYM=";
               openSha256 = lib.fakeSha256;
-              settingsSha256 = "sha256-0NAxQosC+zPz5STpELuRKDMap4KudoPGWKL4QlFWjLQ=";
-              persistencedSha256 = "sha256-Ak4Wf59w9by08QJ0x15Zs5fHOhiIatiJfjBQfnY65Mg=";
+              settingsSha256 = "sha256-j0sSEbtF2fapv4GSthVTkmJga+ycmrGc1OnGpV6jEkc=";
+              persistencedSha256 = "sha256-M0ovNaJo8SZwLW4CQz9accNK79Z5JtTJ9kKwOzicRZ4=";
             };
           });
     })
