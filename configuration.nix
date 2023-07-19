@@ -66,7 +66,7 @@
       "i915.enable_gvt=1"
       "i915.enable_psr=1"
       #"nohz_full=1-3,5-7"
-      "workqueue.power_efficient=true"
+      #"workqueue.power_efficient=true"
     ];
     kernelPatches = [
       {
