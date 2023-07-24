@@ -66,6 +66,8 @@
     audacity
     kdeconnect
     ffmpeg
+    steam
+    mangohud
   ];
 
   programs.git = {
