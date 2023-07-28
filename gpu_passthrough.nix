@@ -17,7 +17,7 @@
     ${pkgs.kmod}/bin/rmmod nvidia_uvm
     ${pkgs.kmod}/bin/rmmod nvidia_drm
     ${pkgs.kmod}/bin/rmmod nvidia_modeset
-    ${pkgs.kmod}/bin/rmmod nvidia
+    #${pkgs.kmod}/bin/rmmod nvidia
 
     ${pkgs.libvirt}/bin/virsh nodedev-detach pci_0000_01_00_0
     ${pkgs.libvirt}/bin/virsh nodedev-detach pci_0000_01_00_1
