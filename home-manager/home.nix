@@ -88,11 +88,5 @@
   # workaround for plasma-browser-integration
   home.file.".mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json".source = "${pkgs.plasma-browser-integration}/lib/mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json";
 
-  # to allow distrobox apps to access x server
-  home.file.".xprofile" = {
-    text = "${pkgs.xorg.xhost}/bin/xhost +si:localuser:$USER";
-    executable = true;
-  };
-
   home.stateVersion = "22.05";
 }
