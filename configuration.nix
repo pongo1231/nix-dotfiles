@@ -148,14 +148,6 @@
     pulse.enable = true;
   };
 
-  services.undervolt = {
-    enable = true;
-    coreOffset = -120;
-    gpuOffset = -120;
-    uncoreOffset = -115;
-    analogioOffset = -100;
-  };
-
   services.nbfc-linux.enable = true;
 
   services.thermald.enable = true;
