@@ -22,40 +22,41 @@
     , nix-alien
     , nix-ld
     }@inputs: {
-      nixosConfigurations = {
-        pongo-nixos = nixpkgs.lib.nixosSystem rec {
-          system = "x86_64-linux";
-          specialArgs = { inherit inputs; };
+      nixosConfigurations =
+        let
+          commonSystem = { isVM }: nixpkgs.lib.nixosSystem rec {
+            system = "x86_64-linux";
+            specialArgs = { inherit inputs; };
 
-          modules = [
-            ({ ... }: {
-              nixpkgs.overlays = [
-                (final: prev: {
-                  unstable = import nixpkgs-unstable {
-                    inherit system;
-                    config.allowUnfree = true;
-                  };
+            modules = [
+              ({ ... }: {
+                nixpkgs.overlays = [
+                  (final: prev: {
+                    unstable = import nixpkgs-unstable {
+                      inherit system;
+                      config.allowUnfree = true;
+                    };
 
-                  kernel = import nixpkgs-kernel {
-                    inherit system;
-                    config.allowUnfree = true;
-                  };
+                    kernel = import nixpkgs-kernel {
+                      inherit system;
+                      config.allowUnfree = true;
+                    };
 
-                  nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
-                  #krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
-                  snapperS = final.callPackage ./derivations/snapperS { };
+                    nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
+                    #krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
+                    snapperS = final.callPackage ./derivations/snapperS { };
 
-                  /*libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
+                    /*libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
                     fcitx-qt5 = qt5Prev.fcitx5-qt;
                   });
                   plasma5Packages = final.unstable.plasma5Packages;
                   podman = final.unstable.podman;
                   podman-unwrapped = final.unstable.podman-unwrapped;
-                  skopeo = final.unstable.skopeo;*/
-                })
-              ];
+                    skopeo = final.unstable.skopeo;*/
+                  })
+                ];
 
-              /*disabledModules = [
+                /*disabledModules = [
                 "virtualisation/container-config.nix"
                 "virtualisation/containers.nix"
                 "virtualisation/nixos-containers.nix"
@@ -75,25 +76,35 @@
                 "${inputs.nixpkgs-unstable}/nixos/modules/virtualisation/podman/network-socket.nix"
                 "${inputs.nixpkgs-unstable}/nixos/modules/tasks/lvm.nix"
                 "${inputs.nixpkgs-unstable}/nixos/modules/services/networking/dnsmasq.nix"
-              ];*/
-            })
+                ];*/
+              })
 
-            nix-ld.nixosModules.nix-ld
+              nix-ld.nixosModules.nix-ld
 
-            ./derivations/nbfc-linux/service.nix
+              ./derivations/nbfc-linux/service.nix
 
-            ./configuration.nix
-            ./hardware-configuration.nix
-            ./nvidia.nix
-            ./intel.nix
-            ./snapper.nix
-            ./udev.nix
-            ./libvirt.nix
-            ./tlp.nix
-            ./gpu_passthrough.nix
-            ./flatpak-fonts-icons.nix
-          ];
+              ./configuration.nix
+              ./nvidia.nix
+              ./intel.nix
+              ./snapper.nix
+              ./udev.nix
+              ./libvirt.nix
+              ./tlp.nix
+              ./gpu_passthrough.nix
+              ./flatpak-fonts-icons.nix
+            ] ++ nixpkgs.lib.optionals (!isVM) [
+              ./hardware-configuration.nix
+            ];
+          };
+        in
+        {
+          pongo-nixos = commonSystem {
+            isVM = false;
+          };
+
+          vm = commonSystem {
+            isVM = true;
+          };
         };
-      };
     };
 }
