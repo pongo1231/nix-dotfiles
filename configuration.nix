@@ -21,9 +21,15 @@
       options = "--delete-older-than 7d";
       persistent = true;
     };
-    nixPath = [ "nixpkgs=/etc/nix/inputs/nixpkgs" ];
+    nixPath = [ "/etc/nix/inputs" ];
     registry.nixpkgs.flake = inputs.nixpkgs;
   };
+
+  # thanks to ElvishJerricco
+  environment.etc = lib.mapAttrs' (name: flake: {
+    name = "nix/inputs/${name}";
+    value.source = flake.outPath;
+  }) inputs;
 
   nixpkgs.config = {
     allowUnfree = true;
@@ -290,8 +296,6 @@
     VKD3D_SHADER_DEBUG = "none";
     NIXPKGS_ALLOW_UNFREE = "1";
   };
-
-  environment.etc."nix/inputs/nixpkgs".source = inputs.nixpkgs;
 
   xdg.portal = {
     enable = true;
