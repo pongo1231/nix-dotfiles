@@ -44,7 +44,7 @@ in
     #  Inactive "Device-nvidia[0]"
     #'';
     exportConfiguration = true;
-    config = ''
+    /*config = ''
       Section "ServerLayout"
         Identifier "layout"
         Screen "intel" 0 0
@@ -86,7 +86,7 @@ in
         Identifier "intel"
         Device "intel"
       EndSection
-   '';
+   '';*/
   };
 
   hardware.nvidia = {
