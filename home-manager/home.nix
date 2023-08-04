@@ -68,6 +68,7 @@
     ffmpeg
     steam
     mangohud
+    protontricks
   ];
 
   programs.git = {
