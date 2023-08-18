@@ -229,7 +229,10 @@
 
   networking.firewall.enable = false;
 
-  virtualisation.podman.enable = true;
+  virtualisation = {
+    podman.enable = true;
+    spiceUSBRedirection.enable = true;
+  };
 
   programs.fish = {
     enable = true;
