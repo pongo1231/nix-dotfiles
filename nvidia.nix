@@ -21,14 +21,22 @@ in
           let generic = args: selfLinux.callPackage (import (inputs.nixpkgs-kernel + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
           in {
             nvidiaPackages.production = generic {
-              version = "535.43.02";
-              sha256_64bit = "sha256-4KTdk4kGDmBGyHntMIzWRivUpEpzmra+p7RBsTL8mYM=";
+              version = "535.104.05";
+              sha256_64bit = "sha256-L51gnR2ncL7udXY2Y1xG5+2CU63oh7h8elSC4z/L7ck=";
               openSha256 = lib.fakeSha256;
-              settingsSha256 = "sha256-j0sSEbtF2fapv4GSthVTkmJga+ycmrGc1OnGpV6jEkc=";
-              persistencedSha256 = "sha256-M0ovNaJo8SZwLW4CQz9accNK79Z5JtTJ9kKwOzicRZ4=";
+              settingsSha256 = "sha256-pS9W5LMenX0Rrwmpg1cszmpAYPt0Mx+apVQmOmLWTog=";
+              persistencedSha256 = "sha256-uqT++w0gZRNbzyqbvP3GBqgb4g18r6VM3O8AMEfM7GU=";
             };
           });
     })
+  ];
+
+  disabledModules = [
+    "hardware/video/nvidia.nix"
+  ];
+
+  imports = [
+    "${inputs.self}/modules/nvidia/nvidia.nix"
   ];
 
   environment.systemPackages = [ prime-run ];  
