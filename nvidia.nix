@@ -18,7 +18,7 @@ in
     (self: super: {
       linuxPackages_custom = self.kernel.linuxPackages_6_1.extend
         (selfLinux: superLinux:
-          let generic = args: selfLinux.callPackage (import (inputs.nixpkgs-kernel + "/pkgs/os-specific/linux/nvidia-x11/generic.nix") args) { };
+          let generic = args: selfLinux.callPackage (import "${inputs.nixpkgs-unstable}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
           in {
             nvidiaPackages.production = generic {
               version = "535.104.05";
@@ -36,7 +36,7 @@ in
   ];
 
   imports = [
-    "${inputs.self}/modules/nvidia/nvidia.nix"
+    "${inputs.nixpkgs-unstable}/nixos/modules/hardware/video/nvidia.nix"
   ];
 
   environment.systemPackages = [ prime-run ];  
@@ -51,7 +51,7 @@ in
     #serverLayoutSection = ''
     #  Inactive "Device-nvidia[0]"
     #'';
-    exportConfiguration = true;
+    #exportConfiguration = true;
     /*config = ''
       Section "ServerLayout"
         Identifier "layout"
