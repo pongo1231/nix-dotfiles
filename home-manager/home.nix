@@ -69,6 +69,7 @@
     steam
     mangohud
     protontricks
+    goverlay
   ];
 
   programs.git = {
