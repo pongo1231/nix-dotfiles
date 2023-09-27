@@ -90,5 +90,11 @@
   # workaround for plasma-browser-integration
   home.file.".mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json".source = "${pkgs.plasma-browser-integration}/lib/mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json";
 
+  xdg.configFile."distrobox/distrobox.conf".text = ''
+    container_image_default="docker.io/library/archlinux"
+    container_init_hook="echo '$(uname -n)' > /etc/hostname"
+    non_interactive="1"
+  '';
+
   home.stateVersion = "22.05";
 }
