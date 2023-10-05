@@ -31,17 +31,15 @@ in
     })
   ];
 
-  disabledModules = [
+  /*disabledModules = [
     "hardware/video/nvidia.nix"
   ];
 
   imports = [
     "${inputs.nixpkgs-unstable}/nixos/modules/hardware/video/nvidia.nix"
-  ];
+  ];*/
 
   environment.systemPackages = [ prime-run ];  
-
-  hardware.nvidia.package = pkgs.linuxPackages_custom.nvidiaPackages.production;
 
   services.xserver = {
     videoDrivers = [ "nvidia" ];
@@ -98,6 +96,7 @@ in
   };
 
   hardware.nvidia = {
+    package = pkgs.linuxPackages_custom.nvidiaPackages.production;
     modesetting.enable = true;
     prime = {
       offload.enable = true;

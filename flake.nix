@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?rev=152f609b44b4e7d1b2ac9d718fb3bdd43c5cedca";
+    nixpkgs.url = "github:nixos/nixpkgs?rev=fdd898f8f79e8d2f99ed2ab6b3751811ef683242";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=897876e4c484f1e8f92009fd11b7d988a121a4e7";
 
