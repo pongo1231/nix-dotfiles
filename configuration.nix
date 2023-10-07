@@ -146,8 +146,6 @@
     libinput.enable = true;
   };
 
-  security.rtkit.enable = true;
-  hardware.pulseaudio.enable = false;
   services.pipewire = {
     enable = true;
     alsa.enable = true;
@@ -157,10 +155,10 @@
 
   services.undervolt = {
     enable = true;
-    coreOffset = -100;
-    gpuOffset = -100;
-    uncoreOffset = -100;
-    analogioOffset = -100;
+    coreOffset = -90;
+    gpuOffset = -90;
+    uncoreOffset = -90;
+    analogioOffset = -90;
   };
 
   services.nbfc-linux.enable = true;
