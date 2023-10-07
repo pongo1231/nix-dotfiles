@@ -12,6 +12,11 @@
       url = "github:Mic92/nix-ld/main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nix-be = {
+      url = "github:GuilloteauQ/nix-be/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -21,6 +26,7 @@
     , nixpkgs-kernel
     , nix-alien
     , nix-ld
+    , nix-be
     }@inputs: {
       nixosConfigurations =
         let

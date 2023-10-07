@@ -141,6 +141,7 @@
       autoNumlock = true;
     };
     desktopManager.plasma5.enable = true;
+    desktopManager.xfce.enable = true;
     #tty = lib.mkForce 1;
     layout = "de";
     libinput.enable = true;
@@ -278,7 +279,7 @@
     };
   };
 
-  environment.systemPackages = with pkgs; with inputs.nix-alien.packages.${system}; [
+  environment.systemPackages = with pkgs; with inputs.nix-alien.packages.${system}; with inputs.nix-be.packages.${system}; [
     home-manager
     pulseaudio
     unstable.distrobox
@@ -293,6 +294,7 @@
     snapperS
     ubuntu_font_family
     kernel.zfs
+    nix-be
   ];
 
   environment.sessionVariables = {
