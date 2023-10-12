@@ -26,10 +26,12 @@
   };
 
   # thanks to ElvishJerricco
-  environment.etc = lib.mapAttrs' (name: flake: {
-    name = "nix/inputs/${name}";
-    value.source = flake.outPath;
-  }) inputs;
+  environment.etc = lib.mapAttrs'
+    (name: flake: {
+      name = "nix/inputs/${name}";
+      value.source = flake.outPath;
+    })
+    inputs;
 
   nixpkgs.config = {
     allowUnfree = true;

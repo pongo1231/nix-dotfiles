@@ -1,51 +1,6 @@
-{ config
-, fetchpatch
-, pkgs
-, lib
+{ pkgs
 , ...
 }:
-let
-  qemu_file = ''
-    #!${pkgs.stdenv.shell}
-
-    GUEST_NAME="$1"
-    HOOK_NAME="$2"
-    STATE_NAME="$3"
-    MISC="$\{@:4}"
-
-    BASEDIR="$(dirname $0)"
-
-    HOOKPATH="$BASEDIR/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
-
-    set -e
-
-    if [ -f "$HOOKPATH" ] && [ -s "$HOOKPATH"] && [ -x "$HOOKPATH" ]; then
-        eval \"$HOOKPATH\" "$@"
-    elif [ -d "$HOOKPATH" ]; then
-        while read file; do
-            # check for null string
-            if [ ! -z "$file" ]; then
-              eval \"$file\" "$@"
-            fi
-        done <<< "$(find -L "$HOOKPATH" -maxdepth 1 -type f -executable -print;)"
-    fi
-  '';
-  begin_file = ''
-    #!${pkgs.stdenv.shell}
-
-    echo "286d3cce-2b6e-4e71-8045-8904caaa3ab0" > "/sys/bus/pci/devices/0000:00:02.0/mdev_supported_types/i915-GVTg_V5_4/create"
-  '';
-  end_file = ''
-    #!${pkgs.stdenv.shell}
-    
-    echo 1 > "/sys/bus/pci/devices/0000:00:02.0/286d3cce-2b6e-4e71-8045-8904caaa3ab0/remove"
-  '';
-
-  hooks = [
-    "win10_igpu"
-    "win10_igpu_dgpu"
-  ];
-in
 {
   nixpkgs.overlays = [
     (self: super: {
@@ -71,24 +26,24 @@ in
     };
   };
 
-  systemd.services.libvirtd-config.script = lib.mkAfter (''
+  system.activationScripts.qemu_hook.text = ''
     mkdir -p /var/lib/libvirt/hooks
-    rm -rf /var/lib/libvirt/hooks/*
-    
-    echo '${qemu_file}' > /var/lib/libvirt/hooks/qemu
+
+    cat << EOF > /var/lib/libvirt/hooks/qemu
+    #!/bin/sh
+
+    GUEST_NAME="\$1"
+    HOOK_NAME="\$2"
+    STATE_NAME="\$3"
+    MISC="\''${@:4}"
+
+    if [ \$HOOK_NAME = "prepare" ] && [ \$STATE_NAME = "begin" ]; then
+      echo "286d3cce-2b6e-4e71-8045-8904caaa3ab0" > "/sys/bus/pci/devices/0000:00:02.0/mdev_supported_types/i915-GVTg_V5_4/create"
+    elif [ \$HOOK_NAME = "release" ] && [ \$STATE_NAME = "end" ]; then
+      echo 1 > "/sys/bus/pci/devices/0000:00:02.0/286d3cce-2b6e-4e71-8045-8904caaa3ab0/remove"
+    fi
+    EOF
+
     chmod +x /var/lib/libvirt/hooks/qemu
-  '' + lib.strings.concatMapStrings
-    (hook:
-      ''
-
-        mkdir -p /var/lib/libvirt/hooks/qemu.d/${hook}/prepare/begin
-        echo '${begin_file}' > /var/lib/libvirt/hooks/qemu.d/${hook}/prepare/begin/begin.sh
-        chmod +x /var/lib/libvirt/hooks/qemu.d/${hook}/prepare/begin/begin.sh
-
-        mkdir -p /var/lib/libvirt/hooks/qemu.d/${hook}/release/end
-        echo '${end_file}' > /var/lib/libvirt/hooks/qemu.d/${hook}/release/end/end.sh
-        chmod +x /var/lib/libvirt/hooks/qemu.d/${hook}/release/end/end.sh
-      ''
-    )
-    hooks);
+  '';
 }
