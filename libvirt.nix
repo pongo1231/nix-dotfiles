@@ -1,27 +1,28 @@
 { pkgs
+, inputs
 , ...
 }:
 {
-  nixpkgs.overlays = [
-    (self: super: {
-      qemu_patched = pkgs.qemu_kvm.overrideAttrs (finalAttrs: previousAttrs: {
-        # for gvt-g to work
-        cephSupport = true;
-        patches =
-          previousAttrs.patches
-            or [ ]
-          ++ [
-            ./patches/qemu/qemu-device-fix.patch
-            ./patches/qemu/qemu_higher_gui_refresh_rate.patch
-          ];
-      });
-    })
-  ];
-
   virtualisation.libvirtd = {
     enable = true;
     qemu = {
-      package = pkgs.qemu_patched;
+      # Newer qemu has a regression causing the cursor to not show up under Windows with gvt-g
+      package = ((pkgs.callPackage "${inputs.nixpkgs-stable}/pkgs/applications/virtualization/qemu" {
+        inherit (pkgs.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
+        inherit (pkgs.darwin.stubs) rez setfile;
+        inherit (pkgs.darwin) sigtool;
+      }).override { hostCpuOnly = true; }).overrideAttrs
+        (finalAttrs: previousAttrs: {
+          # for gvt-g to work
+          cephSupport = true;
+          patches =
+            previousAttrs.patches
+              or [ ]
+            ++ [
+              ./patches/qemu/qemu-device-fix.patch
+              ./patches/qemu/qemu_higher_gui_refresh_rate.patch
+            ];
+        });
       ovmf.enable = true;
     };
   };

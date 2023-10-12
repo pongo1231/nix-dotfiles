@@ -1,6 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?rev=f99e5f03cc0aa231ab5950a15ed02afec45ed51a";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-23.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=897876e4c484f1e8f92009fd11b7d988a121a4e7";
 
@@ -22,6 +23,7 @@
   outputs =
     { self
     , nixpkgs
+    , nixpkgs-stable
     , nixpkgs-unstable
     , nixpkgs-kernel
     , nix-alien
@@ -38,6 +40,8 @@
               ({ ... }: {
                 nixpkgs.overlays = [
                   (final: prev: {
+                    stable = nixpkgs-stable.legacyPackages.${system};
+
                     unstable = import nixpkgs-unstable {
                       inherit system;
                       config.allowUnfree = true;
