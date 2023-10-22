@@ -22,6 +22,24 @@
     };
   };
 
+  services.persistent-evdev = {
+    enable = true;
+    devices = {
+      persist-mouse1 = "usb-PixArt_OpticalMouse-event-mouse";
+    };
+  };
+
+  virtualisation.libvirtd.qemu.verbatimConfig = ''
+    cgroup_device_acl = [
+      "/dev/null", "/dev/full", "/dev/zero",
+      "/dev/random", "/dev/urandom",
+      "/dev/ptmx", "/dev/kvm",
+      "/dev/input/by-id/uinput-persist-mouse1",
+      "/dev/input/by-id/usb-PixArt_OpticalMouse-event-mouse",
+      "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
+    ]
+  '';
+
   system.activationScripts.qemu_hook.text = ''
     mkdir -p /var/lib/libvirt/hooks
 

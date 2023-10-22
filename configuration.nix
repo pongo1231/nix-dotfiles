@@ -173,13 +173,6 @@
 
   services.earlyoom.enable = true;
 
-  services.persistent-evdev = {
-    enable = true;
-    devices = {
-      persist-mouse1 = "usb-PixArt_OpticalMouse-event-mouse";
-    };
-  };
-
   services.samba = {
     enable = true;
     configText = ''

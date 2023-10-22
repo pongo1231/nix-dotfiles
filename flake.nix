@@ -69,19 +69,19 @@
 
               nix-ld.nixosModules.nix-ld
 
-              ./derivations/nbfc-linux/service.nix
-
               ./configuration.nix
-              ./nvidia.nix
-              ./intel.nix
-              ./snapper.nix
               ./udev.nix
-              ./libvirt.nix
-              ./tlp.nix
-              ./gpu_passthrough.nix
               ./flatpak-fonts-icons.nix
             ] ++ nixpkgs.lib.optionals (!isVM) [
               ./hardware-configuration.nix
+              ./nvidia.nix
+              ./intel.nix
+              ./snapper.nix
+              ./libvirt.nix
+              ./tlp.nix
+              ./gpu_passthrough.nix
+
+              ./derivations/nbfc-linux/service.nix
             ];
           };
         in
