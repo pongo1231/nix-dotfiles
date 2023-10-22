@@ -6,12 +6,7 @@
   virtualisation.libvirtd = {
     enable = true;
     qemu = {
-      # Newer qemu has a regression causing the cursor to not show up under Windows with gvt-g
-      package = ((pkgs.callPackage "${inputs.nixpkgs-stable}/pkgs/applications/virtualization/qemu" {
-        inherit (pkgs.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
-        inherit (pkgs.darwin.stubs) rez setfile;
-        inherit (pkgs.darwin) sigtool;
-      }).override { hostCpuOnly = true; }).overrideAttrs
+      package = pkgs.unstable.qemu_kvm.overrideAttrs
         (finalAttrs: previousAttrs: {
           # for gvt-g to work
           cephSupport = true;
