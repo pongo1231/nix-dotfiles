@@ -42,9 +42,9 @@
     killall
     authy
     lsof
-    ((discord.override { nss = nss_latest; /* workaround to fix links not opening browsers */ }).overrideAttrs (finalAttrs: previousAttrs: rec {
-      desktopItem = previousAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling"; };
-      installPhase = builtins.replaceStrings [ "${previousAttrs.desktopItem}" ] [ "${desktopItem}" ] previousAttrs.installPhase;
+    ((discord.override { nss = nss_latest; /* workaround to fix links not opening browsers */ }).overrideAttrs (prevAttrs: rec {
+      desktopItem = prevAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling"; };
+      installPhase = builtins.replaceStrings [ "${prevAttrs.desktopItem}" ] [ "${desktopItem}" ] prevAttrs.installPhase;
     }))
     ocs-url
     nil
@@ -76,10 +76,7 @@
     audacity
     kdeconnect
     ffmpeg
-    (steam.override
-      {
-        extraPkgs = pkgs: with pkgs; [ libgdiplus keyutils libkrb5 libpng libpulseaudio libvorbis stdenv.cc.cc.lib xorg.libXcursor xorg.libXi xorg.libXinerama xorg.libXScrnSaver ];
-      })
+    steam
     mangohud
     protontricks
     goverlay
