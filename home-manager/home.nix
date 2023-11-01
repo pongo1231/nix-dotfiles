@@ -8,7 +8,17 @@
 }: {
   home.username = "pongo";
   home.homeDirectory = "/home/pongo";
-  home.sessionVariables.NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs$\{NIX_PATH:+:$NIX_PATH}";
+  home.sessionVariables = {
+    NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs$\{NIX_PATH:+:$NIX_PATH}";
+    MOZ_ENABLE_WAYLAND = "1";
+  };
+
+  home.pointerCursor = {
+    gtk.enable = true;
+    x11.enable = true;
+    package = pkgs.breeze-icons;
+    name = "Breeze";
+  };
 
   xdg.configFile."nix/inputs/nixpkgs".source = inputs.nixpkgs;
 
@@ -66,10 +76,14 @@
     audacity
     kdeconnect
     ffmpeg
-    steam
+    (steam.override
+      {
+        extraPkgs = pkgs: with pkgs; [ libgdiplus keyutils libkrb5 libpng libpulseaudio libvorbis stdenv.cc.cc.lib xorg.libXcursor xorg.libXi xorg.libXinerama xorg.libXScrnSaver ];
+      })
     mangohud
     protontricks
     goverlay
+    gamescope
   ];
 
   programs.git = {

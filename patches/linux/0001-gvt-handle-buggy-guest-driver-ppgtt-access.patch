@@ -72,7 +72,7 @@ index 66090ba..1dacc6e 100644
 +		spt = page_track->priv_data;
 +		ppgtt_invalidate_spt(spt);
 +		ret = 0;
-+		goto out;
++		return ret;
 +	}
 +
  	if (unlikely(vgpu->failsafe)) {

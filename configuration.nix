@@ -33,13 +33,6 @@
     })
     inputs;
 
-  nixpkgs.config = {
-    allowUnfree = true;
-    permittedInsecurePackages = [
-      "python-2.7.18.7"
-    ];
-  };
-
   boot = {
     loader = {
       systemd-boot = {
@@ -61,7 +54,7 @@
       sysctl."kernel.core_pattern" = "/dev/null";
     };
     kernelPackages = pkgs.kernel.linuxPackages_6_1;
-    extraModulePackages = with config.boot.kernelPackages; [ zfs xpadneo (callPackage ./derivations/nullfsvfs { }) ];
+    extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
     kernelParams = [
       "quiet"
       "splash"
@@ -74,18 +67,16 @@
       "i915.enable_fbc=1"
       "i915.enable_gvt=1"
       "i915.enable_psr=1"
+      "i915.fastboot=1"
       #"nohz_full=1-3,5-7"
       #"workqueue.power_efficient=true"
     ];
-    kernelPatches = [
+    /*kernelPatches = [
       {
         patch = null;
         extraConfig = ''
           HZ_300 y
           HZ 300
-
-          LRU_GEN y
-          LRU_GEN_ENABLED y
         '';
       }
       {
@@ -94,13 +85,7 @@
       {
         patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
       }
-      {
-        patch = ./patches/linux/faster_memchr.patch;
-      }
-      {
-        patch = ./patches/linux/zstd-upstream.patch;
-      }
-    ];
+    ];*/
     initrd = {
       systemd.enable = true;
       kernelModules = [ "i915" "kvmgt" "vfio-iommu-type1" "mdev" ];
@@ -140,6 +125,7 @@
     enable = true;
     displayManager.sddm = {
       enable = true;
+      wayland.enable = true;
       autoNumlock = true;
     };
     desktopManager.plasma5.enable = true;
@@ -287,7 +273,6 @@
     sddm-kcm
     snapperS
     ubuntu_font_family
-    kernel.zfs
     nix-be
   ];
 
@@ -301,11 +286,17 @@
     VKD3D_DEBUG = "none";
     VKD3D_SHADER_DEBUG = "none";
     NIXPKGS_ALLOW_UNFREE = "1";
+    MOZ_ENABLE_WAYLAND = "1";
   };
 
   xdg.portal = {
     enable = true;
     xdgOpenUsePortal = true;
+    extraPortals = with pkgs; [
+      libsForQt5.xdg-desktop-portal-kde
+      xdg-desktop-portal-gtk
+      xdg-desktop-portal-wlr
+    ];
   };
 
   system.stateVersion = "22.05";

@@ -1,13 +1,13 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?rev=f99e5f03cc0aa231ab5950a15ed02afec45ed51a";
+    nixpkgs.url = "github:nixos/nixpkgs?rev=63678e9f3d3afecfeafa0acead6239cdb447574c";
     nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-23.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=897876e4c484f1e8f92009fd11b7d988a121a4e7";
+    nixpkgs-kernel.url = "github:nixos/nixpkgs?rev=4f36fbeb7cfe125375e34944318316338d81b180";
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-stable";
     };
     nix-ld = {
       url = "github:Mic92/nix-ld/main";
@@ -40,7 +40,15 @@
               ({ ... }: {
                 nixpkgs.overlays = [
                   (final: prev: {
-                    stable = nixpkgs-stable.legacyPackages.${system};
+                    stable = import nixpkgs-stable {
+                      inherit system;
+                      config = {
+                        allowUnfree = true;
+                        permittedInsecurePackages = [
+                          "python-2.7.18.6"
+                        ];
+                      };
+                    };
 
                     unstable = import nixpkgs-unstable {
                       inherit system;
@@ -49,12 +57,15 @@
 
                     kernel = import nixpkgs-kernel {
                       inherit system;
-                      config.allowUnfree = true;
+                      config = {
+                        allowUnfree = true;
+                        nvidia.acceptLicense = true;
+                      };
                     };
 
                     nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
                     #krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
-                    snapperS = final.callPackage ./derivations/snapperS { };
+                    snapperS = final.stable.callPackage ./derivations/snapperS { };
 
                     /*libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
                     fcitx-qt5 = qt5Prev.fcitx5-qt;

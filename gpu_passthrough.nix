@@ -12,7 +12,7 @@
     systemctl stop display-manager
     systemctl stop nvidia-persistenced
 
-    ${pkgs.killall}/bin/killall kwin_wayland
+    ${pkgs.killall}/bin/killall .kwin_wayland-wrapped
 
     ${pkgs.kmod}/bin/rmmod nvidia_uvm
     ${pkgs.kmod}/bin/rmmod nvidia_drm
@@ -35,7 +35,7 @@
 
     systemctl stop display-manager
 
-    ${pkgs.killall}/bin/killall kwin_wayland
+    ${pkgs.killall}/bin/killall .kwin_wayland-wrapped
 
     ${pkgs.libvirt}/bin/virsh nodedev-reattach pci_0000_01_00_0
     ${pkgs.libvirt}/bin/virsh nodedev-reattach pci_0000_01_00_1

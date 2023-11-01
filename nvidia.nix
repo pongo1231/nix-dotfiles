@@ -16,17 +16,18 @@ in
 {
   nixpkgs.overlays = [
     (self: super: {
-      linuxPackages_custom = self.kernel.linuxPackages_6_1.extend
+      linuxPackages_custom = config.boot.kernelPackages.extend
         (selfLinux: superLinux:
-          let generic = args: selfLinux.callPackage (import "${inputs.nixpkgs-unstable}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
+          let generic = args: selfLinux.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
           in {
-            nvidiaPackages.production = generic {
-              version = "535.113.01";
-              sha256_64bit = "sha256-KOME2N/oG39en2BAS/OMYvyjVXjZdSLjxwoOjyMWdIE=";
-              openSha256 = lib.fakeSha256;
-              settingsSha256 = "sha256-hiX5Nc4JhiYYt0jaRgQzfnmlEQikQjuO0kHnqGdDa04=";
-              persistencedSha256 = "sha256-V5Wu8a7EhwZarGsflAhEQDE9s9PjuQ3JNMU1nWvNNsQ=";
-            };
+            nvidiaPackages.production = (generic {
+              version = "545.29.02";
+              sha256_64bit = "sha256-RncPlaSjhvBFUCOzWdXSE3PAfRPCIrWAXyJMdLPKuIU=";
+              settingsSha256 = "sha256-zj173HCZJaxAbVV/A2sbJ9IPdT1+3yrwyxD+AQdkSD8=";
+              persistencedSha256 = "sha256-mmMi2pfwzI1WYOffMVdD0N1HfbswTGg7o57x9/IiyVU=";
+            }).overrideAttrs (oldAttrs: {
+              builder = ./patches/nvidia/builder.sh;
+            });
           });
     })
   ];
