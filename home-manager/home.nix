@@ -81,6 +81,7 @@
     protontricks
     goverlay
     gamescope
+    appimage-run
   ];
 
   programs.git = {
