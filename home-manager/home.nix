@@ -79,7 +79,6 @@
     steam
     mangohud
     protontricks
-    goverlay
     gamescope
     appimage-run
   ];
