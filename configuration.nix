@@ -71,7 +71,7 @@
       #"nohz_full=1-3,5-7"
       #"workqueue.power_efficient=true"
     ];
-    kernelPatches = [
+    /*kernelPatches = [
       {
         patch = null;
         extraConfig = ''
@@ -82,13 +82,13 @@
           DRM_FBDEV_EMULATION y
         '';
       }
-      /*{
+      {
         patch = ./patches/linux/0001-gvt-handle-buggy-guest-driver-ppgtt-access.patch;
       }
       {
         patch = ./patches/linux/drm-i915-gvt-enter-failsafe-on-hypervisor-read-failu.patch;
-      }*/
-    ];
+      }
+    ];*/
     initrd = {
       systemd.enable = true;
       kernelModules = [ "i915" "kvmgt" "vfio-iommu-type1" "mdev" ];
