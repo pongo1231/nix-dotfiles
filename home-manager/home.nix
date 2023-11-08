@@ -31,7 +31,6 @@
     gotop
     vscodium
     kate
-    flameshot
     p7zip
     ghidra
     pciutils
