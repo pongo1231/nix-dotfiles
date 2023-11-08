@@ -1,0 +1,5845 @@
+From 4139768452cb584a141ad9925a6e4e6e90dd8bc5 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sun, 22 Oct 2023 18:46:13 +0200
+Subject: [PATCH 01/19] dbfile: compile the statements when the database is
+ open
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c     | 712 ++++++++++++++++++++++++---------------------------
+ dbfile.h     |  92 +++++--
+ duperemove.c |  32 ++-
+ file_scan.c  |   6 +-
+ find_dupes.c |   4 +-
+ hashstats.c  |  77 +-----
+ run_dedupe.c |   2 +-
+ 7 files changed, 443 insertions(+), 482 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index 3a3d11cb959b..7d19cb94a179 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -23,7 +23,9 @@
+ #include "dbfile.h"
+ #include "opt.h"
+ 
+-static sqlite3 *gdb = NULL;
++static struct dbhandle *gdb = NULL;
++
++static sqlite3 *__dbfile_open_handle(char *filename, bool force_create);
+ 
+ #if (SQLITE_VERSION_NUMBER < 3007015)
+ #define	perror_sqlite(_err, _why)					\
+@@ -39,7 +41,7 @@ static sqlite3 *gdb = NULL;
+ 	fprintf(stderr, "Error opening db \"%s\": %s\n", _filename,	\
+ 		sqlite3_errmsg(_ptr))
+ 
+-sqlite3 *dbfile_get_handle(void)
++struct dbhandle *dbfile_get_handle(void)
+ {
+ 	return gdb;
+ }
+@@ -85,7 +87,7 @@ static int dbfile_get_dbpath(sqlite3 *db, char *path)
+ 	return 0;
+ }
+ 
+-static int dbfile_check(struct dbfile_config *cfg)
++static int dbfile_check(sqlite3 *db, struct dbfile_config *cfg)
+ {
+ 	char path[PATH_MAX + 1];
+ 
+@@ -96,7 +98,7 @@ static int dbfile_check(struct dbfile_config *cfg)
+ 		return EIO;
+ 	}
+ 
+-	dbfile_get_dbpath(gdb, path);
++	dbfile_get_dbpath(db, path);
+ 
+ 	if (strncasecmp(cfg->hash_type, HASH_TYPE, 8)) {
+ 		fprintf(stderr,
+@@ -230,86 +232,96 @@ static int dbfile_set_modes(sqlite3 *db)
+ 	return ret;
+ }
+ 
+-#define MEMDB_FILENAME	"file::memory:?cache=shared"
+-#define OPEN_FLAGS	(SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE|SQLITE_OPEN_NOMUTEX|SQLITE_OPEN_URI)
+-
+-int dbfile_open(char *filename, struct dbfile_config *cfg)
++static int dbfile_prepare(sqlite3 *db)
+ {
++	struct dbfile_config cfg;
+ 	int ret;
+-	sqlite3 *db = NULL;
+-
+-	db = dbfile_open_handle(filename);
++	char dbpath[PATH_MAX + 1];
+ 
+ 	ret = create_tables(db);
+ 	if (ret) {
+ 		perror_sqlite(ret, "creating tables");
+-		sqlite3_close(db);
+ 		return ret;
+ 	}
+ 
+ 	ret = create_indexes(db);
+ 	if (ret) {
+ 		perror_sqlite(ret, "creating indexes");
+-		sqlite3_close(db);
+ 		return ret;
+ 	}
+ 
+-	if (filename) {
+-		ret = chmod(filename, S_IRUSR|S_IWUSR);
++	ret = dbfile_get_dbpath(db, dbpath);
++	if (ret)
++		return ret;
++
++	if (strcmp("(null)", dbpath) != 0) {
++		ret = chmod(dbpath, S_IRUSR|S_IWUSR);
+ 		if (ret) {
+ 			perror("setting db file permissions");
+-			sqlite3_close(db);
+ 			return ret;
+ 		}
+ 	}
+ 
+-	ret = dbfile_get_config(db, cfg);
++	ret = dbfile_get_config(db, &cfg);
+ 	if (ret) {
+ 		perror_sqlite(ret, "reading initial db config");
+-		sqlite3_close(db);
+ 		return ret;
+ 	}
+ 
+-	gdb = db;
+-
+-	ret = dbfile_check(cfg);
+-	if (ret) {
++	ret = dbfile_check(db, &cfg);
++	if (ret && strcmp("(null)", dbpath) != 0) {
+ 		fprintf(stderr, "Recreating hashfile ..\n");
+ 		sqlite3_close(db);
+-		ret = unlink(filename);
++		ret = unlink(dbpath);
+ 		if ( ret && errno != ENOENT) {
+ 			ret = errno;
+ 			fprintf(stderr, "Error %d while unlinking old "
+-				"db file \"%s\" : %s\n", ret, filename,
++				"db file \"%s\" : %s\n", ret, dbpath,
+ 				strerror(ret));
+ 			return ret;
+ 		}
+ 
+-		return dbfile_open(filename, cfg);
++		db = __dbfile_open_handle(dbpath, false);
++		return dbfile_prepare(db);
+ 	}
+ 
+ 	/* May store the default config, if fields were missing
+ 	 * or if the database did not exist
+ 	 */
+-	ret = dbfile_sync_config(cfg);
++	ret = __dbfile_sync_config(db, &cfg);
+ 	if (ret) {
+ 		perror_sqlite(ret, "sync db config");
+-		sqlite3_close(db);
+ 		return ret;
+ 	}
+ 
+ 	return 0;
+ }
+ 
+-struct sqlite3 *dbfile_open_handle(char *filename)
++
++#define MEMDB_FILENAME		"file::memory:?cache=shared"
++#define OPEN_FLAGS		(SQLITE_OPEN_READWRITE|SQLITE_OPEN_NOMUTEX|SQLITE_OPEN_URI)
++#define OPEN_FLAGS_CREATE	(OPEN_FLAGS|SQLITE_OPEN_CREATE)
++static sqlite3 *__dbfile_open_handle(char *filename, bool force_create)
+ {
+ 	int ret;
+ 	sqlite3 *db;
+ 
+-	if (!filename)
++	if (!filename) {
+ 		filename = MEMDB_FILENAME;
++		force_create = true;
++	}
++
++	if (force_create)
++		ret = sqlite3_open_v2(filename, &db, OPEN_FLAGS_CREATE, NULL);
++	else
++		ret = sqlite3_open_v2(filename, &db, OPEN_FLAGS, NULL);
++
++	if (ret == SQLITE_CANTOPEN && !force_create) {
++		vprintf("Cannot open an existing hashfile, retrying in create mode\n");
++		sqlite3_close(db);
++		return __dbfile_open_handle(filename, true);
++	}
+ 
+-	ret = sqlite3_open_v2(filename, &db, OPEN_FLAGS, NULL);
+ 	if (ret) {
+ 		perror_sqlite_open(db, filename);
+ 		sqlite3_close(db);
+@@ -322,19 +334,213 @@ struct sqlite3 *dbfile_open_handle(char *filename)
+ 		return NULL;
+ 	}
+ 
++	/* The handle is now created
++	 * If force_create is true, then this is a new database, either
++	 * on disk or in memory, which shall be initialized
++	 */
++	if (force_create) {
++		ret = dbfile_prepare(db);
++		if (ret) {
++			sqlite3_close(db);
++			return NULL;
++		}
++	}
++
+ 	return db;
+ }
+ 
+-void dbfile_close_handle(struct sqlite3 *db)
++#define dbfile_prepare_stmt(member, query) do {							\
++	int ret = sqlite3_prepare_v2(result->db, query, -1, &(result->stmts.member), NULL);	\
++	if (ret) {										\
++		perror_sqlite(ret, "preparing stmt");						\
++		goto err;									\
++	}											\
++} while (0)
++
++struct dbhandle *dbfile_open_handle(char *filename)
++{
++	struct dbhandle *result = calloc(1, sizeof(struct dbhandle));
++	result->db = __dbfile_open_handle(filename, false);
++
++	if (!result->db)
++		goto err;
++
++#define	INSERT_HASH						\
++"INSERT INTO hashes (ino, subvol, loff, flags, digest) VALUES (?1, ?2, ?3, ?4, ?5);"
++	dbfile_prepare_stmt(insert_hash, INSERT_HASH);
++
++#define	INSERT_EXTENTS						\
++"INSERT INTO extents (ino, subvol, loff, poff, len, flags, digest) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);"
++	dbfile_prepare_stmt(insert_extent, INSERT_EXTENTS);
++
++#define	UPDATE_FILE_DIGEST						\
++"UPDATE files SET digest = ?1 where ino = ?2 and subvol = ?3;"
++	dbfile_prepare_stmt(update_file_digest, UPDATE_FILE_DIGEST);
++
++#define FIND_BLOCKS                                                     \
++"select files.filename, hashes.loff, hashes.flags from files INNER JOIN hashes on hashes.digest = ?1 AND files.subvol=hashes.subvol AND files.ino=hashes.ino;"
++	dbfile_prepare_stmt(find_blocks, FIND_BLOCKS);
++
++#define FIND_TOP_B_HASHES                                                       \
++"select digest, count(digest) from hashes group by digest having (count(digest) > 1) order by (count(digest)) desc;"
++	dbfile_prepare_stmt(find_top_b_hashes, FIND_TOP_B_HASHES);
++
++#define FIND_TOP_E_HASHES                                                       \
++"select digest, count(digest) from extents group by digest having (count(digest) > 1) order by (count(digest)) desc;"
++	dbfile_prepare_stmt(find_top_e_hashes, FIND_TOP_E_HASHES);
++
++#define FIND_B_FILES_COUNT                                                \
++"select count (distinct files.filename) from files INNER JOIN hashes on hashes.digest = ?1 AND files.subvol=hashes.subvol AND files.ino=hashes.ino;"
++	dbfile_prepare_stmt(find_b_files_count, FIND_B_FILES_COUNT);
++
++#define FIND_E_FILES_COUNT                                                \
++"select count (distinct files.filename) from files INNER JOIN extents on extents.digest = ?1 AND files.subvol = extents.subvol AND files.ino = extents.ino;"
++	dbfile_prepare_stmt(find_e_files_count, FIND_E_FILES_COUNT);
++
++#define	UPDATE_EXTENT_POFF						\
++"update extents set poff = ?1 where ino = ?2 and subvol = ?3 and loff = ?4;"
++	dbfile_prepare_stmt(update_extent_poff, UPDATE_EXTENT_POFF);
++
++#define	WRITE_FILE							\
++"insert or replace into files (ino, subvol, filename, size, mtime, dedupe_seq) VALUES (?1, ?2, ?3, ?4, ?5, ?6);"
++	dbfile_prepare_stmt(write_file, WRITE_FILE);
++
++#define REMOVE_BLOCK_HASHES                                     \
++"delete from hashes where ino = ?1 and subvol = ?2;"
++	dbfile_prepare_stmt(remove_block_hashes, REMOVE_BLOCK_HASHES);
++
++#define REMOVE_EXTENT_HASHES                                    \
++"delete from extents where ino = ?1 and subvol = ?2;"
++	dbfile_prepare_stmt(remove_extent_hashes, REMOVE_EXTENT_HASHES);
++
++#define	LOAD_ALL_FILERECS					\
++"select filename, ino, subvol, size, mtime, dedupe_seq from files;"
++	dbfile_prepare_stmt(load_all_filerecs, LOAD_ALL_FILERECS);
++
++#define LOAD_FILEREC						\
++"select filename, size, mtime, dedupe_seq from files "		\
++"where ino = ?1 and subvol = ?2;"
++	dbfile_prepare_stmt(load_filerec, LOAD_FILEREC);
++
++#define GET_DUPLICATE_HASHES \
++	"SELECT hashes.digest, ino, subvol, loff, flags FROM hashes " \
++	"JOIN (SELECT DISTINCT digest FROM hashes WHERE digest IN " \
++	"(SELECT DISTINCT digest FROM hashes WHERE ino IN " \
++	"(SELECT DISTINCT ino FROM files WHERE dedupe_seq > " \
++	"(SELECT keyval FROM config WHERE keyname = 'dedupe_sequence')))" \
++	"GROUP BY digest " \
++				"HAVING count(*) > 1) AS duplicate_hashes " \
++	"on hashes.digest = duplicate_hashes.digest;"
++	dbfile_prepare_stmt(get_duplicate_hashes, GET_DUPLICATE_HASHES);
++
++	/*
++	 * We need to select on both digest and len, otherwise we
++	 * could run into a situation where a single extent with a
++	 * colliding hash but different length gets placed into the
++	 * results tree, which will get very angry when it has a
++	 * result of only one extent.
++	 */
++#define GET_DUPLICATE_EXTENTS					      \
++	"SELECT extents.digest, ino, subvol, loff, extents.len, poff, flags FROM extents " \
++	"JOIN (SELECT digest,len FROM extents where digest in " \
++	"(select distinct digest from extents where ino in " \
++	"(select ino from files where dedupe_seq > " \
++	"(select keyval from config where keyname = 'dedupe_sequence'))) " \
++	"GROUP BY digest,len HAVING count(*) > 1) " \
++	"AS duplicate_extents on extents.digest = duplicate_extents.digest AND " \
++	"extents.len = duplicate_extents.len;"
++	dbfile_prepare_stmt(get_duplicate_extents, GET_DUPLICATE_EXTENTS);
++
++#define GET_DUPLICATE_FILES					      \
++	"SELECT ino, subvol, files.size, files.digest FROM files "\
++	"JOIN (SELECT digest, size FROM files WHERE digest IN " \
++	"(SELECT distinct digest FROM files WHERE ino IN " \
++	"(SELECT ino FROM files WHERE dedupe_seq > " \
++	"(SELECT keyval FROM config WHERE keyname = 'dedupe_sequence'))) " \
++	"GROUP BY digest, size HAVING count(*) > 1) " \
++	"AS duplicate_files ON files.size != 0 AND " \
++	"files.digest = duplicate_files.digest AND " \
++	"files.size = duplicate_files.size;"
++	dbfile_prepare_stmt(get_duplicate_files, GET_DUPLICATE_FILES);
++
++#define GET_FILE_EXTENT	"select poff, loff, len, flags from extents where " \
++	"ino = ?1 and subvol = ?2 and loff <= ?3 and (loff + len) > ?3;"
++	dbfile_prepare_stmt(get_file_extent, GET_FILE_EXTENT);
++
++#define GET_NONDUPE_EXTENTS						\
++	"select extents.loff, len, poff, flags "			\
++	"FROM extents JOIN (SELECT digest FROM extents GROUP BY digest "\
++	"HAVING count(*) = 1) AS nondupe_extents on extents.digest = "	\
++	"nondupe_extents.digest where extents.ino = ?1 and extents.subvol = ?2;"
++	dbfile_prepare_stmt(get_nondupe_extents, GET_NONDUPE_EXTENTS);
++
++#define DELETE_FILE "delete from files where filename = ?1;"
++	dbfile_prepare_stmt(delete_file, DELETE_FILE);
++
++#define SELECT_FILE_CHANGES "select mtime, size from files where ino = ?1 and subvol = ?2;"
++	dbfile_prepare_stmt(select_file_changes, SELECT_FILE_CHANGES);
++
++#define COUNT_B_HASHES "select COUNT(*) from hashes;"
++	dbfile_prepare_stmt(count_b_hashes, COUNT_B_HASHES);
++
++#define COUNT_E_HASHES "select COUNT(*) from extents;"
++	dbfile_prepare_stmt(count_e_hashes, COUNT_E_HASHES);
++
++#define COUNT_FILES "select COUNT(*) from files;"
++	dbfile_prepare_stmt(count_files, COUNT_FILES);
++
++	return result;
++
++err:
++	dbfile_close_handle(result);
++	return NULL;
++}
++
++void dbfile_close_handle(struct dbhandle *db)
+ {
+-	sqlite3_close(db);
++	if(db) {
++		/* struct stmts is a named array of sqlite3_stmt*
++		 * let's iterate over all unnamed elements and
++		 * finalize each of them
++		 */
++		sqlite3_stmt **stmts = (sqlite3_stmt**)&(db->stmts);
++
++		int len = sizeof(struct stmts) / sizeof(sqlite3_stmt*);
++		for (int i = 0; i < len; i++) {
++			sqlite3_finalize(stmts[i]);
++		}
++
++		sqlite3_close(db->db);
++		free(db);
++	}
+ }
+ 
+-void dbfile_close(void)
++uint64_t count_file_by_digest(struct dbhandle *db, unsigned char *digest,
++				bool show_block_hashes)
+ {
+-	if (gdb)
+-		sqlite3_close(gdb);
+-	gdb = NULL;
++	int ret;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt;
++
++	if (show_block_hashes)
++		stmt = db->stmts.find_b_files_count;
++	else
++		stmt = db->stmts.find_e_files_count;
++
++	ret = sqlite3_bind_blob(stmt, 1, digest, DIGEST_LEN, SQLITE_STATIC);
++	if (ret) {
++		fprintf(stderr, "Error %d binding digest: %s\n", ret,
++			sqlite3_errstr(ret));
++		return 0;
++	}
++
++	ret = sqlite3_step(stmt);
++	if (ret != SQLITE_ROW && ret != SQLITE_DONE) {
++		fprintf(stderr, "error %d, file count search: %s\n",
++			ret, sqlite3_errstr(ret));
++		return 0;
++	}
++
++	return sqlite3_column_int64(stmt, 0);
+ }
+ 
+ int dbfile_begin_trans(sqlite3 *db)
+@@ -347,19 +553,11 @@ int dbfile_begin_trans(sqlite3 *db)
+ 	return ret;
+ }
+ 
+-int dbfile_update_extent_poff(sqlite3 *db, uint64_t ino, uint64_t subvol,
++int dbfile_update_extent_poff(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 				uint64_t loff, uint64_t poff)
+ {
+ 	int ret;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-#define	UPDATE_EXTENT_POFF						\
+-"update extents set poff = ?1 where ino = ?2 and subvol = ?3 and loff = ?4;"
+-	ret = sqlite3_prepare_v2(db, UPDATE_EXTENT_POFF, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing extent update statement");
+-		return ret;
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.update_extent_poff;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, poff);
+ 	if (ret)
+@@ -383,8 +581,6 @@ int dbfile_update_extent_poff(sqlite3 *db, uint64_t ino, uint64_t subvol,
+ 		return ret;
+ 	}
+ 
+-	sqlite3_reset(stmt);
+-
+ 	ret = 0;
+ bind_error:
+ 	if (ret)
+@@ -403,6 +599,16 @@ int dbfile_commit_trans(sqlite3 *db)
+ 	return ret;
+ }
+ 
++int dbfile_abort_trans(sqlite3 *db)
++{
++	int ret;
++
++	ret = sqlite3_exec(db, "rollback transaction", NULL, NULL, NULL);
++	if (ret)
++		perror_sqlite(ret, "aborting transaction");
++	return ret;
++}
++
+ static int sync_config_text(sqlite3_stmt *stmt, const char *key, char *val,
+ 			    int len)
+ {
+@@ -524,23 +730,15 @@ int __dbfile_sync_config(sqlite3 *db, struct dbfile_config *cfg)
+ 	return ret;
+ }
+ 
+-int dbfile_sync_config(struct dbfile_config *cfg)
++int dbfile_sync_config(struct dbhandle *db, struct dbfile_config *cfg)
+ {
+-	sqlite3 *db;
+-	int ret;
+-
+-	db = dbfile_get_handle();
+-	if (!db)
+-		return ENOENT;
+-
+-	ret = __dbfile_sync_config(db, cfg);
+-
+-	return ret;
++	return __dbfile_sync_config(db->db, cfg);
+ }
+ 
+-static int __dbfile_count_rows_stmt(sqlite3_stmt *stmt, uint64_t *num)
++static int __dbfile_count_rows(sqlite3_stmt *s, uint64_t *num)
+ {
+ 	int ret;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = s;
+ 
+ 	ret = sqlite3_step(stmt);
+ 	if (ret != SQLITE_ROW) {
+@@ -549,40 +747,21 @@ static int __dbfile_count_rows_stmt(sqlite3_stmt *stmt, uint64_t *num)
+ 	}
+ 
+ 	*num = sqlite3_column_int64(stmt, 0);
+-
+-	sqlite3_reset(stmt);
+-
+ 	return 0;
+ }
+ 
+-static int __dbfile_count_rows(sqlite3 *db, char *query, uint64_t *num)
+-{
+-	int ret;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt;
+-
+-	ret = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+-	if (ret)
+-		return ret;
+-
+-	return __dbfile_count_rows_stmt(stmt, num);
+-}
+-
+-int dbfile_get_stats(sqlite3 *db, struct dbfile_stats *stats)
++int dbfile_get_stats(struct dbhandle *db, struct dbfile_stats *stats)
+ {
+ 	int ret = 0;
+-
+-#define COUNT_B_HASHES "select COUNT(*) from hashes;"
+-	ret = __dbfile_count_rows(db, COUNT_B_HASHES, &(stats->num_b_hashes));
++	ret = __dbfile_count_rows(db->stmts.count_b_hashes, &(stats->num_b_hashes));
+ 	if (ret)
+ 		return ret;
+ 
+-#define COUNT_E_HASHES "select COUNT(*) from extents;"
+-	ret = __dbfile_count_rows(db, COUNT_E_HASHES, &(stats->num_e_hashes));
++	ret = __dbfile_count_rows(db->stmts.count_e_hashes, &(stats->num_e_hashes));
+ 	if (ret)
+ 		return ret;
+ 
+-#define COUNT_FILES "select COUNT(*) from files;"
+-	ret = __dbfile_count_rows(db, COUNT_FILES, &(stats->num_files));
++	ret = __dbfile_count_rows(db->stmts.count_files, &(stats->num_files));
+ 	if (ret)
+ 		return ret;
+ 
+@@ -746,9 +925,10 @@ int dbfile_get_config(sqlite3 *db, struct dbfile_config *cfg)
+ 	return ret;
+ }
+ 
+-static int __dbfile_store_file_info(sqlite3_stmt *stmt, struct filerec *file)
++int dbfile_store_file_info(struct dbhandle *db, struct filerec *file)
+ {
+ 	int ret;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.write_file;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, file->inum);
+ 	if (ret)
+@@ -788,55 +968,28 @@ static int __dbfile_store_file_info(sqlite3_stmt *stmt, struct filerec *file)
+ 	return ret;
+ }
+ 
+-int dbfile_store_file_info(sqlite3 *db, struct filerec *file)
+-{
+-	int ret;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-#define	WRITE_FILE							\
+-"insert or replace into files (ino, subvol, filename, size, mtime, dedupe_seq) VALUES (?1, ?2, ?3, ?4, ?5, ?6);"
+-	ret = sqlite3_prepare_v2(db, WRITE_FILE, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing filerec insert statement");
+-		return ret;
+-	}
+-
+-	ret = __dbfile_store_file_info(stmt, file);
+-	return ret;
+-}
+-
+ /*
+  * Write any filerec metadata which was not updated during the
+  * checksumming phase.
+  */
+-int dbfile_sync_files(sqlite3 *db)
++int dbfile_sync_files(struct dbhandle *db)
+ {
+ 	int ret;
+ 	struct filerec *file;
+-	sqlite3_stmt *stmt = NULL;
+-
+-	ret = sqlite3_prepare_v2(db, WRITE_FILE, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing filerec insert statement");
+-		return ret;
+-	}
+ 
+ 	list_for_each_entry(file, &filerec_list, rec_list) {
+ 		if (file->flags & FILEREC_UPDATE_DB) {
+ 			dprintf("File \"%s\" still needs update in db\n",
+ 				file->filename);
+ 
+-			ret = __dbfile_store_file_info(stmt, file);
++			ret = dbfile_store_file_info(db, file);
+ 			if (ret)
+ 				break;
+ 
+ 			file->flags &= ~FILEREC_UPDATE_DB;
+-			sqlite3_reset(stmt);
+ 		}
+ 	}
+ 
+-	sqlite3_finalize(stmt);
+-
+ 	return ret;
+ }
+ 
+@@ -868,48 +1021,24 @@ static int __dbfile_remove_file_hashes(sqlite3_stmt *stmt, uint64_t ino,
+ 	return ret;
+ }
+ 
+-static int dbfile_remove_block_hashes(sqlite3 *db, struct filerec *file)
++static int dbfile_remove_block_hashes(struct dbhandle *db, struct filerec *file)
+ {
+-	int ret = 0;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-#define	REMOVE_BLOCK_HASHES					\
+-	"delete from hashes where ino = ?1 and subvol = ?2;"
+-	ret = sqlite3_prepare_v2(db, REMOVE_BLOCK_HASHES, -1,
+-				 &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing block hashes delete statement");
+-		return ret;
+-	}
+-
+-	ret = __dbfile_remove_file_hashes(stmt, file->inum, file->subvolid);
+-	return ret;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_block_hashes;
++	return  __dbfile_remove_file_hashes(stmt, file->inum, file->subvolid);
+ }
+ 
+-int dbfile_remove_extent_hashes(sqlite3 *db, struct filerec *file)
++int dbfile_remove_extent_hashes(struct dbhandle *db, struct filerec *file)
+ {
+-	int ret = 0;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-#define	REMOVE_EXTENT_HASHES					\
+-	"delete from extents where ino = ?1 and subvol = ?2;"
+-	ret = sqlite3_prepare_v2(db, REMOVE_EXTENT_HASHES, -1,
+-				 &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing extent hashes delete statement");
+-		return ret;
+-	}
+-
+-	ret = __dbfile_remove_file_hashes(stmt, file->inum, file->subvolid);
+-	return ret;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_extent_hashes;
++	return __dbfile_remove_file_hashes(stmt, file->inum, file->subvolid);
+ }
+ 
+-int dbfile_store_block_hashes(sqlite3 *db, struct filerec *file,
++int dbfile_store_block_hashes(struct dbhandle *db, struct filerec *file,
+ 				uint64_t nb_hash, struct block_csum *hashes)
+ {
+ 	int ret;
+ 	uint64_t i;
+-	sqlite3_stmt *stmt = NULL;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.insert_hash;
+ 	uint64_t loff;
+ 	uint32_t flags;
+ 	unsigned char *digest;
+@@ -920,14 +1049,6 @@ int dbfile_store_block_hashes(sqlite3 *db, struct filerec *file,
+ 			return ret;
+ 	}
+ 
+-#define	UPDATE_HASH						\
+-"INSERT INTO hashes (ino, subvol, loff, flags, digest) VALUES (?1, ?2, ?3, ?4, ?5);"
+-	ret = sqlite3_prepare_v2(db, UPDATE_HASH, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing hash insert statement");
+-		goto out_error;
+-	}
+-
+ 	for (i = 0; i < nb_hash; i++) {
+ 		loff = hashes[i].loff;
+ 		flags = hashes[i].flags;
+@@ -969,25 +1090,16 @@ int dbfile_store_block_hashes(sqlite3 *db, struct filerec *file,
+ 		perror_sqlite(ret, "binding values");
+ out_error:
+ 
+-	sqlite3_finalize(stmt);
+ 	return ret;
+ }
+ 
+-int dbfile_store_file_digest(sqlite3 *db, struct filerec *file,
++int dbfile_store_file_digest(struct dbhandle *db, struct filerec *file,
+ 				unsigned char *digest)
+ {
+ 	int ret;
+-	 _cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-	dprintf("db: write file hash for file %s\n", file->filename);
+-#define	UPDATE_FILE_DIGEST						\
+-"UPDATE files SET digest = ?1 where ino = ?2 and subvol = ?3;"
+-	ret = sqlite3_prepare_v2(db, UPDATE_FILE_DIGEST, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing file digest insert statement");
+-		goto out_error;
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.update_file_digest;
+ 
++//	dprintf("db: write file hash for file %s\n", file->filename);
+ 	ret = sqlite3_bind_blob(stmt, 1, digest, DIGEST_LEN,
+ 				SQLITE_STATIC);
+ 	if (ret)
+@@ -1015,12 +1127,12 @@ int dbfile_store_file_digest(sqlite3 *db, struct filerec *file,
+ 	return ret;
+ }
+ 
+-int dbfile_store_extent_hashes(sqlite3 *db, struct filerec *file,
++int dbfile_store_extent_hashes(struct dbhandle *db, struct filerec *file,
+ 				uint64_t nb_hash, struct extent_csum *hashes)
+ {
+ 	int ret;
+ 	uint64_t i;
+-	sqlite3_stmt *stmt = NULL;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.insert_extent;
+ 	uint64_t loff, poff, len;
+ 	uint32_t flags;
+ 	unsigned char *digest;
+@@ -1033,14 +1145,6 @@ int dbfile_store_extent_hashes(sqlite3 *db, struct filerec *file,
+ 
+ 	dprintf("db: write %d hashes for file %s\n", (int)nb_hash,
+ 		file->filename);
+-#define	UPDATE_EXTENTS						\
+-"INSERT INTO extents (ino, subvol, loff, poff, len, flags, digest) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);"
+-	ret = sqlite3_prepare_v2(db, UPDATE_EXTENTS, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing extents insert statement");
+-		goto out_error;
+-	}
+-
+ 	for (i = 0; i < nb_hash; i++) {
+ 		loff = hashes[i].loff;
+ 		poff = hashes[i].poff;
+@@ -1092,30 +1196,31 @@ int dbfile_store_extent_hashes(sqlite3 *db, struct filerec *file,
+ 		perror_sqlite(ret, "binding values");
+ out_error:
+ 
+-	sqlite3_finalize(stmt);
+ 	return ret;
+ }
+ 
+ /*
+- * Walk the files in our db and let the code in add_file_db() sort out
+- * what to do with each one.
++ * Scan files based on db contents:
++ *
++ *  1) Files in the db which don't yet have filerecs will be stat'd and added
++ *
++ *  2) Deleted files have their file and hash records removed
++ *
++ * The real work of step 1 happens in add_file_db()
++ *
++ * Step 2 happens at this time because it allows us to clean the
++ * database of any unused inode / subvol pairs before we start
++ * inserting stuff during the csum stage. This keeps us from getting
++ * into a situation where we've inserted duplicate file records.
+  */
+-static int dbfile_load_files(struct sqlite3 *db)
++int dbfile_load_files(struct dbhandle *db)
+ {
+ 	int ret, del_rec;
+-	sqlite3_stmt *stmt = NULL;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.load_all_filerecs;
+ 	const char *filename;
+ 	uint64_t size, mtime, ino, subvol;
+ 	unsigned int dedupe_seq;
+ 
+-#define	LOAD_ALL_FILERECS	"select filename, ino, subvol, size, mtime, dedupe_seq from files;"
+-
+-	ret = sqlite3_prepare_v2(db, LOAD_ALL_FILERECS, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing statement");
+-		return ret;
+-	}
+-
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		filename = (const char *)sqlite3_column_text(stmt, 0);
+ 		ino = sqlite3_column_int64(stmt, 1);
+@@ -1127,57 +1232,24 @@ static int dbfile_load_files(struct sqlite3 *db)
+ 		ret = add_file_db(filename, ino, subvol, size, mtime,
+ 				  dedupe_seq, &del_rec);
+ 		if (ret)
+-			goto out;
++			return ret;
+ 
+ 		if (del_rec)
+ 			dbfile_remove_file(db, filename);
+ 	}
+ 	if (ret != SQLITE_DONE) {
+ 		perror_sqlite(ret, "looking up hash");
+-		goto out;
++		return ret;
+ 	}
+-	sqlite3_reset(stmt);
+-
+-	ret = 0;
+-out:
+-	if (stmt)
+-		sqlite3_finalize(stmt);
+-
+-	return ret;
+-}
+-
+-/*
+- * Scan files based on db contents:
+- *
+- *  1) Files in the db which don't yet have filerecs will be stat'd and added
+- *
+- *  2) Deleted files have their file and hash records removed
+- *
+- * The real work of step 1 happens in add_file_db()
+- *
+- * Step 2 happens at this time because it allows us to clean the
+- * database of any unused inode / subvol pairs before we start
+- * inserting stuff during the csum stage. This keeps us from getting
+- * into a situation where we've inserted duplicate file records.
+- */
+-int dbfile_scan_files()
+-{
+-	int ret;
+-	sqlite3 *db;
+ 
+-	db = dbfile_get_handle();
+-	if (!db)
+-		return ENOENT;
+-
+-	ret = dbfile_load_files(db);
+-	return ret;
++	return 0;
+ }
+ 
+-int dbfile_load_one_filerec(sqlite3 *db, uint64_t ino, uint64_t subvol,
++int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 				   struct filerec **file)
+ {
+ 	int ret;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.load_filerec;
+ 	const unsigned char *filename;
+ 	uint64_t size;
+ 	uint64_t mtime;
+@@ -1185,15 +1257,6 @@ int dbfile_load_one_filerec(sqlite3 *db, uint64_t ino, uint64_t subvol,
+ 
+ 	*file = NULL;
+ 
+-#define LOAD_FILEREC	"select filename, size, mtime, dedupe_seq from files " \
+-			"where ino = ?1 and subvol = ?2;"
+-
+-	ret = sqlite3_prepare_v2(db, LOAD_FILEREC, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing statement");
+-		return ret;
+-	}
+-
+ 	ret = sqlite3_bind_int64(stmt, 1, ino);
+ 	if (ret) {
+ 		perror_sqlite(ret, "binding ino");
+@@ -1232,8 +1295,8 @@ int dbfile_load_one_filerec(sqlite3 *db, uint64_t ino, uint64_t subvol,
+ int dbfile_load_block_hashes(struct hash_tree *hash_tree)
+ {
+ 	int ret;
+-	sqlite3 *db;
+-	sqlite3_stmt *stmt = NULL;
++	struct dbhandle *db;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = NULL;
+ 	uint64_t subvol, ino, loff;
+ 	unsigned char *digest;
+ 	int flags;
+@@ -1243,21 +1306,7 @@ int dbfile_load_block_hashes(struct hash_tree *hash_tree)
+ 	if (!db)
+ 		return ENOENT;
+ 
+-#define GET_DUPLICATE_HASHES \
+-	"SELECT hashes.digest, ino, subvol, loff, flags FROM hashes " \
+-	"JOIN (SELECT DISTINCT digest FROM hashes WHERE digest IN " \
+-	"(SELECT DISTINCT digest FROM hashes WHERE ino IN " \
+-	"(SELECT DISTINCT ino FROM files WHERE dedupe_seq > " \
+-	"(SELECT keyval FROM config WHERE keyname = 'dedupe_sequence')))" \
+-	"GROUP BY digest " \
+-				"HAVING count(*) > 1) AS duplicate_hashes " \
+-	"on hashes.digest = duplicate_hashes.digest;"
+-
+-	ret = sqlite3_prepare_v2(db, GET_DUPLICATE_HASHES, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing statement");
+-		return ret;
+-	}
++	stmt = db->stmts.get_duplicate_hashes;
+ 
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		digest = (unsigned char *)sqlite3_column_blob(stmt, 0);
+@@ -1273,7 +1322,7 @@ int dbfile_load_block_hashes(struct hash_tree *hash_tree)
+ 				fprintf(stderr, "Error loading filerec (%"
+ 					PRIu64",%"PRIu64") from db\n",
+ 					ino, subvol);
+-				goto out;
++				return ret;
+ 			}
+ 		}
+ 
+@@ -1283,25 +1332,19 @@ int dbfile_load_block_hashes(struct hash_tree *hash_tree)
+ 	}
+ 	if (ret != SQLITE_DONE) {
+ 		perror_sqlite(ret, "looking up hash");
+-		goto out;
++		return ret;
+ 	}
+-	sqlite3_reset(stmt);
+ 
+ 	sort_file_hash_heads(hash_tree);
+ 
+-	ret = 0;
+-out:
+-	if (stmt)
+-		sqlite3_finalize(stmt);
+-
+-	return ret;
++	return 0;
+ }
+ 
+ int dbfile_load_extent_hashes(struct results_tree *res)
+ {
+ 	int ret, flags;
+-	sqlite3 *db;
+-	sqlite3_stmt *stmt = NULL;
++	struct dbhandle *db;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = NULL;
+ 	uint64_t subvol, ino, loff, poff, len;
+ 	unsigned char *digest;
+ 	struct filerec *file;
+@@ -1310,28 +1353,7 @@ int dbfile_load_extent_hashes(struct results_tree *res)
+ 	if (!db)
+ 		return ENOENT;
+ 
+-	/*
+-	 * We need to select on both digest and len, otherwise we
+-	 * could run into a situation where a single extent with a
+-	 * colliding hash but different length gets placed into the
+-	 * results tree, which will get very angry when it has a
+-	 * result of only one extent.
+-	 */
+-#define GET_DUPLICATE_EXTENTS					      \
+-	"SELECT extents.digest, ino, subvol, loff, extents.len, poff, flags FROM extents " \
+-	"JOIN (SELECT digest,len FROM extents where digest in " \
+-	"(select distinct digest from extents where ino in " \
+-	"(select ino from files where dedupe_seq > " \
+-	"(select keyval from config where keyname = 'dedupe_sequence'))) " \
+-	"GROUP BY digest,len HAVING count(*) > 1) " \
+-	"AS duplicate_extents on extents.digest = duplicate_extents.digest AND " \
+-	"extents.len = duplicate_extents.len;"
+-
+-	ret = sqlite3_prepare_v2(db, GET_DUPLICATE_EXTENTS, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing statement");
+-		return ret;
+-	}
++	stmt = db->stmts.get_duplicate_extents;
+ 
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		digest = (unsigned char *)sqlite3_column_blob(stmt, 0);
+@@ -1349,7 +1371,7 @@ int dbfile_load_extent_hashes(struct results_tree *res)
+ 				fprintf(stderr, "Error loading filerec (%"
+ 					PRIu64",%"PRIu64") from db\n",
+ 					ino, subvol);
+-				goto out;
++				return ret;
+ 			}
+ 		}
+ 
+@@ -1359,43 +1381,29 @@ int dbfile_load_extent_hashes(struct results_tree *res)
+ 	}
+ 	if (ret != SQLITE_DONE) {
+ 		perror_sqlite(ret, "looking up hash");
+-		goto out;
++		return ret;
+ 	}
+-	sqlite3_reset(stmt);
+ 
+-	ret = 0;
+-out:
+-	if (stmt)
+-		sqlite3_finalize(stmt);
+-
+-	return ret;
++	return 0;
+ }
+ 
+-int dbfile_load_one_file_extent(sqlite3 *db, struct filerec *file,
++int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
+ 				uint64_t loff, struct file_extent *extent)
+ {
+ 	int ret;
+-	sqlite3_stmt *stmt = NULL;
+-
+-#define GET_FILE_EXTENT	"select poff, loff, len, flags from extents where " \
+-	"ino = ?1 and subvol = ?2 and loff <= ?3 and (loff + len) > ?3;"
+-	ret = sqlite3_prepare_v2(db, GET_FILE_EXTENT, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing get file extents statement");
+-		goto out;
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_file_extent;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, file->inum);
+ 	if (ret)
+-		goto out;
++		return ret;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 2, file->subvolid);
+ 	if (ret)
+-		goto out;
++		return ret;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 3, loff);
+ 	if (ret)
+-		goto out;
++		return ret;
+ 
+ 	ret = sqlite3_step(stmt);
+ 	if (ret != SQLITE_ROW) {
+@@ -1408,34 +1416,18 @@ int dbfile_load_one_file_extent(sqlite3 *db, struct filerec *file,
+ 	extent->len = sqlite3_column_int64(stmt, 2);
+ 	extent->flags = sqlite3_column_int(stmt, 3);
+ 
+-	ret = 0;
+-out:
+-	sqlite3_finalize(stmt);
+-	return ret;
++	return 0;
+ }
+ 
+-int dbfile_load_nondupe_file_extents(sqlite3 *db, struct filerec *file,
++int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+ 				     struct file_extent **ret_extents,
+ 				     unsigned int *num_extents)
+ {
+ 	int ret;
+-	sqlite3_stmt *stmt = NULL;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_nondupe_extents;
+ 	uint64_t count = 0, i;
+ 	struct file_extent *extents = NULL;
+ 
+-#define NONDUPE_JOIN							\
+-	"FROM extents JOIN (SELECT digest FROM extents GROUP BY digest "\
+-	"HAVING count(*) = 1) AS nondupe_extents on extents.digest = "	\
+-	"nondupe_extents.digest where extents.ino = ?1 and extents.subvol = ?2;"
+-#define GET_NONDUPE_EXTENTS						\
+-	"select extents.loff, len, poff, flags " NONDUPE_JOIN
+-
+-	ret = sqlite3_prepare_v2(db, GET_NONDUPE_EXTENTS, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing nondupe extents statement");
+-		goto out;
+-	}
+-
+ 	ret = sqlite3_bind_int64(stmt, 1, file->inum);
+ 	if (ret)
+ 		goto out;
+@@ -1472,7 +1464,6 @@ int dbfile_load_nondupe_file_extents(sqlite3 *db, struct filerec *file,
+ out:
+ 	if (ret && extents)
+ 		free(extents);
+-	sqlite3_finalize(stmt);
+ 	return ret;
+ }
+ 
+@@ -1486,12 +1477,12 @@ static int iter_cb(void *priv, int argc, char **argv,
+ 	return 0;
+ }
+ 
+-int dbfile_iter_files(sqlite3 *db, iter_files_func func)
++int dbfile_iter_files(struct dbhandle *db, iter_files_func func)
+ {
+ 	int ret;
+ 
+ #define	LIST_FILES	"select filename, ino, subvol from files;"
+-	ret = sqlite3_exec(db, LIST_FILES, iter_cb, func, NULL);
++	ret = sqlite3_exec(db->db, LIST_FILES, iter_cb, func, NULL);
+ 	if (ret) {
+ 		perror_sqlite(ret, "Running sql to list files.");
+ 		return ret;
+@@ -1500,17 +1491,10 @@ int dbfile_iter_files(sqlite3 *db, iter_files_func func)
+ 	return 0;
+ }
+ 
+-int dbfile_remove_file(sqlite3 *db, const char *filename)
++int dbfile_remove_file(struct dbhandle *db, const char *filename)
+ {
+ 	int ret;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-#define DELETE_FILE "delete from files where filename = ?1;"
+-	ret = sqlite3_prepare_v2(db, DELETE_FILE, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing files statement");
+-		return ret;
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.delete_file;
+ 
+ 	dprintf("Remove file \"%s\" from the db\n", filename);
+ 
+@@ -1529,7 +1513,7 @@ int dbfile_remove_file(sqlite3 *db, const char *filename)
+ 	return 0;
+ }
+ 
+-void dbfile_list_files(sqlite3 *db, int (*callback)(void*, int, char**, char**))
++void dbfile_list_files(struct dbhandle *db, int (*callback)(void*, int, char**, char**))
+ {
+ 	int ret;
+ 	char *err;
+@@ -1537,7 +1521,7 @@ void dbfile_list_files(sqlite3 *db, int (*callback)(void*, int, char**, char**))
+ #define LIST_FILERECS							\
+ "select ino, subvol, blocks, size, filename from files;"
+ 
+-	ret = sqlite3_exec(db, LIST_FILERECS, callback, NULL, &err);
++	ret = sqlite3_exec(db->db, LIST_FILERECS, callback, NULL, &err);
+ 	if (ret) {
+ 		fprintf(stderr, "error %d, executing file search: %s\n", ret,
+ 			err);
+@@ -1550,18 +1534,11 @@ void dbfile_list_files(sqlite3 *db, int (*callback)(void*, int, char**, char**))
+  * Returns false only if they match.
+  * Returns true if not, or if there is not data found, or on error.
+  */
+-int dbfile_describe_file(sqlite3 *db, uint64_t inum, uint64_t subvolid,
++int dbfile_describe_file(struct dbhandle *db, uint64_t inum, uint64_t subvolid,
+ 				uint64_t *mtime, uint64_t *size)
+ {
+ 	int ret;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
+-
+-#define SELECT_FILE_CHANGES "select mtime, size from files where ino = ?1 and subvol = ?2;"
+-	ret = sqlite3_prepare_v2(db, SELECT_FILE_CHANGES, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing statement");
+-		return ret;
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.select_file_changes;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, inum);
+ 	if (ret) {
+@@ -1580,7 +1557,7 @@ int dbfile_describe_file(sqlite3 *db, uint64_t inum, uint64_t subvolid,
+ 		return 0;
+ 
+ 	if (ret != SQLITE_ROW) {
+-		perror_sqlite(ret, "fetching database's backend path");
++		perror_sqlite(ret, "fetching a file");
+ 		return ret;
+ 	}
+ 
+@@ -1593,8 +1570,8 @@ int dbfile_describe_file(sqlite3 *db, uint64_t inum, uint64_t subvolid,
+ int dbfile_load_same_files(struct results_tree *res)
+ {
+ 	int ret;
+-	sqlite3 *db;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *stmt = NULL;
++	struct dbhandle *db;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = NULL;
+ 	uint64_t subvol, ino, len;
+ 	unsigned char *digest;
+ 	struct filerec *file;
+@@ -1603,22 +1580,7 @@ int dbfile_load_same_files(struct results_tree *res)
+ 	if (!db)
+ 		return ENOENT;
+ 
+-#define GET_DUPLICATE_FILES					      \
+-	"SELECT ino, subvol, files.size, files.digest FROM files "\
+-	"JOIN (SELECT digest, size FROM files WHERE digest IN " \
+-	"(SELECT distinct digest FROM files WHERE ino IN " \
+-	"(SELECT ino FROM files WHERE dedupe_seq > " \
+-	"(SELECT keyval FROM config WHERE keyname = 'dedupe_sequence'))) " \
+-	"GROUP BY digest, size HAVING count(*) > 1) " \
+-	"AS duplicate_files ON files.size != 0 AND " \
+-	"files.digest = duplicate_files.digest AND " \
+-	"files.size = duplicate_files.size;"
+-
+-	ret = sqlite3_prepare_v2(db, GET_DUPLICATE_FILES, -1, &stmt, NULL);
+-	if (ret) {
+-		perror_sqlite(ret, "preparing statement");
+-		return ret;
+-	}
++	stmt = db->stmts.get_duplicate_files;
+ 
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		ino = sqlite3_column_int64(stmt, 0);
+@@ -1633,7 +1595,7 @@ int dbfile_load_same_files(struct results_tree *res)
+ 				fprintf(stderr, "Error loading filerec (%"
+ 					PRIu64",%"PRIu64") from db\n",
+ 					ino, subvol);
+-				goto out;
++				return ret;
+ 			}
+ 		}
+ 
+@@ -1643,11 +1605,13 @@ int dbfile_load_same_files(struct results_tree *res)
+ 	}
+ 	if (ret != SQLITE_DONE) {
+ 		perror_sqlite(ret, "looking up hash");
+-		goto out;
++		return ret;
+ 	}
+-	sqlite3_reset(stmt);
+ 
+-	ret = 0;
+-out:
+-	return ret;
++	return 0;
++}
++
++void dbfile_set_gdb(struct dbhandle *db)
++{
++	gdb = db;
+ }
+diff --git a/dbfile.h b/dbfile.h
+index 460ea0dc57e2..84841cbcc99d 100644
+--- a/dbfile.h
++++ b/dbfile.h
+@@ -17,11 +17,43 @@ struct dbfile_config;
+ #define DB_FILE_MAJOR	3
+ #define DB_FILE_MINOR	4
+ 
+-int dbfile_open(char *filename, struct dbfile_config *cfg);
+-void dbfile_close(void);
++struct stmts {
++	sqlite3_stmt *insert_hash;
++	sqlite3_stmt *insert_extent;
++	sqlite3_stmt *update_file_digest;
++	sqlite3_stmt *find_blocks;
++	sqlite3_stmt *find_top_b_hashes;
++	sqlite3_stmt *find_top_e_hashes;
++	sqlite3_stmt *find_b_files_count;
++	sqlite3_stmt *find_e_files_count;
++	sqlite3_stmt *update_extent_poff;
++	sqlite3_stmt *write_file;
++	sqlite3_stmt *remove_block_hashes;
++	sqlite3_stmt *remove_extent_hashes;
++	sqlite3_stmt *load_all_filerecs;
++	sqlite3_stmt *load_filerec;
++	sqlite3_stmt *get_duplicate_hashes;
++	sqlite3_stmt *get_duplicate_extents;
++	sqlite3_stmt *get_duplicate_files;
++	sqlite3_stmt *get_file_extent;
++	sqlite3_stmt *get_nondupe_extents;
++	sqlite3_stmt *delete_file;
++	sqlite3_stmt *select_file_changes;
++	sqlite3_stmt *count_b_hashes;
++	sqlite3_stmt *count_e_hashes;
++	sqlite3_stmt *count_files;
++};
++
++struct dbhandle {
++	sqlite3 *db;
++	struct stmts stmts;
++};
+ 
+-struct sqlite3 *dbfile_open_handle(char *filename);
+-void dbfile_close_handle(struct sqlite3 *db);
++struct dbhandle *dbfile_open_handle(char *filename);
++void dbfile_close_handle(struct dbhandle *db);
++
++void dbfile_lock();
++void dbfile_unlock();
+ 
+ struct dbfile_config {
+ 	unsigned int	blocksize;
+@@ -33,15 +65,18 @@ struct dbfile_config {
+ 	unsigned int	dedupe_seq;
+ };
+ int dbfile_get_config(sqlite3 *db, struct dbfile_config *cfg);
+-int dbfile_sync_config(struct dbfile_config *cfg);
++int __dbfile_sync_config(sqlite3 *db, struct dbfile_config *cfg);
++int dbfile_sync_config(struct dbhandle *db, struct dbfile_config *cfg);
+ 
+ struct dbfile_stats {
+ 	uint64_t	num_b_hashes;
+ 	uint64_t	num_e_hashes;
+ 	uint64_t	num_files;
+ };
++int dbfile_get_stats(struct dbhandle *db, struct dbfile_stats *stats);
+ 
+-int dbfile_get_stats(sqlite3 *db, struct dbfile_stats *stats);
++uint64_t count_file_by_digest(struct dbhandle *db, unsigned char *digest,
++				bool show_block_hashes);
+ 
+ struct hash_tree;
+ struct hash_file_header;
+@@ -60,36 +95,38 @@ struct file_extent {
+ 	uint64_t	len;
+ 	unsigned int	flags;
+ };
+-int dbfile_load_nondupe_file_extents(sqlite3 *db, struct filerec *file,
++int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+ 				     struct file_extent **ret_extents,
+ 				     unsigned int *num_extents);
+-int dbfile_load_one_file_extent(sqlite3 *db, struct filerec *file,
++int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
+ 				uint64_t loff, struct file_extent *extent);
+ 
+-int dbfile_load_one_filerec(sqlite3 *db, uint64_t ino, uint64_t subvol,
++int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 				struct filerec **file);
+ 
+ /* Scan files based on db contents. Removes any orphaned file records. */
+-int dbfile_scan_files();
++int dbfile_load_files(struct dbhandle *db);
+ 
+ /* Write any filerecs marked as needing update to the db */
+-int dbfile_sync_files(sqlite3 *db);
++int dbfile_sync_files(struct dbhandle *db);
+ 
+ /*
+  * Following are used during file scan stage to get our hashes into
+  * the database.
+  */
+-sqlite3 *dbfile_get_handle(void);
+-int dbfile_store_file_info(sqlite3 *db, struct filerec *file);
+-int dbfile_store_block_hashes(sqlite3 *db, struct filerec *file,
++struct dbhandle *dbfile_get_handle(void);
++
++int dbfile_store_file_info(struct dbhandle *db, struct filerec *file);
++int dbfile_store_block_hashes(struct dbhandle *db, struct filerec *file,
+ 				uint64_t nb_hash, struct block_csum *hashes);
+-int dbfile_store_extent_hashes(sqlite3 *db, struct filerec *file,
++int dbfile_store_extent_hashes(struct dbhandle *db, struct filerec *file,
+ 				uint64_t nb_hash, struct extent_csum *hashes);
+-int dbfile_store_file_digest(sqlite3 *db, struct filerec *file,
++int dbfile_store_file_digest(struct dbhandle *db, struct filerec *file,
+ 				unsigned char *digest);
+ int dbfile_begin_trans(sqlite3 *db);
+ int dbfile_commit_trans(sqlite3 *db);
+-int dbfile_update_extent_poff(sqlite3 *db, uint64_t ino, uint64_t subvol,
++int dbfile_abort_trans(sqlite3 *db);
++int dbfile_update_extent_poff(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 				uint64_t loff, uint64_t poff);
+ 
+ /*
+@@ -97,14 +134,14 @@ int dbfile_update_extent_poff(sqlite3 *db, uint64_t ino, uint64_t subvol,
+  * for now.
+  */
+ typedef void (*iter_files_func)(char *filename, char *ino, char *subvol);
+-int dbfile_iter_files(sqlite3 *db, iter_files_func func);
++int dbfile_iter_files(struct dbhandle *db, iter_files_func func);
+ 
+-int dbfile_remove_file(sqlite3 *db, const char *filename);
+-int dbfile_remove_extent_hashes(sqlite3 *db, struct filerec *file);
++int dbfile_remove_extent_hashes(struct dbhandle *db, struct filerec *file);
++int dbfile_remove_file(struct dbhandle *db, const char *filename);
+ 
+-void dbfile_list_files(sqlite3 *db, int (*callback)(void*, int, char**, char**));
++void dbfile_list_files(struct dbhandle *db, int (*callback)(void*, int, char**, char**));
+ 
+-int dbfile_describe_file(sqlite3 *db, uint64_t inum, uint64_t subvolid,
++int dbfile_describe_file(struct dbhandle *db, uint64_t inum, uint64_t subvolid,
+ 				uint64_t *mtime, uint64_t *size);
+ int dbfile_load_same_files(struct results_tree *res);
+ 
+@@ -113,8 +150,15 @@ static inline void sqlite3_stmt_cleanup(void *p)
+ 	sqlite3_finalize(*(sqlite3_stmt**) p);
+ }
+ 
+-static inline void sqlite3_close_cleanup(void *p)
++static inline void sqlite3_close_cleanup(struct dbhandle **db)
+ {
+-	sqlite3_close(*(sqlite3**) p);
++	dbfile_close_handle(*db);
+ }
++
++static inline void sqlite3_reset_stmt(sqlite3_stmt **stmt)
++{
++	sqlite3_reset(*stmt);
++}
++
++void dbfile_set_gdb(struct dbhandle *db);
+ #endif	/* __DBFILE_H__ */
+diff --git a/duperemove.c b/duperemove.c
+index 2aaacf1ba150..11e636f315b1 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -76,7 +76,7 @@ static int list_db_files(char *filename)
+ {
+ 	int ret;
+ 
+-	_cleanup_(sqlite3_close_cleanup) sqlite3 *db = dbfile_open_handle(filename);
++	_cleanup_(sqlite3_close_cleanup) struct dbhandle *db = dbfile_open_handle(filename);
+ 	if (!db) {
+ 		fprintf(stderr, "Error: Could not open \"%s\"\n", filename);
+ 		return -1;
+@@ -86,7 +86,7 @@ static int list_db_files(char *filename)
+ 	return ret;
+ }
+ 
+-static void rm_db_files_from_stdin(sqlite3 *db)
++static void rm_db_files_from_stdin(struct dbhandle *db)
+ {
+ 	_cleanup_(freep) char *path = NULL;
+ 	size_t pathlen = 0;
+@@ -112,7 +112,7 @@ static void rm_db_files_from_stdin(sqlite3 *db)
+ static int rm_db_files(int numfiles, char **files)
+ {
+ 	int i, ret;
+-	_cleanup_(sqlite3_close_cleanup) sqlite3 *db = dbfile_open_handle(options.hashfile);
++	_cleanup_(sqlite3_close_cleanup) struct dbhandle *db = dbfile_open_handle(options.hashfile);
+ 	if (!db) {
+ 		fprintf(stderr, "Error: Could not open \"%s\"\n", options.hashfile);
+ 		return -1;
+@@ -556,7 +556,7 @@ void process_duplicates()
+ 		dbfile_cfg.blocksize = blocksize;
+ 		dbfile_cfg.onefs_dev = fs_onefs_dev();
+ 		dbfile_cfg.onefs_fsid = fs_onefs_id();
+-		ret = dbfile_sync_config(&dbfile_cfg);
++		ret = dbfile_sync_config(dbfile_get_handle(), &dbfile_cfg);
+ 		if (ret)
+ 			goto out;
+ 	}
+@@ -565,7 +565,7 @@ void process_duplicates()
+ 	free_hash_tree(&dups_tree);
+ }
+ 
+-static int create_scan_list(int argc, char **argv, int filelist_idx)
++static int create_scan_list(int argc, char **argv, int filelist_idx, struct dbhandle *db)
+ {
+ 	int ret;
+ 
+@@ -583,13 +583,13 @@ static int create_scan_list(int argc, char **argv, int filelist_idx)
+ 	 */
+ 	dbfile_cfg.onefs_dev = fs_onefs_dev();
+ 	dbfile_cfg.onefs_fsid = fs_onefs_id();
+-	ret = dbfile_sync_config(&dbfile_cfg);
++	ret = dbfile_sync_config(db, &dbfile_cfg);
+ 	if (ret)
+ 		return ret;
+ 
+ 	if (options.rescan_files) {
+ 		qprintf("Adding files from database for hashing.\n");
+-		ret = dbfile_scan_files();
++		ret = dbfile_load_files(db);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -605,6 +605,7 @@ static int create_scan_list(int argc, char **argv, int filelist_idx)
+ int main(int argc, char **argv)
+ {
+ 	int ret, filelist_idx = 0;
++	_cleanup_(sqlite3_close_cleanup) struct dbhandle *db = NULL;
+ 
+ 	char stdbuf[BUFSIZ];
+ 	setvbuf(stdout, stdbuf, _IOLBF, BUFSIZ);
+@@ -633,7 +634,13 @@ int main(int argc, char **argv)
+ 	else if (rm_only_opt)
+ 		return rm_db_files(argc - filelist_idx, &argv[filelist_idx]);
+ 
+-	ret = dbfile_open(options.hashfile, &dbfile_cfg);
++	db = dbfile_open_handle(options.hashfile);
++	if (!db)
++		goto out;
++
++	dbfile_set_gdb(db);
++
++	ret = dbfile_get_config(db->db, &dbfile_cfg);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -645,7 +652,7 @@ int main(int argc, char **argv)
+ 	print_header();
+ 
+ 	if (use_hashfile == H_WRITE) {
+-		ret = create_scan_list(argc, argv, filelist_idx);
++		ret = create_scan_list(argc, argv, filelist_idx, db);
+ 		if (ret)
+ 			goto out;
+ 
+@@ -655,7 +662,7 @@ int main(int argc, char **argv)
+ 			goto out;
+ 		}
+ 
+-		ret = dbfile_sync_files(dbfile_get_handle());
++		ret = dbfile_sync_files(db);
+ 		if (ret)
+ 			goto out;
+ 
+@@ -664,7 +671,7 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	if (use_hashfile == H_UPDATE) {
+-		ret = create_scan_list(argc, argv, filelist_idx);
++		ret = create_scan_list(argc, argv, filelist_idx, db);
+ 		if (ret)
+ 			goto out;
+ 
+@@ -674,7 +681,7 @@ int main(int argc, char **argv)
+ 			goto out;
+ 		}
+ 
+-		ret = dbfile_sync_files(dbfile_get_handle());
++		ret = dbfile_sync_files(db);
+ 		if (ret)
+ 			goto out;
+ 	}
+@@ -684,7 +691,6 @@ int main(int argc, char **argv)
+ 
+ out:
+ 	free_all_filerecs();
+-	dbfile_close();
+ 
+ #ifdef DEBUG_BUILD
+ 	print_mem_stats();
+diff --git a/file_scan.c b/file_scan.c
+index 4d7e438c247d..c05a17cdb925 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -881,7 +881,7 @@ static void csum_whole_file(struct filerec *file,
+ 	uint64_t nb_hash = 0;
+ 	struct fiemap_ctxt *fc = NULL;
+ 	struct csum_ctxt csum_ctxt;
+-	struct sqlite3 *db = NULL;
++	struct dbhandle *db = NULL;
+ 	struct extent_csum *extent_hashes = NULL;
+ 	struct block_csum *block_hashes = NULL;
+ 
+@@ -907,7 +907,7 @@ static void csum_whole_file(struct filerec *file,
+ 	g_mutex_lock(&io_mutex);
+ 	/* Make sure that we'll check this file on any future dedupe passes */
+ 	filerec_clear_deduped(file);
+-	ret = dbfile_begin_trans(db);
++	ret = dbfile_begin_trans(db->db);
+ 	if (ret) {
+ 		g_mutex_unlock(&io_mutex);
+ 		goto err;
+@@ -943,7 +943,7 @@ static void csum_whole_file(struct filerec *file,
+ 		goto err;
+ 	}
+ 
+-	ret = dbfile_commit_trans(db);
++	ret = dbfile_commit_trans(db->db);
+ 	if (ret) {
+ 		g_mutex_unlock(&io_mutex);
+ 		goto err;
+diff --git a/find_dupes.c b/find_dupes.c
+index 1512cdfbee8b..9d79cfdd88db 100644
+--- a/find_dupes.c
++++ b/find_dupes.c
+@@ -329,7 +329,7 @@ static int compare_extents(struct filerec *orig_file,
+ }
+ 
+ static int search_extent(struct filerec *file, struct file_extent *extent,
+-			 struct results_tree *dupe_extents, sqlite3 *db)
++			 struct results_tree *dupe_extents, struct dbhandle *db)
+ {
+ 	int ret;
+ 	struct file_block *block, *found_block;
+@@ -396,7 +396,7 @@ static int search_file_extents(struct filerec *file, struct results_tree *dupe_e
+ {
+ 
+ 	int ret;
+-	sqlite3 *db;
++	struct dbhandle *db;
+ 	struct file_extent *extents = NULL;
+ 	struct file_extent *extent;
+ 	unsigned int num_extents, i;
+diff --git a/hashstats.c b/hashstats.c
+index 9a342287c5fd..2f41812cb03f 100644
+--- a/hashstats.c
++++ b/hashstats.c
+@@ -51,12 +51,13 @@ static void printf_file_block_flags(unsigned int flags)
+ 	printf(")");
+ }
+ 
+-static int print_all_blocks(unsigned char *digest, sqlite3_stmt *find_blocks_stmt)
++static int print_all_blocks(struct dbhandle *db, unsigned char *digest)
+ {
+ 	int ret;
+ 	uint64_t loff;
+ 	unsigned int flags;
+ 	const unsigned char *filename;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *find_blocks_stmt = db->stmts.find_blocks;
+ 
+ 	ret = sqlite3_bind_blob(find_blocks_stmt, 1, digest, DIGEST_LEN,
+ 				SQLITE_STATIC);
+@@ -86,59 +87,22 @@ static int print_all_blocks(unsigned char *digest, sqlite3_stmt *find_blocks_stm
+ 		return ret;
+ 	}
+ 
+-	sqlite3_reset(find_blocks_stmt);
+-
+ 	return 0;
+ }
+ 
+-static void print_by_size(sqlite3 *db)
++static void print_by_size(struct dbhandle *db)
+ {
+ 	int ret;
+ 	int header_printed = 0;
+ 	unsigned char *digest;
+ 	uint64_t count, files_count;
+ 
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *find_blocks_stmt = NULL;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *top_hashes_stmt = NULL;
+-	_cleanup_(sqlite3_stmt_cleanup) sqlite3_stmt *files_count_stmt = NULL;
+-
+-#define	FIND_BLOCKS							\
+-"select files.filename, hashes.loff, hashes.flags from files INNER JOIN hashes on hashes.digest = ?1 AND files.subvol=hashes.subvol AND files.ino=hashes.ino;"
+-
+-	ret = sqlite3_prepare_v2(db, FIND_BLOCKS, -1, &find_blocks_stmt, NULL);
+-	if (ret) {
+-		fprintf(stderr, "error %d while prepping find blocks stmt: %s\n",
+-			ret, sqlite3_errstr(ret));
+-		return;
+-	}
+-
+-#define	FIND_TOP_B_HASHES							\
+-"select digest, count(digest) from hashes group by digest having (count(digest) > 1) order by (count(digest)) desc;"
+-#define	FIND_TOP_E_HASHES							\
+-"select digest, count(digest) from extents group by digest having (count(digest) > 1) order by (count(digest)) desc;"
+-	if (show_block_hashes) {
+-		ret = sqlite3_prepare_v2(db, FIND_TOP_B_HASHES, -1, &top_hashes_stmt,
+-					 NULL);
+-	} else {
+-		ret = sqlite3_prepare_v2(db, FIND_TOP_E_HASHES, -1, &top_hashes_stmt,
+-					 NULL);
+-	}
+-
+-	if (ret) {
+-		fprintf(stderr, "error %d while prepping hash search stmt: %s\n",
+-			ret, sqlite3_errstr(ret));
+-		return;
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *top_hashes_stmt;
+ 
+-#define	FIND_FILES_COUNT						\
+-"select count (distinct files.filename) from files INNER JOIN hashes on hashes.digest = ?1 AND files.subvol=hashes.subvol AND files.ino=hashes.ino;"
+-	ret = sqlite3_prepare_v2(db, FIND_FILES_COUNT, -1, &files_count_stmt,
+-				 NULL);
+-	if (ret) {
+-		fprintf(stderr, "error %d while preparing file count stmt: %s\n",
+-			ret, sqlite3_errstr(ret));
+-		return;
+-	}
++	if (show_block_hashes)
++		top_hashes_stmt = db->stmts.find_top_b_hashes;
++	else
++		top_hashes_stmt = db->stmts.find_top_e_hashes;
+ 
+ 	if (print_all_hashes)
+ 		printf("Print all hashes ");
+@@ -151,22 +115,7 @@ static void print_by_size(sqlite3 *db)
+ 		digest = (unsigned char *)sqlite3_column_blob(top_hashes_stmt, 0);
+ 		count = sqlite3_column_int64(top_hashes_stmt, 1);
+ 
+-		ret = sqlite3_bind_blob(files_count_stmt, 1, digest, DIGEST_LEN,
+-					SQLITE_STATIC);
+-		if (ret) {
+-			fprintf(stderr, "Error %d binding digest: %s\n", ret,
+-				sqlite3_errstr(ret));
+-			return;
+-		}
+-
+-		ret = sqlite3_step(files_count_stmt);
+-		if (ret != SQLITE_ROW && ret != SQLITE_DONE) {
+-			fprintf(stderr, "error %d, file count search: %s\n",
+-				ret, sqlite3_errstr(ret));
+-			return;
+-		}
+-
+-		files_count = sqlite3_column_int64(files_count_stmt, 0);
++		files_count = count_file_by_digest(db, digest, show_block_hashes);
+ 
+ 		if (!header_printed) {
+ 			printf("Hash, # Blocks, # Files\n");
+@@ -176,10 +125,8 @@ static void print_by_size(sqlite3 *db)
+ 		debug_print_digest(stdout, digest);
+ 		printf(", %"PRIu64", %"PRIu64"\n", count, files_count);
+ 
+-		sqlite3_reset(files_count_stmt);
+-
+ 		if (print_blocks) {
+-			ret = print_all_blocks(digest, find_blocks_stmt);
++			ret = print_all_blocks(db, digest);
+ 			if (ret)
+ 				return;
+ 		}
+@@ -303,14 +250,14 @@ int main(int argc, char **argv)
+ 		return EINVAL;
+ 	}
+ 
+-	_cleanup_(sqlite3_close_cleanup) struct sqlite3 *db = dbfile_open_handle(serialize_fname);
++	_cleanup_(sqlite3_close_cleanup) struct dbhandle *db = dbfile_open_handle(serialize_fname);
+ 	if (!db) {
+ 		fprintf(stderr, "ERROR: Couldn't open db file %s\n",
+ 			serialize_fname);
+ 		return ENOMEM;
+ 	}
+ 
+-	ret = dbfile_get_config(db, &dbfile_cfg);
++	ret = dbfile_get_config(db->db, &dbfile_cfg);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/run_dedupe.c b/run_dedupe.c
+index 59b1a3261089..d101a1dd1c32 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -510,7 +510,7 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 	unsigned long long passno = __atomic_add_fetch(&curr_dedupe_pass, 1, __ATOMIC_SEQ_CST);
+ 
+ 	struct extent *extent;
+-	sqlite3 *db = dbfile_get_handle();
++	struct dbhandle *db = dbfile_get_handle();
+ 
+ 	ret = dedupe_extent_list(dext, fiemap_bytes, kern_bytes, passno);
+ 	if (ret) {
+
+From e278a56320bf43c59a8b07d11d881866b25a89dc Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Thu, 2 Nov 2023 17:36:32 +0100
+Subject: [PATCH 02/19] dbfile: remove some filerec occurences
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c     | 91 +++++++++++++++++++++++-----------------------------
+ dbfile.h     | 13 +++++---
+ file_scan.c  | 12 ++++---
+ run_dedupe.c |  7 ++--
+ 4 files changed, 61 insertions(+), 62 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index 7d19cb94a179..ba290e2b3f27 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -925,32 +925,34 @@ int dbfile_get_config(sqlite3 *db, struct dbfile_config *cfg)
+ 	return ret;
+ }
+ 
+-int dbfile_store_file_info(struct dbhandle *db, struct filerec *file)
++int dbfile_store_file_info(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
++				char *path, uint64_t size, uint64_t mtime,
++				unsigned int dedupe_seq)
+ {
+ 	int ret;
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.write_file;
+ 
+-	ret = sqlite3_bind_int64(stmt, 1, file->inum);
++	ret = sqlite3_bind_int64(stmt, 1, ino);
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_int64(stmt, 2, file->subvolid);
++	ret = sqlite3_bind_int64(stmt, 2, subvolid);
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_text(stmt, 3, file->filename, -1, SQLITE_STATIC);
++	ret = sqlite3_bind_text(stmt, 3, path, -1, SQLITE_STATIC);
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_int64(stmt, 4, file->size);
++	ret = sqlite3_bind_int64(stmt, 4, size);
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_int64(stmt, 5, file->mtime);
++	ret = sqlite3_bind_int64(stmt, 5, mtime);
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_int(stmt, 6, file->dedupe_seq);
++	ret = sqlite3_bind_int(stmt, 6, dedupe_seq);
+ 	if (ret)
+ 		goto bind_error;
+ 
+@@ -982,7 +984,9 @@ int dbfile_sync_files(struct dbhandle *db)
+ 			dprintf("File \"%s\" still needs update in db\n",
+ 				file->filename);
+ 
+-			ret = dbfile_store_file_info(db, file);
++			ret = dbfile_store_file_info(db, file->inum, file->subvolid,
++					file->filename, file->size, file->mtime,
++					file->dedupe_seq);
+ 			if (ret)
+ 				break;
+ 
+@@ -1021,56 +1025,51 @@ static int __dbfile_remove_file_hashes(sqlite3_stmt *stmt, uint64_t ino,
+ 	return ret;
+ }
+ 
+-static int dbfile_remove_block_hashes(struct dbhandle *db, struct filerec *file)
++static int dbfile_remove_block_hashes(struct dbhandle *db, uint64_t ino,
++					uint64_t subvolid)
+ {
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_block_hashes;
+-	return  __dbfile_remove_file_hashes(stmt, file->inum, file->subvolid);
++	return  __dbfile_remove_file_hashes(stmt, ino, subvolid);
+ }
+ 
+-int dbfile_remove_extent_hashes(struct dbhandle *db, struct filerec *file)
++int dbfile_remove_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid)
+ {
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_extent_hashes;
+-	return __dbfile_remove_file_hashes(stmt, file->inum, file->subvolid);
++	return __dbfile_remove_file_hashes(stmt, ino, subvolid);
+ }
+ 
+-int dbfile_store_block_hashes(struct dbhandle *db, struct filerec *file,
++int dbfile_store_block_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
++				unsigned int flags,
+ 				uint64_t nb_hash, struct block_csum *hashes)
+ {
+ 	int ret;
+ 	uint64_t i;
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.insert_hash;
+-	uint64_t loff;
+-	uint32_t flags;
+-	unsigned char *digest;
+ 
+-	if (file->flags & FILEREC_IN_DB) {
+-		ret = dbfile_remove_block_hashes(db, file);
++	if (flags & FILEREC_IN_DB) {
++		ret = dbfile_remove_block_hashes(db, ino, subvolid);
+ 		if (ret)
+ 			return ret;
+ 	}
+ 
+ 	for (i = 0; i < nb_hash; i++) {
+-		loff = hashes[i].loff;
+-		flags = hashes[i].flags;
+-		digest = hashes[i].digest;
+-
+-		ret = sqlite3_bind_int64(stmt, 1, file->inum);
++		ret = sqlite3_bind_int64(stmt, 1, ino);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int64(stmt, 2, file->subvolid);
++		ret = sqlite3_bind_int64(stmt, 2, subvolid);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int64(stmt, 3, loff);
++		ret = sqlite3_bind_int64(stmt, 3, hashes[i].loff);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int(stmt, 4, flags);
++		ret = sqlite3_bind_int(stmt, 4, hashes[i].flags);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_blob(stmt, 5, digest, DIGEST_LEN,
++		ret = sqlite3_bind_blob(stmt, 5, hashes[i].digest, DIGEST_LEN,
+ 					SQLITE_STATIC);
+ 		if (ret)
+ 			goto bind_error;
+@@ -1093,7 +1092,7 @@ int dbfile_store_block_hashes(struct dbhandle *db, struct filerec *file,
+ 	return ret;
+ }
+ 
+-int dbfile_store_file_digest(struct dbhandle *db, struct filerec *file,
++int dbfile_store_file_digest(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+ 				unsigned char *digest)
+ {
+ 	int ret;
+@@ -1105,11 +1104,11 @@ int dbfile_store_file_digest(struct dbhandle *db, struct filerec *file,
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_int64(stmt, 2, file->inum);
++	ret = sqlite3_bind_int64(stmt, 2, ino);
+ 	if (ret)
+ 		goto bind_error;
+ 
+-	ret = sqlite3_bind_int64(stmt, 3, file->subvolid);
++	ret = sqlite3_bind_int64(stmt, 3, subvolid);
+ 	if (ret)
+ 		goto bind_error;
+ 
+@@ -1127,56 +1126,46 @@ int dbfile_store_file_digest(struct dbhandle *db, struct filerec *file,
+ 	return ret;
+ }
+ 
+-int dbfile_store_extent_hashes(struct dbhandle *db, struct filerec *file,
++int dbfile_store_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
++				unsigned int flags,
+ 				uint64_t nb_hash, struct extent_csum *hashes)
+ {
+ 	int ret;
+ 	uint64_t i;
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.insert_extent;
+-	uint64_t loff, poff, len;
+-	uint32_t flags;
+-	unsigned char *digest;
+ 
+-	if (file->flags & FILEREC_IN_DB) {
+-		ret = dbfile_remove_extent_hashes(db, file);
++	if (flags & FILEREC_IN_DB) {
++		ret = dbfile_remove_extent_hashes(db, ino, subvolid);
+ 		if (ret)
+ 			return ret;
+ 	}
+ 
+-	dprintf("db: write %d hashes for file %s\n", (int)nb_hash,
+-		file->filename);
+ 	for (i = 0; i < nb_hash; i++) {
+-		loff = hashes[i].loff;
+-		poff = hashes[i].poff;
+-		len = hashes[i].len;
+-		flags = hashes[i].flags;
+-		digest = hashes[i].digest;
+-
+-		ret = sqlite3_bind_int64(stmt, 1, file->inum);
++		ret = sqlite3_bind_int64(stmt, 1, ino);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int64(stmt, 2, file->subvolid);
++		ret = sqlite3_bind_int64(stmt, 2, subvolid);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int64(stmt, 3, loff);
++		ret = sqlite3_bind_int64(stmt, 3, hashes[i].loff);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int64(stmt, 4, poff);
++		ret = sqlite3_bind_int64(stmt, 4, hashes[i].poff);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int64(stmt, 5, len);
++		ret = sqlite3_bind_int64(stmt, 5, hashes[i].len);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_int(stmt, 6, flags);
++		ret = sqlite3_bind_int(stmt, 6, hashes[i].flags);
+ 		if (ret)
+ 			goto bind_error;
+ 
+-		ret = sqlite3_bind_blob(stmt, 7, digest, DIGEST_LEN,
++		ret = sqlite3_bind_blob(stmt, 7, hashes[i].digest, DIGEST_LEN,
+ 					SQLITE_STATIC);
+ 		if (ret)
+ 			goto bind_error;
+diff --git a/dbfile.h b/dbfile.h
+index 84841cbcc99d..deb0379b96a4 100644
+--- a/dbfile.h
++++ b/dbfile.h
+@@ -116,12 +116,15 @@ int dbfile_sync_files(struct dbhandle *db);
+  */
+ struct dbhandle *dbfile_get_handle(void);
+ 
+-int dbfile_store_file_info(struct dbhandle *db, struct filerec *file);
+-int dbfile_store_block_hashes(struct dbhandle *db, struct filerec *file,
++int dbfile_store_file_info(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
++			char *path, uint64_t size, uint64_t mtime, unsigned int dedupe_seq);
++int dbfile_store_block_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
++				unsigned int flags,
+ 				uint64_t nb_hash, struct block_csum *hashes);
+-int dbfile_store_extent_hashes(struct dbhandle *db, struct filerec *file,
++int dbfile_store_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
++				unsigned int flags,
+ 				uint64_t nb_hash, struct extent_csum *hashes);
+-int dbfile_store_file_digest(struct dbhandle *db, struct filerec *file,
++int dbfile_store_file_digest(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+ 				unsigned char *digest);
+ int dbfile_begin_trans(sqlite3 *db);
+ int dbfile_commit_trans(sqlite3 *db);
+@@ -136,7 +139,7 @@ int dbfile_update_extent_poff(struct dbhandle *db, uint64_t ino, uint64_t subvol
+ typedef void (*iter_files_func)(char *filename, char *ino, char *subvol);
+ int dbfile_iter_files(struct dbhandle *db, iter_files_func func);
+ 
+-int dbfile_remove_extent_hashes(struct dbhandle *db, struct filerec *file);
++int dbfile_remove_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid);
+ int dbfile_remove_file(struct dbhandle *db, const char *filename);
+ 
+ void dbfile_list_files(struct dbhandle *db, int (*callback)(void*, int, char**, char**));
+diff --git a/file_scan.c b/file_scan.c
+index c05a17cdb925..e10993fd298f 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -913,7 +913,9 @@ static void csum_whole_file(struct filerec *file,
+ 		goto err;
+ 	}
+ 
+-	ret = dbfile_store_file_info(db, file);
++	ret = dbfile_store_file_info(db, file->inum, file->subvolid,
++					file->filename, file->size, file->mtime,
++					file->dedupe_seq);
+ 	if (ret) {
+ 		g_mutex_unlock(&io_mutex);
+ 		goto err;
+@@ -921,7 +923,8 @@ static void csum_whole_file(struct filerec *file,
+ 
+ 	if (!options.only_whole_files) {
+ 		if (options.do_block_hash) {
+-			ret = dbfile_store_block_hashes(db, file,
++			ret = dbfile_store_block_hashes(db, file->inum, file->subvolid,
++							file->flags,
+ 							csum_ctxt.nr_block_hashes,
+ 							csum_ctxt.block_hashes);
+ 			if (ret) {
+@@ -930,14 +933,15 @@ static void csum_whole_file(struct filerec *file,
+ 			}
+ 		}
+ 
+-		ret = dbfile_store_extent_hashes(db, file, nb_hash, extent_hashes);
++		ret = dbfile_store_extent_hashes(db, file->inum, file->subvolid,
++						file->flags, nb_hash, extent_hashes);
+ 		if (ret) {
+ 			g_mutex_unlock(&io_mutex);
+ 			goto err;
+ 		}
+ 	}
+ 
+-	ret = dbfile_store_file_digest(db, file, csum_ctxt.file_digest);
++	ret = dbfile_store_file_digest(db, file->inum, file->subvolid, csum_ctxt.file_digest);
+ 	if (ret) {
+ 		g_mutex_unlock(&io_mutex);
+ 		goto err;
+diff --git a/run_dedupe.c b/run_dedupe.c
+index d101a1dd1c32..1481ec76f136 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -530,13 +530,16 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 			 * TODO: do not delete the extents but rescan every files to fetch
+ 			 * the new extents mapping as well as their new hashes
+ 			 */
+-			dbfile_remove_extent_hashes(db, extent->e_file);
++			dbfile_remove_extent_hashes(db, extent->e_file->inum, extent->e_file->subvolid);
+ 
+ 			/* Update those files' dedupe_seq. This will mark them as deduped
+ 			 * and prevent further processing (extent or block-based dedupe)
+ 			 */
+ 			extent->e_file->dedupe_seq++;
+-			dbfile_store_file_info(db, extent->e_file);
++			dbfile_store_file_info(db, extent->e_file->inum,
++				extent->e_file->subvolid, extent->e_file->filename,
++				extent->e_file->size, extent->e_file->mtime,
++				extent->e_file->dedupe_seq);
+ 		} else {
+ 			/* Rescan physical offset and update the hashfile accordingly */
+ 			fiemap_scan_extent(extent);
+
+From d1c3cfa04fca956320abf3bf07003c9bc14acad3 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Thu, 2 Nov 2023 18:06:39 +0100
+Subject: [PATCH 03/19] duperemove: reduce the use of the global db handle
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ duperemove.c | 14 +++++++-------
+ file_scan.c  | 10 +++++-----
+ file_scan.h  |  3 ++-
+ 3 files changed, 14 insertions(+), 13 deletions(-)
+
+diff --git a/duperemove.c b/duperemove.c
+index 11e636f315b1..deb40abaf1d7 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -213,7 +213,7 @@ enum {
+ 	BATCH_SIZE_OPTION,
+ };
+ 
+-static int add_files_from_stdin(int fdupes)
++static int add_files_from_stdin(int fdupes, struct dbhandle *db)
+ {
+ 	int ret = 0;
+ 	_cleanup_(freep) char *path = NULL;
+@@ -240,7 +240,7 @@ static int add_files_from_stdin(int fdupes)
+ 			continue;
+ 		}
+ 
+-		if (add_file(path)) {
++		if (add_file(path, db)) {
+ 			fprintf(stderr,
+ 				"Error: cannot add %s into the lookup list\n",
+ 				path);
+@@ -251,14 +251,14 @@ static int add_files_from_stdin(int fdupes)
+ 	return 0;
+ }
+ 
+-static int add_files_from_cmdline(int numfiles, char **files)
++static int add_files_from_cmdline(int numfiles, char **files, struct dbhandle *db)
+ {
+ 	int i;
+ 
+ 	for (i = 0; i < numfiles; i++) {
+ 		const char *name = files[i];
+ 
+-		if (add_file(name)) {
++		if (add_file(name, db)) {
+ 			fprintf(stderr,
+ 				"Error: cannot add %s into the file lookup list\n",
+ 				name);
+@@ -570,10 +570,10 @@ static int create_scan_list(int argc, char **argv, int filelist_idx, struct dbha
+ 	int ret;
+ 
+ 	if (stdin_filelist)
+-		ret = add_files_from_stdin(0);
++		ret = add_files_from_stdin(0, db);
+ 	else
+ 		ret = add_files_from_cmdline(argc - filelist_idx,
+-					     &argv[filelist_idx]);
++					     &argv[filelist_idx], db);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -645,7 +645,7 @@ int main(int argc, char **argv)
+ 		goto out;
+ 
+ 	if (options.fdupes_mode)
+-		return add_files_from_stdin(1);
++		return add_files_from_stdin(1, db);
+ 
+ 	dedupe_seq = dbfile_cfg.dedupe_seq;
+ 
+diff --git a/file_scan.c b/file_scan.c
+index e10993fd298f..7ebf66b72f9a 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -158,7 +158,7 @@ static int is_excluded(const char *name)
+ }
+ 
+ 
+-static int walk_dir(char *path)
++static int walk_dir(char *path, struct dbhandle *db)
+ {
+ 	int ret = 0;
+ 	struct dirent *entry;
+@@ -198,7 +198,7 @@ static int walk_dir(char *path)
+ 			abort_on(strlen(path) + strlen(entry->d_name) > PATH_MAX);
+ 
+ 			sprintf(child, "%s/%s", path, entry->d_name);
+-			ret = add_file(child);
++			ret = add_file(child, db);
+ 			if (ret)
+ 				return ret;
+ 		}
+@@ -304,7 +304,7 @@ static bool will_cross_mountpoint(dev_t dev, uint64_t btrfs_fsid)
+ /*
+  * Returns nonzero on fatal errors only
+  */
+-int add_file(const char *path)
++int add_file(const char *path, struct dbhandle *db)
+ {
+ 	int ret;
+ 	struct stat st;
+@@ -363,7 +363,7 @@ int add_file(const char *path)
+ 			goto out;
+ 		}
+ 
+-		if (walk_dir(abspath))
++		if (walk_dir(abspath, db))
+ 			return 1;
+ 		goto out;
+ 	}
+@@ -391,7 +391,7 @@ int add_file(const char *path)
+ 	/*
+ 	 * Check the database to see if that file need rescan or not.
+ 	 */
+-	ret = dbfile_describe_file(dbfile_get_handle(), file->inum, file->subvolid, &mtime, &size);
++	ret = dbfile_describe_file(db, file->inum, file->subvolid, &mtime, &size);
+ 	if (ret) {
+ 		vprintf("dbfile_describe_file failed\n");
+ 		goto out;
+diff --git a/file_scan.h b/file_scan.h
+index a60352aad567..259643ecde85 100644
+--- a/file_scan.h
++++ b/file_scan.h
+@@ -2,6 +2,7 @@
+ #define	__FILE_SCAN_H__
+ 
+ #include <sys/types.h>
++#include "dbfile.h"
+ 
+ #include "list.h"
+ #include "csum.h"
+@@ -9,7 +10,7 @@
+ /*
+  * Returns nonzero on fatal errors only
+  */
+-int add_file(const char *name);
++int add_file(const char *name, struct dbhandle *db);
+ /*
+  * Add from a db record. We still stat as before:
+  *
+
+From c33276f3407d01fbd8ddd6162b98685bd488d4cf Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Mon, 23 Oct 2023 13:30:27 +0200
+Subject: [PATCH 04/19] duperemove: reimplement batching support
+
+Files are scanned but inserted with various dedupe_seq id,
+which can be used later to recreate the batch, for the dedupe phase
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ Makefile     |  7 +++--
+ dbfile.c     | 50 ++++++++++++++++++++++++++------
+ dbfile.h     |  9 ++++--
+ duperemove.c | 60 ++++++++++++++++++++++----------------
+ file_scan.c  | 81 +++++++++++++++++++++-------------------------------
+ file_scan.h  |  4 ++-
+ filerec.h    |  7 -----
+ find_dupes.c | 12 +-------
+ run_dedupe.c |  1 -
+ tests.c      |  1 +
+ threads.c    | 61 +++++++++++++++++++++++++++++++++++++++
+ threads.h    | 38 ++++++++++++++++++++++++
+ 12 files changed, 224 insertions(+), 107 deletions(-)
+ create mode 100644 threads.c
+ create mode 100644 threads.h
+
+diff --git a/Makefile b/Makefile
+index bdf485b5d743..2deab3b6e4d1 100644
+--- a/Makefile
++++ b/Makefile
+@@ -10,10 +10,10 @@ MANPAGES=duperemove.8 btrfs-extent-same.8 hashstats.8 show-shared-extents.8
+ HEADERS=csum.h hash-tree.h results-tree.h kernel.h list.h rbtree.h dedupe.h \
+ 	ioctl.h filerec.h btrfs-util.h debug.h util.h \
+ 	memstats.h file_scan.h find_dupes.h run_dedupe.h xxhash.h \
+-	dbfile.h rbtree_augmented.h list_sort.h opt.h
++	dbfile.h rbtree_augmented.h list_sort.h opt.h threads.h
+ CFILES=duperemove.c hash-tree.c results-tree.c rbtree.c dedupe.c filerec.c \
+ 	btrfs-util.c util.c memstats.c file_scan.c find_dupes.c run_dedupe.c \
+-	csum.c dbfile.c list_sort.c debug.c opt.c \
++	csum.c dbfile.c list_sort.c debug.c opt.c threads.c \
+ 	csum-xxhash.c
+ 
+ hashstats_CFILES=hashstats.c
+@@ -31,7 +31,8 @@ TEMP_INSTALL_DIR:=$(shell mktemp -du -p .)
+ objects = $(CFILES:.c=.o)
+ 
+ hashstats_obj = csum-xxhash.o rbtree.o hash-tree.o filerec.o util.o opt.o \
+-	results-tree.o csum.o dbfile.o list_sort.o debug.o file_scan.o btrfs-util.o
++	results-tree.o csum.o dbfile.o list_sort.o debug.o file_scan.o btrfs-util.o \
++	threads.o
+ show_shared_obj = rbtree.o util.o debug.o filerec.o
+ csum_test_obj = csum-xxhash.o util.o csum.o debug.o
+ 
+diff --git a/dbfile.c b/dbfile.c
+index ba290e2b3f27..fb23f37846f7 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -426,8 +426,7 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ 	"SELECT hashes.digest, ino, subvol, loff, flags FROM hashes " \
+ 	"JOIN (SELECT DISTINCT digest FROM hashes WHERE digest IN " \
+ 	"(SELECT DISTINCT digest FROM hashes WHERE ino IN " \
+-	"(SELECT DISTINCT ino FROM files WHERE dedupe_seq > " \
+-	"(SELECT keyval FROM config WHERE keyname = 'dedupe_sequence')))" \
++	"(SELECT DISTINCT ino FROM files WHERE dedupe_seq = ?1))" \
+ 	"GROUP BY digest " \
+ 				"HAVING count(*) > 1) AS duplicate_hashes " \
+ 	"on hashes.digest = duplicate_hashes.digest;"
+@@ -444,8 +443,7 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ 	"SELECT extents.digest, ino, subvol, loff, extents.len, poff, flags FROM extents " \
+ 	"JOIN (SELECT digest,len FROM extents where digest in " \
+ 	"(select distinct digest from extents where ino in " \
+-	"(select ino from files where dedupe_seq > " \
+-	"(select keyval from config where keyname = 'dedupe_sequence'))) " \
++	"(select ino from files where dedupe_seq = ?1)) " \
+ 	"GROUP BY digest,len HAVING count(*) > 1) " \
+ 	"AS duplicate_extents on extents.digest = duplicate_extents.digest AND " \
+ 	"extents.len = duplicate_extents.len;"
+@@ -455,8 +453,7 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ 	"SELECT ino, subvol, files.size, files.digest FROM files "\
+ 	"JOIN (SELECT digest, size FROM files WHERE digest IN " \
+ 	"(SELECT distinct digest FROM files WHERE ino IN " \
+-	"(SELECT ino FROM files WHERE dedupe_seq > " \
+-	"(SELECT keyval FROM config WHERE keyname = 'dedupe_sequence'))) " \
++	"(SELECT ino FROM files WHERE dedupe_seq = ?1)) " \
+ 	"GROUP BY digest, size HAVING count(*) > 1) " \
+ 	"AS duplicate_files ON files.size != 0 AND " \
+ 	"files.digest = duplicate_files.digest AND " \
+@@ -489,6 +486,9 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ #define COUNT_FILES "select COUNT(*) from files;"
+ 	dbfile_prepare_stmt(count_files, COUNT_FILES);
+ 
++#define GET_MAX_DEDUPE_SEQ "select max(dedupe_seq) from files;"
++	dbfile_prepare_stmt(get_max_dedupe_seq, GET_MAX_DEDUPE_SEQ);
++
+ 	return result;
+ 
+ err:
+@@ -1281,7 +1281,7 @@ int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 	return 0;
+ }
+ 
+-int dbfile_load_block_hashes(struct hash_tree *hash_tree)
++int dbfile_load_block_hashes(struct hash_tree *hash_tree, unsigned int seq)
+ {
+ 	int ret;
+ 	struct dbhandle *db;
+@@ -1297,6 +1297,12 @@ int dbfile_load_block_hashes(struct hash_tree *hash_tree)
+ 
+ 	stmt = db->stmts.get_duplicate_hashes;
+ 
++	ret = sqlite3_bind_int64(stmt, 1, seq);
++	if (ret) {
++		perror_sqlite(ret, "binding value");
++		return ret;
++	}
++
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		digest = (unsigned char *)sqlite3_column_blob(stmt, 0);
+ 		ino = sqlite3_column_int64(stmt, 1);
+@@ -1329,7 +1335,7 @@ int dbfile_load_block_hashes(struct hash_tree *hash_tree)
+ 	return 0;
+ }
+ 
+-int dbfile_load_extent_hashes(struct results_tree *res)
++int dbfile_load_extent_hashes(struct results_tree *res, unsigned int seq)
+ {
+ 	int ret, flags;
+ 	struct dbhandle *db;
+@@ -1344,6 +1350,12 @@ int dbfile_load_extent_hashes(struct results_tree *res)
+ 
+ 	stmt = db->stmts.get_duplicate_extents;
+ 
++	ret = sqlite3_bind_int64(stmt, 1, seq);
++	if (ret) {
++		perror_sqlite(ret, "binding value");
++		return ret;
++	}
++
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		digest = (unsigned char *)sqlite3_column_blob(stmt, 0);
+ 		ino = sqlite3_column_int64(stmt, 1);
+@@ -1556,7 +1568,7 @@ int dbfile_describe_file(struct dbhandle *db, uint64_t inum, uint64_t subvolid,
+ 	return 0;
+ }
+ 
+-int dbfile_load_same_files(struct results_tree *res)
++int dbfile_load_same_files(struct results_tree *res, unsigned int seq)
+ {
+ 	int ret;
+ 	struct dbhandle *db;
+@@ -1571,6 +1583,12 @@ int dbfile_load_same_files(struct results_tree *res)
+ 
+ 	stmt = db->stmts.get_duplicate_files;
+ 
++	ret = sqlite3_bind_int64(stmt, 1, seq);
++	if (ret) {
++		perror_sqlite(ret, "binding value");
++		return ret;
++	}
++
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+ 		ino = sqlite3_column_int64(stmt, 0);
+ 		subvol = sqlite3_column_int64(stmt, 1);
+@@ -1604,3 +1622,17 @@ void dbfile_set_gdb(struct dbhandle *db)
+ {
+ 	gdb = db;
+ }
++
++unsigned int get_max_dedupe_seq(struct dbhandle *db)
++{
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_max_dedupe_seq;
++
++	int ret = sqlite3_step(stmt);
++	if (ret != SQLITE_ROW) {
++		fprintf(stderr, "error %d, get max dedupe seq: %s\n",
++			ret, sqlite3_errstr(ret));
++		return 0;
++	}
++
++	return sqlite3_column_int64(stmt, 0);
++}
+diff --git a/dbfile.h b/dbfile.h
+index deb0379b96a4..d0eabe1a3e02 100644
+--- a/dbfile.h
++++ b/dbfile.h
+@@ -42,6 +42,7 @@ struct stmts {
+ 	sqlite3_stmt *count_b_hashes;
+ 	sqlite3_stmt *count_e_hashes;
+ 	sqlite3_stmt *count_files;
++	sqlite3_stmt *get_max_dedupe_seq;
+ };
+ 
+ struct dbhandle {
+@@ -86,8 +87,8 @@ struct rb_root;
+  * Load hashes into hash_tree only if they have a duplicate in the db.
+  * The extent search is later run on the resulting hash_tree.
+  */
+-int dbfile_load_block_hashes(struct hash_tree *hash_tree);
+-int dbfile_load_extent_hashes(struct results_tree *res);
++int dbfile_load_block_hashes(struct hash_tree *hash_tree, unsigned int seq);
++int dbfile_load_extent_hashes(struct results_tree *res, unsigned int seq);
+ 
+ struct file_extent {
+ 	uint64_t	poff;
+@@ -146,7 +147,7 @@ void dbfile_list_files(struct dbhandle *db, int (*callback)(void*, int, char**,
+ 
+ int dbfile_describe_file(struct dbhandle *db, uint64_t inum, uint64_t subvolid,
+ 				uint64_t *mtime, uint64_t *size);
+-int dbfile_load_same_files(struct results_tree *res);
++int dbfile_load_same_files(struct results_tree *res, unsigned int seq);
+ 
+ static inline void sqlite3_stmt_cleanup(void *p)
+ {
+@@ -164,4 +165,6 @@ static inline void sqlite3_reset_stmt(sqlite3_stmt **stmt)
+ }
+ 
+ void dbfile_set_gdb(struct dbhandle *db);
++
++unsigned int get_max_dedupe_seq(struct dbhandle *db);
+ #endif	/* __DBFILE_H__ */
+diff --git a/duperemove.c b/duperemove.c
+index deb40abaf1d7..def752cb2e9d 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -496,7 +496,7 @@ static void print_header(void)
+ 	qprintf("Gathering file list...\n");
+ }
+ 
+-void process_duplicates()
++static void __process_duplicates(unsigned int seq)
+ {
+ 	int ret;
+ 	struct results_tree res;
+@@ -506,7 +506,7 @@ void process_duplicates()
+ 	init_hash_tree(&dups_tree);
+ 
+ 	qprintf("Loading only identical files from hashfile.\n");
+-	ret = dbfile_load_same_files(&res);
++	ret = dbfile_load_same_files(&res, seq + 1);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -523,13 +523,13 @@ void process_duplicates()
+ 
+ 		qprintf("Loading only duplicated hashes from hashfile.\n");
+ 
+-		ret = dbfile_load_extent_hashes(&res);
++		ret = dbfile_load_extent_hashes(&res, seq + 1);
+ 		if (ret)
+ 			goto out;
+ 
+ 		printf("Found %llu identical extents.\n", res.num_extents);
+ 		if (options.do_block_hash) {
+-			ret = dbfile_load_block_hashes(&dups_tree);
++			ret = dbfile_load_block_hashes(&dups_tree, seq + 1);
+ 			if (ret)
+ 				goto out;
+ 
+@@ -544,27 +544,37 @@ void process_duplicates()
+ 			print_dupes_table(&res, false);
+ 	}
+ 
+-	if (options.run_dedupe) {
+-		/*
+-		 * Bump dedupe_seq, this effectively marks the files
+-		 * in our hashfile as having been through dedupe.
+-		 */
+-		dedupe_seq++;
+-
+-		/* Sync to get new dedupe_seq written. */
+-		dbfile_cfg.dedupe_seq = dedupe_seq;
+-		dbfile_cfg.blocksize = blocksize;
+-		dbfile_cfg.onefs_dev = fs_onefs_dev();
+-		dbfile_cfg.onefs_fsid = fs_onefs_id();
+-		ret = dbfile_sync_config(dbfile_get_handle(), &dbfile_cfg);
+-		if (ret)
+-			goto out;
+-	}
+ out:
+ 	free_results_tree(&res);
+ 	free_hash_tree(&dups_tree);
+ }
+ 
++static void process_duplicates()
++{
++	unsigned int max = get_max_dedupe_seq(dbfile_get_handle());
++
++	for (unsigned int i = dedupe_seq; i < max; i++) {
++		/* Drop all filerecs from the previous iteration. Needed filerecs will be
++		 * recreated by __process_duplicates()
++		 */
++		free_all_filerecs();
++		__process_duplicates(i);
++
++		if (options.run_dedupe) {
++			/*
++			 * Bump dedupe_seq, this effectively marks the files
++			 * in our hashfile as having been through dedupe.
++			 */
++			dedupe_seq++;
++			dbfile_cfg.dedupe_seq = dedupe_seq;
++			dbfile_cfg.blocksize = blocksize;
++			dbfile_cfg.onefs_dev = fs_onefs_dev();
++			dbfile_cfg.onefs_fsid = fs_onefs_id();
++			dbfile_sync_config(dbfile_get_handle(), &dbfile_cfg);
++		}
++	}
++}
++
+ static int create_scan_list(int argc, char **argv, int filelist_idx, struct dbhandle *db)
+ {
+ 	int ret;
+@@ -644,11 +654,11 @@ int main(int argc, char **argv)
+ 	if (ret)
+ 		goto out;
+ 
++	dedupe_seq = dbfile_cfg.dedupe_seq;
++
+ 	if (options.fdupes_mode)
+ 		return add_files_from_stdin(1, db);
+ 
+-	dedupe_seq = dbfile_cfg.dedupe_seq;
+-
+ 	print_header();
+ 
+ 	if (use_hashfile == H_WRITE) {
+@@ -656,7 +666,7 @@ int main(int argc, char **argv)
+ 		if (ret)
+ 			goto out;
+ 
+-		ret = populate_tree(NULL);
++		ret = populate_tree();
+ 		if (ret) {
+ 			fprintf(stderr,	"Error while populating extent tree!\n");
+ 			goto out;
+@@ -675,12 +685,14 @@ int main(int argc, char **argv)
+ 		if (ret)
+ 			goto out;
+ 
+-		ret = populate_tree(&process_duplicates);
++		ret = populate_tree();
+ 		if (ret) {
+ 			fprintf(stderr,	"Error while populating extent tree!\n");
+ 			goto out;
+ 		}
+ 
++		process_duplicates();
++
+ 		ret = dbfile_sync_files(db);
+ 		if (ret)
+ 			goto out;
+diff --git a/file_scan.c b/file_scan.c
+index 7ebf66b72f9a..c8c1222896ff 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -50,6 +50,7 @@
+ #include "dbfile.h"
+ #include "util.h"
+ #include "opt.h"
++#include "threads.h"
+ 
+ /* This is not in linux/magic.h */
+ #ifndef	XFS_SB_MAGIC
+@@ -63,6 +64,8 @@ static unsigned long long files_to_scan;
+ static GMutex io_mutex; /* locks db writes */
+ static unsigned int leading_spaces;
+ 
++static struct threads_pool scan_pool;
++
+ #define READ_BUF_LEN (8*1024*1024) // 8MB
+ 
+ struct thread_params {
+@@ -510,41 +513,22 @@ int add_file_db(const char *filename, uint64_t inum, uint64_t subvolid,
+ 	return 0;
+ }
+ 
+-static GThreadPool *setup_pool(void *arg, void *function)
+-{
+-	GError *err = NULL;
+-	GThreadPool *pool;
+-
+-	pool = g_thread_pool_new((GFunc) function, arg, options.io_threads, FALSE,
+-				 &err);
+-	if (err != NULL) {
+-		fprintf(stderr, "Unable to create thread pool: %s\n",
+-			err->message);
+-		g_error_free(err);
+-		err = NULL;
+-		return NULL;
+-	}
+-	return pool;
+-}
+-
+-static void run_pool(GThreadPool *pool, struct filerec *file)
++static void run_pool(struct threads_pool *pool, struct filerec *file)
+ {
+ 	GError *err = NULL;
+ 	struct filerec *tmp;
++	unsigned int seq;
+ 
+ 	unsigned int counter = 0;
+ 
+-	qprintf("Using %u threads for file hashing phase\n", options.io_threads);
++	seq = dedupe_seq + 1;
+ 
+-	/* Reset the scanned filerecs */
+-	list_for_each_entry(file, &filerec_list, rec_list) {
+-		file->scanned = false;
+-	}
++	qprintf("Using %u threads for file hashing phase\n", options.io_threads);
+ 
+ 	list_for_each_entry_safe(file, tmp, &filerec_list, rec_list) {
+ 		if (file->flags & FILEREC_NEEDS_SCAN) {
+-			file->scanned = true;
+-			g_thread_pool_push(pool, file, &err);
++			file->dedupe_seq = seq;
++			g_thread_pool_push(pool->pool, file, &err);
+ 			if (err != NULL) {
+ 				fprintf(stderr,
+ 					"g_thread_pool_push: %s\n",
+@@ -556,14 +540,13 @@ static void run_pool(GThreadPool *pool, struct filerec *file)
+ 			/* If batch_size is 0 then batching is disabled */
+ 			if ( options.batch_size != 0 ) {
+ 				counter += 1;
+-				if (counter > options.batch_size) {
+-					break;
++				if (counter >= options.batch_size) {
++					seq++;
++					counter = 0;
+ 				}
+ 			}
+ 		}
+ 	}
+-
+-	g_thread_pool_free(pool, FALSE, TRUE);
+ }
+ 
+ static inline int is_block_zeroed(void *buf, ssize_t buf_size)
+@@ -905,8 +888,6 @@ static void csum_whole_file(struct filerec *file,
+ 		goto err;
+ 
+ 	g_mutex_lock(&io_mutex);
+-	/* Make sure that we'll check this file on any future dedupe passes */
+-	filerec_clear_deduped(file);
+ 	ret = dbfile_begin_trans(db->db);
+ 	if (ret) {
+ 		g_mutex_unlock(&io_mutex);
+@@ -1006,9 +987,9 @@ static void csum_whole_file(struct filerec *file,
+ 	return;
+ }
+ 
+-int populate_tree(void (*callback)(void))
++int populate_tree()
+ {
+-	GThreadPool *pool;
++	struct threads_pool pool;
+ 	struct thread_params params;
+ 	int ret = 0;
+ 
+@@ -1020,26 +1001,18 @@ int populate_tree(void (*callback)(void))
+ 	leading_spaces = num_digits(files_to_scan);
+ 
+ 	if (files_to_scan) {
+-		while (params.num_files != files_to_scan) {
+-			pool = setup_pool(&params, csum_whole_file);
+-			if (!pool) {
+-				ret = ENOMEM;
+-				goto out;
+-			}
+-
+-			run_pool(pool, file);
+-			if (callback)
+-				callback();
++		setup_pool(&pool, csum_whole_file, &params);
++		if (!pool.pool) {
++			ret = ENOMEM;
++			goto out;
+ 		}
+ 
++		run_pool(&pool, file);
++		free_pool(&pool);
+ 		printf("Total files scanned:  %llu\n", params.num_files);
+ 		qprintf("Total extent hashes scanned: %llu\n", params.num_hashes);
+-	} else {
+-		// Maybe some files where scanned in a previous run but never
+-		// deduped
+-		if (callback)
+-			callback();
+ 	}
++
+ out:
+ 	g_mutex_clear(&params.mutex);
+ 	return ret;
+@@ -1075,3 +1048,15 @@ int add_exclude_pattern(const char *pattern)
+ 	list_add_tail(&exclude->list, &exclude_list);
+ 	return 0;
+ }
++
++void filescan_prepare_pool()
++{
++	abort_on(scan_pool.pool);
++	setup_pool(&scan_pool, csum_whole_file, NULL);
++	abort_on(!scan_pool.pool);
++}
++
++void filescan_free_pool()
++{
++	free_pool(&scan_pool);
++}
+diff --git a/file_scan.h b/file_scan.h
+index 259643ecde85..cdaeb4f4490b 100644
+--- a/file_scan.h
++++ b/file_scan.h
+@@ -29,7 +29,7 @@ dev_t fs_onefs_dev(void);
+ uint64_t fs_onefs_id(void);
+ 
+ struct dbfile_config;
+-int populate_tree(void (*callback)(void));
++int populate_tree();
+ 
+ /* For dbfile.c */
+ struct block_csum {
+@@ -53,4 +53,6 @@ struct exclude_file {
+ 
+ int add_exclude_pattern(const char *pattern);
+ 
++void filescan_prepare_pool();
++void filescan_free_pool();
+ #endif	/* __FILE_SCAN_H__ */
+diff --git a/filerec.h b/filerec.h
+index e3b4d63ecf3f..f3c60a35586d 100644
+--- a/filerec.h
++++ b/filerec.h
+@@ -44,9 +44,6 @@ struct filerec {
+ 
+ 	struct list_head	rec_list;	/* all filerecs */
+ 
+-	/* Used to mark filerec that were scanned in the last batch */
+-	bool			scanned;
+-
+ 	/* protects comparisons and extent_tree trees */
+ 	GMutex			tree_mutex;
+ 
+@@ -98,10 +95,6 @@ void filerec_close(struct filerec *file);
+  * done. We can then compare sequence numbers to tell whether a file
+  * has been deduped or not.
+  */
+-static inline void filerec_clear_deduped(struct filerec *file)
+-{
+-	file->dedupe_seq = dedupe_seq + 1;
+-}
+ static inline int filerec_deduped(struct filerec *file)
+ {
+ 	return !!(file->dedupe_seq <= dedupe_seq);
+diff --git a/find_dupes.c b/find_dupes.c
+index 9d79cfdd88db..179a328a89d9 100644
+--- a/find_dupes.c
++++ b/find_dupes.c
+@@ -467,7 +467,6 @@ int find_additional_dedupe(struct results_tree *dupe_extents)
+ 	GError *err = NULL;
+ 	GThreadPool *pool = NULL;
+ 	struct filerec *file;
+-	int count = 0;
+ 
+ 	qprintf("Using %u threads to search within extents for "
+ 		"additional dedupe. This process will take some time, during "
+@@ -483,18 +482,9 @@ int find_additional_dedupe(struct results_tree *dupe_extents)
+ 		return ENOMEM;
+ 	}
+ 
+-	list_for_each_entry(file, &filerec_list, rec_list) {
+-		if (file->scanned)
+-			count++;
+-	}
+-
+-	set_extent_search_status_count(count);
++	set_extent_search_status_count(num_filerecs);
+ 
+ 	list_for_each_entry(file, &filerec_list, rec_list) {
+-		/* Ignore filerec that was not scanned recently */
+-		if (!file->scanned)
+-			continue;
+-
+ 		/*
+ 		 * This is an empty file - or maybe an error somewhere ?
+ 		 * Anyway, let's skip it and mark it as "processed"
+diff --git a/run_dedupe.c b/run_dedupe.c
+index 1481ec76f136..060c0a0f7587 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -535,7 +535,6 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 			/* Update those files' dedupe_seq. This will mark them as deduped
+ 			 * and prevent further processing (extent or block-based dedupe)
+ 			 */
+-			extent->e_file->dedupe_seq++;
+ 			dbfile_store_file_info(db, extent->e_file->inum,
+ 				extent->e_file->subvolid, extent->e_file->filename,
+ 				extent->e_file->size, extent->e_file->mtime,
+diff --git a/tests.c b/tests.c
+index 1ce0bdadafb5..4aec8127b126 100644
+--- a/tests.c
++++ b/tests.c
+@@ -9,6 +9,7 @@
+ #include "util.c"
+ #include "debug.c"
+ #include "csum.c"
++#include "threads.c"
+ #include "btrfs-util.c"
+ #include "file_scan.c"
+ #include "filerec.c"
+diff --git a/threads.c b/threads.c
+new file mode 100644
+index 000000000000..28db24ee24e5
+--- /dev/null
++++ b/threads.c
+@@ -0,0 +1,61 @@
++/*
++ * threads.h
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public
++ * License version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ */
++
++#include "threads.h"
++
++void setup_pool(struct threads_pool *pool, void *function, void *arg)
++{
++	GError *err = NULL;
++
++	pool->item_count = 0;
++	pool->items = NULL;
++	pool->pool = g_thread_pool_new((GFunc) function, arg, options.io_threads, FALSE,
++					&err);
++	if (err != NULL) {
++		fprintf(stderr, "Unable to create thread pool: %s\n",
++			err->message);
++		g_error_free(err);
++		pool->pool = NULL;
++	}
++}
++
++void register_cleanup(struct threads_pool *pool, void *function, void *ptr)
++{
++	struct threads_cleanup_item *item;
++	item = calloc(1, sizeof(struct threads_cleanup_item));
++	item->ptr = ptr;
++	item->function = function;
++
++	pool->items = realloc(pool->items, (pool->item_count + 1) * sizeof(struct threads_cleanup_item*));
++	pool->items[pool->item_count] = item;
++	pool->item_count += 1;
++}
++
++void free_pool(struct threads_pool *pool)
++{
++	g_thread_pool_free(pool->pool, FALSE, TRUE);
++
++	for (unsigned int i = 0; i < pool->item_count; i++) {
++		struct threads_cleanup_item *item;
++		item = pool->items[i];
++		item->function(item->ptr);
++		free(item);
++	}
++
++	if (pool->items)
++		free(pool->items);
++
++	pool->pool = NULL;
++	pool->item_count = 0;
++}
+diff --git a/threads.h b/threads.h
+new file mode 100644
+index 000000000000..807a8c9cd673
+--- /dev/null
++++ b/threads.h
+@@ -0,0 +1,38 @@
++/*
++ * threads.h
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public
++ * License version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ */
++
++#ifndef	__THREADS_H__
++#define	__THREADS_H__
++
++#include <stdlib.h>
++#include <stdio.h>
++
++#include "opt.h"
++#include "glib.h"
++
++struct threads_cleanup_item {
++	void (*function)(void *ptr);
++	void *ptr;
++};
++
++struct threads_pool {
++	GThreadPool *pool;
++	struct threads_cleanup_item** items;
++	unsigned int item_count;
++};
++
++void setup_pool(struct threads_pool *pool, void *function, void *arg);
++void register_cleanup(struct threads_pool *pool, void *function, void *ptr);
++void free_pool(struct threads_pool *pool);
++#endif	/* __THREADS_H__ */
+
+From 351f08e6d5168b61db47e22eeb16cde90307f533 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Thu, 2 Nov 2023 21:00:29 +0100
+Subject: [PATCH 05/19] file_scan: add_file: remove some goto
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ file_scan.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/file_scan.c b/file_scan.c
+index c8c1222896ff..c60a85fe6f6a 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -328,7 +328,7 @@ int add_file(const char *path, struct dbhandle *db)
+ 		fprintf(stderr, "Error %d: %s while getting path to file %s. "
+ 			"Skipping.\n",
+ 			errno, strerror(errno), path);
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	ret = lstat(abspath, &st);
+@@ -336,7 +336,7 @@ int add_file(const char *path, struct dbhandle *db)
+ 		fprintf(stderr, "Error %d: %s while stating file %s. "
+ 			"Skipping.\n",
+ 			errno, strerror(errno), abspath);
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	if (S_ISDIR(st.st_mode)) {
+@@ -345,7 +345,7 @@ int add_file(const char *path, struct dbhandle *db)
+ 
+ 		/* Check if the whole directory is excluded */
+ 		if (is_excluded(abspath))
+-			goto out;
++			return 0;
+ 
+ 		/*
+ 		 * Device doesn't work for btrfs as it changes between
+@@ -356,19 +356,19 @@ int add_file(const char *path, struct dbhandle *db)
+ 		if (ret) {
+ 			vprintf("Skipping directory %s due to error %d: %s\n",
+ 				abspath, ret, strerror(ret));
+-			goto out;
++			return 0;
+ 		}
+ 
+ 		/* Don't cross mount points since dedup doesn't work across */
+ 		if (will_cross_mountpoint(dev, btrfs_fsid)) {
+ 			vprintf("Mountpoint traversal disallowed: %s \n",
+ 				abspath);
+-			goto out;
++			return 0;
+ 		}
+ 
+ 		if (walk_dir(abspath, db))
+ 			return 1;
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	/*
+@@ -380,7 +380,7 @@ int add_file(const char *path, struct dbhandle *db)
+ 	 */
+ 	if (filerec_find_by_name(abspath)) {
+ 		vprintf("Filename \"%s\" was seen twice! Skipping.\n", abspath);
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	ret = __add_file(abspath, &st, &file);
+@@ -389,7 +389,7 @@ int add_file(const char *path, struct dbhandle *db)
+ 
+ 	/* File has been excluded by _add_file() */
+ 	if (!file)
+-		goto out;
++		return 0;
+ 
+ 	/*
+ 	 * Check the database to see if that file need rescan or not.
+@@ -397,7 +397,7 @@ int add_file(const char *path, struct dbhandle *db)
+ 	ret = dbfile_describe_file(db, file->inum, file->subvolid, &mtime, &size);
+ 	if (ret) {
+ 		vprintf("dbfile_describe_file failed\n");
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	if (mtime != file->mtime || size != file->size)
+@@ -406,7 +406,6 @@ int add_file(const char *path, struct dbhandle *db)
+ 	if (mtime != 0 || size != 0)
+ 		file->flags |= FILEREC_IN_DB;
+ 
+-out:
+ 	return 0;
+ }
+ 
+
+From 27ec3055112d8b804d9ef87cc26cd70216e7cc87 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Thu, 2 Nov 2023 21:30:08 +0100
+Subject: [PATCH 06/19] fiemap: remove some filerec occurences
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ file_scan.c           |  2 +-
+ filerec.c             | 18 ++++++------------
+ filerec.h             |  2 +-
+ show-shared-extents.c |  2 +-
+ 4 files changed, 9 insertions(+), 15 deletions(-)
+
+diff --git a/file_scan.c b/file_scan.c
+index c60a85fe6f6a..c84fb81d7a30 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -721,7 +721,7 @@ static int fiemap_helper(struct fiemap_ctxt *fc, struct filerec *file,
+ {
+ 	int ret;
+ 
+-	ret = fiemap_iter_next_extent(fc, file, poff, loff, len, flags);
++	ret = fiemap_iter_next_extent(fc, file->fd, poff, loff, len, flags);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/filerec.c b/filerec.c
+index acfae51ea159..a711c0a511c2 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -491,7 +491,7 @@ struct fiemap_ctxt *alloc_fiemap_ctxt(void)
+ 	return ctxt;
+ }
+ 
+-static int do_fiemap(struct fiemap *fiemap, struct filerec *file,
++static int do_fiemap(struct fiemap *fiemap, int fd,
+ 		     uint64_t start)
+ {
+ 	int err;
+@@ -504,10 +504,7 @@ static int do_fiemap(struct fiemap *fiemap, struct filerec *file,
+ 	fiemap->fm_extent_count = FIEMAP_COUNT;
+ 	fiemap->fm_start = start;
+ 
+-	dprintf("Fiemap file \"%s\", start: %"PRIu64", count: %u\n",
+-			file->filename, start, fiemap->fm_extent_count);
+-
+-	err = ioctl(file->fd, FS_IOC_FIEMAP, (unsigned long) fiemap);
++	err = ioctl(fd, FS_IOC_FIEMAP, (unsigned long) fiemap);
+ 	if (err < 0)
+ 		return errno;
+ 
+@@ -539,7 +536,7 @@ int fiemap_scan_extent(struct extent *extent)
+ 		return ret;
+ 
+ 	while (!(flags & FIEMAP_EXTENT_LAST) && loff + len < extent->e_file->size) {
+-		ret = fiemap_iter_next_extent(ctxt, extent->e_file, &(extent->e_poff), &loff, &len, &flags);
++		ret = fiemap_iter_next_extent(ctxt, extent->e_file->fd, &(extent->e_poff), &loff, &len, &flags);
+ 		if (ret)
+ 			break;
+ 	}
+@@ -548,7 +545,7 @@ int fiemap_scan_extent(struct extent *extent)
+ 	return ret;
+ }
+ 
+-int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, struct filerec *file,
++int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, int fd,
+ 			    uint64_t *poff, uint64_t *loff,
+ 			    uint64_t *len, unsigned int *flags)
+ {
+@@ -563,7 +560,7 @@ int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, struct filerec *file,
+ 			extent = &fiemap->fm_extents[idx - 1];
+ 			fiestart = extent->fe_logical + extent->fe_length;
+ 		}
+-		ret = do_fiemap(fiemap, file, fiestart);
++		ret = do_fiemap(fiemap, fd, fiestart);
+ 		if (ret)
+ 			return ret;
+ 		ctxt->initialized = true;
+@@ -578,9 +575,6 @@ int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, struct filerec *file,
+ 	*loff = extent->fe_logical;
+ 	*flags = extent->fe_flags;
+ 
+-	dprintf("fiemap_iter: filename \"%s\" idx %d return poff %"PRIu64" "
+-		"loff %"PRIu64" len %"PRIu64" flags 0x%x\n", file->filename, idx,
+-		*poff, *loff, *len, *flags);
+ 	ctxt->idx++;
+ 	return 0;
+ }
+@@ -601,7 +595,7 @@ int filerec_count_shared(struct filerec *file, uint64_t loff, uint32_t len,
+ 
+ 	*shared = 0;
+ 
+-	while ((ret = fiemap_iter_next_extent(ctxt, file, &poff, &extent_loff,
++	while ((ret = fiemap_iter_next_extent(ctxt, file->fd, &poff, &extent_loff,
+ 					      &extent_len, &flags)) == 0) {
+ 		extent_end = extent_loff + extent_len - 1;
+ 
+diff --git a/filerec.h b/filerec.h
+index f3c60a35586d..51046fca0a72 100644
+--- a/filerec.h
++++ b/filerec.h
+@@ -132,7 +132,7 @@ void free_all_filerec_compared(void);
+ 
+ struct fiemap_ctxt;
+ struct fiemap_ctxt *alloc_fiemap_ctxt(void);
+-int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, struct filerec *file,
++int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, int fd,
+ 			    uint64_t *poff, uint64_t *loff, uint64_t *len,
+ 			    unsigned int *flags);
+ int filerec_count_shared(struct filerec *file, uint64_t loff, uint32_t len,
+diff --git a/show-shared-extents.c b/show-shared-extents.c
+index 0e2b6a17fa27..a6c37da0b285 100644
+--- a/show-shared-extents.c
++++ b/show-shared-extents.c
+@@ -115,7 +115,7 @@ static int test_iter(struct filerec *file)
+ 	flags = 0;
+ 	loff = len = 0;
+ 	while (!(flags & FIEMAP_EXTENT_LAST) && loff + len < file->size) {
+-		ret = fiemap_iter_next_extent(fc, file, &poff, &loff, &len,
++		ret = fiemap_iter_next_extent(fc, file->fd, &poff, &loff, &len,
+ 					      &flags);
+ 		if (ret)
+ 			return ret;
+
+From 85756a029a149d7a3f33ec607e30c0beb337f4ae Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 14:14:08 +0100
+Subject: [PATCH 07/19] file_scan: fiemap_helper: do not pass the whole filerec
+ struct below
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ file_scan.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/file_scan.c b/file_scan.c
+index c84fb81d7a30..af57395d0aa9 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -715,13 +715,13 @@ static void csum_whole_file_init(struct filerec *file,
+  * Return < 0 on error, 0 on success and 1 if we find an extent that should not
+  * be read.
+  */
+-static int fiemap_helper(struct fiemap_ctxt *fc, struct filerec *file,
++static int fiemap_helper(struct fiemap_ctxt *fc, int fd,
+ 			 uint64_t *poff, uint64_t *loff, uint64_t *len,
+ 			 unsigned int *flags)
+ {
+ 	int ret;
+ 
+-	ret = fiemap_iter_next_extent(fc, file->fd, poff, loff, len, flags);
++	ret = fiemap_iter_next_extent(fc, fd, poff, loff, len, flags);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -795,7 +795,7 @@ static int csum_by_extent(struct csum_ctxt *ctxt, struct fiemap_ctxt *fc,
+ 
+ 	flags = 0;
+ 	while (!(flags & FIEMAP_EXTENT_LAST)) {
+-		ret = fiemap_helper(fc, file, &poff, &loff, &len, &flags);
++		ret = fiemap_helper(fc, file->fd, &poff, &loff, &len, &flags);
+ 		if (ret < 0) {
+ 			fprintf(stderr, "Error %d from fiemap_helper()\n", ret);
+ 			goto out;
+
+From 527bf70f5183e706f052830afaebe7a113983957 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 15:49:13 +0100
+Subject: [PATCH 08/19] run_dedupe: remove the file from the hashfile if it no
+ longer exists
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ filerec.c             | 12 +++++++-----
+ filerec.h             |  2 +-
+ run_dedupe.c          | 17 +++++++++++++----
+ show-shared-extents.c |  2 +-
+ 4 files changed, 22 insertions(+), 11 deletions(-)
+
+diff --git a/filerec.c b/filerec.c
+index a711c0a511c2..3078532b1ef4 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -391,7 +391,8 @@ void free_all_filerecs(void)
+ 	}
+ }
+ 
+-int filerec_open(struct filerec *file)
++/* Won't show error if file does not exist and quiet is true */
++int filerec_open(struct filerec *file, bool quiet)
+ {
+ 	int ret = 0;
+ 	int fd;
+@@ -403,8 +404,9 @@ int filerec_open(struct filerec *file)
+ 		fd = open(file->filename, O_RDONLY);
+ 		if (fd == -1) {
+ 			ret = errno;
+-			fprintf(stderr, "Error %d: %s while opening \"%s\"\n",
+-				ret, strerror(ret), file->filename);
++			if (ret != ENOENT || !quiet)
++				fprintf(stderr, "Error %d: %s while opening \"%s\"\n",
++					ret, strerror(ret), file->filename);
+ 			goto out_unlock;
+ 		}
+ 
+@@ -445,7 +447,7 @@ int filerec_open_once(struct filerec *file,
+ 	if (!token)
+ 		return ENOMEM;
+ 
+-	ret = filerec_open(file);
++	ret = filerec_open(file, true);
+ 	if (ret) {
+ 		filerec_token_free(token);
+ 		return ret;
+@@ -531,7 +533,7 @@ int fiemap_scan_extent(struct extent *extent)
+ 
+ 	flags = loff = len = 0;
+ 
+-	ret = filerec_open(extent->e_file);
++	ret = filerec_open(extent->e_file, true);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/filerec.h b/filerec.h
+index 51046fca0a72..fae65aaf3b2e 100644
+--- a/filerec.h
++++ b/filerec.h
+@@ -85,7 +85,7 @@ struct filerec *filerec_find(uint64_t inum, uint64_t subvolid);
+ struct filerec *filerec_find_by_name(const char *filename);
+ 
+ void filerec_free(struct filerec *file);
+-int filerec_open(struct filerec *file);
++int filerec_open(struct filerec *file, bool quiet);
+ void filerec_close(struct filerec *file);
+ 
+ /*
+diff --git a/run_dedupe.c b/run_dedupe.c
+index 060c0a0f7587..1b19c8c27a75 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -180,7 +180,7 @@ static void add_shared_extents_post(struct dupe_extents *dext, uint64_t *shared)
+ 
+ 	list_for_each_entry(extent, &dext->de_extents, e_list) {
+ 		file = extent->e_file;
+-		ret = filerec_open(file);
++		ret = filerec_open(file, true);
+ 		if (ret)
+ 			return;
+ 
+@@ -350,6 +350,15 @@ static int dedupe_extent_list(struct dupe_extents *dext, uint64_t *fiemap_bytes,
+ 
+ 		ret = filerec_open_once(extent->e_file, &open_files);
+ 		if (ret) {
++			if (ret == ENOENT) {
++				/*
++				 * File were deleted. Maybe it was scanned
++				 * a long time ago. Let's clean the db.
++				 */
++				dbfile_lock();
++				dbfile_remove_file(dbfile_get_handle(), extent->e_file->filename);
++				dbfile_unlock();
++			}
+ 			fprintf(stderr, "%s: Skipping dedupe.\n",
+ 				extent->e_file->filename);
+ 			/*
+@@ -416,7 +425,6 @@ static int dedupe_extent_list(struct dupe_extents *dext, uint64_t *fiemap_bytes,
+ 		}
+ 
+ run_dedupe:
+-
+ 		/*
+ 		 * We can get here with only the target extent (0
+ 		 * queued) for many reasons. Skip the dedupe in that
+@@ -541,8 +549,9 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 				extent->e_file->dedupe_seq);
+ 		} else {
+ 			/* Rescan physical offset and update the hashfile accordingly */
+-			fiemap_scan_extent(extent);
+-			dbfile_update_extent_poff(db, extent->e_file->inum, extent->e_file->subvolid, extent->e_loff, extent->e_poff);
++			ret = fiemap_scan_extent(extent);
++			if (!ret)
++				dbfile_update_extent_poff(db, extent->e_file->inum, extent->e_file->subvolid, extent->e_loff, extent->e_poff);
+ 		}
+ 	}
+ 	g_mutex_unlock(&db_mutex);
+diff --git a/show-shared-extents.c b/show-shared-extents.c
+index a6c37da0b285..887e253fc13b 100644
+--- a/show-shared-extents.c
++++ b/show-shared-extents.c
+@@ -164,7 +164,7 @@ int main(int argc, char **argv)
+ 			return 1;
+ 		}
+ 
+-		ret = filerec_open(file);
++		ret = filerec_open(file, false);
+ 		if (ret)
+ 			goto out;
+ 
+
+From ac3751852e3d30104ce5f83d371be23575d25031 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 11:29:12 +0100
+Subject: [PATCH 09/19] file_scan: reimplement file scan
+
+We used to:
+- build a list of struct filerec that needs scan
+- iterate over the list and process each file
+
+This allowed us to (re)scan files from the database that was not
+found on the arglist. On the other hand, it was memory-intensive:
+you had to consume memory for every files ever seen.
+
+This commit reworks the scan phase:
+- the main thread create a worker pool
+- it then lists the files, checks with the database if the file needs (re)scan,
+  and pushes an item against the thread pool
+
+Main benefits are:
+- memory is freed as soon as a file is scanned
+- if only a couple of files are passed in the arglist, there is few work to do
+
+Main drawbacks are:
+- files from database that are not on the arglist are not rescanned
+- files that were scanned long ago and were since delete are not removed
+  from the hashfile.
+
+Because of that, the 'rescan_files' option, added in v0.13 is removed, its
+behavior is hardcoded.
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c               | 183 +++++------
+ dbfile.h               |  15 +-
+ docs/duperemove.html   |  12 -
+ duperemove.8           |  12 -
+ duperemove.c           |  65 ++--
+ file_scan.c            | 685 ++++++++++++++---------------------------
+ file_scan.h            |  28 +-
+ filerec.c              |  56 ----
+ filerec.h              |  21 --
+ markdown/duperemove.md |  10 -
+ opt.c                  |   1 -
+ opt.h                  |   1 -
+ run_dedupe.c           |   8 -
+ 13 files changed, 352 insertions(+), 745 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index fb23f37846f7..88d19966d0d2 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -27,6 +27,8 @@ static struct dbhandle *gdb = NULL;
+ 
+ static sqlite3 *__dbfile_open_handle(char *filename, bool force_create);
+ 
++static GMutex io_mutex; /* Locks db writes */
++
+ #if (SQLITE_VERSION_NUMBER < 3007015)
+ #define	perror_sqlite(_err, _why)					\
+ 	fprintf(stderr, "%s(): Database error %d while %s: %s\n",	\
+@@ -46,6 +48,16 @@ struct dbhandle *dbfile_get_handle(void)
+ 	return gdb;
+ }
+ 
++void dbfile_lock()
++{
++	g_mutex_lock(&io_mutex);
++}
++
++void dbfile_unlock()
++{
++	g_mutex_unlock(&io_mutex);
++}
++
+ static void dbfile_config_defaults(struct dbfile_config *cfg)
+ {
+ 	memset(cfg, 0, sizeof(*cfg));
+@@ -413,10 +425,6 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ "delete from extents where ino = ?1 and subvol = ?2;"
+ 	dbfile_prepare_stmt(remove_extent_hashes, REMOVE_EXTENT_HASHES);
+ 
+-#define	LOAD_ALL_FILERECS					\
+-"select filename, ino, subvol, size, mtime, dedupe_seq from files;"
+-	dbfile_prepare_stmt(load_all_filerecs, LOAD_ALL_FILERECS);
+-
+ #define LOAD_FILEREC						\
+ "select filename, size, mtime, dedupe_seq from files "		\
+ "where ino = ?1 and subvol = ?2;"
+@@ -471,8 +479,11 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ 	"nondupe_extents.digest where extents.ino = ?1 and extents.subvol = ?2;"
+ 	dbfile_prepare_stmt(get_nondupe_extents, GET_NONDUPE_EXTENTS);
+ 
+-#define DELETE_FILE "delete from files where filename = ?1;"
+-	dbfile_prepare_stmt(delete_file, DELETE_FILE);
++#define DELETE_FILE_FROM_PATH "delete from files where filename = ?1;"
++	dbfile_prepare_stmt(delete_file_from_path, DELETE_FILE_FROM_PATH);
++
++#define DELETE_FILE_FROM_INO "delete from files where ino = ?1 and subvol = ?2;"
++	dbfile_prepare_stmt(delete_file_from_ino, DELETE_FILE_FROM_INO);
+ 
+ #define SELECT_FILE_CHANGES "select mtime, size from files where ino = ?1 and subvol = ?2;"
+ 	dbfile_prepare_stmt(select_file_changes, SELECT_FILE_CHANGES);
+@@ -489,6 +500,13 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ #define GET_MAX_DEDUPE_SEQ "select max(dedupe_seq) from files;"
+ 	dbfile_prepare_stmt(get_max_dedupe_seq, GET_MAX_DEDUPE_SEQ);
+ 
++#define GET_UNSCANNED_FILES							\
++	"select files.ino, files.subvol "					\
++	"from files left join extents "						\
++	"on (files.ino = extents.ino and files.subvol = extents.subvol) "	\
++	"where extents.ino is NULL and extents.subvol is NULL; "
++	dbfile_prepare_stmt(get_unscanned_files, GET_UNSCANNED_FILES);
++
+ 	return result;
+ 
+ err:
+@@ -970,33 +988,6 @@ int dbfile_store_file_info(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+ 	return ret;
+ }
+ 
+-/*
+- * Write any filerec metadata which was not updated during the
+- * checksumming phase.
+- */
+-int dbfile_sync_files(struct dbhandle *db)
+-{
+-	int ret;
+-	struct filerec *file;
+-
+-	list_for_each_entry(file, &filerec_list, rec_list) {
+-		if (file->flags & FILEREC_UPDATE_DB) {
+-			dprintf("File \"%s\" still needs update in db\n",
+-				file->filename);
+-
+-			ret = dbfile_store_file_info(db, file->inum, file->subvolid,
+-					file->filename, file->size, file->mtime,
+-					file->dedupe_seq);
+-			if (ret)
+-				break;
+-
+-			file->flags &= ~FILEREC_UPDATE_DB;
+-		}
+-	}
+-
+-	return ret;
+-}
+-
+ static int __dbfile_remove_file_hashes(sqlite3_stmt *stmt, uint64_t ino,
+ 				       uint64_t subvol)
+ {
+@@ -1025,33 +1016,32 @@ static int __dbfile_remove_file_hashes(sqlite3_stmt *stmt, uint64_t ino,
+ 	return ret;
+ }
+ 
+-static int dbfile_remove_block_hashes(struct dbhandle *db, uint64_t ino,
++int dbfile_remove_extent_hashes(struct dbhandle *db, uint64_t ino,
+ 					uint64_t subvolid)
+ {
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_block_hashes;
+-	return  __dbfile_remove_file_hashes(stmt, ino, subvolid);
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_extent_hashes;
++	return __dbfile_remove_file_hashes(stmt, ino, subvolid);
+ }
+ 
+-int dbfile_remove_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid)
++int dbfile_remove_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid)
+ {
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.remove_extent_hashes;
+-	return __dbfile_remove_file_hashes(stmt, ino, subvolid);
++	int ret = 0;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *b_stmt = db->stmts.remove_block_hashes;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *e_stmt = db->stmts.remove_extent_hashes;
++
++	ret += __dbfile_remove_file_hashes(b_stmt, ino, subvolid);
++	ret += __dbfile_remove_file_hashes(e_stmt, ino, subvolid);
++
++	return ret;
+ }
+ 
+ int dbfile_store_block_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+-				unsigned int flags,
+ 				uint64_t nb_hash, struct block_csum *hashes)
+ {
+ 	int ret;
+ 	uint64_t i;
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.insert_hash;
+ 
+-	if (flags & FILEREC_IN_DB) {
+-		ret = dbfile_remove_block_hashes(db, ino, subvolid);
+-		if (ret)
+-			return ret;
+-	}
+-
+ 	for (i = 0; i < nb_hash; i++) {
+ 		ret = sqlite3_bind_int64(stmt, 1, ino);
+ 		if (ret)
+@@ -1127,19 +1117,12 @@ int dbfile_store_file_digest(struct dbhandle *db, uint64_t ino, uint64_t subvoli
+ }
+ 
+ int dbfile_store_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+-				unsigned int flags,
+ 				uint64_t nb_hash, struct extent_csum *hashes)
+ {
+ 	int ret;
+ 	uint64_t i;
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.insert_extent;
+ 
+-	if (flags & FILEREC_IN_DB) {
+-		ret = dbfile_remove_extent_hashes(db, ino, subvolid);
+-		if (ret)
+-			return ret;
+-	}
+-
+ 	for (i = 0; i < nb_hash; i++) {
+ 		ret = sqlite3_bind_int64(stmt, 1, ino);
+ 		if (ret)
+@@ -1188,52 +1171,6 @@ int dbfile_store_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvo
+ 	return ret;
+ }
+ 
+-/*
+- * Scan files based on db contents:
+- *
+- *  1) Files in the db which don't yet have filerecs will be stat'd and added
+- *
+- *  2) Deleted files have their file and hash records removed
+- *
+- * The real work of step 1 happens in add_file_db()
+- *
+- * Step 2 happens at this time because it allows us to clean the
+- * database of any unused inode / subvol pairs before we start
+- * inserting stuff during the csum stage. This keeps us from getting
+- * into a situation where we've inserted duplicate file records.
+- */
+-int dbfile_load_files(struct dbhandle *db)
+-{
+-	int ret, del_rec;
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.load_all_filerecs;
+-	const char *filename;
+-	uint64_t size, mtime, ino, subvol;
+-	unsigned int dedupe_seq;
+-
+-	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+-		filename = (const char *)sqlite3_column_text(stmt, 0);
+-		ino = sqlite3_column_int64(stmt, 1);
+-		subvol = sqlite3_column_int64(stmt, 2);
+-		size = sqlite3_column_int64(stmt, 3);
+-		mtime = sqlite3_column_int64(stmt, 4);
+-		dedupe_seq = sqlite3_column_int(stmt, 5);
+-
+-		ret = add_file_db(filename, ino, subvol, size, mtime,
+-				  dedupe_seq, &del_rec);
+-		if (ret)
+-			return ret;
+-
+-		if (del_rec)
+-			dbfile_remove_file(db, filename);
+-	}
+-	if (ret != SQLITE_DONE) {
+-		perror_sqlite(ret, "looking up hash");
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-
+ int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 				   struct filerec **file)
+ {
+@@ -1460,9 +1397,9 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+ 		perror_sqlite(ret, "stepping nondupe extents statement");
+ 		goto out;
+ 	}
+-	*ret_extents = extents;
+ 	ret = 0;
+ out:
++	*ret_extents = extents;
+ 	if (ret && extents)
+ 		free(extents);
+ 	return ret;
+@@ -1495,7 +1432,7 @@ int dbfile_iter_files(struct dbhandle *db, iter_files_func func)
+ int dbfile_remove_file(struct dbhandle *db, const char *filename)
+ {
+ 	int ret;
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.delete_file;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.delete_file_from_path;
+ 
+ 	dprintf("Remove file \"%s\" from the db\n", filename);
+ 
+@@ -1636,3 +1573,47 @@ unsigned int get_max_dedupe_seq(struct dbhandle *db)
+ 
+ 	return sqlite3_column_int64(stmt, 0);
+ }
++
++/*
++ * Remove entries from the files table that have no extents associated.
++ * This can happen if duperemove is ctrl^C while scanning files
++ * TODO: please rewrite this in a single sqlite query ..
++ */
++int dbfile_prune_unscanned_files(struct dbhandle *db)
++{
++	int ret;
++	uint64_t ino, subvol;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *select = db->stmts.get_unscanned_files;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *delete = db->stmts.delete_file_from_ino;
++
++	while ((ret = sqlite3_step(select)) == SQLITE_ROW) {
++		ino = sqlite3_column_int64(select, 0);
++		subvol = sqlite3_column_int64(select, 1);
++
++		ret = sqlite3_bind_int64(delete, 1, ino);
++		if (ret) {
++			perror_sqlite(ret, "binding");
++			return ret;
++		}
++
++		ret = sqlite3_bind_int64(delete, 2, subvol);
++		if (ret) {
++			perror_sqlite(ret, "binding");
++			return ret;
++		}
++
++		ret = sqlite3_step(delete);
++		if(ret != SQLITE_DONE) {
++			perror_sqlite(ret, "executing sql");
++			return ret;
++		}
++		sqlite3_reset(delete);
++	}
++
++	if (ret != SQLITE_DONE) {
++		perror_sqlite(ret, "retrieving unscanned files");
++		return ret;
++	}
++
++	return 0;
++}
+diff --git a/dbfile.h b/dbfile.h
+index d0eabe1a3e02..af82a1ba7ddd 100644
+--- a/dbfile.h
++++ b/dbfile.h
+@@ -30,19 +30,20 @@ struct stmts {
+ 	sqlite3_stmt *write_file;
+ 	sqlite3_stmt *remove_block_hashes;
+ 	sqlite3_stmt *remove_extent_hashes;
+-	sqlite3_stmt *load_all_filerecs;
+ 	sqlite3_stmt *load_filerec;
+ 	sqlite3_stmt *get_duplicate_hashes;
+ 	sqlite3_stmt *get_duplicate_extents;
+ 	sqlite3_stmt *get_duplicate_files;
+ 	sqlite3_stmt *get_file_extent;
+ 	sqlite3_stmt *get_nondupe_extents;
+-	sqlite3_stmt *delete_file;
++	sqlite3_stmt *delete_file_from_path;
++	sqlite3_stmt *delete_file_from_ino;
+ 	sqlite3_stmt *select_file_changes;
+ 	sqlite3_stmt *count_b_hashes;
+ 	sqlite3_stmt *count_e_hashes;
+ 	sqlite3_stmt *count_files;
+ 	sqlite3_stmt *get_max_dedupe_seq;
++	sqlite3_stmt *get_unscanned_files;
+ };
+ 
+ struct dbhandle {
+@@ -105,12 +106,6 @@ int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
+ int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 				struct filerec **file);
+ 
+-/* Scan files based on db contents. Removes any orphaned file records. */
+-int dbfile_load_files(struct dbhandle *db);
+-
+-/* Write any filerecs marked as needing update to the db */
+-int dbfile_sync_files(struct dbhandle *db);
+-
+ /*
+  * Following are used during file scan stage to get our hashes into
+  * the database.
+@@ -120,10 +115,8 @@ struct dbhandle *dbfile_get_handle(void);
+ int dbfile_store_file_info(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+ 			char *path, uint64_t size, uint64_t mtime, unsigned int dedupe_seq);
+ int dbfile_store_block_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+-				unsigned int flags,
+ 				uint64_t nb_hash, struct block_csum *hashes);
+ int dbfile_store_extent_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+-				unsigned int flags,
+ 				uint64_t nb_hash, struct extent_csum *hashes);
+ int dbfile_store_file_digest(struct dbhandle *db, uint64_t ino, uint64_t subvolid,
+ 				unsigned char *digest);
+@@ -165,6 +158,8 @@ static inline void sqlite3_reset_stmt(sqlite3_stmt **stmt)
+ }
+ 
+ void dbfile_set_gdb(struct dbhandle *db);
++int dbfile_remove_hashes(struct dbhandle *db, uint64_t ino, uint64_t subvolid);
+ 
+ unsigned int get_max_dedupe_seq(struct dbhandle *db);
++int dbfile_prune_unscanned_files(struct dbhandle *db);
+ #endif	/* __DBFILE_H__ */
+diff --git a/docs/duperemove.html b/docs/duperemove.html
+index 5587f112e466..17fd12bb8e46 100644
+--- a/docs/duperemove.html
++++ b/docs/duperemove.html
+@@ -351,18 +351,6 @@ <h2 id="advanced-options">Advanced options</h2>
+ Defaults to <code>on</code>. Allow dedupe of extents within the same
+ file.
+ </dd>
+-<dt><strong>[no]rescan_files</strong></dt>
+-<dd>
+-Defaults to <code>on</code>. Duperemove will check for files that were
+-found and deduplicated in a previous run, based on the hashfile.
+-Deduplicated files may have changed if new content was added, but also
+-if their physical layout was modified (defrag for instance). You can
+-disable those checks to increase performance when running
+-<code>duperemove</code> against a specific directory or file which you
+-know is the only part of a larger, unchanged dataset. Duperemove will
+-still dedupe that specific target against any shared extent found in the
+-existing files.
+-</dd>
+ <dt><strong>[no]only_whole_files</strong></dt>
+ <dd>
+ Defaults to <code>off</code>. Duperemove will only work on full file.
+diff --git a/duperemove.8 b/duperemove.8
+index b13ef7a8f413..aded35081690 100644
+--- a/duperemove.8
++++ b/duperemove.8
+@@ -227,18 +227,6 @@ the semantics of the \f[V]partial\f[R] argument may change.
+ Defaults to \f[V]on\f[R].
+ Allow dedupe of extents within the same file.
+ .TP
+-\f[B][no]rescan_files\f[R]
+-Defaults to \f[V]on\f[R].
+-Duperemove will check for files that were found and deduplicated in a
+-previous run, based on the hashfile.
+-Deduplicated files may have changed if new content was added, but also
+-if their physical layout was modified (defrag for instance).
+-You can disable those checks to increase performance when running
+-\f[V]duperemove\f[R] against a specific directory or file which you know
+-is the only part of a larger, unchanged dataset.
+-Duperemove will still dedupe that specific target against any shared
+-extent found in the existing files.
+-.TP
+ \f[B][no]only_whole_files\f[R]
+ Defaults to \f[V]off\f[R].
+ Duperemove will only work on full file.
+diff --git a/duperemove.c b/duperemove.c
+index def752cb2e9d..181c68bc74c6 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -173,8 +173,6 @@ static int parse_dedupe_opts(const char *raw_opts)
+ 			options.dedupe_same_file = !invert;
+ 		} else if (strcmp(token, "partial") == 0) {
+ 			options.do_block_hash = !invert;
+-		} else if (strcmp(token, "rescan_files") == 0) {
+-			options.rescan_files = !invert;
+ 		} else if (strcmp(token, "only_whole_files") == 0) {
+ 			options.only_whole_files = !invert;
+ 		} else {
+@@ -188,7 +186,6 @@ static int parse_dedupe_opts(const char *raw_opts)
+ 			"options are:\n"
+ 			"\t[no]same\n"
+ 			"\t[no]only_whole_files\n"
+-			"\t[no]rescan_files\n"
+ 			"\t[no]partial\n");
+ 		ret = EINVAL;
+ 	}
+@@ -240,7 +237,7 @@ static int add_files_from_stdin(int fdupes, struct dbhandle *db)
+ 			continue;
+ 		}
+ 
+-		if (add_file(path, db)) {
++		if (scan_file(path, db)) {
+ 			fprintf(stderr,
+ 				"Error: cannot add %s into the lookup list\n",
+ 				path);
+@@ -251,16 +248,16 @@ static int add_files_from_stdin(int fdupes, struct dbhandle *db)
+ 	return 0;
+ }
+ 
+-static int add_files_from_cmdline(int numfiles, char **files, struct dbhandle *db)
++static int scan_files_from_cmdline(int numfiles, char **files, struct dbhandle *db)
+ {
+ 	int i;
+ 
+ 	for (i = 0; i < numfiles; i++) {
+ 		const char *name = files[i];
+ 
+-		if (add_file(name, db)) {
++		if (scan_file(name, db)) {
+ 			fprintf(stderr,
+-				"Error: cannot add %s into the file lookup list\n",
++				"Error: cannot scan %s\n",
+ 				name);
+ 			return 1;
+ 		}
+@@ -575,21 +572,31 @@ static void process_duplicates()
+ 	}
+ }
+ 
+-static int create_scan_list(int argc, char **argv, int filelist_idx, struct dbhandle *db)
++static int scan_files(int argc, char **argv, int filelist_idx, struct dbhandle *db)
+ {
+ 	int ret;
+ 
++	extern bool scan_files_completed;
++	filescan_prepare_pool();
++
+ 	if (stdin_filelist)
+ 		ret = add_files_from_stdin(0, db);
+ 	else
+-		ret = add_files_from_cmdline(argc - filelist_idx,
++		ret = scan_files_from_cmdline(argc - filelist_idx,
+ 					     &argv[filelist_idx], db);
++
++	scan_files_completed = true; /* Used to modify the output and print percentages */
++
++	filescan_free_pool();
++
+ 	if (ret)
+ 		return ret;
+ 
+ 	/*
+ 	 * Those fields are 0 by default, and are added by
+-	 * the add_files_from_cmdline call above. Let's sync them.
++	 * the scan_files_from_cmdline call above. Let's sync them.
++	 * Useful only when dedup is not enabled, otherwise data would already
++	 * be written by process_duplicates().
+ 	 */
+ 	dbfile_cfg.onefs_dev = fs_onefs_dev();
+ 	dbfile_cfg.onefs_fsid = fs_onefs_id();
+@@ -597,18 +604,6 @@ static int create_scan_list(int argc, char **argv, int filelist_idx, struct dbha
+ 	if (ret)
+ 		return ret;
+ 
+-	if (options.rescan_files) {
+-		qprintf("Adding files from database for hashing.\n");
+-		ret = dbfile_load_files(db);
+-		if (ret)
+-			return ret;
+-	}
+-
+-	if (list_empty(&filerec_list)) {
+-		fprintf(stderr, "No dedupe candidates found.\n");
+-		return EINVAL;
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -661,18 +656,14 @@ int main(int argc, char **argv)
+ 
+ 	print_header();
+ 
+-	if (use_hashfile == H_WRITE) {
+-		ret = create_scan_list(argc, argv, filelist_idx, db);
+-		if (ret)
+-			goto out;
+-
+-		ret = populate_tree();
++	if (use_hashfile == H_WRITE || use_hashfile == H_UPDATE) {
++		ret = dbfile_prune_unscanned_files(db);
+ 		if (ret) {
+-			fprintf(stderr,	"Error while populating extent tree!\n");
++			fprintf(stderr, "Unable to prune unscanned files\n");
+ 			goto out;
+ 		}
+ 
+-		ret = dbfile_sync_files(db);
++		ret = scan_files(argc, argv, filelist_idx, db);
+ 		if (ret)
+ 			goto out;
+ 
+@@ -681,21 +672,7 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	if (use_hashfile == H_UPDATE) {
+-		ret = create_scan_list(argc, argv, filelist_idx, db);
+-		if (ret)
+-			goto out;
+-
+-		ret = populate_tree();
+-		if (ret) {
+-			fprintf(stderr,	"Error while populating extent tree!\n");
+-			goto out;
+-		}
+-
+ 		process_duplicates();
+-
+-		ret = dbfile_sync_files(db);
+-		if (ret)
+-			goto out;
+ 	}
+ 
+ 	if (use_hashfile == H_READ)
+diff --git a/file_scan.c b/file_scan.c
+index af57395d0aa9..8aece2497cd1 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -60,41 +60,15 @@
+ static dev_t one_fs_dev;
+ static uint64_t one_fs_btrfs;
+ 
+-static unsigned long long files_to_scan;
+-static GMutex io_mutex; /* locks db writes */
+-static unsigned int leading_spaces;
++bool scan_files_completed = false;
++static unsigned long long total_files_count = 0;
+ 
+ static struct threads_pool scan_pool;
+ 
+ #define READ_BUF_LEN (8*1024*1024) // 8MB
+ 
+-struct thread_params {
+-	GMutex mutex;
+-	unsigned long long num_files;  /* Total number of files we hashed */
+-	unsigned long long num_hashes; /* Total number of hashes we hashed */
+-};
+-
+-extern struct dbfile_config dbfile_cfg;
+ LIST_HEAD(exclude_list);
+ 
+-static void set_filerec_scan_flags(struct filerec *file)
+-{
+-	if (!(file->flags & FILEREC_NEEDS_SCAN)) {
+-		file->flags |= FILEREC_NEEDS_SCAN;
+-		files_to_scan++;
+-	}
+-	file->flags |= FILEREC_UPDATE_DB;
+-}
+-
+-static void clear_filerec_scan_flags(struct filerec *file)
+-{
+-	if (file->flags & FILEREC_NEEDS_SCAN) {
+-		file->flags &= ~FILEREC_NEEDS_SCAN;
+-		files_to_scan--;
+-	}
+-	file->flags &= ~FILEREC_UPDATE_DB;
+-}
+-
+ dev_t fs_onefs_dev(void)
+ {
+ 	return one_fs_dev;
+@@ -201,7 +175,7 @@ static int walk_dir(char *path, struct dbhandle *db)
+ 			abort_on(strlen(path) + strlen(entry->d_name) > PATH_MAX);
+ 
+ 			sprintf(child, "%s/%s", path, entry->d_name);
+-			ret = add_file(child, db);
++			ret = scan_file(child, db);
+ 			if (ret)
+ 				return ret;
+ 		}
+@@ -210,82 +184,6 @@ static int walk_dir(char *path, struct dbhandle *db)
+ 	return 0;
+ }
+ 
+-static int __add_file(const char *name, struct stat *st,
+-		      struct filerec **ret_file)
+-{
+-	int ret;
+-	_cleanup_(closefd) int fd = 0;
+-	struct filerec *file;
+-	uint64_t subvolid;
+-	struct statfs fs;
+-
+-	if (is_excluded(name))
+-		return 0;
+-
+-	if (S_ISDIR(st->st_mode))
+-		return 0;
+-
+-	if (!S_ISREG(st->st_mode)) {
+-		vprintf("Skipping non-regular file %s\n", name);
+-		return 0;
+-	}
+-
+-	fd = open(name, O_RDONLY);
+-	if (fd == -1) {
+-		fprintf(stderr, "Error %d: %s while opening file \"%s\". "
+-			"Skipping.\n", errno, strerror(errno), name);
+-		return 0;
+-	}
+-
+-	ret = fstatfs(fd, &fs);
+-	if (ret) {
+-		fprintf(stderr, "Error %d: %s while doing fs stat on \"%s\". "
+-			"Skipping.\n", ret, strerror(ret), name);
+-		return 1;
+-	}
+-
+-	if (options.run_dedupe == 1 &&
+-	    ((fs.f_type != BTRFS_SUPER_MAGIC &&
+-	      fs.f_type != XFS_SB_MAGIC))) {
+-		fprintf(stderr,	"\"%s\": Can only dedupe files on btrfs or xfs, "
+-			"use -d -d to override\n", name);
+-		return ENOSYS;
+-	}
+-
+-	if (fs.f_type == BTRFS_SUPER_MAGIC) {
+-		/*
+-		 * Inodes between subvolumes on a btrfs file system
+-		 * can have the same i_ino. Get the subvolume id of
+-		 * our file so hard link detection works.
+-		 */
+-		ret = lookup_btrfs_subvolid(fd, &subvolid);
+-		if (ret) {
+-			fprintf(stderr,
+-				"Error %d: %s while finding subvolid for file "
+-				"\"%s\". Skipping.\n", ret, strerror(ret),
+-				name);
+-			return 1;
+-		}
+-	} else {
+-		subvolid = st->st_dev;
+-	}
+-
+-	file = filerec_find(st->st_ino, subvolid);
+-	if (!file)
+-		file = filerec_new(name, st->st_ino, subvolid, st->st_size,
+-				   timespec_to_nano(&st->st_mtim));
+-
+-	if (file == NULL) {
+-		fprintf(stderr, "Out of memory while allocating file record "
+-			"for: %s\n", name);
+-		return ENOMEM;
+-	}
+-	if (ret_file)
+-		*ret_file = file;
+-
+-	return 0;
+-}
+-
+ static bool will_cross_mountpoint(dev_t dev, uint64_t btrfs_fsid)
+ {
+ 	abort_on(one_fs_dev && one_fs_btrfs);
+@@ -307,13 +205,27 @@ static bool will_cross_mountpoint(dev_t dev, uint64_t btrfs_fsid)
+ /*
+  * Returns nonzero on fatal errors only
+  */
+-int add_file(const char *path, struct dbhandle *db)
++int scan_file(const char *path, struct dbhandle *db)
+ {
+ 	int ret;
+ 	struct stat st;
+-	struct filerec *file = NULL;
+ 	char abspath[PATH_MAX];
+ 	uint64_t mtime = 0, size = 0;
++	static unsigned int seq = 0, counter = 0;
++	GError *err = NULL;
++	struct file_to_scan *file;
++
++	/*
++	 * The first call initializes the static variable
++	 * from the global dedupe_seq
++	 * The subsequents calls will increase it every <batchsize> times
++	 */
++	if (seq == 0)
++		seq = dedupe_seq + 1;
++
++	int fd = 0;
++	uint64_t subvolid;
++	struct statfs fs;
+ 
+ 	/*
+ 	 * Sanitize the file name and get absolute path. This avoids:
+@@ -339,6 +251,11 @@ int add_file(const char *path, struct dbhandle *db)
+ 		return 0;
+ 	}
+ 
++	if (st.st_size == 0) {
++		vprintf("Skipping empty file %s\n", abspath);
++		return 0;
++	}
++
+ 	if (S_ISDIR(st.st_mode)) {
+ 		uint64_t btrfs_fsid;
+ 		dev_t dev = st.st_dev;
+@@ -371,181 +288,119 @@ int add_file(const char *path, struct dbhandle *db)
+ 		return 0;
+ 	}
+ 
+-	/*
+-	 * Since we scan the disk via stat() first, we should never
+-	 * get a duplicate filename at this stage. However we can
+-	 * still check to be safe as the result will otherwise be an
+-	 * abort in the insert routine.
+-	 * On the other hand, this check enforces hardlinks detection.
+-	 */
+-	if (filerec_find_by_name(abspath)) {
+-		vprintf("Filename \"%s\" was seen twice! Skipping.\n", abspath);
++	if (is_excluded(abspath))
+ 		return 0;
+-	}
+ 
+-	ret = __add_file(abspath, &st, &file);
+-	if (ret)
+-		return ret;
++	if (!S_ISREG(st.st_mode)) {
++		vprintf("Skipping non-regular file %s\n", abspath);
++		return 0;
++	}
+ 
+-	/* File has been excluded by _add_file() */
+-	if (!file)
++	fd = open(abspath, O_RDONLY);
++	if (fd == -1) {
++		fprintf(stderr, "Error %d: %s while opening file \"%s\". "
++			"Skipping.\n", ret, strerror(ret), abspath);
+ 		return 0;
++	}
+ 
+-	/*
+-	 * Check the database to see if that file need rescan or not.
+-	 */
+-	ret = dbfile_describe_file(db, file->inum, file->subvolid, &mtime, &size);
++	ret = fstatfs(fd, &fs);
+ 	if (ret) {
+-		vprintf("dbfile_describe_file failed\n");
++		fprintf(stderr, "Error %d: %s while doing fs stat on \"%s\". "
++			"Skipping.\n", ret, strerror(ret), abspath);
++		close(fd);
+ 		return 0;
+ 	}
+ 
+-	if (mtime != file->mtime || size != file->size)
+-		set_filerec_scan_flags(file);
+-
+-	if (mtime != 0 || size != 0)
+-		file->flags |= FILEREC_IN_DB;
+-
+-	return 0;
+-}
+-
+-#define	print_file_changed(_filename, _inum, _subvolid, _file)		\
+-	do {								\
+-		vprintf("Database record (\"%s\", %"PRIu64".%"PRIu64") "\
+-			"differs from disk (\"%s\", %"PRIu64".%"PRIu64	\
+-			"), update flagged.\n", _filename, _inum,	\
+-			_subvolid, (_file)->filename, (_file)->inum,	\
+-			(_file)->_subvolid);				\
+-	} while (0)
+-
+-/*
+- * Add filerec from a db record.
+- *
+- * If we find a filerec in our ino/subvol hash, compare against db
+- * info and update flags as necessary:
+- *
+- * * The filerec is marked to be updated in the db if size or mtime changed.
+- * * The filerec is marked for rehash if mtime changed.
+- *
+- * If no filerec, we stat based on db filename:
+- *
+- * * If we don't find it (ENOENT), or subvol/inode has changed, mark
+- *   the db record for deletion.
+- *
+- * Otherwise a filerec gets added based on the stat'd information.
+- */
+-int add_file_db(const char *filename, uint64_t inum, uint64_t subvolid,
+-		uint64_t size, uint64_t mtime, unsigned int seq, int *delete)
+-{
+-	int ret = 0;
+-	struct filerec *file = filerec_find(inum, subvolid);
+-	struct stat st;
+-
+-	*delete = 0;
+-
+-	dprintf("Lookup/stat file \"%s\" from hashdb\n", filename);
+-
+-	if (!file) {
+-		file = filerec_find_by_name(filename);
+-		if (file) {
+-			/*
+-			 * We have a file by this name but a different
+-			 * inode number. Delete the record and allow
+-			 * scan to put the correct one in.
+-			 */
+-			file->dedupe_seq = seq;
+-			print_file_changed(filename, inum, subvolid, file);
+-			set_filerec_scan_flags(file);
+-			*delete = 1;
+-			return 0;
+-		}
+-		/* Go to disk and look up by filename */
+-		ret = lstat(filename, &st);
+-		if (ret == -1 && errno == ENOENT) {
+-			vprintf("File path %s no longer exists. Skipping.\n",
+-				filename);
+-			*delete = 1;
+-			return 0;
+-		} else if (ret == -1) {
+-			fprintf(stderr,	"Error %d: %s while stating file %s.\n",
+-				errno, strerror(errno), filename);
+-			*delete = 1;
+-			return 0;
+-		}
++	if (options.run_dedupe == 1 &&
++	    ((fs.f_type != BTRFS_SUPER_MAGIC &&
++	      fs.f_type != XFS_SB_MAGIC))) {
++		fprintf(stderr,	"\"%s\": Can only dedupe files on btrfs or xfs, "
++			"use -d -d to override\n", abspath);
++		close(fd);
++		return ENOSYS;
++	}
+ 
+-		ret = __add_file(filename, &st, &file);
+-		if (ret)
+-			return ret;
+-
+-		if (!file) {
+-			/*
+-			 * File is in DB and on disk but _add_file()
+-			 * didn't like it (could be too small now,
+-			 * mode change, etc).
+-			 */
+-			*delete = 1;
++	if (fs.f_type == BTRFS_SUPER_MAGIC) {
++		/*
++		 * Inodes between subvolumes on a btrfs file system
++		 * can have the same i_ino. Get the subvolume id of
++		 * our file so hard link detection works.
++		 */
++		ret = lookup_btrfs_subvolid(fd, &subvolid);
++		if (ret) {
++			fprintf(stderr,
++				"Error %d: %s while finding subvolid for file "
++				"\"%s\". Skipping.\n", ret, strerror(ret),
++				abspath);
++			close(fd);
+ 			return 0;
+ 		}
++	} else {
++		subvolid = st.st_dev;
+ 	}
++
++	close(fd);
++
+ 	/*
+-	 * Set dedupe_seq from the db record. It will be updated if we
+-	 * mark the file for rescan.
++	 * Check the database to see if that file need rescan or not.
+ 	 */
+-	file->dedupe_seq = seq;
+-
+-	clear_filerec_scan_flags(file);
+-	if (mtime != file->mtime || size != file->size) {
+-		set_filerec_scan_flags(file);
+-		file->flags |= FILEREC_UPDATE_DB;
++	ret = dbfile_describe_file(db, st.st_ino, subvolid, &mtime, &size);
++	if (ret) {
++		vprintf("dbfile_describe_file failed\n");
++		return 0;
+ 	}
+ 
+-	if (file->inum != inum || file->subvolid != subvolid ||
+-	    strcmp(filename, file->filename)) {
+-		print_file_changed(filename, inum, subvolid, file);
+-		set_filerec_scan_flags(file);
+-		*delete = 1;
+-	} else {
+-		/* All 3 of (filename, ino, subvol) match */
+-		file->flags |= FILEREC_IN_DB;
++	if (options.batch_size != 0) {
++		counter += 1;
++		if (counter >= options.batch_size) {
++			seq++;
++			counter = 0;
++		}
+ 	}
+ 
+-	return 0;
+-}
++	/* Database is up-to-date, nothing more to do */
++	if (mtime == timespec_to_nano(&(st.st_mtim)) && size == (uint64_t)st.st_size)
++		return 0;
+ 
+-static void run_pool(struct threads_pool *pool, struct filerec *file)
+-{
+-	GError *err = NULL;
+-	struct filerec *tmp;
+-	unsigned int seq;
++	dbfile_lock();
++	dbfile_begin_trans(db->db);
++	if (mtime != 0 || size != 0) {
++		/*
++		 * The file was scanned in a previous run.
++		 * We will rescan it, so let's remove old hashes
++		 */
++		dbfile_remove_hashes(db, st.st_ino, subvolid);
++	}
+ 
+-	unsigned int counter = 0;
++	/* Upsert the file record */
++	ret = dbfile_store_file_info(db, st.st_ino, subvolid, abspath, st.st_size, timespec_to_nano(&(st.st_mtim)), seq);
++	if (ret) {
++		dbfile_abort_trans(db->db);
++		dbfile_unlock();
++		return 0;
++	}
+ 
+-	seq = dedupe_seq + 1;
++	dbfile_commit_trans(db->db);
++	dbfile_unlock();
+ 
+-	qprintf("Using %u threads for file hashing phase\n", options.io_threads);
++	/* Schedule the file for scan */
++	file = malloc(sizeof(struct file_to_scan)); /* Freed by csum_whole_file() */
+ 
+-	list_for_each_entry_safe(file, tmp, &filerec_list, rec_list) {
+-		if (file->flags & FILEREC_NEEDS_SCAN) {
+-			file->dedupe_seq = seq;
+-			g_thread_pool_push(pool->pool, file, &err);
+-			if (err != NULL) {
+-				fprintf(stderr,
+-					"g_thread_pool_push: %s\n",
+-					err->message);
+-				g_error_free(err);
+-				err = NULL;
+-			}
++	file->path = strdup(abspath);
++	file->ino = st.st_ino;
++	file->subvolid = subvolid;
+ 
+-			/* If batch_size is 0 then batching is disabled */
+-			if ( options.batch_size != 0 ) {
+-				counter += 1;
+-				if (counter >= options.batch_size) {
+-					seq++;
+-					counter = 0;
+-				}
+-			}
+-		}
++	total_files_count++;
++	file->file_position = total_files_count;
++
++	if(!g_thread_pool_push(scan_pool.pool, file, &err)) {
++		fprintf(stderr, "g_thread_pool_push: %s\n", err->message);
++		g_error_free(err);
++		err = NULL;
++		free(file);
+ 	}
++
++	return 0;
+ }
+ 
+ static inline int is_block_zeroed(void *buf, ssize_t buf_size)
+@@ -589,7 +444,7 @@ static int add_block_hash(struct block_csum **hashes, uint64_t *nr_hashes,
+ struct csum_ctxt {
+ 	uint64_t blocks_recorded;
+ 	char *buf;
+-	struct filerec *file;
++	struct file_to_scan *file;
+ 	unsigned char digest[DIGEST_LEN];
+ 
+ 	struct block_csum *block_hashes;
+@@ -666,7 +521,8 @@ static int csum_extent(struct csum_ctxt *data, uint64_t extent_off,
+ 		if (ret < 0) {
+ 			ret = errno;
+ 			fprintf(stderr, "Unable to read file %s: %s\n",
+-				data->file->filename, strerror(ret));
++				data->file->path, strerror(ret));
++			*ret_total_bytes_read = 0;
+ 			return -ret;
+ 		}
+ 		if (ret == 0)
+@@ -690,26 +546,6 @@ static int csum_extent(struct csum_ctxt *data, uint64_t extent_off,
+ 	return ret;
+ }
+ 
+-static void csum_whole_file_init(struct filerec *file,
+-				 struct fiemap_ctxt **fc)
+-{
+-	static long long unsigned _cur_scan_files;
+-	unsigned long long cur_scan_files;
+-
+-	cur_scan_files = __atomic_add_fetch(&_cur_scan_files, 1, __ATOMIC_SEQ_CST);
+-
+-	qprintf("[%0*llu/%llu] (%05.2f%%) csum: %s\n",
+-		leading_spaces, cur_scan_files, files_to_scan,
+-		(double)cur_scan_files / (double)files_to_scan * 100,
+-		file->filename);
+-
+-	*fc = alloc_fiemap_ctxt();
+-	if (*fc == NULL) /* This should be non-fatal */
+-		fprintf(stderr,
+-			"Low memory allocating fiemap context for \"%s\"\n",
+-			file->filename);
+-}
+-
+ /*
+  * Helper for csum_by_block/csum_by_extent.
+  * Return < 0 on error, 0 on success and 1 if we find an extent that should not
+@@ -733,16 +569,18 @@ static int fiemap_helper(struct fiemap_ctxt *fc, int fd,
+ 	return 0;
+ }
+ 
+-static int get_file_extent_count(struct filerec *file, uint32_t *count)
++static int get_file_extent_count(int fd, uint32_t *count)
+ {
+ 	struct fiemap fiemap;
+ 	int err;
+ 
+ 	memset(&fiemap, 0, sizeof(fiemap));
+ 	fiemap.fm_length = ~0ULL;
+-	err = ioctl(file->fd, FS_IOC_FIEMAP, (unsigned long) &fiemap);
+-	if (err < 0)
++	err = ioctl(fd, FS_IOC_FIEMAP, (unsigned long) &fiemap);
++	if (err < 0) {
++		perror("fiemap failed");
+ 		return errno;
++	}
+ 
+ 	dprintf("Got %u extent for file\n", fiemap.fm_mapped_extents);
+ 	*count = fiemap.fm_mapped_extents;
+@@ -750,55 +588,109 @@ static int get_file_extent_count(struct filerec *file, uint32_t *count)
+ 	return 0;
+ }
+ 
+-static int csum_by_extent(struct csum_ctxt *ctxt, struct fiemap_ctxt *fc,
+-			  struct extent_csum **ret_extent_hashes,
+-			  uint64_t *ret_nb_hash)
++static void print_progress(unsigned long long pos, char* path)
++{
++	unsigned int leading_space = num_digits(total_files_count);
++
++	/*
++	 * We do not print the percentage unless all files are actually
++	 * pushed into the thread queue
++	 */
++	if (scan_files_completed) {
++		qprintf("[%0*llu/%llu] (%05.2f%%) csum: %s\n",
++			leading_space, pos, total_files_count,
++			(double)pos / (double)total_files_count * 100,
++			path);
++	} else {
++		qprintf("[%0*llu/%llu] csum: %s\n",
++			leading_space, pos, total_files_count,
++			path);
++	}
++}
++
++static void csum_whole_file(struct file_to_scan *file)
+ {
++	int ret = 0;
++	uint64_t nb_hash = 0;
++	_cleanup_(freep) struct fiemap_ctxt *fc = NULL;
++	struct csum_ctxt csum_ctxt = {0,};
++
++	_cleanup_(freep) struct extent_csum *extent_hashes = NULL;
++	static struct dbhandle *db = NULL;
++	static __thread char* buf = NULL;
++
+ 	uint64_t poff, loff, bytes_read, len;
+ 	uint32_t extents_count = 0;
+-	int ret = 0;
+ 	unsigned int flags;
+-	struct extent_csum *extent_hashes;
+ 	void *retp;
+-	struct filerec *file = ctxt->file;
+-	uint64_t nb_hash = 0;
+-	struct block_csum *block_hashes;
+-	struct running_checksum *file_csum;
+-//	int nb_block_hash = 0;
++	struct block_csum *block_hashes = NULL;
++	struct running_checksum *file_csum = NULL;
+ 
+-	ret = get_file_extent_count(file, &extents_count);
+-	if (ret)
+-		return ret;
++	print_progress(file->file_position, file->path);
+ 
+-	extent_hashes = calloc(extents_count, sizeof(struct extent_csum));
+-	if (extent_hashes == NULL)
+-		return ENOMEM;
++	if (!buf) {
++		buf = calloc(1, READ_BUF_LEN);
++		assert(buf != NULL);
+ 
+-	block_hashes = malloc(sizeof(struct block_csum));
+-	if (block_hashes == NULL) {
+-		free(extent_hashes);
+-		return ENOMEM;
++		register_cleanup(&scan_pool, (void*)&free, buf);
++	}
++
++	csum_ctxt.buf = buf;
++	csum_ctxt.file = file;
++
++	if(!db) {
++		dbfile_lock();
++		db = dbfile_open_handle(options.hashfile);
++		dbfile_unlock();
++		if (!db) {
++			fprintf(stderr, "csum_whole_file: unable to connect to the database");
++			goto err;
++		}
++
++		register_cleanup(&scan_pool, (void*)&dbfile_close_handle, db);
+ 	}
+ 
+-	/* We require fiemap to do dedupe by extent. */
++	fc = alloc_fiemap_ctxt();
+ 	if (fc == NULL) {
+-		free(extent_hashes);
+-		free(block_hashes);
+-		return ENOMEM;
++		fprintf(stderr,
++			"Low memory allocating fiemap context for \"%s\"\n",
++			file->path);
++		goto err;
++	}
++
++	file->fd = open(file->path, O_RDONLY);
++	if (file->fd == -1) {
++		fprintf(stderr, "csum_whole_file: Error %d: %s while opening file \"%s\". "
++			"Skipping.\n", ret, strerror(ret), file->path);
++		goto err;
++	}
++
++	ret = get_file_extent_count(csum_ctxt.file->fd, &extents_count);
++	if (ret) {
++		fprintf(stderr, "Error: cannot get file extent count for %s\n", file->path);
++		goto err;
+ 	}
+ 
+-	ctxt->block_hashes = block_hashes;
++	extent_hashes = calloc(extents_count, sizeof(struct extent_csum));
++	if (extent_hashes == NULL)
++		goto err;
++
++	block_hashes = malloc(sizeof(struct block_csum));
++	if (block_hashes == NULL)
++		goto err;
++
++	csum_ctxt.block_hashes = block_hashes;
+ 
+ 	file_csum = start_running_checksum();
+ 	if (!file_csum)
+-		return 1;
++		goto err;
+ 
+ 	flags = 0;
+ 	while (!(flags & FIEMAP_EXTENT_LAST)) {
+ 		ret = fiemap_helper(fc, file->fd, &poff, &loff, &len, &flags);
+ 		if (ret < 0) {
+ 			fprintf(stderr, "Error %d from fiemap_helper()\n", ret);
+-			goto out;
++			goto err;
+ 		}
+ 
+ 		if (ret == 1) {
+@@ -806,215 +698,100 @@ static int csum_by_extent(struct csum_ctxt *ctxt, struct fiemap_ctxt *fc,
+ 			continue;
+ 		}
+ 
+-		ret = csum_extent(ctxt, loff, len, flags, &bytes_read, file_csum);
++		ret = csum_extent(&csum_ctxt, loff, len, flags, &bytes_read, file_csum);
+ 		if (ret == 0) /* EOF */
+ 			break;
+ 
+ 		if (ret < 0)  /* Err */ {
+ 			fprintf(stderr, "Error %d from csum_extent()\n", ret);
+-			goto out;
++			goto err;
+ 		}
+ 
+ 		if ((nb_hash + 1) > extents_count) {
+ 			retp = realloc(extent_hashes,
+ 				       sizeof(struct extent_csum) * (nb_hash + 1));
+ 			if (!retp) {
+-				ret = ENOMEM;
+-				goto out;
++				perror("csum_whole_file: realloc failed");
++				goto err;
+ 			}
+ 			extent_hashes = retp;
+ 		}
+ 
+-//		printf("loff %"PRIu64" ret %d len %u flags 0x%x\n",
+-//		       loff, ret, len, flags);
+ 		extent_hashes[nb_hash].loff = loff;
+ 		extent_hashes[nb_hash].poff = poff;
+-		/* XXX: put len or actual read length in here? */
+-//		extent_hashes[nb_hash].len = len;
+ 		extent_hashes[nb_hash].len = bytes_read;
+ 		extent_hashes[nb_hash].flags = flags;
+-		memcpy(extent_hashes[nb_hash].digest, ctxt->digest,
++		memcpy(extent_hashes[nb_hash].digest, csum_ctxt.digest,
+ 		       DIGEST_LEN);
+ 		nb_hash++;
+ 
+-		ctxt->blocks_recorded += (bytes_read + (blocksize - 1))/blocksize;
++		csum_ctxt.blocks_recorded += (bytes_read + (blocksize - 1))/blocksize;
+ 		if (bytes_read < len) {
+ 			/* Partial read, don't get any more blocks */
+ 			break;
+ 		}
+ 	}
+ 
+-	finish_running_checksum(file_csum, ctxt->file_digest);
+-
+-	ret = 0;
+-	*ret_nb_hash = nb_hash;
+-	*ret_extent_hashes = extent_hashes;
+-out:
+-	if (ret && extent_hashes)
+-		free(extent_hashes);
+-
+-	return ret;
+-}
+-
+-static void csum_whole_file(struct filerec *file,
+-			    struct thread_params *params)
+-{
+-	int ret = 0;
+-	uint64_t nb_hash = 0;
+-	struct fiemap_ctxt *fc = NULL;
+-	struct csum_ctxt csum_ctxt;
+-	struct dbhandle *db = NULL;
+-	struct extent_csum *extent_hashes = NULL;
+-	struct block_csum *block_hashes = NULL;
+-
+-	memset(&csum_ctxt, 0, sizeof(csum_ctxt));
+-	csum_ctxt.buf = malloc(READ_BUF_LEN);
+-	assert(csum_ctxt.buf != NULL);
+-	csum_ctxt.file = file;
+-
+-	csum_whole_file_init(file, &fc);
++	finish_running_checksum(file_csum, csum_ctxt.file_digest);
++	file_csum = NULL;
+ 
+-	db = dbfile_get_handle();
+-	if (!db)
+-		goto err_noclose;
+-
+-	ret = filerec_open(file);
+-	if (ret)
+-		goto err_noclose;
+-
+-	ret = csum_by_extent(&csum_ctxt, fc, &extent_hashes, &nb_hash);
+-	if (ret)
+-		goto err;
+-
+-	g_mutex_lock(&io_mutex);
++	dbfile_lock();
+ 	ret = dbfile_begin_trans(db->db);
+ 	if (ret) {
+-		g_mutex_unlock(&io_mutex);
+-		goto err;
+-	}
+-
+-	ret = dbfile_store_file_info(db, file->inum, file->subvolid,
+-					file->filename, file->size, file->mtime,
+-					file->dedupe_seq);
+-	if (ret) {
+-		g_mutex_unlock(&io_mutex);
++		dbfile_unlock();
+ 		goto err;
+ 	}
+ 
+ 	if (!options.only_whole_files) {
+ 		if (options.do_block_hash) {
+-			ret = dbfile_store_block_hashes(db, file->inum, file->subvolid,
+-							file->flags,
++			ret = dbfile_store_block_hashes(db, file->ino, file->subvolid,
+ 							csum_ctxt.nr_block_hashes,
+ 							csum_ctxt.block_hashes);
+ 			if (ret) {
+-				g_mutex_unlock(&io_mutex);
++				dbfile_abort_trans(db->db);
++				dbfile_unlock();
+ 				goto err;
+ 			}
+ 		}
+ 
+-		ret = dbfile_store_extent_hashes(db, file->inum, file->subvolid,
+-						file->flags, nb_hash, extent_hashes);
++		ret = dbfile_store_extent_hashes(db, file->ino, file->subvolid, nb_hash, extent_hashes);
+ 		if (ret) {
+-			g_mutex_unlock(&io_mutex);
++			dbfile_abort_trans(db->db);
++			dbfile_unlock();
+ 			goto err;
+ 		}
+ 	}
+ 
+-	ret = dbfile_store_file_digest(db, file->inum, file->subvolid, csum_ctxt.file_digest);
++       if (nb_hash > 0) {
++	ret = dbfile_store_file_digest(db, file->ino, file->subvolid, csum_ctxt.file_digest);
+ 	if (ret) {
+-		g_mutex_unlock(&io_mutex);
++		dbfile_abort_trans(db->db);
++		dbfile_unlock();
+ 		goto err;
+ 	}
++       }
+ 
+ 	ret = dbfile_commit_trans(db->db);
+ 	if (ret) {
+-		g_mutex_unlock(&io_mutex);
++		dbfile_unlock();
+ 		goto err;
+ 	}
+-	g_mutex_unlock(&io_mutex);
+-
+-	g_mutex_lock(&params->mutex);
+-	params->num_files++;
+-	params->num_hashes += nb_hash;
+-	g_mutex_unlock(&params->mutex);
+-
+-	file->flags &= ~(FILEREC_NEEDS_SCAN|FILEREC_UPDATE_DB);
+-	/* Set 'IN_DB' flag *after* we call dbfile_store_hashes() */
+-	file->flags |= FILEREC_IN_DB;
+ 
+-	filerec_close(file);
+-	free(csum_ctxt.buf);
+-	if (fc)
+-		free(fc);
+-	if (csum_ctxt.block_hashes)
+-		free(csum_ctxt.block_hashes);
+-
+-	free(extent_hashes);
+-	return;
++	dbfile_unlock();
+ 
+ err:
+-	filerec_close(file);
+-err_noclose:
+-	free(csum_ctxt.buf);
+-	if (extent_hashes)
+-		free(extent_hashes);
+-	if (block_hashes)
+-		free(block_hashes);
++	if (file_csum) {
++		/* The output is worthless, this is only used to free memory */
++		finish_running_checksum(file_csum, csum_ctxt.file_digest);
++	}
++
+ 	if (csum_ctxt.block_hashes)
+ 		free(csum_ctxt.block_hashes);
+-	if (fc)
+-		free(fc);
+-
+-	fprintf(
+-		stderr,
+-		"Skipping file due to error %d from function csum_by_extent (%s), %s\n",
+-		ret,
+-		strerror(ret),
+-		file->filename);
+-
+-	g_mutex_lock(&params->mutex);
+-	params->num_files++;
+-	/*
+-	 * filerec_free will remove from the filerec tree keep it
+-	 * under tree_mutex until we have a need for real locking in
+-	 * filerec.c
+-	 */
+-	filerec_free(file);
+-	g_mutex_unlock(&params->mutex);
+-
+-	return;
+-}
+-
+-int populate_tree()
+-{
+-	struct threads_pool pool;
+-	struct thread_params params;
+-	int ret = 0;
+ 
+-	struct filerec *file = NULL;
+-
+-	g_mutex_init(&params.mutex);
+-	params.num_files = params.num_hashes = 0;
+-
+-	leading_spaces = num_digits(files_to_scan);
+-
+-	if (files_to_scan) {
+-		setup_pool(&pool, csum_whole_file, &params);
+-		if (!pool.pool) {
+-			ret = ENOMEM;
+-			goto out;
+-		}
+-
+-		run_pool(&pool, file);
+-		free_pool(&pool);
+-		printf("Total files scanned:  %llu\n", params.num_files);
+-		qprintf("Total extent hashes scanned: %llu\n", params.num_hashes);
+-	}
+-
+-out:
+-	g_mutex_clear(&params.mutex);
+-	return ret;
++	if (file->fd != -1)
++		close(file->fd);
++	free(file->path);
++	free(file);
+ }
+ 
+ int add_exclude_pattern(const char *pattern)
+diff --git a/file_scan.h b/file_scan.h
+index cdaeb4f4490b..3e43800ae574 100644
+--- a/file_scan.h
++++ b/file_scan.h
+@@ -10,26 +10,13 @@
+ /*
+  * Returns nonzero on fatal errors only
+  */
+-int add_file(const char *name, struct dbhandle *db);
+-/*
+- * Add from a db record. We still stat as before:
+- *
+- * If inum or subvolid do not match we mark the db record for
+- * deletion. Otherwise we add a filerec based on the stat'd
+- * information.
+- *
+- * * The filerec is marked to be updated in the db if size or mtime changed.
+- * * The filerec is marked for rehash if mtime changed.
+- */
+-int add_file_db(const char *filename, uint64_t inum, uint64_t subvolid,
+-		uint64_t size, uint64_t mtime, unsigned int seq, int *delete);
++int scan_file(const char *name, struct dbhandle *db);
+ 
+ /* Set/get onefs state, info is gathered from our config table */
+ dev_t fs_onefs_dev(void);
+ uint64_t fs_onefs_id(void);
+ 
+ struct dbfile_config;
+-int populate_tree();
+ 
+ /* For dbfile.c */
+ struct block_csum {
+@@ -51,6 +38,19 @@ struct exclude_file {
+ 	struct list_head list;
+ };
+ 
++struct file_to_scan {
++	char *path;
++	int fd;
++	uint64_t ino;
++	uint64_t subvolid;
++
++	/*
++	 * Used to record the current file position in the scan queue,
++	 * to print the progress bar
++	 */
++	unsigned long long file_position;
++};
++
+ int add_exclude_pattern(const char *pattern);
+ 
+ void filescan_prepare_pool();
+diff --git a/filerec.c b/filerec.c
+index 3078532b1ef4..2dc8b84f6a2b 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -47,7 +47,6 @@ static GMutex filerec_fd_mutex;
+ struct list_head filerec_list;
+ static struct rb_root filerec_by_inum = RB_ROOT;
+ /* Name tree is secondary to inum tree */
+-static struct rb_root filerec_by_name = RB_ROOT;
+ unsigned long long num_filerecs = 0ULL;
+ unsigned int dedupe_seq = 0;
+ 
+@@ -221,11 +220,6 @@ static int cmp_filerecs(struct filerec *file1, uint64_t file2_inum,
+ 	return 0;
+ }
+ 
+-static int cmp_filerecs_by_name(const char *filename1, const char *filename2)
+-{
+-	return strcmp(filename1, filename2);
+-}
+-
+ static void insert_filerec(struct filerec *file)
+ {
+ 	int c;
+@@ -252,32 +246,6 @@ static void insert_filerec(struct filerec *file)
+ 	return;
+ }
+ 
+-static void insert_filerec_by_name(struct filerec *file)
+-{
+-	int c;
+-	struct rb_node **p = &filerec_by_name.rb_node;
+-	struct rb_node *parent = NULL;
+-	struct filerec *tmp;
+-
+-	while (*p) {
+-		parent = *p;
+-
+-		tmp = rb_entry(parent, struct filerec, name_node);
+-
+-		c = cmp_filerecs_by_name(file->filename, tmp->filename);
+-		if (c < 0)
+-			p = &(*p)->rb_left;
+-		else if (c > 0)
+-			p = &(*p)->rb_right;
+-		else
+-			abort_lineno(); /* We should never find a duplicate */
+-	}
+-
+-	rb_link_node(&file->name_node, parent, p);
+-	rb_insert_color(&file->name_node, &filerec_by_name);
+-	return;
+-}
+-
+ struct filerec *filerec_find(uint64_t inum, uint64_t subvolid)
+ {
+ 	int c;
+@@ -298,26 +266,6 @@ struct filerec *filerec_find(uint64_t inum, uint64_t subvolid)
+ 	return NULL;
+ }
+ 
+-struct filerec *filerec_find_by_name(const char *filename)
+-{
+-	int c;
+-	struct rb_node *n = filerec_by_name.rb_node;
+-	struct filerec *tmp;
+-
+-	while (n) {
+-		tmp = rb_entry(n, struct filerec, name_node);
+-
+-		c = cmp_filerecs_by_name(filename, tmp->filename);
+-		if (c < 0)
+-			n = n->rb_left;
+-		else if (c > 0)
+-			n = n->rb_right;
+-		else
+-			return tmp;
+-	}
+-	return NULL;
+-}
+-
+ static struct filerec *filerec_alloc_insert(const char *filename,
+ 					    uint64_t inum, uint64_t subvolid,
+ 					    uint64_t size, uint64_t mtime)
+@@ -336,7 +284,6 @@ static struct filerec *filerec_alloc_insert(const char *filename,
+ 	file->fd = -1;
+ 	file->block_tree = RB_ROOT;
+ 	rb_init_node(&file->inum_node);
+-	rb_init_node(&file->name_node);
+ 	file->inum = inum;
+ 	file->subvolid = subvolid;
+ 	file->comparisons = RB_ROOT;
+@@ -345,7 +292,6 @@ static struct filerec *filerec_alloc_insert(const char *filename,
+ 	g_mutex_init(&file->tree_mutex);
+ 
+ 	insert_filerec(file);
+-	insert_filerec_by_name(file);
+ 	list_add_tail(&file->rec_list, &filerec_list);
+ 	num_filerecs++;
+ 
+@@ -374,8 +320,6 @@ void filerec_free(struct filerec *file)
+ 
+ 		if (!RB_EMPTY_NODE(&file->inum_node))
+ 			rb_erase(&file->inum_node, &filerec_by_inum);
+-		if (!RB_EMPTY_NODE(&file->name_node))
+-			rb_erase(&file->name_node, &filerec_by_name);
+ 		free_compared_tree(file);
+ 		free_filerec(file);
+ 		num_filerecs--;
+diff --git a/filerec.h b/filerec.h
+index fae65aaf3b2e..405112c78ad3 100644
+--- a/filerec.h
++++ b/filerec.h
+@@ -31,13 +31,11 @@ struct filerec {
+ 	int		fd;			/* file descriptor */
+ 	unsigned int	fd_refs;			/* fd refcount */
+ 
+-	unsigned int		flags; /* defined below this struct */
+ 	char	*filename;		/* path to file */
+ 	uint64_t subvolid;
+ 
+ 	uint64_t		inum;
+ 	struct rb_node		inum_node;
+-	struct rb_node		name_node;	/* by name */
+ 
+ 	uint64_t		size;
+ 	struct rb_root		block_tree;	/* root for hash blocks tree */
+@@ -58,31 +56,12 @@ struct filerec {
+ 	struct fiemap_ctxt	*fiemap;
+ };
+ 
+-/*
+- * Filerec needs update or insert into the db. Used when metadata
+- * changed between disk and the db or when we must insert a fresh
+- * record.
+- */
+-#define	FILEREC_UPDATE_DB	0x01
+-/*
+- * Filerec was found to have out-dated hashes (file data changed). We
+- * must delete any existing hashes from the DB and rescan this file.
+- */
+-#define	FILEREC_NEEDS_SCAN	0x02
+-/*
+- * Filerec exists in DB. We use this to avoid running some sql for
+- * file hashes for files which were freshly added via the command
+- * line. See dbfile_write_hashes().
+-*/
+-#define	FILEREC_IN_DB		0x04
+-
+ void init_filerec(void);
+ void free_all_filerecs(void);
+ 
+ struct filerec *filerec_new(const char *filename, uint64_t inum,
+ 			    uint64_t subvolid, uint64_t size, uint64_t mtime);
+ struct filerec *filerec_find(uint64_t inum, uint64_t subvolid);
+-struct filerec *filerec_find_by_name(const char *filename);
+ 
+ void filerec_free(struct filerec *file);
+ int filerec_open(struct filerec *file, bool quiet);
+diff --git a/markdown/duperemove.md b/markdown/duperemove.md
+index f4e8e63e1f0f..c8727ce37662 100644
+--- a/markdown/duperemove.md
++++ b/markdown/duperemove.md
+@@ -185,16 +185,6 @@ result the semantics of the `partial` argument may change.
+     ~ Defaults to `on`. Allow dedupe of extents within the same
+ file.
+ 
+-    **[no]rescan_files**
+-    ~ Defaults to `on`. Duperemove will check for files that were found
+-and deduplicated in a previous run, based on the hashfile. Deduplicated
+-files may have changed if new content was added, but also if their physical
+-layout was modified (defrag for instance). You can disable those checks to
+-increase performance when running `duperemove` against a specific directory
+-or file which you know is the only part of a larger, unchanged dataset.
+-Duperemove will still dedupe that specific target against any shared extent
+-found in the existing files.
+-
+     **[no]only_whole_files**
+     ~ Defaults to `off`. Duperemove will only work on full file. Both
+ extent-based and block-based deduplication will be disabled. The hashfile will
+diff --git a/opt.c b/opt.c
+index 3c00ed1ce9fe..a1813b289b15 100644
+--- a/opt.c
++++ b/opt.c
+@@ -14,7 +14,6 @@
+ #include "opt.h"
+ 
+ struct options options = {
+-	.rescan_files = true,
+ 	.run_dedupe = 0,
+ 	.recurse_dirs = false,
+ 	.io_threads = 0,
+diff --git a/opt.h b/opt.h
+index a150684ed271..6812397e389c 100644
+--- a/opt.h
++++ b/opt.h
+@@ -17,7 +17,6 @@
+ #include <stdbool.h>
+ 
+ struct options {
+-	bool rescan_files : 1;
+ 	int run_dedupe;
+ 	bool recurse_dirs : 1;
+ 	unsigned int io_threads;
+diff --git a/run_dedupe.c b/run_dedupe.c
+index 1b19c8c27a75..d3afb3e14eaa 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -539,14 +539,6 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 			 * the new extents mapping as well as their new hashes
+ 			 */
+ 			dbfile_remove_extent_hashes(db, extent->e_file->inum, extent->e_file->subvolid);
+-
+-			/* Update those files' dedupe_seq. This will mark them as deduped
+-			 * and prevent further processing (extent or block-based dedupe)
+-			 */
+-			dbfile_store_file_info(db, extent->e_file->inum,
+-				extent->e_file->subvolid, extent->e_file->filename,
+-				extent->e_file->size, extent->e_file->mtime,
+-				extent->e_file->dedupe_seq);
+ 		} else {
+ 			/* Rescan physical offset and update the hashfile accordingly */
+ 			ret = fiemap_scan_extent(extent);
+
+From fa7159d7588de118e587957aba780fcec2812ba1 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 16:40:28 +0100
+Subject: [PATCH 10/19] duperemove: fix fdupes support
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ duperemove.c | 38 ++++++++++++++++++++++++++++++++------
+ file_scan.c  |  7 +++++++
+ file_scan.h  |  2 ++
+ 3 files changed, 41 insertions(+), 6 deletions(-)
+
+diff --git a/duperemove.c b/duperemove.c
+index 181c68bc74c6..b628cd757b05 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -210,7 +210,7 @@ enum {
+ 	BATCH_SIZE_OPTION,
+ };
+ 
+-static int add_files_from_stdin(int fdupes, struct dbhandle *db)
++static int process_fdupes()
+ {
+ 	int ret = 0;
+ 	_cleanup_(freep) char *path = NULL;
+@@ -221,10 +221,11 @@ static int add_files_from_stdin(int fdupes, struct dbhandle *db)
+ 		if (readlen == 0)
+ 			continue;
+ 
+-		if (fdupes && readlen == 1 && path[0] == '\n') {
++		if (readlen == 1 && path[0] == '\n') {
+ 			ret = fdupes_dedupe();
+ 			if (ret)
+ 				return ret;
++			free_all_filerecs();
+ 			continue;
+ 		}
+ 
+@@ -237,6 +238,31 @@ static int add_files_from_stdin(int fdupes, struct dbhandle *db)
+ 			continue;
+ 		}
+ 
++		add_file_fdupes(path);
++	}
++
++	return 0;
++}
++
++static int add_files_from_stdin(struct dbhandle *db)
++{
++	_cleanup_(freep) char *path = NULL;
++	size_t pathlen = 0;
++	ssize_t readlen;
++
++	while ((readlen = getline(&path, &pathlen, stdin)) != -1) {
++		if (readlen == 0)
++			continue;
++
++		if (readlen > 0 && path[readlen - 1] == '\n') {
++			path[--readlen] = '\0';
++		}
++
++		if (readlen > PATH_MAX - 1) {
++			fprintf(stderr, "Path max exceeded: %s\n", path);
++			continue;
++		}
++
+ 		if (scan_file(path, db)) {
+ 			fprintf(stderr,
+ 				"Error: cannot add %s into the lookup list\n",
+@@ -580,7 +606,7 @@ static int scan_files(int argc, char **argv, int filelist_idx, struct dbhandle *
+ 	filescan_prepare_pool();
+ 
+ 	if (stdin_filelist)
+-		ret = add_files_from_stdin(0, db);
++		ret = add_files_from_stdin(db);
+ 	else
+ 		ret = scan_files_from_cmdline(argc - filelist_idx,
+ 					     &argv[filelist_idx], db);
+@@ -634,6 +660,9 @@ int main(int argc, char **argv)
+ 	 */
+ 	increase_limits();
+ 
++	if (options.fdupes_mode)
++		return process_fdupes();
++
+ 	if (list_only_opt)
+ 		return list_db_files(options.hashfile);
+ 	else if (rm_only_opt)
+@@ -651,9 +680,6 @@ int main(int argc, char **argv)
+ 
+ 	dedupe_seq = dbfile_cfg.dedupe_seq;
+ 
+-	if (options.fdupes_mode)
+-		return add_files_from_stdin(1, db);
+-
+ 	print_header();
+ 
+ 	if (use_hashfile == H_WRITE || use_hashfile == H_UPDATE) {
+diff --git a/file_scan.c b/file_scan.c
+index 8aece2497cd1..8db60deac086 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -834,3 +834,10 @@ void filescan_free_pool()
+ {
+ 	free_pool(&scan_pool);
+ }
++
++void add_file_fdupes(char *path)
++{
++	struct stat st;
++	lstat(path, &st);
++	filerec_new(path, st.st_ino, 0, st.st_size, 0);
++}
+diff --git a/file_scan.h b/file_scan.h
+index 3e43800ae574..9fe6d28c398a 100644
+--- a/file_scan.h
++++ b/file_scan.h
+@@ -55,4 +55,6 @@ int add_exclude_pattern(const char *pattern);
+ 
+ void filescan_prepare_pool();
+ void filescan_free_pool();
++
++void add_file_fdupes(char *path);
+ #endif	/* __FILE_SCAN_H__ */
+
+From 2fa0b2b2a2e0e0ff7d259cc0dea89c3239140d6f Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 17:14:25 +0100
+Subject: [PATCH 11/19] filerec: drop a bunch of dead code
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c              |  9 +----
+ file_scan.c           |  2 +-
+ filerec.c             | 93 ++-----------------------------------------
+ filerec.h             | 36 +----------------
+ find_dupes.c          |  5 ---
+ show-shared-extents.c |  2 +-
+ 6 files changed, 8 insertions(+), 139 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index 88d19966d0d2..12a62dfaac74 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -426,7 +426,7 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ 	dbfile_prepare_stmt(remove_extent_hashes, REMOVE_EXTENT_HASHES);
+ 
+ #define LOAD_FILEREC						\
+-"select filename, size, mtime, dedupe_seq from files "		\
++"select filename, size from files "				\
+ "where ino = ?1 and subvol = ?2;"
+ 	dbfile_prepare_stmt(load_filerec, LOAD_FILEREC);
+ 
+@@ -1178,8 +1178,6 @@ int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.load_filerec;
+ 	const unsigned char *filename;
+ 	uint64_t size;
+-	uint64_t mtime;
+-	unsigned int seq;
+ 
+ 	*file = NULL;
+ 
+@@ -1207,13 +1205,10 @@ int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 
+ 	filename = sqlite3_column_text(stmt, 0);
+ 	size = sqlite3_column_int64(stmt, 1);
+-	mtime = sqlite3_column_int64(stmt, 2);
+-	seq = sqlite3_column_int(stmt, 3);
+ 
+-	*file = filerec_new((const char *)filename, ino, subvol, size, mtime);
++	*file = filerec_new((const char *)filename, ino, subvol, size);
+ 	if (!*file)
+ 		ret = ENOMEM;
+-	(*file)->dedupe_seq = seq;
+ 
+ 	return 0;
+ }
+diff --git a/file_scan.c b/file_scan.c
+index 8db60deac086..367c799aa9a1 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -839,5 +839,5 @@ void add_file_fdupes(char *path)
+ {
+ 	struct stat st;
+ 	lstat(path, &st);
+-	filerec_new(path, st.st_ino, 0, st.st_size, 0);
++	filerec_new(path, st.st_ino, 0, st.st_size);
+ }
+diff --git a/filerec.c b/filerec.c
+index 2dc8b84f6a2b..578ba312ece6 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -46,7 +46,6 @@
+ static GMutex filerec_fd_mutex;
+ struct list_head filerec_list;
+ static struct rb_root filerec_by_inum = RB_ROOT;
+-/* Name tree is secondary to inum tree */
+ unsigned long long num_filerecs = 0ULL;
+ unsigned int dedupe_seq = 0;
+ 
+@@ -124,88 +123,6 @@ struct filerec_token *filerec_token_new(struct filerec *file)
+ 	return token;
+ }
+ 
+-int filerecs_compared(struct filerec *file1, struct filerec *file2)
+-{
+-	struct filerec *file = file1;
+-	struct filerec *test = file2;
+-
+-	/*
+-	 * We can store only one pointer if we make a rule that we
+-	 * always search the filerec with the lower pointer value for
+-	 * the one with the higher pointer value.
+-	 */
+-	if (file1 > file2) {
+-		file = file2;
+-		test = file1;
+-	}
+-
+-	g_mutex_lock(&file->tree_mutex);
+-	if (find_filerec_token_rb(&file->comparisons, test)) {
+-		g_mutex_unlock(&file->tree_mutex);
+-		return 1;
+-	}
+-	g_mutex_unlock(&file->tree_mutex);
+-	return 0;
+-}
+-
+-int mark_filerecs_compared(struct filerec *file1, struct filerec *file2)
+-{
+-	struct filerec_token *t;
+-	struct filerec *file = file1;
+-	struct filerec *test = file2;
+-
+-	if (file1 > file2) {
+-		file = file2;
+-		test = file1;
+-	}
+-
+-	g_mutex_lock(&file->tree_mutex);
+-	if (find_filerec_token_rb(&file->comparisons, test)) {
+-		g_mutex_unlock(&file->tree_mutex);
+-		return 0;
+-	}
+-	g_mutex_unlock(&file->tree_mutex);
+-
+-	t = filerec_token_new(test);
+-	if (!t)
+-		return ENOMEM;
+-
+-	g_mutex_lock(&file->tree_mutex);
+-	if (find_filerec_token_rb(&file->comparisons, test)) {
+-		g_mutex_unlock(&file->tree_mutex);
+-		filerec_token_free(t);
+-		return 0;
+-	}
+-
+-	insert_filerec_token_rb(&file->comparisons, t);
+-	g_mutex_unlock(&file->tree_mutex);
+-
+-	return 0;
+-}
+-
+-static void free_compared_tree(struct filerec *file)
+-{
+-	struct rb_node *n = rb_first(&file->comparisons);
+-	struct filerec_token *t;
+-
+-	while (n) {
+-		t = rb_entry(n, struct filerec_token, t_node);
+-		n = rb_next(n);
+-		rb_erase(&t->t_node, &file->comparisons);
+-		filerec_token_free(t);
+-	}
+-
+-	abort_on(!RB_EMPTY_ROOT(&file->comparisons));
+-}
+-
+-void free_all_filerec_compared(void)
+-{
+-	struct filerec *file;
+-
+-	list_for_each_entry(file, &filerec_list, rec_list)
+-		free_compared_tree(file);
+-}
+-
+ static int cmp_filerecs(struct filerec *file1, uint64_t file2_inum,
+ 			uint64_t file2_subvolid)
+ {
+@@ -268,7 +185,7 @@ struct filerec *filerec_find(uint64_t inum, uint64_t subvolid)
+ 
+ static struct filerec *filerec_alloc_insert(const char *filename,
+ 					    uint64_t inum, uint64_t subvolid,
+-					    uint64_t size, uint64_t mtime)
++					    uint64_t size)
+ {
+ 	struct filerec *file = calloc_filerec(1);
+ 
+@@ -286,10 +203,7 @@ static struct filerec *filerec_alloc_insert(const char *filename,
+ 	rb_init_node(&file->inum_node);
+ 	file->inum = inum;
+ 	file->subvolid = subvolid;
+-	file->comparisons = RB_ROOT;
+ 	file->size = size;
+-	file->mtime = mtime;
+-	g_mutex_init(&file->tree_mutex);
+ 
+ 	insert_filerec(file);
+ 	list_add_tail(&file->rec_list, &filerec_list);
+@@ -299,10 +213,10 @@ static struct filerec *filerec_alloc_insert(const char *filename,
+ }
+ 
+ struct filerec *filerec_new(const char *filename, uint64_t inum,
+-			    uint64_t subvolid, uint64_t size, uint64_t mtime)
++			    uint64_t subvolid, uint64_t size)
+ {
+ 	struct filerec *file;
+-	file = filerec_alloc_insert(filename, inum, subvolid, size, mtime);
++	file = filerec_alloc_insert(filename, inum, subvolid, size);
+ 	return file;
+ }
+ 
+@@ -320,7 +234,6 @@ void filerec_free(struct filerec *file)
+ 
+ 		if (!RB_EMPTY_NODE(&file->inum_node))
+ 			rb_erase(&file->inum_node, &filerec_by_inum);
+-		free_compared_tree(file);
+ 		free_filerec(file);
+ 		num_filerecs--;
+ 	}
+diff --git a/filerec.h b/filerec.h
+index 405112c78ad3..20c2d5c46da3 100644
+--- a/filerec.h
++++ b/filerec.h
+@@ -41,43 +41,19 @@ struct filerec {
+ 	struct rb_root		block_tree;	/* root for hash blocks tree */
+ 
+ 	struct list_head	rec_list;	/* all filerecs */
+-
+-	/* protects comparisons and extent_tree trees */
+-	GMutex			tree_mutex;
+-
+-	struct rb_root		comparisons;
+-
+-	/* interval tree of dup-extents belonging to this file */
+-	struct rb_root		extent_tree;
+-	/* mtime in nanoseconds */
+-	uint64_t		mtime;
+-	unsigned int		dedupe_seq;
+-
+-	struct fiemap_ctxt	*fiemap;
+ };
+ 
+ void init_filerec(void);
+ void free_all_filerecs(void);
+ 
+ struct filerec *filerec_new(const char *filename, uint64_t inum,
+-			    uint64_t subvolid, uint64_t size, uint64_t mtime);
++			    uint64_t subvolid, uint64_t size);
+ struct filerec *filerec_find(uint64_t inum, uint64_t subvolid);
+ 
+ void filerec_free(struct filerec *file);
+ int filerec_open(struct filerec *file, bool quiet);
+ void filerec_close(struct filerec *file);
+ 
+-/*
+- * dedupe_seq is used to track when a file has been deduped. When we
+- * scan or rescan a file, we set its seq to dedupe_seq + 1. The global
+- * dedupe_seq value is only incremented once a full dedupe pass is
+- * done. We can then compare sequence numbers to tell whether a file
+- * has been deduped or not.
+- */
+-static inline int filerec_deduped(struct filerec *file)
+-{
+-	return !!(file->dedupe_seq <= dedupe_seq);
+-}
+ struct open_once {
+ 	struct rb_root	root;
+ };
+@@ -105,10 +81,6 @@ void insert_filerec_token_rb(struct rb_root *root,
+ void filerec_token_free(struct filerec_token *token);
+ struct filerec_token *filerec_token_new(struct filerec *file);
+ 
+-int filerecs_compared(struct filerec *file1, struct filerec *file2);
+-int mark_filerecs_compared(struct filerec *file1, struct filerec *file2);
+-void free_all_filerec_compared(void);
+-
+ struct fiemap_ctxt;
+ struct fiemap_ctxt *alloc_fiemap_ctxt(void);
+ int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, int fd,
+@@ -123,11 +95,5 @@ static inline uint64_t timespec_to_nano(struct timespec *t)
+ 	return (uint64_t)t->tv_nsec + t->tv_sec * NANOSECONDS;
+ }
+ 
+-static inline void nano_to_timespec(uint64_t nanosecs, struct timespec *t)
+-{
+-	t->tv_sec = nanosecs / NANOSECONDS;
+-	t->tv_nsec = nanosecs % NANOSECONDS;
+-}
+-
+ int fiemap_scan_extent(struct extent *extent);
+ #endif /* __FILEREC__ */
+diff --git a/find_dupes.c b/find_dupes.c
+index 179a328a89d9..bd1d6b94c09b 100644
+--- a/find_dupes.c
++++ b/find_dupes.c
+@@ -518,10 +518,5 @@ int find_additional_dedupe(struct results_tree *dupe_extents)
+ 
+ 	g_thread_pool_free(pool, FALSE, TRUE);
+ 
+-	/*
+-	 * Save memory by freeing each filerec compared tree once all
+-	 * threads have finished.
+-	 */
+-//	free_all_filerec_compared();
+ 	return ret;
+ }
+diff --git a/show-shared-extents.c b/show-shared-extents.c
+index 887e253fc13b..ff93e22509b3 100644
+--- a/show-shared-extents.c
++++ b/show-shared-extents.c
+@@ -158,7 +158,7 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	for (i = 1; i < argc; i++) {
+-		file = filerec_new(argv[i], 500 + i, 1, 0, 0);
++		file = filerec_new(argv[i], 500 + i, 1, 0);
+ 		if (!file) {
+ 			fprintf(stderr, "filerec_new(): malloc error\n");
+ 			return 1;
+
+From b768e2def2fee70fff8e1a075209719942b8f318 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 17:29:31 +0100
+Subject: [PATCH 12/19] duperemove: simplify the logic
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ duperemove.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/duperemove.c b/duperemove.c
+index b628cd757b05..d3c13f3aad6f 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -697,11 +697,7 @@ int main(int argc, char **argv)
+ 			options.hashfile);
+ 	}
+ 
+-	if (use_hashfile == H_UPDATE) {
+-		process_duplicates();
+-	}
+-
+-	if (use_hashfile == H_READ)
++	if (use_hashfile == H_READ || use_hashfile == H_UPDATE)
+ 		process_duplicates();
+ 
+ out:
+
+From d161c54eba4a803b12282865895542f3a3890813 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Fri, 3 Nov 2023 20:40:13 +0100
+Subject: [PATCH 13/19] db: protect all write path with the same mutex
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ find_dupes.c | 5 +++++
+ run_dedupe.c | 5 ++---
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/find_dupes.c b/find_dupes.c
+index bd1d6b94c09b..36a94062db04 100644
+--- a/find_dupes.c
++++ b/find_dupes.c
+@@ -401,7 +401,9 @@ static int search_file_extents(struct filerec *file, struct results_tree *dupe_e
+ 	struct file_extent *extent;
+ 	unsigned int num_extents, i;
+ 
++	dbfile_lock();
+ 	db = dbfile_open_handle(options.hashfile);
++	dbfile_unlock();
+ 	if (!db) {
+ 		fprintf(stderr, "ERROR: Couldn't open db file %s\n",
+ 			options.hashfile == NULL ? "(null)" : options.hashfile);
+@@ -441,7 +443,10 @@ static int search_file_extents(struct filerec *file, struct results_tree *dupe_e
+ 	update_extent_search_status(1);
+ 	if (extents)
+ 		free(extents);
++
++	dbfile_lock();
+ 	dbfile_close_handle(db);
++	dbfile_unlock();
+ 	return 0;
+ }
+ 
+diff --git a/run_dedupe.c b/run_dedupe.c
+index d3afb3e14eaa..550f2c8da48d 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -49,7 +49,6 @@ static volatile unsigned long long total_dedupe_passes;
+ static volatile unsigned long long curr_dedupe_pass;
+ static unsigned int leading_spaces;
+ static bool whole_file_dedup;
+-GMutex db_mutex; /* locks db writes */
+ 
+ void print_dupes_table(struct results_tree *res, bool whole_file)
+ {
+@@ -528,7 +527,7 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 		return ret;
+ 	}
+ 
+-	g_mutex_lock(&db_mutex);
++	dbfile_lock();
+ 	list_for_each_entry(extent, &dext->de_extents, e_list) {
+ 		if (whole_file_dedup) {
+ 			/* If we are deduping a whole file, then the extents may be remapped
+@@ -546,7 +545,7 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 				dbfile_update_extent_poff(db, extent->e_file->inum, extent->e_file->subvolid, extent->e_loff, extent->e_poff);
+ 		}
+ 	}
+-	g_mutex_unlock(&db_mutex);
++	dbfile_unlock();
+ 
+ 	if (!list_empty(&dext->de_extents)) {
+ 		g_mutex_lock(&mutex);
+
+From c6f91e13456d1ea260071d5682bcecff79232274 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sat, 4 Nov 2023 17:04:17 +0100
+Subject: [PATCH 14/19] fix a couple of return paths
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c     | 2 +-
+ filerec.c    | 5 ++---
+ find_dupes.c | 9 ++++-----
+ 3 files changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index 12a62dfaac74..c105906d59c9 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -1208,7 +1208,7 @@ int dbfile_load_one_filerec(struct dbhandle *db, uint64_t ino, uint64_t subvol,
+ 
+ 	*file = filerec_new((const char *)filename, ino, subvol, size);
+ 	if (!*file)
+-		ret = ENOMEM;
++		return ENOMEM;
+ 
+ 	return 0;
+ }
+diff --git a/filerec.c b/filerec.c
+index 578ba312ece6..b30575a6974d 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -441,7 +441,6 @@ int fiemap_iter_next_extent(struct fiemap_ctxt *ctxt, int fd,
+ int filerec_count_shared(struct filerec *file, uint64_t loff, uint32_t len,
+ 			 uint64_t *shared)
+ {
+-	int ret;
+ 	struct fiemap_ctxt *ctxt = alloc_fiemap_ctxt();
+ 	unsigned int flags;
+ 	uint64_t extent_loff, poff, extent_len;
+@@ -454,8 +453,8 @@ int filerec_count_shared(struct filerec *file, uint64_t loff, uint32_t len,
+ 
+ 	*shared = 0;
+ 
+-	while ((ret = fiemap_iter_next_extent(ctxt, file->fd, &poff, &extent_loff,
+-					      &extent_len, &flags)) == 0) {
++	while (fiemap_iter_next_extent(ctxt, file->fd, &poff, &extent_loff,
++					      &extent_len, &flags) == 0) {
+ 		extent_end = extent_loff + extent_len - 1;
+ 
+ 		if (loff <= extent_end && end >= extent_loff) {
+diff --git a/find_dupes.c b/find_dupes.c
+index 36a94062db04..81488ab44913 100644
+--- a/find_dupes.c
++++ b/find_dupes.c
+@@ -331,7 +331,7 @@ static int compare_extents(struct filerec *orig_file,
+ static int search_extent(struct filerec *file, struct file_extent *extent,
+ 			 struct results_tree *dupe_extents, struct dbhandle *db)
+ {
+-	int ret;
++	int ret = 0;
+ 	struct file_block *block, *found_block;
+ 	struct filerec *found_file;
+ 	struct dupe_blocks_list *blocklist;
+@@ -392,7 +392,7 @@ static int search_extent(struct filerec *file, struct file_extent *extent,
+  * We don't yet catch the case where a non duped extent straddles more
+  * than one extent.
+  */
+-static int search_file_extents(struct filerec *file, struct results_tree *dupe_extents)
++static void search_file_extents(struct filerec *file, struct results_tree *dupe_extents)
+ {
+ 
+ 	int ret;
+@@ -407,7 +407,7 @@ static int search_file_extents(struct filerec *file, struct results_tree *dupe_e
+ 	if (!db) {
+ 		fprintf(stderr, "ERROR: Couldn't open db file %s\n",
+ 			options.hashfile == NULL ? "(null)" : options.hashfile);
+-		return ENOMEM;
++		return;
+ 	}
+ 	/*
+ 	 * Pick a non-deduped extent from file. The extent info
+@@ -438,7 +438,7 @@ static int search_file_extents(struct filerec *file, struct results_tree *dupe_e
+ 		if (ret)
+ 			goto out;
+ 	}
+-	ret = 0;
++
+ out:
+ 	update_extent_search_status(1);
+ 	if (extents)
+@@ -447,7 +447,6 @@ static int search_file_extents(struct filerec *file, struct results_tree *dupe_e
+ 	dbfile_lock();
+ 	dbfile_close_handle(db);
+ 	dbfile_unlock();
+-	return 0;
+ }
+ 
+ struct cmp_ctxt {
+
+From 9664662a2983c5f4e25b5ded8ae550bc3948852c Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sat, 4 Nov 2023 18:02:16 +0100
+Subject: [PATCH 15/19] duperemove: fix message
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ duperemove.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/duperemove.c b/duperemove.c
+index d3c13f3aad6f..42a1e8642d64 100644
+--- a/duperemove.c
++++ b/duperemove.c
+@@ -693,7 +693,7 @@ int main(int argc, char **argv)
+ 		if (ret)
+ 			goto out;
+ 
+-		qprintf("Hashfile \"%s\" written, exiting.\n",
++		qprintf("Hashfile \"%s\" written\n",
+ 			options.hashfile);
+ 	}
+ 
+
+From af6f9f22028527f6de8f84f33366a8a36ebba7eb Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sat, 4 Nov 2023 20:13:56 +0100
+Subject: [PATCH 16/19] run_dedupe: extent_dedupe_worker: update todo
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ run_dedupe.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/run_dedupe.c b/run_dedupe.c
+index 550f2c8da48d..01ff40fb80d8 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -536,6 +536,7 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 			 * a better move.
+ 			 * TODO: do not delete the extents but rescan every files to fetch
+ 			 * the new extents mapping as well as their new hashes
++			 * This may cause dbfile_load_one_file_extent() to raise an error.
+ 			 */
+ 			dbfile_remove_extent_hashes(db, extent->e_file->inum, extent->e_file->subvolid);
+ 		} else {
+
+From 22029f42fd9fad76397fe6f878d987dd0f7f0a9e Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sat, 4 Nov 2023 21:08:41 +0100
+Subject: [PATCH 17/19] update Changelog
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ Changelog.md | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Changelog.md b/Changelog.md
+index d1a48bcf7b90..25de576c8e5d 100644
+--- a/Changelog.md
++++ b/Changelog.md
+@@ -2,6 +2,8 @@ PENDING
+ ---
+ 
+ **Notable changes**:
++ * Batching has been reimplemented on top of the dedupe\_seq.
++ * The "scan" phase has been reimplemented (see ac3751852e3d30104ce5f83d371be23575d25031 for details).
+ 
+ Version 0.13
+ ---
+@@ -26,4 +28,4 @@ Version 0.12
+  * Duplication lookup is now based on extents. This leads to a massive increase of the performances. Block-based lookup is still possible via `--dedupe-options=partial`.
+  * Following that change, a new hashfile format has been introduced. Previous hashfile format is still supported when extents lookup are disabled, this is not recommended.
+  * Batching has been implemented. When enabled with the `-B <batchsize>` option, `duperemove` will run the deduplication phase every `<batchsize>` scanned files. This is meant to help running `duperemove` on large dataset, with small blocksize, or on memory-constrained systems.
+- * All hash algorithm has been removed and replaced by xxh128. This variant is as robust as murmur3 while being faster. Choosing a hash function via the `--hash` option has been removed. Hashfiles built with other algorithm must be removed.
++ * All hash algorithms has been removed and replaced by xxh128. This variant is as robust as murmur3 while being faster. Choosing a hash function via the `--hash` option has been removed. Hashfiles built with other algorithm must be removed.
+
+From 62362a3890e8fb25c009eb11530a42ea2a63aef3 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sat, 4 Nov 2023 21:28:15 +0100
+Subject: [PATCH 18/19] dbfile: dbfile_load_one_file_extent: hide a spurious
+ error message
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/dbfile.c b/dbfile.c
+index c105906d59c9..5d940d56f808 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -1339,6 +1339,11 @@ int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
+ 		return ret;
+ 
+ 	ret = sqlite3_step(stmt);
++
++	/* TODO: drop me when extent_dedupe_worker() is fixed */
++	if (ret == SQLITE_DONE)
++		return 0;
++
+ 	if (ret != SQLITE_ROW) {
+ 		perror_sqlite(ret, "retrieving extent info");
+ 		return ret;
+
+From c63594afc32354cd69f02c2606abf7c25dc64de6 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sat, 4 Nov 2023 21:40:04 +0100
+Subject: [PATCH 19/19] file_scan: scan_file: check if the file is to be
+ ignored before doing any other kind of checks
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ file_scan.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/file_scan.c b/file_scan.c
+index 367c799aa9a1..fa52b593bb64 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -243,6 +243,9 @@ int scan_file(const char *path, struct dbhandle *db)
+ 		return 0;
+ 	}
+ 
++	if (is_excluded(abspath))
++		return 0;
++
+ 	ret = lstat(abspath, &st);
+ 	if (ret) {
+ 		fprintf(stderr, "Error %d: %s while stating file %s. "
+@@ -260,10 +263,6 @@ int scan_file(const char *path, struct dbhandle *db)
+ 		uint64_t btrfs_fsid;
+ 		dev_t dev = st.st_dev;
+ 
+-		/* Check if the whole directory is excluded */
+-		if (is_excluded(abspath))
+-			return 0;
+-
+ 		/*
+ 		 * Device doesn't work for btrfs as it changes between
+ 		 * subvolumes. We know how to get a unique fsid though
+@@ -288,9 +287,6 @@ int scan_file(const char *path, struct dbhandle *db)
+ 		return 0;
+ 	}
+ 
+-	if (is_excluded(abspath))
+-		return 0;
+-
+ 	if (!S_ISREG(st.st_mode)) {
+ 		vprintf("Skipping non-regular file %s\n", abspath);
+ 		return 0;

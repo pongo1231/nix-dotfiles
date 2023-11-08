@@ -266,7 +266,22 @@
     home-manager
     pulseaudio
     unstable.distrobox
-    duperemove
+    (duperemove.overrideAttrs (oldAttrs: {
+      version = "git-17aa82";
+
+      src = pkgs.fetchFromGitHub {
+        owner = "markfasheh";
+        repo = "duperemove";
+        rev = "17aa8259152cac456fc8b767c3b85e58657eb806";
+        hash = "sha256-Sue8u1PBBjwLLNpzAZb27O12D69c4Al+GcNs9u6r44A=";
+      };
+
+      nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ pkgs.pandoc ];
+
+      patches = [
+        ./patches/duperemove/320.patch
+      ];
+    }))
     dconf
     nix-alien
     nix-index
