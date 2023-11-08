@@ -267,19 +267,19 @@
     pulseaudio
     unstable.distrobox
     (duperemove.overrideAttrs (oldAttrs: {
-      version = "git-17aa82";
+      version = "git-Sue8u1";
 
       src = pkgs.fetchFromGitHub {
         owner = "markfasheh";
         repo = "duperemove";
-        rev = "17aa8259152cac456fc8b767c3b85e58657eb806";
-        hash = "sha256-Sue8u1PBBjwLLNpzAZb27O12D69c4Al+GcNs9u6r44A=";
+        rev = "0c3e8b4e42971d15117a669899651e4964371236";
+        hash = "sha256-nymCmPCdF3+6WnQWEc22OJt+CZhe8GZOBh+r1+kQxgU=";
       };
 
       nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ pkgs.pandoc ];
 
       patches = [
-        ./patches/duperemove/320.patch
+      #  ./patches/duperemove/320.patch
       ];
     }))
     dconf

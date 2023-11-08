@@ -1,7 +1,7 @@
 From 4139768452cb584a141ad9925a6e4e6e90dd8bc5 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sun, 22 Oct 2023 18:46:13 +0200
-Subject: [PATCH 01/19] dbfile: compile the statements when the database is
+Subject: [PATCH 01/22] dbfile: compile the statements when the database is
  open
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
@@ -1702,7 +1702,7 @@ index 59b1a3261089..d101a1dd1c32 100644
 From e278a56320bf43c59a8b07d11d881866b25a89dc Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Thu, 2 Nov 2023 17:36:32 +0100
-Subject: [PATCH 02/19] dbfile: remove some filerec occurences
+Subject: [PATCH 02/22] dbfile: remove some filerec occurences
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -2034,7 +2034,7 @@ index d101a1dd1c32..1481ec76f136 100644
 From d1c3cfa04fca956320abf3bf07003c9bc14acad3 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Thu, 2 Nov 2023 18:06:39 +0100
-Subject: [PATCH 03/19] duperemove: reduce the use of the global db handle
+Subject: [PATCH 03/22] duperemove: reduce the use of the global db handle
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -2178,7 +2178,7 @@ index a60352aad567..259643ecde85 100644
 From c33276f3407d01fbd8ddd6162b98685bd488d4cf Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Mon, 23 Oct 2023 13:30:27 +0200
-Subject: [PATCH 04/19] duperemove: reimplement batching support
+Subject: [PATCH 04/22] duperemove: reimplement batching support
 
 Files are scanned but inserted with various dedupe_seq id,
 which can be used later to recreate the batch, for the dedupe phase
@@ -2900,7 +2900,7 @@ index 000000000000..807a8c9cd673
 From 351f08e6d5168b61db47e22eeb16cde90307f533 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Thu, 2 Nov 2023 21:00:29 +0100
-Subject: [PATCH 05/19] file_scan: add_file: remove some goto
+Subject: [PATCH 05/22] file_scan: add_file: remove some goto
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -3000,7 +3000,7 @@ index c8c1222896ff..c60a85fe6f6a 100644
 From 27ec3055112d8b804d9ef87cc26cd70216e7cc87 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Thu, 2 Nov 2023 21:30:08 +0100
-Subject: [PATCH 06/19] fiemap: remove some filerec occurences
+Subject: [PATCH 06/22] fiemap: remove some filerec occurences
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -3124,7 +3124,7 @@ index 0e2b6a17fa27..a6c37da0b285 100644
 From 85756a029a149d7a3f33ec607e30c0beb337f4ae Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 14:14:08 +0100
-Subject: [PATCH 07/19] file_scan: fiemap_helper: do not pass the whole filerec
+Subject: [PATCH 07/22] file_scan: fiemap_helper: do not pass the whole filerec
  struct below
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
@@ -3165,7 +3165,7 @@ index c84fb81d7a30..af57395d0aa9 100644
 From 527bf70f5183e706f052830afaebe7a113983957 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 15:49:13 +0100
-Subject: [PATCH 08/19] run_dedupe: remove the file from the hashfile if it no
+Subject: [PATCH 08/22] run_dedupe: remove the file from the hashfile if it no
  longer exists
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
@@ -3299,7 +3299,7 @@ index a6c37da0b285..887e253fc13b 100644
 From ac3751852e3d30104ce5f83d371be23575d25031 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 11:29:12 +0100
-Subject: [PATCH 09/19] file_scan: reimplement file scan
+Subject: [PATCH 09/22] file_scan: reimplement file scan
 
 We used to:
 - build a list of struct filerec that needs scan
@@ -4544,7 +4544,7 @@ index af57395d0aa9..8aece2497cd1 100644
  		}
  
  		if (ret == 1) {
-@@ -806,215 +698,100 @@ static int csum_by_extent(struct csum_ctxt *ctxt, struct fiemap_ctxt *fc,
+@@ -806,215 +698,98 @@ static int csum_by_extent(struct csum_ctxt *ctxt, struct fiemap_ctxt *fc,
  			continue;
  		}
  
@@ -4680,7 +4680,6 @@ index af57395d0aa9..8aece2497cd1 100644
  	}
  
 -	ret = dbfile_store_file_digest(db, file->inum, file->subvolid, csum_ctxt.file_digest);
-+       if (nb_hash > 0) {
 +	ret = dbfile_store_file_digest(db, file->ino, file->subvolid, csum_ctxt.file_digest);
  	if (ret) {
 -		g_mutex_unlock(&io_mutex);
@@ -4688,7 +4687,6 @@ index af57395d0aa9..8aece2497cd1 100644
 +		dbfile_unlock();
  		goto err;
  	}
-+       }
  
  	ret = dbfile_commit_trans(db->db);
  	if (ret) {
@@ -5071,7 +5069,7 @@ index 1b19c8c27a75..d3afb3e14eaa 100644
 From fa7159d7588de118e587957aba780fcec2812ba1 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 16:40:28 +0100
-Subject: [PATCH 10/19] duperemove: fix fdupes support
+Subject: [PATCH 10/22] duperemove: fix fdupes support
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5197,7 +5195,7 @@ index 3e43800ae574..9fe6d28c398a 100644
 From 2fa0b2b2a2e0e0ff7d259cc0dea89c3239140d6f Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 17:14:25 +0100
-Subject: [PATCH 11/19] filerec: drop a bunch of dead code
+Subject: [PATCH 11/22] filerec: drop a bunch of dead code
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5503,7 +5501,7 @@ index 887e253fc13b..ff93e22509b3 100644
 From b768e2def2fee70fff8e1a075209719942b8f318 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 17:29:31 +0100
-Subject: [PATCH 12/19] duperemove: simplify the logic
+Subject: [PATCH 12/22] duperemove: simplify the logic
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5531,7 +5529,7 @@ index b628cd757b05..d3c13f3aad6f 100644
 From d161c54eba4a803b12282865895542f3a3890813 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Fri, 3 Nov 2023 20:40:13 +0100
-Subject: [PATCH 13/19] db: protect all write path with the same mutex
+Subject: [PATCH 13/22] db: protect all write path with the same mutex
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5598,7 +5596,7 @@ index d3afb3e14eaa..550f2c8da48d 100644
 From c6f91e13456d1ea260071d5682bcecff79232274 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sat, 4 Nov 2023 17:04:17 +0100
-Subject: [PATCH 14/19] fix a couple of return paths
+Subject: [PATCH 14/22] fix a couple of return paths
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5695,7 +5693,7 @@ index 36a94062db04..81488ab44913 100644
 From 9664662a2983c5f4e25b5ded8ae550bc3948852c Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sat, 4 Nov 2023 18:02:16 +0100
-Subject: [PATCH 15/19] duperemove: fix message
+Subject: [PATCH 15/22] duperemove: fix message
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5719,7 +5717,7 @@ index d3c13f3aad6f..42a1e8642d64 100644
 From af6f9f22028527f6de8f84f33366a8a36ebba7eb Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sat, 4 Nov 2023 20:13:56 +0100
-Subject: [PATCH 16/19] run_dedupe: extent_dedupe_worker: update todo
+Subject: [PATCH 16/22] run_dedupe: extent_dedupe_worker: update todo
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5742,7 +5740,7 @@ index 550f2c8da48d..01ff40fb80d8 100644
 From 22029f42fd9fad76397fe6f878d987dd0f7f0a9e Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sat, 4 Nov 2023 21:08:41 +0100
-Subject: [PATCH 17/19] update Changelog
+Subject: [PATCH 17/22] update Changelog
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
 ---
@@ -5772,7 +5770,7 @@ index d1a48bcf7b90..25de576c8e5d 100644
 From 62362a3890e8fb25c009eb11530a42ea2a63aef3 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sat, 4 Nov 2023 21:28:15 +0100
-Subject: [PATCH 18/19] dbfile: dbfile_load_one_file_extent: hide a spurious
+Subject: [PATCH 18/22] dbfile: dbfile_load_one_file_extent: hide a spurious
  error message
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
@@ -5800,7 +5798,7 @@ index c105906d59c9..5d940d56f808 100644
 From c63594afc32354cd69f02c2606abf7c25dc64de6 Mon Sep 17 00:00:00 2001
 From: Alexandre Bruyelles <git@jack.fr.eu.org>
 Date: Sat, 4 Nov 2023 21:40:04 +0100
-Subject: [PATCH 19/19] file_scan: scan_file: check if the file is to be
+Subject: [PATCH 19/22] file_scan: scan_file: check if the file is to be
  ignored before doing any other kind of checks
 
 Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
@@ -5843,3 +5841,193 @@ index 367c799aa9a1..fa52b593bb64 100644
  	if (!S_ISREG(st.st_mode)) {
  		vprintf("Skipping non-regular file %s\n", abspath);
  		return 0;
+
+From 8eb6284cb91cdba7159348c16a2747e33da3931c Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Wed, 8 Nov 2023 14:24:29 +0100
+Subject: [PATCH 20/22] dbfile_prune_unscanned_files: extents from a file could
+ be deleted by extent_dedupe_worker() ..
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c | 43 +++++--------------------------------------
+ dbfile.h |  3 +--
+ 2 files changed, 6 insertions(+), 40 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index 5d940d56f808..de14b440aaaf 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -482,9 +482,6 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ #define DELETE_FILE_FROM_PATH "delete from files where filename = ?1;"
+ 	dbfile_prepare_stmt(delete_file_from_path, DELETE_FILE_FROM_PATH);
+ 
+-#define DELETE_FILE_FROM_INO "delete from files where ino = ?1 and subvol = ?2;"
+-	dbfile_prepare_stmt(delete_file_from_ino, DELETE_FILE_FROM_INO);
+-
+ #define SELECT_FILE_CHANGES "select mtime, size from files where ino = ?1 and subvol = ?2;"
+ 	dbfile_prepare_stmt(select_file_changes, SELECT_FILE_CHANGES);
+ 
+@@ -500,12 +497,8 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ #define GET_MAX_DEDUPE_SEQ "select max(dedupe_seq) from files;"
+ 	dbfile_prepare_stmt(get_max_dedupe_seq, GET_MAX_DEDUPE_SEQ);
+ 
+-#define GET_UNSCANNED_FILES							\
+-	"select files.ino, files.subvol "					\
+-	"from files left join extents "						\
+-	"on (files.ino = extents.ino and files.subvol = extents.subvol) "	\
+-	"where extents.ino is NULL and extents.subvol is NULL; "
+-	dbfile_prepare_stmt(get_unscanned_files, GET_UNSCANNED_FILES);
++#define DELETE_UNSCANNED_FILES "delete from files where digest is NULL;"
++	dbfile_prepare_stmt(delete_unscanned_files, DELETE_UNSCANNED_FILES);
+ 
+ 	return result;
+ 
+@@ -1577,41 +1570,15 @@ unsigned int get_max_dedupe_seq(struct dbhandle *db)
+ /*
+  * Remove entries from the files table that have no extents associated.
+  * This can happen if duperemove is ctrl^C while scanning files
+- * TODO: please rewrite this in a single sqlite query ..
+  */
+ int dbfile_prune_unscanned_files(struct dbhandle *db)
+ {
+ 	int ret;
+-	uint64_t ino, subvol;
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *select = db->stmts.get_unscanned_files;
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *delete = db->stmts.delete_file_from_ino;
+-
+-	while ((ret = sqlite3_step(select)) == SQLITE_ROW) {
+-		ino = sqlite3_column_int64(select, 0);
+-		subvol = sqlite3_column_int64(select, 1);
+-
+-		ret = sqlite3_bind_int64(delete, 1, ino);
+-		if (ret) {
+-			perror_sqlite(ret, "binding");
+-			return ret;
+-		}
+-
+-		ret = sqlite3_bind_int64(delete, 2, subvol);
+-		if (ret) {
+-			perror_sqlite(ret, "binding");
+-			return ret;
+-		}
+-
+-		ret = sqlite3_step(delete);
+-		if(ret != SQLITE_DONE) {
+-			perror_sqlite(ret, "executing sql");
+-			return ret;
+-		}
+-		sqlite3_reset(delete);
+-	}
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.delete_unscanned_files;
+ 
++	ret = sqlite3_step(stmt);
+ 	if (ret != SQLITE_DONE) {
+-		perror_sqlite(ret, "retrieving unscanned files");
++		perror_sqlite(ret, "executing sql");
+ 		return ret;
+ 	}
+ 
+diff --git a/dbfile.h b/dbfile.h
+index af82a1ba7ddd..b4f32234da17 100644
+--- a/dbfile.h
++++ b/dbfile.h
+@@ -37,13 +37,12 @@ struct stmts {
+ 	sqlite3_stmt *get_file_extent;
+ 	sqlite3_stmt *get_nondupe_extents;
+ 	sqlite3_stmt *delete_file_from_path;
+-	sqlite3_stmt *delete_file_from_ino;
+ 	sqlite3_stmt *select_file_changes;
+ 	sqlite3_stmt *count_b_hashes;
+ 	sqlite3_stmt *count_e_hashes;
+ 	sqlite3_stmt *count_files;
+ 	sqlite3_stmt *get_max_dedupe_seq;
+-	sqlite3_stmt *get_unscanned_files;
++	sqlite3_stmt *delete_unscanned_files;
+ };
+ 
+ struct dbhandle {
+
+From 267ea0c64ba0205d662c249c8b7994e56b0e0ced Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Sun, 5 Nov 2023 17:00:58 +0100
+Subject: [PATCH 21/22] file_scan.h: drop extra definition
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ file_scan.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/file_scan.h b/file_scan.h
+index 9fe6d28c398a..98447e81cba6 100644
+--- a/file_scan.h
++++ b/file_scan.h
+@@ -16,8 +16,6 @@ int scan_file(const char *name, struct dbhandle *db);
+ dev_t fs_onefs_dev(void);
+ uint64_t fs_onefs_id(void);
+ 
+-struct dbfile_config;
+-
+ /* For dbfile.c */
+ struct block_csum {
+ 	uint64_t	loff;
+
+From 897810e3c342b4107b2421d72741c2058010d425 Mon Sep 17 00:00:00 2001
+From: Alexandre Bruyelles <git@jack.fr.eu.org>
+Date: Mon, 6 Nov 2023 14:04:25 +0100
+Subject: [PATCH 22/22] dbfile: do not hide some binding errors
+
+Signed-off-by: Alexandre Bruyelles <git@jack.fr.eu.org>
+---
+ dbfile.c | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/dbfile.c b/dbfile.c
+index de14b440aaaf..5dbc9285ea9d 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -1320,16 +1320,22 @@ int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_file_extent;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, file->inum);
+-	if (ret)
++	if (ret) {
++		perror_sqlite(ret, "binding value");
+ 		return ret;
++	}
+ 
+ 	ret = sqlite3_bind_int64(stmt, 2, file->subvolid);
+-	if (ret)
++	if (ret) {
++		perror_sqlite(ret, "binding value");
+ 		return ret;
++	}
+ 
+ 	ret = sqlite3_bind_int64(stmt, 3, loff);
+-	if (ret)
++	if (ret) {
++		perror_sqlite(ret, "binding value");
+ 		return ret;
++	}
+ 
+ 	ret = sqlite3_step(stmt);
+ 
+@@ -1360,12 +1366,16 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+ 	struct file_extent *extents = NULL;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, file->inum);
+-	if (ret)
++	if (ret) {
++		perror_sqlite(ret, "binding values");
+ 		goto out;
++	}
+ 
+ 	ret = sqlite3_bind_int64(stmt, 2, file->subvolid);
+-	if (ret)
++	if (ret) {
++		perror_sqlite(ret, "binding values");
+ 		goto out;
++	}
+ 
+ 	i = 0;
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
