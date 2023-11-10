@@ -1,0 +1,42 @@
+From 82fb5fcdc1aeb3147eac03e76348e9fcafde445b Mon Sep 17 00:00:00 2001
+From: Sergei Trofimovich <slyich@gmail.com>
+Date: Thu, 9 Nov 2023 22:56:03 +0000
+Subject: [PATCH] filerec_count_shared(): fix sharing accounting
+
+Before the change `filerec_count_shared()` incorrectly accounted for
+extent end compared to file end:
+
+    $ ls -lh /nix/var/nix/db/db.sqlite
+    -rw-r--r-- 1 root root 1.4G Nov  9 22:21 /nix/var/nix/db/db.sqlite
+
+Before the change due to incorrect tail handling sharing reported size
+larger than the file itself:
+
+    $ ./show-shared-extents /nix/var/nix/db/db.sqlite
+    /nix/var/nix/db/db.sqlite: 27065321263104 shared bytes
+
+After the change sharing reports a reasonable value:
+
+    $ ./show-shared-extents /nix/var/nix/db/db.sqlite
+    /nix/var/nix/db/db.sqlite: 1169276928 shared bytes
+
+Note: before the change sharing reported a few orders of magnitude
+savings larger than initial file size. After the change the value is
+more reasonable.
+---
+ filerec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/filerec.c b/filerec.c
+index acfae51ea159..9107e4f0d4ce 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -610,7 +610,7 @@ int filerec_count_shared(struct filerec *file, uint64_t loff, uint32_t len,
+ 			    && flags & FIEMAP_EXTENT_SHARED) {
+ 				if (extent_loff < loff)
+ 					extent_loff = loff;
+-				if (extent_end < end)
++				if (end < extent_end)
+ 					extent_end = end;
+ 				*shared += extent_end - extent_loff + 1;
+ 			}
