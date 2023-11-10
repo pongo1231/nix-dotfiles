@@ -69,17 +69,8 @@
                       };
                     };
 
-                    nbfc-linux = final.callPackage ./derivations/nbfc-linux { };
-                    #krunner-translator = final.unstable.libsForQt5.callPackage ./derivations/krunner-translator { };
-                    snapperS = final.stable.callPackage ./derivations/snapperS { };
-
-                    /*libsForQt5 = final.unstable.libsForQt5.overrideScope' (qt5Final: qt5Prev: {
-                    fcitx-qt5 = qt5Prev.fcitx5-qt;
-                  });
-                  plasma5Packages = final.unstable.plasma5Packages;
-                  podman = final.unstable.podman;
-                  podman-unwrapped = final.unstable.podman-unwrapped;
-                    skopeo = final.unstable.skopeo;*/
+                    nbfc-linux = final.callPackage ./pkgs/nbfc-linux { };
+                    snapperS = final.stable.callPackage ./pkgs/snapperS { };
                   })
                 ];
               })
@@ -98,7 +89,7 @@
               ./tlp.nix
               ./gpu_passthrough.nix
 
-              ./derivations/nbfc-linux/service.nix
+              ./pkgs/nbfc-linux/service.nix
             ];
           };
         in
