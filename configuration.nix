@@ -132,7 +132,6 @@
       autoNumlock = true;
     };
     desktopManager.plasma5.enable = true;
-    desktopManager.xfce.enable = true;
     #tty = lib.mkForce 1;
     layout = "de";
     libinput.enable = true;
