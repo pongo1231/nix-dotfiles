@@ -291,6 +291,7 @@
     snapperS
     ubuntu_font_family
     nix-be
+    ddcutil
   ];
 
   environment.sessionVariables = {
