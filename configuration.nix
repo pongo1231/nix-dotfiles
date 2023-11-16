@@ -26,12 +26,16 @@
   };
 
   # thanks to ElvishJerricco
-  environment.etc = lib.mapAttrs'
+  environment.etc = (lib.mapAttrs'
     (name: flake: {
       name = "nix/inputs/${name}";
       value.source = flake.outPath;
     })
-    inputs;
+    inputs)
+  // {
+    # allow imperative edits to /etc/hosts
+    hosts.mode = "0644";
+  };
 
   boot = {
     loader = {
@@ -203,8 +207,6 @@
       wide links = yes
     '';
   };
-
-  services.fstrim.enable = true;
 
   # get x11 to recognize the nitro key on my acer nitro 5 laptop
   services.udev.extraHwdb = ''                                         
