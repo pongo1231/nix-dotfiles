@@ -266,24 +266,29 @@
   environment.systemPackages = with pkgs; with inputs.nix-alien.packages.${system}; with inputs.nix-be.packages.${system}; [
     home-manager
     pulseaudio
-    unstable.distrobox
-    (duperemove.overrideAttrs (oldAttrs: {
+    (unstable.distrobox.overrideAttrs (finalAttrs: oldAttrs: {
+      version = "1.6.0";
+
+      src = fetchFromGitHub {
+        owner = "89luca89";
+        repo = "distrobox";
+        rev = finalAttrs.version;
+        hash = "sha256-AwsRZS296laGFDlV/xGBuWKXuOP2qB+MKGE471BbPt8=";
+      };
+    }))
+    (duperemove.overrideAttrs (finalAttrs: oldAttrs: {
       version = "0.14";
 
       src = pkgs.fetchFromGitHub {
         owner = "markfasheh";
         repo = "duperemove";
-        rev = "v0.14";
+        rev = "v${finalAttrs.version}";
         hash = "sha256-dz7ZswOUDmWxzVM3j5GTlC/Tu8Wfgyn1QT5nIqBanrs=";
       };
 
-      #nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ pkgs.pandoc ];
-
       buildInputs = oldAttrs.buildInputs ++ [ pkgs.util-linux ];
 
-      patches = [
-      #  ./patches/duperemove/323.patch
-      ];
+      patches = [ ];
     }))
     dconf
     nix-alien
