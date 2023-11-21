@@ -283,12 +283,14 @@
         owner = "markfasheh";
         repo = "duperemove";
         rev = "v${finalAttrs.version}";
-        hash = "sha256-dz7ZswOUDmWxzVM3j5GTlC/Tu8Wfgyn1QT5nIqBanrs=";
+        hash = "sha256-hYBD5XFjM2AEsQm7yKEHkfjwLZmXTxkY/6S3hs1uBPw=";
       };
 
       buildInputs = oldAttrs.buildInputs ++ [ pkgs.util-linux ];
 
       patches = [ ];
+
+      makeFlags = oldAttrs.makeFlags ++ [ "CFLAGS=-Wno-error=format-security" ];
     }))
     dconf
     nix-alien
