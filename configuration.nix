@@ -267,13 +267,13 @@
     home-manager
     pulseaudio
     (unstable.distrobox.overrideAttrs (finalAttrs: oldAttrs: {
-      version = "1.6.0";
+      version = "1.6.0.1";
 
       src = fetchFromGitHub {
         owner = "89luca89";
         repo = "distrobox";
         rev = finalAttrs.version;
-        hash = "sha256-AwsRZS296laGFDlV/xGBuWKXuOP2qB+MKGE471BbPt8=";
+        hash = "sha256-UWrXpb20IHcwadPpwbhSjvOP1MBXic5ay+nP+OEVQE4=";
       };
     }))
     (duperemove.overrideAttrs (finalAttrs: oldAttrs: {
