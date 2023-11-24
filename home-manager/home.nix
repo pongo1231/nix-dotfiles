@@ -47,7 +47,6 @@
     }))
     ocs-url
     nil
-    nixpkgs-fmt
     filelight
     compsize
     powertop
@@ -61,16 +60,11 @@
     unrar
     file
     gdu
-    btdu
-    nix-diff
     e2fsprogs
     manix
     nix-du
-    nix-prefetch
     nix-tree
     nvd
-    statix
-    nixpkgs-review
     gimp
     audacity
     kdeconnect
