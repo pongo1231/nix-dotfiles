@@ -15,14 +15,6 @@
   ];
 
   boot = {
-    kernelParams = [
-      "intel_iommu=on"
-      "i915.enable_guc=3"
-      "i915.enable_fbc=1"
-      "i915.enable_gvt=1"
-      "i915.enable_psr=1"
-      "i915.fastboot=1"
-    ];
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
       kernelModules = [ "kvm-intel" "kvmgt" "vfio-iommu-type1" "mdev" ];
