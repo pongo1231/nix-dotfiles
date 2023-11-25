@@ -5,9 +5,9 @@
       follows = "nixpkgs-unstable";
     };
 
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-23.05-small";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-23.05";
 
-    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable-small";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-kernel = {
       url = "github:nixos/nixpkgs?rev=4f36fbeb7cfe125375e34944318316338d81b180";
