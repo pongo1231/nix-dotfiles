@@ -4,10 +4,6 @@
 , ...
 }:
 {
-  imports = [
-    ./samba.nix
-  ];
-
   boot = {
     kernelPackages = lib.mkDefault pkgs.kernel.linuxPackages_latest;
     extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];

@@ -6,6 +6,7 @@
     ../../modules/nbfc-linux
 
     ../intel.nix
+    ../samba.nix
 
     ./gpu_passthrough.nix
     ./libvirt.nix
