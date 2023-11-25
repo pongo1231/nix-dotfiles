@@ -220,7 +220,6 @@
     inputs.nix-alien.packages.${system}.nix-index-update
     comma
     krunner-translator
-    sddm-kcm
     ubuntu_font_family
     inputs.nix-be.packages.${system}.nix-be
     ddcutil
