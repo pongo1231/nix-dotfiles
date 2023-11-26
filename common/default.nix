@@ -197,6 +197,15 @@
         rev = finalAttrs.version;
         hash = "sha256-UWrXpb20IHcwadPpwbhSjvOP1MBXic5ay+nP+OEVQE4=";
       };
+
+      patches = [
+        ../patches/distrobox/always-mount-nix.patch
+      ];
+
+      postFixup = oldAttrs.postFixup + ''
+        mkdir -p $out/share/distrobox
+        echo 'container_additional_volumes="/nix:/nix"' > $out/share/distrobox/distrobox.conf
+      '';
     }))
     (duperemove.overrideAttrs (finalAttrs: oldAttrs: {
       version = "0.14.1";
