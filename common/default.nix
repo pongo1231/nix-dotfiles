@@ -199,20 +199,16 @@
       };
     }))
     (duperemove.overrideAttrs (finalAttrs: oldAttrs: {
-      version = "0.14";
+      version = "0.14.1";
 
       src = pkgs.fetchFromGitHub {
         owner = "markfasheh";
         repo = "duperemove";
         rev = "v${finalAttrs.version}";
-        hash = "sha256-hYBD5XFjM2AEsQm7yKEHkfjwLZmXTxkY/6S3hs1uBPw=";
+        hash = "sha256-iMv80UKktYOhNfVA3mW6kKv8TwLZaP6MQt24t3Rchk4=";
       };
 
       buildInputs = oldAttrs.buildInputs ++ [ pkgs.util-linux ];
-
-      patches = [ ];
-
-      makeFlags = oldAttrs.makeFlags ++ [ "CFLAGS=-Wno-error=format-security" ];
     }))
     dconf
     inputs.nix-alien.packages.${system}.nix-alien
