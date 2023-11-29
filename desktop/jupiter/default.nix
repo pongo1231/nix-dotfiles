@@ -86,7 +86,10 @@ in
 
   services = {
     xserver.displayManager.sddm.enable = false;
+
     pipewire.package = inputs.nixpkgs-jupiter-pipewire.legacyPackages.x86_64-linux.pipewire;
+
+    fstrim.enable = true;
   };
 
   environment.systemPackages = with pkgs; [
