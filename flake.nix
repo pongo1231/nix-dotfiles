@@ -10,11 +10,11 @@
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-kernel = {
-      url = "github:nixos/nixpkgs?rev=4f36fbeb7cfe125375e34944318316338d81b180";
+      url = "github:nixos/nixpkgs?rev=1ba227e3333a83ee7d5d8cb03d00308e6c991ce8";
       follows = "nixpkgs";
     };
 
-    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=e44462d6021bfe23dfb24b775cc7c390844f773d";
+    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=1ba227e3333a83ee7d5d8cb03d00308e6c991ce8";
     nixpkgs-jupiter-pipewire.url = "github:nixos/nixpkgs?rev=24bacf845b3f08b3a2cf2af32314c51bc7593349";
     jovian = {
       url = "github:pongo1231/Jovian-NixOS";
