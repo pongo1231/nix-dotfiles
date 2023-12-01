@@ -8,7 +8,7 @@ let
 in
 {
   imports = [
-    inputs.jovian.nixosModules.jovian
+    ../../vendor/jovian/modules
 
     ./steam.nix
     ./tlp.nix
@@ -21,7 +21,7 @@ in
   ];
 
   boot = {
-    kernelPackages = kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage "${inputs.jovian}/pkgs/linux-jovian" {
+    kernelPackages = kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage ../../vendor/jovian/pkgs/linux-jovian {
       kernelPatches = with kernelPkgs; [
         kernelPatches.bridge_stp_helper
         kernelPatches.request_key_helper

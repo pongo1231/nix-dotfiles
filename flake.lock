@@ -66,27 +66,6 @@
         "type": "github"
       }
     },
-    "jovian": {
-      "inputs": {
-        "nix-github-actions": "nix-github-actions",
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1701424881,
-        "narHash": "sha256-IxrpyYYP0bgf54LTY7EeWOY1juB5JEtNZBZ3In6JL90=",
-        "owner": "pongo1231",
-        "repo": "Jovian-NixOS",
-        "rev": "100bfe5912b136c8ec6db6622a0ed0a586a86565",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pongo1231",
-        "repo": "Jovian-NixOS",
-        "type": "github"
-      }
-    },
     "nix-alien": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -166,28 +145,6 @@
       "original": {
         "owner": "numtide",
         "repo": "nix-filter",
-        "type": "github"
-      }
-    },
-    "nix-github-actions": {
-      "inputs": {
-        "nixpkgs": [
-          "jovian",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1690328911,
-        "narHash": "sha256-fxtExYk+aGf2YbjeWQ8JY9/n9dwuEt+ma1eUFzF8Jeo=",
-        "owner": "zhaofengli",
-        "repo": "nix-github-actions",
-        "rev": "96df4a39c52f53cb7098b923224d8ce941b64747",
-        "type": "github"
-      },
-      "original": {
-        "owner": "zhaofengli",
-        "ref": "matrix-name",
-        "repo": "nix-github-actions",
         "type": "github"
       }
     },
@@ -291,7 +248,6 @@
     },
     "root": {
       "inputs": {
-        "jovian": "jovian",
         "nix-alien": "nix-alien",
         "nix-autobahn": "nix-autobahn",
         "nix-be": "nix-be",
