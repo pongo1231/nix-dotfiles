@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs = {
-      url = "github:nixos/nixpkgs?rev=63678e9f3d3afecfeafa0acead6239cdb447574c";
+      url = "github:nixos/nixpkgs?rev=30e89e4fcdfb4a0e6261cb9a46affd4bfb186862";
       follows = "nixpkgs-unstable";
     };
 
@@ -10,8 +10,8 @@
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-kernel = {
-      url = "github:nixos/nixpkgs?rev=1ba227e3333a83ee7d5d8cb03d00308e6c991ce8";
-      follows = "nixpkgs";
+      url = "github:nixos/nixpkgs?rev=30e89e4fcdfb4a0e6261cb9a46affd4bfb186862";
+      #follows = "nixpkgs";
     };
 
     nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=1ba227e3333a83ee7d5d8cb03d00308e6c991ce8";
@@ -61,7 +61,7 @@
                       config = {
                         allowUnfree = true;
                         permittedInsecurePackages = [
-                          "python-2.7.18.6"
+                          "python-2.7.18.7"
                         ];
                       };
                     };
