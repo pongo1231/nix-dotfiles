@@ -16,17 +16,7 @@
   ];
 
   boot = {
-    kernelPackages = (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
-    supportedFilesystems = [ "zfs" ];
-    extraModprobeConfig = ''
-      options zfs zfs_bclone_enabled=1
-    '';
-
-    zfs = {
-      package = pkgs.kernel.zfs;
-      removeLinuxDRM = true;
-      forceImportRoot = false;
-    };
+    kernelPackages = pkgs.linuxPackages_latest;
 
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
