@@ -9,6 +9,8 @@
 
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=ad7955279dd0dcab03e02767a5794668cb160c04";
+
     nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=1ba227e3333a83ee7d5d8cb03d00308e6c991ce8";
     nixpkgs-jupiter-pipewire.url = "github:nixos/nixpkgs?rev=24bacf845b3f08b3a2cf2af32314c51bc7593349";
 
@@ -33,6 +35,7 @@
     , nixpkgs
     , nixpkgs-stable
     , nixpkgs-unstable
+    , nixpkgs-desktop-kernel
     , nixpkgs-jupiter-kernel
     , nixpkgs-jupiter-pipewire
     , nix-alien
@@ -63,6 +66,14 @@
                     unstable = import nixpkgs-unstable {
                       inherit system;
                       config.allowUnfree = true;
+                    };
+
+                    kernel = import nixpkgs-desktop-kernel {
+                      inherit system;
+                      config = {
+                        allowUnfree = true;
+                        nvidia.acceptLicense = true;
+                      };
                     };
 
                     nbfc-linux = final.callPackage ./pkgs/nbfc-linux { };
