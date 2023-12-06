@@ -52,7 +52,7 @@
     STATE_NAME="\$3"
     MISC="\''${@:4}"
 
-    if [[ $GUEST_NAME != *"_igpu"* ]]; then
+    if [[ \$GUEST_NAME != *"_igpu"* ]]; then
       exit 0
     fi
 
