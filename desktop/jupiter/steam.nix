@@ -21,6 +21,13 @@
     decky-loader = {
       enable = true;
       user = "pongo";
+      extraPackages = with pkgs; [
+        coreutils
+        curl
+        unzip
+        util-linux
+        gnugrep
+      ];
     };
   };
 }
