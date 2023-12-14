@@ -84,6 +84,7 @@
       "nowatchdog"
       "mitigations=off"
       "kvm.ignore_msrs=1"
+      "preempt=full"
     ];
     initrd.systemd.enable = true;
   };
