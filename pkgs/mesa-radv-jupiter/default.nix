@@ -7,8 +7,8 @@ mesa-radv-jupiter'.overrideAttrs (finalAttrs: prevAttrs: {
     domain = "gitlab.freedesktop.org";
     owner = "Mesa";
     repo = "mesa";
-    rev = "5119e0adc3e3d0bbf3fa162b00d952d71d53c6fe";
-    hash = "sha256-y+071dBbwDKurjWQumReYBBPzHHhWVC7CwcBDeB6i+Y=";
+    rev = "3b715fb99dee536683bcfbbdbdb4b7b71816da13";
+    hash = "sha256-DZmDpA0zZWIpl45M3FmW5gnQIXHZns87llhxS9UxOk4=";
   };
 
   patches = prevAttrs.patches ++ [ ./25352.diff ];
