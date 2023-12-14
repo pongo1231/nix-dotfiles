@@ -20,13 +20,18 @@
     };
     decky-loader = {
       enable = true;
+      enableFHSEnvironment = true;
       user = "pongo";
       extraPackages = with pkgs; [
-        coreutils
         curl
         unzip
         util-linux
         gnugrep
+
+        readline.out
+        procps
+        pciutils
+        libpulseaudio
       ];
     };
   };
