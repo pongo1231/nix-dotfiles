@@ -21,9 +21,26 @@ let
   };
 in
 {
-  services.snapper.configs = {
-    home = mkConfig "/home";
-    ssd = mkConfig "/media/ssd";
-    hdd = mkConfig "/media/hdd";
+  services = {
+    snapper.configs = {
+      home = mkConfig "/home";
+      ssd = mkConfig "/media/ssd";
+      #hdd = mkConfig "/media/hdd";
+    };
+
+    sanoid = {
+      enable = true;
+      datasets = {
+        "hdd" = {
+          hourly = 5;
+          daily = 7;
+          recursive = true;
+        };
+
+        "hdd/downloads" = {
+          processChildrenOnly = true;
+        };
+      };
+    };
   };
 }

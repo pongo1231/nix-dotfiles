@@ -16,6 +16,18 @@
   ];
 
   boot = {
+    kernelPackages = (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
+    supportedFilesystems = [ "zfs" ];
+    extraModprobeConfig = ''
+      options zfs zfs_bclone_enabled=1
+    '';
+
+    zfs = {
+      package = pkgs.kernel.zfs;
+      removeLinuxDRM = true;
+      forceImportRoot = false;
+    };
+
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
       kernelModules = [ "kvm-intel" "kvmgt" "vfio-iommu-type1" "mdev" ];
@@ -54,16 +66,16 @@
       options = [ "noatime" "compress-force=zstd:10" "nofail" "x-systemd.device-timeout=15" ];
     };
 
-    "/media/hdd" = {
+    /*"/media/hdd" = {
       device = "/dev/disk/by-uuid/239652c0-172e-416d-af3d-835bced7fd3c";
       fsType = "btrfs";
       options = [ "noatime" "compress-force=zstd:15" "discard=async" "autodefrag" "nofail" "x-systemd.device-timeout=15" ];
-    };
+    };*/
   };
 
   environment.etc."crypttab".text = ''
     ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard,no-read-workqueue,no-write-workqueue
-    hdd     UUID=2f091d17-4b24-4e7e-982a-b476b25b3432       /keyfile    discard
+    #hdd     UUID=2f091d17-4b24-4e7e-982a-b476b25b3432       /keyfile    discard
   '';
 
   powerManagement.cpuFreqGovernor = "powersave";
