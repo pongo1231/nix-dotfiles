@@ -49,7 +49,7 @@
             })
 
             ./common
-          ] ++ nixpkgs.lib.optionals (home.config != null) [
+          ] ++ nixpkgs.lib.optionals (home ? config && home.config != null) [
             home.config
           ] ++ nixpkgs.lib.optionals (home ? type && home.type == "desktop") [
             ./desktop
