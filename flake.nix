@@ -44,7 +44,7 @@
     }@inputs: {
       nixosConfigurations =
         let
-          commonSystem = { type ? "", hostName, imports ? [ ] }: nixpkgs.lib.nixosSystem rec {
+          commonSystem = { type ? "", hostName, config }: nixpkgs.lib.nixosSystem rec {
             system = "x86_64-linux";
             specialArgs = { inherit inputs; };
 
@@ -102,8 +102,9 @@
               })
 
               ./common
-            ] ++ imports
-            ++ nixpkgs.lib.optionals (type == "desktop") [
+            ] ++ nixpkgs.lib.optionals (config != null) [
+              config
+            ] ++ nixpkgs.lib.optionals (type == "desktop") [
               ./desktop
             ] ++ nixpkgs.lib.optionals (type == "vm") [
               ./vm
@@ -119,13 +120,13 @@
           pongo-nitro5 = commonSystem {
             type = "desktop";
             hostName = "pongo-nitro5";
-            imports = [ ./desktop/nitro5 ];
+            config = ./desktop/nitro5;
           };
 
           pongo-jupiter = commonSystem {
             type = "desktop";
             hostName = "pongo-jupiter";
-            imports = [ ./desktop/jupiter ];
+            config = ./desktop/jupiter;
           };
         };
     };
