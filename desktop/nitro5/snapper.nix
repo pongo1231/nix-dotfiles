@@ -37,8 +37,14 @@ in
           recursive = true;
         };
 
-        "hdd/downloads" = {
-          processChildrenOnly = true;
+        "hdd/nosnap" = {
+          hourly = 0;
+          daily = 0;
+          weekly = 0;
+          monthly = 0;
+          yearly = 0;
+          autosnap = false;
+          recursive = true;
         };
       };
     };
