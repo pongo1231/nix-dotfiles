@@ -15,8 +15,17 @@
     }@inputs:
     let
       homes = [
-        { user = "pongo"; host = "pongo-nitro5"; type = "desktop"; }
-        { user = "pongo"; host = "pongo-jupiter"; }
+        {
+          user = "pongo";
+          host = "pongo-nitro5";
+          type = "desktop";
+          config = ./desktop/nitro5;
+        }
+        {
+          user = "pongo";
+          host = "pongo-jupiter";
+          type = "desktop";
+        }
       ];
       mkHomes = homes: builtins.listToAttrs (nixpkgs.lib.lists.forEach homes (home: {
         name = "${home.user}@${home.host}";
@@ -40,6 +49,8 @@
             })
 
             ./common
+          ] ++ nixpkgs.lib.optionals (home.config != null) [
+            home.config
           ] ++ nixpkgs.lib.optionals (home ? type && home.type == "desktop") [
             ./desktop
           ];
