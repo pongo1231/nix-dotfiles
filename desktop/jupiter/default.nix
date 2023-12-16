@@ -92,10 +92,14 @@ in
     fstrim.enable = true;
   };
 
-  environment.systemPackages = with pkgs; [
-    steam
-    steamdeck-firmware
-    mangohud
-    gamescope
-  ];
+  environment = {
+    etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
+
+    systemPackages = with pkgs; [
+      steam
+      steamdeck-firmware
+      mangohud
+      gamescope
+    ];
+  };
 }
