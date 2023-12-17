@@ -24,20 +24,20 @@ in
   services = {
     snapper.configs = {
       home = mkConfig "/home";
-      ssd = mkConfig "/media/ssd";
+      #ssd = mkConfig "/media/ssd";
       #hdd = mkConfig "/media/hdd";
     };
 
     sanoid = {
       enable = true;
-      datasets = {
-        "hdd" = {
+      templates = {
+        "base" = {
           hourly = 5;
           daily = 7;
           recursive = true;
         };
 
-        "hdd/nosnap" = {
+        "nosnap" = {
           hourly = 0;
           daily = 0;
           weekly = 0;
@@ -46,6 +46,13 @@ in
           autosnap = false;
           recursive = true;
         };
+      };
+      datasets = {
+        "hdd" = { useTemplate = [ "base" ]; };
+        "hdd/nosnap" = { useTemplate = [ "nosnap" ]; };
+
+        "ssd" = { useTemplate = [ "base" ]; };
+        "ssd/nosnap" = { useTemplate = [ "nosnap" ]; };
       };
     };
   };

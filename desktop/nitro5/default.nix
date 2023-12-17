@@ -60,11 +60,11 @@
       fsType = "vfat";
     };
 
-    "/media/ssd" = {
+    /*"/media/ssd" = {
       device = "/dev/disk/by-uuid/31b51531-24cb-4532-aef8-8c866f08e178";
       fsType = "btrfs";
       options = [ "noatime" "compress-force=zstd:10" "nofail" "x-systemd.device-timeout=15" ];
-    };
+    };*/
 
     /*"/media/hdd" = {
       device = "/dev/disk/by-uuid/239652c0-172e-416d-af3d-835bced7fd3c";
@@ -74,7 +74,7 @@
   };
 
   environment.etc."crypttab".text = ''
-    ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard,no-read-workqueue,no-write-workqueue
+    #ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard,no-read-workqueue,no-write-workqueue
     #hdd     UUID=2f091d17-4b24-4e7e-982a-b476b25b3432       /keyfile    discard
   '';
 
@@ -104,6 +104,8 @@
     nbfc-linux.enable = true;
 
     thermald.enable = true;
+
+    fstrim.enable = true;
 
     udev.extraHwdb = ''                                         
       evdev:input:b0011v0001p0001*
