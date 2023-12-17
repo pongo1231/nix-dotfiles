@@ -34,7 +34,6 @@ in
         "base" = {
           hourly = 5;
           daily = 7;
-          recursive = true;
         };
 
         "nosnap" = {
@@ -44,15 +43,14 @@ in
           monthly = 0;
           yearly = 0;
           autosnap = false;
-          recursive = true;
         };
       };
       datasets = {
-        "hdd" = { useTemplate = [ "base" ]; };
-        "hdd/nosnap" = { useTemplate = [ "nosnap" ]; };
+        "hdd" = { useTemplate = [ "base" ]; recursive = true; };
+        "hdd/nosnap" = { useTemplate = [ "nosnap" ]; recursive = true; };
 
-        "ssd" = { useTemplate = [ "base" ]; };
-        "ssd/nosnap" = { useTemplate = [ "nosnap" ]; };
+        "ssd" = { useTemplate = [ "base" ]; recursive = true; };
+        "ssd/nosnap" = { useTemplate = [ "nosnap" ]; recursive = true; };
       };
     };
   };
