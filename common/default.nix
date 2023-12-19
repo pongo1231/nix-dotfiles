@@ -160,6 +160,8 @@
     '';
   };
 
+  security.rtkit.enable = true;
+
   virtualisation = {
     podman.enable = true;
 
