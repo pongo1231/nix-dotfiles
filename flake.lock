@@ -200,17 +200,17 @@
     },
     "nixpkgs-jupiter-kernel": {
       "locked": {
-        "lastModified": 1701425072,
-        "narHash": "sha256-3sONnXL4BgIFaTisoWS1ThXQy9GgcvqN+VKaPDJ8DhE=",
+        "lastModified": 1702993281,
+        "narHash": "sha256-7LD9ZV16qLSVTC4MomfsKHPsx5TQdDniAuTQhVcR9AU=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "1ba227e3333a83ee7d5d8cb03d00308e6c991ce8",
+        "rev": "6b43e4b0bc862d2e6a2ad18731ee93bcf899c93a",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "1ba227e3333a83ee7d5d8cb03d00308e6c991ce8",
+        "rev": "6b43e4b0bc862d2e6a2ad18731ee93bcf899c93a",
         "type": "github"
       }
     },
