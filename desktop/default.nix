@@ -5,7 +5,7 @@
 }:
 {
   boot = {
-    kernelPackages = lib.mkDefault (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
+    kernelPackages = lib.lowPrio (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
     extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
     plymouth.enable = lib.mkDefault true;
 
