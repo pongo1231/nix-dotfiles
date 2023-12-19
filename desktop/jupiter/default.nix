@@ -28,6 +28,9 @@ in
         kernelPatches.export-rt-sched-migrate
       ];
     });
+
+    zfs.package = lib.mkForce kernelPkgs.zfs;
+
     kernelPatches = [
       {
         patch = null;
@@ -83,6 +86,8 @@ in
     opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
     opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };
+
+  networking.hostId = "a1f92a1f";
 
   services = {
     xserver.displayManager.sddm.enable = false;

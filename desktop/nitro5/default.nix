@@ -16,18 +16,6 @@
   ];
 
   boot = {
-    kernelPackages = (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
-    supportedFilesystems = [ "zfs" ];
-    extraModprobeConfig = ''
-      options zfs zfs_bclone_enabled=1 spl_taskq_thread_priority=0
-    '';
-
-    zfs = {
-      package = pkgs.kernel.zfs;
-      removeLinuxDRM = true;
-      forceImportRoot = false;
-    };
-
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
       kernelModules = [ "kvm-intel" "kvmgt" "vfio-iommu-type1" "mdev" ];

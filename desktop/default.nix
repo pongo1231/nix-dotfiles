@@ -5,9 +5,19 @@
 }:
 {
   boot = {
-    kernelPackages = lib.mkDefault pkgs.kernel.linuxPackages_latest;
+    kernelPackages = lib.mkDefault (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
     extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
     plymouth.enable = lib.mkDefault true;
+
+    supportedFilesystems = [ "zfs" ];
+    extraModprobeConfig = ''
+      options zfs zfs_bclone_enabled=1 spl_taskq_thread_priority=0
+    '';
+
+    zfs = {
+      package = pkgs.kernel.zfs;
+      removeLinuxDRM = true;
+    };
   };
 
   services = {
