@@ -1,5 +1,6 @@
 { config
 , pkgs
+, lib
 , inputs
 , ...
 }:
@@ -21,13 +22,13 @@ in
   ];
 
   boot = {
-    kernelPackages = kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage ../../vendor/jovian/pkgs/linux-jovian {
+    kernelPackages = lib.mkForce (kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage ../../vendor/jovian/pkgs/linux-jovian {
       kernelPatches = with kernelPkgs; [
         kernelPatches.bridge_stp_helper
         kernelPatches.request_key_helper
         kernelPatches.export-rt-sched-migrate
       ];
-    });
+    }));
 
     zfs.package = lib.mkForce kernelPkgs.zfs;
 
@@ -46,7 +47,6 @@ in
         patch = ../../patches/linux/zstd-upstream.patch;
       }
     ];
-    extraModulePackages = [ ];
     plymouth.enable = false;
     initrd = {
       availableKernelModules = [ "nvme" "xhci_pci" "usbhid" "sdhci_pci" ];
@@ -56,7 +56,7 @@ in
 
       luks.devices = {
         root = {
-          device = "/dev/disk/by-uuid/9b04c87a-2c8e-4951-99df-a6dc0f02f118";
+          device = "/dev/disk/by-uuid/dca4efe8-4291-4cb6-8cce-977a83b88361";
           allowDiscards = true;
           bypassWorkqueues = true;
           keyFile = "/keyfile";
@@ -67,14 +67,23 @@ in
 
   fileSystems = {
     "/" = {
-      device = "/dev/disk/by-uuid/06b87226-c5dd-4c9f-8832-838339a2e1f2";
-      fsType = "btrfs";
-      options = [ "subvol=root" "noatime" "compress-force=zstd:15" ];
+      device = "root/root";
+      fsType = "zfs";
     };
 
     "/boot" = {
-      device = "/dev/disk/by-uuid/FB14-4782";
+      device = "/dev/disk/by-uuid/8C2B-5F58";
       fsType = "vfat";
+    };
+
+    "/nix" = {
+      device = "root/nix";
+      fsType = "zfs";
+    };
+
+    "/home" = {
+      device = "root/home";
+      fsType = "zfs";
     };
   };
 
