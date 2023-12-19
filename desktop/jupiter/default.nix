@@ -9,7 +9,7 @@ let
 in
 {
   imports = [
-    ../../vendor/jovian/modules
+    inputs.jovian.nixosModules.default
 
     ./steam.nix
     ./tlp.nix
@@ -22,7 +22,7 @@ in
   ];
 
   boot = {
-    kernelPackages = lib.mkForce (kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage ../../vendor/jovian/pkgs/linux-jovian {
+    kernelPackages = lib.mkForce (kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage "${inputs.jovian}/pkgs/linux-jovian" {
       kernelPatches = with kernelPkgs; [
         kernelPatches.bridge_stp_helper
         kernelPatches.request_key_helper

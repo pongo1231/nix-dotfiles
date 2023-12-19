@@ -1,3 +1,0 @@
-[submodule "vendor/jovian"]
-	path = vendor/jovian
-	url = https://github.com/pongo1231/Jovian-NixOS.git
