@@ -19,52 +19,30 @@
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
       kernelModules = [ "kvm-intel" "kvmgt" "vfio-iommu-type1" "mdev" ];
-
-      luks.devices = {
-        root = {
-          device = "/dev/disk/by-uuid/7d13a11e-2245-4878-bab9-f6372627c0f3";
-          allowDiscards = true;
-          bypassWorkqueues = true;
-        };
-      };
     };
   };
 
   fileSystems = {
     "/" = {
-      device = "/dev/disk/by-uuid/bb7eda0c-17b1-4399-a3a0-fa1c72b45877";
-      fsType = "btrfs";
-      options = [ "subvol=root" "noatime" "compress-force=zstd:10" ];
+      device = "root/root";
+      fsType = "zfs";
     };
 
     "/home" = {
-      device = "/dev/disk/by-uuid/bb7eda0c-17b1-4399-a3a0-fa1c72b45877";
-      fsType = "btrfs";
-      options = [ "subvol=home" "noatime" ];
+      device = "root/home";
+      fsType = "zfs";
+    };
+
+    "/nix" = {
+      device = "root/nix";
+      fsType = "zfs";
     };
 
     "/boot" = {
-      device = "/dev/disk/by-uuid/9575-D217";
+      device = "/dev/disk/by-uuid/D98C-6807";
       fsType = "vfat";
     };
-
-    /*"/media/ssd" = {
-      device = "/dev/disk/by-uuid/31b51531-24cb-4532-aef8-8c866f08e178";
-      fsType = "btrfs";
-      options = [ "noatime" "compress-force=zstd:10" "nofail" "x-systemd.device-timeout=15" ];
-    };*/
-
-    /*"/media/hdd" = {
-      device = "/dev/disk/by-uuid/239652c0-172e-416d-af3d-835bced7fd3c";
-      fsType = "btrfs";
-      options = [ "noatime" "compress-force=zstd:15" "discard=async" "autodefrag" "nofail" "x-systemd.device-timeout=15" ];
-    };*/
   };
-
-  environment.etc."crypttab".text = ''
-    #ssd     UUID=0b226cbc-287c-41cd-8377-a92a2de416ba       /keyfile    discard,no-read-workqueue,no-write-workqueue
-    #hdd     UUID=2f091d17-4b24-4e7e-982a-b476b25b3432       /keyfile    discard
-  '';
 
   powerManagement.cpuFreqGovernor = "powersave";
 
@@ -103,6 +81,6 @@
   };
 
   environment.systemPackages = with pkgs; [
-    snapperS
+
   ];
 }

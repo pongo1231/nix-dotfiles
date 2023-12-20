@@ -211,18 +211,6 @@
         echo 'container_additional_volumes="/nix:/nix"' > $out/share/distrobox/distrobox.conf
       '';
     }))
-    (duperemove.overrideAttrs (finalAttrs: oldAttrs: {
-      version = "0.14.1";
-
-      src = pkgs.fetchFromGitHub {
-        owner = "markfasheh";
-        repo = "duperemove";
-        rev = "v${finalAttrs.version}";
-        hash = "sha256-iMv80UKktYOhNfVA3mW6kKv8TwLZaP6MQt24t3Rchk4=";
-      };
-
-      buildInputs = oldAttrs.buildInputs ++ [ pkgs.util-linux ];
-    }))
     dconf
     inputs.nix-alien.packages.${system}.nix-alien
     nix-index
