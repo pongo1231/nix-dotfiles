@@ -190,7 +190,7 @@
   };
 
   environment.systemPackages = with pkgs; [
-    home-manager
+    unstable.home-manager
     pulseaudio
     (unstable.distrobox.overrideAttrs (finalAttrs: oldAttrs: {
       version = "1.6.0.1";
