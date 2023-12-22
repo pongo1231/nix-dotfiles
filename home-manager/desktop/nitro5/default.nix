@@ -28,5 +28,6 @@
     steam
     mangohud
     gamescope
+    httm
   ];
 }
