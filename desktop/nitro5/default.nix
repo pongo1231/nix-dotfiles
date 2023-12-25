@@ -71,8 +71,6 @@
 
     thermald.enable = true;
 
-    fstrim.enable = true;
-
     udev.extraHwdb = ''                                         
       evdev:input:b0011v0001p0001*
       KEYBOARD_KEY_F5=prog1

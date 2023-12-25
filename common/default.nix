@@ -158,6 +158,9 @@
       SystemMaxUse=1G
       SystemMaxFileSize=50M
     '';
+
+    fstrim.enable = true;
+    zfs.trim.enable = true;
   };
 
   security.rtkit.enable = true;
