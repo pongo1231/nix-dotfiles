@@ -9,7 +9,7 @@
 
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=1a5412e14030d2a00281021d5f8ef05b31027912";
+    nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=e15a427c7b7e8128403c1c58bb95234d47eb5e36";
 
     jovian.url = "github:pongo1231/Jovian-NixOS";
     nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=6b43e4b0bc862d2e6a2ad18731ee93bcf899c93a";
