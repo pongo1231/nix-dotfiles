@@ -30,7 +30,6 @@
       enable = true;
       finegrained = true;
     };
-    nvidiaPersistenced = true;
   };
 
   environment.systemPackages = [
