@@ -9,7 +9,10 @@
     inputs.kde2nix.nixosModules.default
   ];
 
-  nix.daemonCPUSchedPolicy = "idle";
+  nix = {
+    daemonCPUSchedPolicy = "idle";
+    daemonIOSchedClass = "idle";
+  };
 
   boot = {
     kernelPackages = lib.lowPrio (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
