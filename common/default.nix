@@ -19,7 +19,7 @@
     settings = {
       auto-optimise-store = true;
       trusted-users = [ "root" "@wheel" ];
-      trusted-substituters = [
+      substituters = [
         "https://0uptime.cachix.org"
       ];
       trusted-public-keys = [
