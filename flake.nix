@@ -29,6 +29,10 @@
       url = "github:GuilloteauQ/nix-be/main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    kde2nix = {
+      url = "github:nix-community/kde2nix";
+    };
   };
 
   outputs =
@@ -43,6 +47,7 @@
     , nix-alien
     , nix-autobahn
     , nix-be
+    , kde2nix
     }@inputs: {
       nixosConfigurations =
         let

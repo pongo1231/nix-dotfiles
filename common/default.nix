@@ -19,6 +19,12 @@
     settings = {
       auto-optimise-store = true;
       trusted-users = [ "root" "@wheel" ];
+      trusted-substituters = [
+        "https://0uptime.cachix.org"
+      ];
+      trusted-public-keys = [
+        "0uptime.cachix.org-1:ctw8yknBLg9cZBdqss+5krAem0sHYdISkw/IFdRbYdE="
+      ];
     };
     gc = {
       automatic = true;
@@ -187,7 +193,6 @@
     enable = true;
     xdgOpenUsePortal = true;
     extraPortals = with pkgs; [
-      libsForQt5.xdg-desktop-portal-kde
       xdg-desktop-portal-gtk
     ];
   };

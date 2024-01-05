@@ -1,9 +1,14 @@
 { config
 , pkgs
 , lib
+, inputs
 , ...
 }:
 {
+  imports = [
+    inputs.kde2nix.nixosModules.default
+  ];
+
   nix.daemonCPUSchedPolicy = "idle";
 
   boot = {
@@ -29,7 +34,7 @@
         wayland.enable = true;
         autoNumlock = true;
       };
-      desktopManager.plasma5.enable = true;
+      desktopManager.plasma6.enable = true;
     };
   };
 

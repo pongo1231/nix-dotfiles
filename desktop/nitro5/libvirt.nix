@@ -13,7 +13,7 @@
             patches =
               previousAttrs.patches or [ ]
               ++ [
-                ../../patches/qemu/qemu-device-fix.patch
+                #../../patches/qemu/qemu-device-fix.patch
                 ../../patches/qemu/qemu_higher_gui_refresh_rate.patch
               ];
           });
