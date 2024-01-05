@@ -16,7 +16,7 @@
       enable = true;
       autoStart = true;
       user = "pongo";
-      desktopSession = "plasmawayland";
+      desktopSession = "plasma";
     };
     decky-loader = {
       enable = true;
