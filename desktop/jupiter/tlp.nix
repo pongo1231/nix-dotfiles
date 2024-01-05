@@ -14,6 +14,8 @@
       WIFI_PWR_ON_BAT = "on";
 
       RUNTIME_PM_ON_BAT = "auto";
+
+      PLATFORM_PROFILE_ON_BAT = "balanced";
     };
   };
 }
