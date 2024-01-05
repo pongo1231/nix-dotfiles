@@ -40,6 +40,18 @@
       package = pkgs.kernel.zfs;
       removeLinuxDRM = true;
     };
+
+    # Thanks to https://toxicfrog.github.io/automounting-zfs-on-nixos/
+    postBootCommands = ''
+      echo "=== STARTING ZPOOL IMPORT ==="
+
+      ${pkgs.zfs}/bin/zpool import -a
+      ${pkgs.zfs}/bin/zfs load-key -a
+      ${pkgs.zfs}/bin/zpool status
+      ${pkgs.zfs}/bin/zfs mount -a
+
+      echo "=== ZPOOL IMPORT COMPLETE ==="
+    '';
   };
 
   services = {
