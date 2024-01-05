@@ -17,6 +17,18 @@
   boot = {
     kernelPackages = lib.lowPrio (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
     extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
+
+    kernelParams = [
+      "quiet"
+      "splash"
+      "loglevel=3"
+      "nowatchdog"
+      "mitigations=off"
+      "kvm.ignore_msrs=1"
+      "preempt=full"
+      "workqueue.power_efficient=1"
+    ];
+
     plymouth.enable = lib.mkDefault true;
 
     supportedFilesystems = [ "zfs" ];

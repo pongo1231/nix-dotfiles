@@ -85,15 +85,6 @@
       sysctl."kernel.sysrq" = 1;
       sysctl."kernel.core_pattern" = "/dev/null";
     };
-    kernelParams = [
-      "quiet"
-      "splash"
-      "loglevel=3"
-      "nowatchdog"
-      "mitigations=off"
-      "kvm.ignore_msrs=1"
-      "preempt=full"
-    ];
     initrd.systemd.enable = true;
   };
 
