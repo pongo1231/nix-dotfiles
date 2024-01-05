@@ -40,5 +40,10 @@
 
   environment.systemPackages = with pkgs; [
     sddm-kcm
+    kate
+    ark
+    ocs-url
+    kdeconnect
+    maliit-keyboard
   ];
 }

@@ -35,20 +35,15 @@
 
     packages = with pkgs; [
       firefox
-      kate
-      ark
-      ocs-url
       nil
       nixpkgs-fmt
       filelight
       vlc
       manix
       nvd
-      kdeconnect
       ffmpeg
       protontricks
       appimage-run
-      maliit-keyboard
     ];
   };
 }
