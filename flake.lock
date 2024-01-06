@@ -128,11 +128,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1704569329,
-        "narHash": "sha256-ftWmVBTKhuErpeBqmtN0B7hwz3pE43g//3TChPlYxh0=",
+        "lastModified": 1704584418,
+        "narHash": "sha256-UCD8NO/Jx6ryn0BvnoOQ9qGWz2qjd93fOZcl7uxtcZY=",
         "owner": "pongo1231",
         "repo": "Jovian-NixOS",
-        "rev": "fdcfeee3b719ac2d87ac3e2ec5b0fcd3adf7bce2",
+        "rev": "83c0b9bb3406012fd32bf782e4a69e5548ae9a3d",
         "type": "github"
       },
       "original": {
