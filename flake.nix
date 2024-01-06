@@ -12,7 +12,7 @@
     nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=e15a427c7b7e8128403c1c58bb95234d47eb5e36";
 
     jovian.url = "github:pongo1231/Jovian-NixOS";
-    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=6b43e4b0bc862d2e6a2ad18731ee93bcf899c93a";
+    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=c55537aa04e2d5b8de4614b79782d3e5430c3ea7";
     nixpkgs-jupiter-pipewire.url = "github:nixos/nixpkgs?rev=24bacf845b3f08b3a2cf2af32314c51bc7593349";
 
     nix-alien = {
