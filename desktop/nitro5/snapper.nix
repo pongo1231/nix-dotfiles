@@ -7,6 +7,9 @@
         "base" = {
           hourly = 5;
           daily = 7;
+          weekly = 0;
+          monthly = 0;
+          yearly = 0;
         };
 
         "nosnap" = {
