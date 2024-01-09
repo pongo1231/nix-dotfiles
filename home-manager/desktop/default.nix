@@ -35,6 +35,7 @@
 
     packages = with pkgs; [
       firefox
+      profile-sync-daemon
       nil
       nixpkgs-fmt
       filelight
