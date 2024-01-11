@@ -91,7 +91,7 @@
   zramSwap = {
     enable = true;
     priority = 100;
-    memoryPercent = 100;
+    memoryPercent = 200;
   };
 
   hardware = {
