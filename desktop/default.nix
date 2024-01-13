@@ -33,7 +33,8 @@
 
     supportedFilesystems = [ "zfs" ];
     extraModprobeConfig = ''
-      options zfs zfs_bclone_enabled=1 spl_taskq_thread_priority=0
+      options zfs zfs_bclone_enabled=1
+      options spl spl_taskq_thread_priority=0
     '';
 
     zfs = {
