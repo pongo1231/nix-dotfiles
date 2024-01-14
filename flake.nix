@@ -91,8 +91,8 @@
 
                     mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
 
-                    steamPackages = prev.steamPackages.overrideScope (scopeFinal: scopePrev: {
-                      steam = scopePrev.steam.overrideAttrs (finalAttrs: prevAttrs: {
+                    steamPackages = prev.steamPackages.overrideScope (finalScope: prevScope: {
+                      steam = prevScope.steam.overrideAttrs (finalAttrs: prevAttrs: {
                         postInstall = prevAttrs.postInstall + ''
                           substituteInPlace $out/share/applications/steam.desktop --replace "steam %U" "LD_PRELOAD=${final.extest}/lib/libextest.so steam %U -silent"
                         '';

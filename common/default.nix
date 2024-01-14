@@ -194,7 +194,7 @@
   environment.systemPackages = with pkgs; [
     unstable.home-manager
     pulseaudio
-    (unstable.distrobox.overrideAttrs (finalAttrs: oldAttrs: {
+    (unstable.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
       version = "1.6.0.1";
 
       src = fetchFromGitHub {
@@ -208,7 +208,7 @@
         ../patches/distrobox/always-mount-nix.patch
       ];
 
-      postFixup = oldAttrs.postFixup + ''
+      postFixup = prevAttrs.postFixup + ''
         mkdir -p $out/share/distrobox
         echo 'container_additional_volumes="/nix:/nix"' > $out/share/distrobox/distrobox.conf
       '';

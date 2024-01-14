@@ -16,7 +16,7 @@
             sha256_64bit = "sha256-RncPlaSjhvBFUCOzWdXSE3PAfRPCIrWAXyJMdLPKuIU=";
             settingsSha256 = "sha256-zj173HCZJaxAbVV/A2sbJ9IPdT1+3yrwyxD+AQdkSD8=";
             persistencedSha256 = "sha256-mmMi2pfwzI1WYOffMVdD0N1HfbswTGg7o57x9/IiyVU=";
-          }).overrideAttrs (oldAttrs: {
+          }).overrideAttrs (prevAttrs: {
             builder = ../../patches/nvidia/builder.sh;
           });
         })).nvidiaPackages.production;
