@@ -30,9 +30,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    kde2nix = {
-      url = "github:nix-community/kde2nix";
-    };
+    kde2nix.url = "github:nix-community/kde2nix";
   };
 
   outputs =
