@@ -76,12 +76,6 @@
       KEYBOARD_KEY_F5=prog1
       KEYBOARD_KEY_F6=power
     '';
-
-    ananicy = {
-      enable = true;
-      package = pkgs.ananicy-cpp;
-      rulesProvider = pkgs.ananicy-rules-cachyos;
-    };
   };
 
   environment.systemPackages = with pkgs; [
