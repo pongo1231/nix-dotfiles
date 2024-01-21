@@ -78,6 +78,7 @@
     ark
     ocs-url
     inputs.kde2nix.packages.${system}.kdeconnect-kde
+    krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
   ];
 }
