@@ -77,7 +77,7 @@
     kate
     ark
     ocs-url
-    kdeconnect
+    inputs.kde2nix.packages.${system}.kdeconnect-kde
     maliit-keyboard
   ];
 }
