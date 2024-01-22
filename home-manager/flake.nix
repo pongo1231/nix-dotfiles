@@ -27,7 +27,9 @@
           type = "desktop";
         }
       ];
-      mkHomes = homes: builtins.listToAttrs (nixpkgs.lib.lists.forEach homes (home: {
+    in
+    {
+      homeConfigurations = builtins.listToAttrs (nixpkgs.lib.lists.forEach homes (home: {
         name = "${home.user}@${home.host}";
         value = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.x86_64-linux;
@@ -56,8 +58,5 @@
           ];
         };
       }));
-    in
-    {
-      homeConfigurations = mkHomes homes;
     };
 }
