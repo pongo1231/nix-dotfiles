@@ -301,17 +301,17 @@
     },
     "nixpkgs-desktop-kernel": {
       "locked": {
-        "lastModified": 1703724316,
-        "narHash": "sha256-+8igF8C9kLHIMQfHFEPGRhD/WrpogyF5W9Q2RCTVTDQ=",
+        "lastModified": 1705962610,
+        "narHash": "sha256-gCNWHNI+ex8WoXXBPT8FFrP6wzzFDleL3BBL1E2Zpw4=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "e15a427c7b7e8128403c1c58bb95234d47eb5e36",
+        "rev": "e7120ab3810ca54256f40324b3893b886fd70570",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "e15a427c7b7e8128403c1c58bb95234d47eb5e36",
+        "rev": "e7120ab3810ca54256f40324b3893b886fd70570",
         "type": "github"
       }
     },
