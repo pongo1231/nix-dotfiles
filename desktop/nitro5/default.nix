@@ -78,6 +78,8 @@
     '';
   };
 
+  virtualisation.podman.enableNvidia = true;
+
   environment.systemPackages = with pkgs; [
 
   ];
