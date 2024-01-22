@@ -74,16 +74,18 @@
     };
     tmp.useTmpfs = true;
     kernel = {
-      # https://wiki.archlinux.org/title/Zram#Optimizing_swap_on_zram
-      sysctl."vm.swappiness" = 180;
-      sysctl."vm.page-cluster" = 0;
-      sysctl."vm.watermark_boost_factor" = 0;
-      sysctl."vm.watermark_scale_factor" = 125;
+      sysctl = {
+        # https://wiki.archlinux.org/title/Zram#Optimizing_swap_on_zram
+        "vm.swappiness" = 180;
+        "vm.page-cluster" = 0;
+        "vm.watermark_boost_factor" = 0;
+        "vm.watermark_scale_factor" = 125;
 
-      sysctl."vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
-      sysctl."dev.i915.perf_stream_paranoid" = 0;
-      sysctl."kernel.sysrq" = 1;
-      sysctl."kernel.core_pattern" = "/dev/null";
+        "vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
+        "dev.i915.perf_stream_paranoid" = 0;
+        "kernel.sysrq" = 1;
+        "kernel.core_pattern" = "/dev/null";
+      };
     };
     initrd.systemd.enable = true;
   };
