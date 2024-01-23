@@ -13,12 +13,6 @@ in
 
     ./steam.nix
     ./tlp.nix
-
-    "${inputs.nixpkgs-jupiter-pipewire}/nixos/modules/services/desktops/pipewire/pipewire.nix"
-  ];
-
-  disabledModules = [
-    "services/desktops/pipewire/pipewire.nix"
   ];
 
   boot = {
@@ -100,8 +94,6 @@ in
 
   services = {
     xserver.displayManager.sddm.enable = false;
-
-    pipewire.package = inputs.nixpkgs-jupiter-pipewire.legacyPackages.x86_64-linux.pipewire;
 
     fstrim.enable = true;
   };

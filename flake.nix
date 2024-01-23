@@ -13,7 +13,6 @@
 
     jovian.url = "github:pongo1231/Jovian-NixOS";
     nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=a5a28fa58b8e8b03fd104356d71ac65cc2147d86";
-    nixpkgs-jupiter-pipewire.url = "github:nixos/nixpkgs?rev=24bacf845b3f08b3a2cf2af32314c51bc7593349";
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
@@ -41,7 +40,6 @@
     , nixpkgs-desktop-kernel
     , jovian
     , nixpkgs-jupiter-kernel
-    , nixpkgs-jupiter-pipewire
     , nix-alien
     , nix-autobahn
     , nix-be

@@ -331,22 +331,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-jupiter-pipewire": {
-      "locked": {
-        "lastModified": 1691386706,
-        "narHash": "sha256-w+RADyPjuF5pCGkJlJ3w7qKssWeOHMM7tNNoKmrkE5U=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "24bacf845b3f08b3a2cf2af32314c51bc7593349",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "24bacf845b3f08b3a2cf2af32314c51bc7593349",
-        "type": "github"
-      }
-    },
     "nixpkgs-stable": {
       "locked": {
         "lastModified": 1704874635,
@@ -467,7 +451,6 @@
         ],
         "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel",
         "nixpkgs-jupiter-kernel": "nixpkgs-jupiter-kernel",
-        "nixpkgs-jupiter-pipewire": "nixpkgs-jupiter-pipewire",
         "nixpkgs-stable": "nixpkgs-stable_2",
         "nixpkgs-unstable": "nixpkgs-unstable"
       }
