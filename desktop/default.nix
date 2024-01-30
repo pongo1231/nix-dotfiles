@@ -72,12 +72,13 @@
     };
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = with pkgs; with inputs.kde2nix.packages.x86_64-linux; [
+    flatpak-kcm
     sddm-kcm
     kate
     ark
     ocs-url
-    inputs.kde2nix.packages.${system}.kdeconnect-kde
+    kdeconnect-kde
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
   ];
