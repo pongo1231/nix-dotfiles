@@ -78,7 +78,7 @@
     kate
     ark
     ocs-url
-    kdeconnect-kde
+    kdeconnect-kde sshfs
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
   ];
