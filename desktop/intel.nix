@@ -23,12 +23,12 @@
   };
 
   hardware.opengl = {
-    extraPackages = with pkgs.unstable; [
+    extraPackages = with pkgs; [
       intel-media-driver
       vaapiIntel
       libvdpau-va-gl
     ];
-    extraPackages32 = with pkgs.unstable.pkgsi686Linux; [
+    extraPackages32 = with pkgs.pkgsi686Linux; [
       intel-media-driver
       vaapiIntel
       libvdpau-va-gl

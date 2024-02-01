@@ -1,11 +1,6 @@
 {
   inputs = {
-    nixpkgs = {
-      url = "github:nixos/nixpkgs?rev=30e89e4fcdfb4a0e6261cb9a46affd4bfb186862";
-      follows = "nixpkgs-unstable";
-    };
-
-    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
     nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=e7120ab3810ca54256f40324b3893b886fd70570";
 
@@ -33,7 +28,6 @@
   outputs =
     { self
     , nixpkgs
-    , nixpkgs-unstable
     , nixpkgs-desktop-kernel
     , jovian
     , nixpkgs-jupiter-kernel
@@ -53,11 +47,6 @@
                }: {
                 nixpkgs.overlays = [
                   (final: prev: {
-                    unstable = import nixpkgs-unstable {
-                      inherit system;
-                      config.allowUnfree = true;
-                    };
-
                     kernel = import nixpkgs-desktop-kernel {
                       inherit system;
                       config = {

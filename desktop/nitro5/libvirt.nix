@@ -6,7 +6,7 @@
     libvirtd = {
       enable = true;
       qemu = {
-        package = pkgs.unstable.qemu_kvm.overrideAttrs
+        package = pkgs.qemu_kvm.overrideAttrs
           (finalAttrs: previousAttrs: {
             # for gvt-g to work
             cephSupport = true;
