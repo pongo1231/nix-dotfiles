@@ -5,8 +5,6 @@
       follows = "nixpkgs-unstable";
     };
 
-    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-23.11";
-
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=e7120ab3810ca54256f40324b3893b886fd70570";
@@ -16,7 +14,7 @@
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
-      inputs.nixpkgs.follows = "nixpkgs-stable";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     nix-autobahn = {
@@ -35,7 +33,6 @@
   outputs =
     { self
     , nixpkgs
-    , nixpkgs-stable
     , nixpkgs-unstable
     , nixpkgs-desktop-kernel
     , jovian
@@ -56,16 +53,6 @@
                }: {
                 nixpkgs.overlays = [
                   (final: prev: {
-                    stable = import nixpkgs-stable {
-                      inherit system;
-                      config = {
-                        allowUnfree = true;
-                        permittedInsecurePackages = [
-                          "python-2.7.18.7"
-                        ];
-                      };
-                    };
-
                     unstable = import nixpkgs-unstable {
                       inherit system;
                       config.allowUnfree = true;
@@ -80,8 +67,6 @@
                     };
 
                     nbfc-linux = final.callPackage ./pkgs/nbfc-linux { };
-
-                    snapperS = final.stable.callPackage ./pkgs/snapperS { };
 
                     extest = final.pkgsi686Linux.callPackage ./pkgs/extest { };
 
