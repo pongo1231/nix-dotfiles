@@ -13,13 +13,19 @@
       hash = "sha256-CknxLwm1tuaOqq/z8Cynz/mqkmk5shLTQxYdPorFYpE=";
     };
   });
-}).overrideAttrs (prevAttrs: {
+}).overrideAttrs (prevAttrs:
+  let
+    rev = "1d1a7f9d566ddcf423300fbb7bb203c32f973a84";
+  in
+  {
+  version = "git-${builtins.substring 0 6 rev}";
+
   src = fetchFromGitLab {
     domain = "gitlab.freedesktop.org";
     owner = "Mesa";
     repo = "mesa";
-    rev = "fa1c9618f970ffd5e1ddf1fc0a4783bbee1d911e";
-    hash = "sha256-0EbYC4RKPMqp4otvoBF0Qe/iA8e4B8+ForiQ+YRVMNg=";
+    inherit rev;
+    hash = "sha256-plsfVh2O1bIpG1lNqgVglM6NZ8LZ4/Re9mp2Goxhb6s=";
   };
 
   patches = prevAttrs.patches ++ [ ./25352.diff ];
