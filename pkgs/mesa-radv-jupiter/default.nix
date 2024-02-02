@@ -15,7 +15,7 @@
   });
 }).overrideAttrs (prevAttrs:
   let
-    rev = "1d1a7f9d566ddcf423300fbb7bb203c32f973a84";
+    rev = "559f31e202fd8bdb984a6bbf8c03d65dd1e93d57";
   in
   {
   version = "git-${builtins.substring 0 6 rev}";
@@ -25,7 +25,7 @@
     owner = "Mesa";
     repo = "mesa";
     inherit rev;
-    hash = "sha256-plsfVh2O1bIpG1lNqgVglM6NZ8LZ4/Re9mp2Goxhb6s=";
+    hash = "sha256-nuTBiVR4sJ4Y/4t8BcTipyCg2n0Wr953ULau9xrzCPU=";
   };
 
   patches = prevAttrs.patches ++ [ ./25352.diff ];
