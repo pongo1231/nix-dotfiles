@@ -36,7 +36,7 @@
         );
     in
     {
-      kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_zen.extend (finalAttrs: prevAttrs: {
+      kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
         zfs = patchZfs prevAttrs.zfs;
       }));
 
