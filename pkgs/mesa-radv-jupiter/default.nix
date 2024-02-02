@@ -14,10 +14,10 @@
     };
   });
 }).overrideAttrs (prevAttrs:
-  let
-    rev = "559f31e202fd8bdb984a6bbf8c03d65dd1e93d57";
-  in
-  {
+let
+  rev = "559f31e202fd8bdb984a6bbf8c03d65dd1e93d57";
+in
+{
   version = "git-${builtins.substring 0 6 rev}";
 
   src = fetchFromGitLab {
