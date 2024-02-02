@@ -17,9 +17,8 @@
     nvtop
     intel-gpu-tools
     authy
-    ((discord.override { nss = nss_latest; /* workaround to fix links not opening browsers */ }).overrideAttrs (prevAttrs: rec {
+    (discord.overrideAttrs (prevAttrs: {
       desktopItem = prevAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling --enable-features=WaylandWindowDecorations --ozone-platform-hint=auto"; };
-      installPhase = builtins.replaceStrings [ "${prevAttrs.desktopItem}" ] [ "${desktopItem}" ] prevAttrs.installPhase;
     }))
     libreoffice
     direnv
