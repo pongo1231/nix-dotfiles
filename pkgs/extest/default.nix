@@ -3,13 +3,17 @@
 , fetchFromGitHub
 }:
 
-rustPlatform.buildRustPackage rec {
-  pname = "extest";
+rustPlatform.buildRustPackage (finalAttrs:
+let
   version = "1.0";
+in
+{
+  pname = "extest";
+  inherit version;
 
   src = fetchFromGitHub {
     owner = "Supreeeme";
-    repo = pname;
+    repo = finalAttrs.pname;
     rev = version;
     sha256 = "sha256-bCZesSKgkarofFAVd51gfZTGKlBCkoLTmQave8krO5A=";
   };
@@ -23,4 +27,4 @@ rustPlatform.buildRustPackage rec {
     maintainers = with maintainers; [ pongo1231 ];
     platforms = platforms.linux;
   };
-}
+})

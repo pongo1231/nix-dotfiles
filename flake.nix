@@ -38,55 +38,59 @@
     }@inputs: {
       nixosConfigurations =
         let
-          commonSystem = { type ? "", hostName, config }: nixpkgs.lib.nixosSystem rec {
-            system = "x86_64-linux";
-            specialArgs = { inherit inputs; };
+          commonSystem = { type ? "", hostName, config }:
+            let
+              system = "x86_64-linux";
+            in
+            nixpkgs.lib.nixosSystem {
+              inherit system;
+              specialArgs = { inherit inputs; };
 
-            modules = [
-              ({ ...
-               }: {
-                nixpkgs.overlays = [
-                  (final: prev: {
-                    kernel = import nixpkgs-desktop-kernel {
-                      inherit system;
-                      config = {
-                        allowUnfree = true;
-                        nvidia.acceptLicense = true;
+              modules = [
+                ({ ...
+                 }: {
+                  nixpkgs.overlays = [
+                    (final: prev: {
+                      kernel = import nixpkgs-desktop-kernel {
+                        inherit system;
+                        config = {
+                          allowUnfree = true;
+                          nvidia.acceptLicense = true;
+                        };
                       };
-                    };
 
-                    nbfc-linux = final.callPackage ./pkgs/nbfc-linux { };
+                      nbfc-linux = final.callPackage ./pkgs/nbfc-linux { };
 
-                    extest = final.pkgsi686Linux.callPackage ./pkgs/extest { };
+                      extest = final.pkgsi686Linux.callPackage ./pkgs/extest { };
 
-                    mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
+                      mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
 
-                    steamPackages = prev.steamPackages.overrideScope (finalScope: prevScope: {
-                      steam = prevScope.steam.overrideAttrs (finalAttrs: prevAttrs: {
-                        postInstall = prevAttrs.postInstall + ''
-                          substituteInPlace $out/share/applications/steam.desktop --replace "steam %U" "LD_PRELOAD=${final.extest}/lib/libextest.so steam %U -silent"
-                        '';
+                      steamPackages = prev.steamPackages.overrideScope (finalScope: prevScope: {
+                        steam = prevScope.steam.overrideAttrs (finalAttrs: prevAttrs: {
+                          postInstall = prevAttrs.postInstall + ''
+                            substituteInPlace $out/share/applications/steam.desktop --replace "steam %U" "LD_PRELOAD=${final.extest}/lib/libextest.so steam %U -silent"
+                          '';
+                        });
                       });
-                    });
-                  })
-                ];
+                    })
+                  ];
 
-                nixpkgs.config.allowUnfree = true;
+                  nixpkgs.config.allowUnfree = true;
 
-                networking = {
-                  inherit hostName;
-                };
-              })
+                  networking = {
+                    inherit hostName;
+                  };
+                })
 
-              ./common
-            ] ++ nixpkgs.lib.optionals (config != null) [
-              config
-            ] ++ nixpkgs.lib.optionals (type == "desktop") [
-              ./desktop
-            ] ++ nixpkgs.lib.optionals (type == "vm") [
-              ./vm
-            ];
-          };
+                ./common
+              ] ++ nixpkgs.lib.optionals (config != null) [
+                config
+              ] ++ nixpkgs.lib.optionals (type == "desktop") [
+                ./desktop
+              ] ++ nixpkgs.lib.optionals (type == "vm") [
+                ./vm
+              ];
+            };
         in
         {
           vm = commonSystem {

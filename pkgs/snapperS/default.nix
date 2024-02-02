@@ -19,20 +19,25 @@ stdenv.mkDerivation {
   buildInputs = [ python python3Packages.wrapPython ];
 
   pythonPath = [
-    (python3Packages.buildPythonPackage rec {
-      version = "0.8.10";
-      pname = "tabulate";
-
-      src = python3Packages.fetchPypi {
+    (python3Packages.buildPythonPackage (
+      let
+        pname = "tabulate";
+        version = "0.8.10";
+      in
+      {
         inherit pname version;
-        sha256 = "sha256-bFfz8916wngncBVfOtstsLGiaWN+QvJ1mZJeZLEU9Rk=";
-      };
 
-      checkInputs = [ python3Packages.nose ];
+        src = python3Packages.fetchPypi {
+          inherit pname version;
+          sha256 = "sha256-bFfz8916wngncBVfOtstsLGiaWN+QvJ1mZJeZLEU9Rk=";
+        };
 
-      # Tests: cannot import common (relative import).
-      doCheck = false;
-    })
+        checkInputs = [ python3Packages.nose ];
+
+        # Tests: cannot import common (relative import).
+        doCheck = false;
+      }
+    ))
   ];
 
   postPatch = ''
