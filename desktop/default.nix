@@ -51,6 +51,7 @@
         "kvm.ignore_msrs=1"
         "preempt=full"
         "workqueue.power_efficient=1"
+        "threadirqs"
       ];
 
       plymouth.enable = lib.mkDefault true;
