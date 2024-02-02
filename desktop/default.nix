@@ -14,46 +14,70 @@
     daemonIOSchedClass = "idle";
   };
 
-  boot = {
-    kernelPackages = lib.lowPrio (pkgs.kernel.zfs.override { removeLinuxDRM = pkgs.hostPlatform.isAarch64; }).latestCompatibleLinuxPackages;
-    extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
+  boot =
+    let
+      patchZfs = zfs: zfs.overrideAttrs
+        (prevAttrs:
+          let
+            rev = "2e6b3c4d9453360a351af6148386360a3a7209b3";
+          in
+          {
+            version = "git-${builtins.substring 0 6 rev}";
 
-    kernelParams = [
-      "quiet"
-      "splash"
-      "loglevel=3"
-      "nowatchdog"
-      "mitigations=off"
-      "kvm.ignore_msrs=1"
-      "preempt=full"
-      "workqueue.power_efficient=1"
-    ];
+            src = pkgs.fetchFromGitHub {
+              owner = "openzfs";
+              repo = "zfs";
+              inherit rev;
+              hash = "sha256-ELQyGX5TKTJSQIXs9I2FA6YJwoiC8XlXHunLM1mmkvk=";
+            };
 
-    plymouth.enable = lib.mkDefault true;
+            meta = prevAttrs.meta // { broken = false; };
+          }
+        );
+    in
+    {
+      kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_zen.extend (finalAttrs: prevAttrs: {
+        zfs = patchZfs prevAttrs.zfs;
+      }));
 
-    supportedFilesystems = [ "zfs" ];
-    extraModprobeConfig = ''
-      options zfs zfs_bclone_enabled=1
-      options spl spl_taskq_thread_priority=0
-    '';
+      extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
 
-    zfs = {
-      package = pkgs.kernel.zfs;
-      removeLinuxDRM = true;
+      kernelParams = [
+        "quiet"
+        "splash"
+        "loglevel=3"
+        "nowatchdog"
+        "mitigations=off"
+        "kvm.ignore_msrs=1"
+        "preempt=full"
+        "workqueue.power_efficient=1"
+      ];
+
+      plymouth.enable = lib.mkDefault true;
+
+      supportedFilesystems = [ "zfs" ];
+      extraModprobeConfig = ''
+        options zfs zfs_bclone_enabled=1
+        options spl spl_taskq_thread_priority=0
+      '';
+
+      zfs = {
+        package = patchZfs pkgs.kernel.zfs;
+        removeLinuxDRM = true;
+      };
+
+      # Thanks to https://toxicfrog.github.io/automounting-zfs-on-nixos/
+      postBootCommands = ''
+        echo "=== STARTING ZPOOL IMPORT ==="
+
+        ${pkgs.zfs}/bin/zpool import -a
+        ${pkgs.zfs}/bin/zfs load-key -a
+        ${pkgs.zfs}/bin/zpool status
+        ${pkgs.zfs}/bin/zfs mount -a
+
+        echo "=== ZPOOL IMPORT COMPLETE ==="
+      '';
     };
-
-    # Thanks to https://toxicfrog.github.io/automounting-zfs-on-nixos/
-    postBootCommands = ''
-      echo "=== STARTING ZPOOL IMPORT ==="
-
-      ${pkgs.zfs}/bin/zpool import -a
-      ${pkgs.zfs}/bin/zfs load-key -a
-      ${pkgs.zfs}/bin/zpool status
-      ${pkgs.zfs}/bin/zfs mount -a
-
-      echo "=== ZPOOL IMPORT COMPLETE ==="
-    '';
-  };
 
   services = {
     xserver = {
@@ -78,7 +102,8 @@
     kate
     ark
     ocs-url
-    kdeconnect-kde sshfs
+    kdeconnect-kde
+    sshfs
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
   ];
