@@ -79,6 +79,8 @@
       '';
     };
 
+  programs.cfs-zen-tweaks.enable = true;
+
   services = {
     xserver = {
       displayManager.sddm = {
