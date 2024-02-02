@@ -138,7 +138,7 @@
   services = {
     xserver = {
       enable = true;
-      layout = "de";
+      xkb.layout = "de";
       libinput.enable = true;
     };
 
