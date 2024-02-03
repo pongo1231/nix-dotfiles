@@ -26,23 +26,14 @@
   };
 
   outputs =
-    { self
-    , nixpkgs
-    , nixpkgs-desktop-kernel
-    , jovian
-    , nixpkgs-jupiter-kernel
-    , nix-alien
-    , nix-autobahn
-    , nix-be
-    , kde2nix
-    }@inputs: {
+    { ... }@inputs: {
       nixosConfigurations =
         let
           commonSystem = { type ? "", hostName, config }:
             let
               system = "x86_64-linux";
             in
-            nixpkgs.lib.nixosSystem {
+            inputs.nixpkgs.lib.nixosSystem {
               inherit system;
               specialArgs = { inherit inputs; };
 
@@ -51,7 +42,7 @@
                  }: {
                   nixpkgs.overlays = [
                     (final: prev: {
-                      kernel = import nixpkgs-desktop-kernel {
+                      kernel = import inputs.nixpkgs-desktop-kernel {
                         inherit system;
                         config = {
                           allowUnfree = true;
@@ -83,11 +74,11 @@
                 })
 
                 ./common
-              ] ++ nixpkgs.lib.optionals (config != null) [
+              ] ++ inputs.nixpkgs.lib.optionals (config != null) [
                 config
-              ] ++ nixpkgs.lib.optionals (type == "desktop") [
+              ] ++ inputs.nixpkgs.lib.optionals (type == "desktop") [
                 ./desktop
-              ] ++ nixpkgs.lib.optionals (type == "vm") [
+              ] ++ inputs.nixpkgs.lib.optionals (type == "vm") [
                 ./vm
               ];
             };

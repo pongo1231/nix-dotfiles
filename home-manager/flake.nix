@@ -9,8 +9,7 @@
   };
 
   outputs =
-    { self
-    , nixpkgs
+    { nixpkgs
     , home-manager
     }@inputs:
     let
