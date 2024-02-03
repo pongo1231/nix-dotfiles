@@ -9,9 +9,7 @@
   };
 
   outputs =
-    { nixpkgs
-    , home-manager
-    }@inputs:
+    { ... }@inputs:
     let
       homes = [
         {
@@ -28,10 +26,10 @@
       ];
     in
     {
-      homeConfigurations = builtins.listToAttrs (nixpkgs.lib.lists.forEach homes (home: {
+      homeConfigurations = builtins.listToAttrs (inputs.nixpkgs.lib.lists.forEach homes (home: {
         name = "${home.user}@${home.host}";
-        value = home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
+        value = inputs.home-manager.lib.homeManagerConfiguration {
+          pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
           extraSpecialArgs = { inherit inputs; };
 
           modules = [
@@ -50,9 +48,9 @@
             })
 
             ./common
-          ] ++ nixpkgs.lib.optionals (home ? config && home.config != null) [
+          ] ++ inputs.nixpkgs.lib.optionals (home ? config && home.config != null) [
             home.config
-          ] ++ nixpkgs.lib.optionals (home ? type && home.type == "desktop") [
+          ] ++ inputs.nixpkgs.lib.optionals (home ? type && home.type == "desktop") [
             ./desktop
           ];
         };
