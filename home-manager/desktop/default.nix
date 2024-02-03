@@ -96,6 +96,7 @@
       profile-sync-daemon
       nil
       nixpkgs-fmt
+      deadnix
       filelight
       vlc
       manix
