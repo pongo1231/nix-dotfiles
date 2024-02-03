@@ -7,8 +7,8 @@
   '';
 
   jovian = {
-    devices.steamdeck = {
-      enable = true;
+    devices.steamdeck.enable = true;
+    steamos = {
       enableVendorRadv = false;
       enableMesaPatches = true;
     };
