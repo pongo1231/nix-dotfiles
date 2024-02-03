@@ -36,33 +36,6 @@
     registry.nixpkgs.flake = inputs.nixpkgs;
   };
 
-  # thanks to ElvishJerricco
-  environment = {
-    etc = (lib.mapAttrs'
-      (name: flake: {
-        name = "nix/inputs/${name}";
-        value.source = flake.outPath;
-      })
-      inputs) // {
-      # allow imperative edits to /etc/hosts
-      hosts.mode = "0644";
-    };
-
-    sessionVariables = {
-      GTK_USE_PORTAL = "1";
-
-      MOZ_ENABLE_WAYLAND = "1";
-
-      NIXPKGS_ALLOW_UNFREE = "1";
-
-      DXVK_LOG_LEVEL = "none";
-      VKD3D_DEBUG = "none";
-      VKD3D_SHADER_DEBUG = "none";
-      WINEDEBUG = "-all";
-      WINEFSYNC = "1";
-    };
-  };
-
   boot = {
     loader = {
       systemd-boot = {
@@ -80,6 +53,11 @@
         "vm.page-cluster" = 0;
         "vm.watermark_boost_factor" = 0;
         "vm.watermark_scale_factor" = 125;
+
+        # yanked from linux-zen
+        "vm.dirty_background_ratio" = 20;
+        "vm.dirty_ratio" = 50;
+        "vm.compact_unevictable_allowed" = 0;
 
         "vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
         "dev.i915.perf_stream_paranoid" = 0;
@@ -193,37 +171,69 @@
     ];
   };
 
-  environment.systemPackages = with pkgs; [
-    home-manager
-    pulseaudio
-    (distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-      version = "1.6.0.1";
-
-      src = fetchFromGitHub {
-        owner = "89luca89";
-        repo = "distrobox";
-        rev = finalAttrs.version;
-        hash = "sha256-UWrXpb20IHcwadPpwbhSjvOP1MBXic5ay+nP+OEVQE4=";
-      };
-
-      patches = [
-        ../patches/distrobox/always-mount-nix.patch
-      ];
-
-      postFixup = prevAttrs.postFixup + ''
-        mkdir -p $out/share/distrobox
-        echo 'container_additional_volumes="/nix:/nix"' > $out/share/distrobox/distrobox.conf
-      '';
-    }))
-    dconf
-    inputs.nix-alien.packages.${system}.nix-alien
-    nix-index
-    inputs.nix-alien.packages.${system}.nix-index-update
-    comma
-    krunner-translator
-    ubuntu_font_family
-    inputs.nix-be.packages.${system}.nix-be
-    ddcutil
-    fwupd
+  # yanked from linux-zen
+  systemd.tmpfiles.rules = [
+    "w /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
   ];
+
+  environment = {
+    # thanks to ElvishJerricco
+    etc = (lib.mapAttrs'
+      (name: flake: {
+        name = "nix/inputs/${name}";
+        value.source = flake.outPath;
+      })
+      inputs) // {
+      # allow imperative edits to /etc/hosts
+      hosts.mode = "0644";
+    };
+
+    sessionVariables = {
+      GTK_USE_PORTAL = "1";
+
+      MOZ_ENABLE_WAYLAND = "1";
+
+      NIXPKGS_ALLOW_UNFREE = "1";
+
+      DXVK_LOG_LEVEL = "none";
+      VKD3D_DEBUG = "none";
+      VKD3D_SHADER_DEBUG = "none";
+      WINEDEBUG = "-all";
+      WINEFSYNC = "1";
+    };
+
+    systemPackages = with pkgs; [
+      home-manager
+      pulseaudio
+      (distrobox.overrideAttrs (finalAttrs: prevAttrs: {
+        version = "1.6.0.1";
+
+        src = fetchFromGitHub {
+          owner = "89luca89";
+          repo = "distrobox";
+          rev = finalAttrs.version;
+          hash = "sha256-UWrXpb20IHcwadPpwbhSjvOP1MBXic5ay+nP+OEVQE4=";
+        };
+
+        patches = [
+          ../patches/distrobox/always-mount-nix.patch
+        ];
+
+        postFixup = prevAttrs.postFixup + ''
+          mkdir -p $out/share/distrobox
+          echo 'container_additional_volumes="/nix:/nix"' > $out/share/distrobox/distrobox.conf
+        '';
+      }))
+      dconf
+      inputs.nix-alien.packages.${system}.nix-alien
+      nix-index
+      inputs.nix-alien.packages.${system}.nix-index-update
+      comma
+      krunner-translator
+      ubuntu_font_family
+      inputs.nix-be.packages.${system}.nix-be
+      ddcutil
+      fwupd
+    ];
+  };
 }
