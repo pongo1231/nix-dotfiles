@@ -17,18 +17,19 @@
   boot =
     let
       patchZfs = zfs: zfs.overrideAttrs
-        (prevAttrs:
+        (finalAttrs: prevAttrs:
           let
-            rev = "2e6b3c4d9453360a351af6148386360a3a7209b3";
+            rev = "06e25f9c4b0841e450e411bf270c7aa92c04c573";
           in
           {
+            name = builtins.replaceStrings [ prevAttrs.version ] [ finalAttrs.version ] prevAttrs.name;
             version = "git-${builtins.substring 0 6 rev}";
 
             src = pkgs.fetchFromGitHub {
               owner = "openzfs";
               repo = "zfs";
               inherit rev;
-              hash = "sha256-ELQyGX5TKTJSQIXs9I2FA6YJwoiC8XlXHunLM1mmkvk=";
+              hash = "sha256-NdiRwYfSmfLn5Ryen3/yqZJLT3sfc+aKTWTnUQA0SmA=";
             };
 
             meta = prevAttrs.meta // { broken = false; };
