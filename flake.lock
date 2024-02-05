@@ -148,11 +148,11 @@
         "pre-commit-hooks": "pre-commit-hooks"
       },
       "locked": {
-        "lastModified": 1706910972,
-        "narHash": "sha256-yGYNqVceiHl6OdK56EsjSXQua5zrF04/2vNhmJ9cruY=",
+        "lastModified": 1707110297,
+        "narHash": "sha256-etfJc8EuHfZxdKbPpiB7GI9rLNzF+4GLtOHVt1qvLp8=",
         "owner": "nix-community",
         "repo": "kde2nix",
-        "rev": "44fb0b182e694579b53d7fed27a81fc98ccbe66f",
+        "rev": "1790306f2115ae9e396cf926d72f5e060d1d918e",
         "type": "github"
       },
       "original": {
