@@ -92,12 +92,6 @@
       };
       desktopManager.plasma6.enable = true;
     };
-
-    ananicy = {
-      enable = true;
-      package = pkgs.ananicy-cpp;
-      rulesProvider = pkgs.ananicy-rules-cachyos;
-    };
   };
 
   environment.systemPackages = with pkgs; with inputs.kde2nix.packages.x86_64-linux; [
