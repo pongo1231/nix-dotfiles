@@ -19,7 +19,7 @@
       patchZfs = zfs: zfs.overrideAttrs
         (finalAttrs: prevAttrs:
           let
-            rev = "6dccdf501ea47bb8a45f00e4904d26efcb917ad4";
+            rev = "a5a725440bcb2f4c4554be3e489f911e3dd60412";
           in
           {
             name = builtins.replaceStrings [ prevAttrs.version ] [ finalAttrs.version ] prevAttrs.name;
@@ -29,7 +29,7 @@
               owner = "openzfs";
               repo = "zfs";
               inherit rev;
-              hash = "sha256-mmJ8+cZvtmNEcc2SjD9kUxfRuBnsUxNLhvKvD4WHSug=";
+              hash = "sha256-D6OO9hkb/qSSEojkjdzJwAAxp4fvvZvz6D/wt94GZAY=";
             };
 
             meta = prevAttrs.meta // { broken = false; };
