@@ -130,8 +130,6 @@
 
     openssh.enable = true;
 
-    earlyoom.enable = true;
-
     fwupd.enable = true;
 
     journald.extraConfig = ''
@@ -171,10 +169,14 @@
     ];
   };
 
-  # yanked from linux-zen
-  systemd.tmpfiles.rules = [
-    "w /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
-  ];
+  systemd = {
+    # yanked from linux-zen
+    tmpfiles.rules = [
+      "w /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
+    ];
+
+    oomd.enable = true;
+  };
 
   environment = {
     # thanks to ElvishJerricco
