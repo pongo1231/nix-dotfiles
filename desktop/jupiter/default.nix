@@ -86,8 +86,8 @@ in
   hardware = {
     cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
-    opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
-    opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
+    #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
+    #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };
 
   networking.hostId = "a1f92a1f";

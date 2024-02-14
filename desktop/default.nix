@@ -81,6 +81,13 @@
       '';
     };
 
+  hardware.opengl = {
+    enable = true;
+    package = pkgs.mesa';
+    package32 = pkgs.pkgsi686Linux.mesa';
+    driSupport32Bit = true;
+  };
+
   programs.cfs-zen-tweaks.enable = true;
 
   services = {
