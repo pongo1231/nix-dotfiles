@@ -5,6 +5,7 @@
   programs.firefox.profiles.settings = {
     "gfx.webrender.all" = true;
     "media.ffmpeg.vaapi.enabled" = true;
+    "browser.cache.disk.enable" = false;
   };
 
   home = {
