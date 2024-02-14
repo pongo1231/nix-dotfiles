@@ -7,64 +7,6 @@
     "media.ffmpeg.vaapi.enabled" = true;
   };
 
-  systemd.user = {
-    services = {
-      "psd" = {
-        Unit = {
-          Description = "Profile-sync-daemon";
-          Documentation = "https://wiki.archlinux.org/index.php/Profile-sync-daemon";
-          Wants = [ "psd-resync.service" ];
-          RequiresMountsFor = "/home/";
-          After = "winbindd.service";
-        };
-
-        Service = {
-          Type = "oneshot";
-          RemainAfterExit = "yes";
-          ExecStart = [ "${pkgs.profile-sync-daemon}/bin/psd startup" ];
-          ExecStop = [ "${pkgs.profile-sync-daemon}/bin/psd unsync" ];
-          Environment = [ "LAUNCHED_BY_SYSTEMD=1" ];
-        };
-
-        Install = {
-          WantedBy = [ "default.target" ];
-        };
-      };
-
-      "psd-resync" = {
-        Unit = {
-          Description = "Timed resync";
-          After = [ "psd.service" ];
-          Wants = [ "psd-resync.timer" ];
-          BindsTo = [ "psd.service" ];
-        };
-
-        Service = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.profile-sync-daemon}/bin/psd resync";
-          Environment = [ "LAUNCHED_BY_SYSTEMD=1" ];
-        };
-
-        Install = {
-          WantedBy = [ "default.target" ];
-        };
-      };
-    };
-
-    timers = {
-      "psd-resync" = {
-        Unit = {
-          Description = "Timer for profile-sync-daemon - 1Hour";
-          BindsTo = "psd.service";
-        };
-
-        Timer = {
-          OnUnitActiveSec = "1h";
-        };
-      };
-    };
-  };
-
   home = {
     sessionVariables.MOZ_ENABLE_WAYLAND = "1";
 
