@@ -99,7 +99,7 @@ in
   };
 
   environment = {
-    etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
+    #etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
 
     systemPackages = with pkgs; [
       steam
