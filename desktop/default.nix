@@ -57,6 +57,14 @@
 
       echo "=== ZPOOL IMPORT COMPLETE ==="
     '';
+
+    kernel = {
+      sysctl = {
+        # https://github.com/pop-os/default-settings/blob/master_jammy/etc/sysctl.d/10-pop-default-settings.conf
+        "vm.dirty_bytes" = 268435456;
+        "vm.dirty_background_bytes" = 134217728;
+      };
+    };
   };
 
   hardware.opengl = {

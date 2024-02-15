@@ -54,10 +54,6 @@
         "vm.watermark_boost_factor" = 0;
         "vm.watermark_scale_factor" = 125;
 
-        # https://github.com/pop-os/default-settings/blob/master_jammy/etc/sysctl.d/10-pop-default-settings.conf
-        "vm.dirty_bytes" = 268435456;
-        "vm.dirty_background_bytes" = 134217728;
-
         "vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
         "dev.i915.perf_stream_paranoid" = 0;
         "kernel.sysrq" = 1;
