@@ -16,7 +16,7 @@
 
   boot = {
     kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
-      zfs = pkgs.callPackage ../pkgs/zfs { };
+      zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
     extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
@@ -61,8 +61,6 @@
 
   hardware.opengl = {
     enable = true;
-    package = pkgs.mesa';
-    package32 = pkgs.pkgsi686Linux.mesa';
     driSupport32Bit = true;
   };
 

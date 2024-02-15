@@ -10,7 +10,7 @@
     devices.steamdeck.enable = true;
     steamos = {
       enableVendorRadv = false;
-      enableMesaPatches = false;
+      enableMesaPatches = true;
     };
     steam = {
       enable = true;

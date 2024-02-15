@@ -54,7 +54,7 @@
 
                       extest = final.pkgsi686Linux.callPackage ./pkgs/extest { };
 
-                      mesa' = final.callPackage ./pkgs/mesa { inherit (prev) mesa; };
+                      mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
 
                       steamPackages = prev.steamPackages.overrideScope (finalScope: prevScope: {
                         steam = prevScope.steam.overrideAttrs (finalAttrs: prevAttrs: {

@@ -23,7 +23,7 @@ in
         kernelPatches.export-rt-sched-migrate
       ];
     })).extend (finalAttrs: prevAttrs: {
-      zfs = pkgs.callPackage ../../pkgs/zfs { };
+      zfs = pkgs.callPackage ../../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
     zfs.package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { });
@@ -88,8 +88,8 @@ in
   hardware = {
     cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
-    #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
-    #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
+    opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
+    opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };
 
   networking.hostId = "a1f92a1f";
@@ -101,7 +101,7 @@ in
   };
 
   environment = {
-    #etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
+    etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
 
     systemPackages = with pkgs; [
       steam

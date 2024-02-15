@@ -1,27 +1,13 @@
 { lib
-, mesa
-, libclc
-, llvmPackages
+, mesa-radv-jupiter'
 , fetchFromGitLab
 , fetchurl
 , fetchpatch
 }:
 
-(mesa.override {
-  galliumDrivers = [
-    "iris"
-    "i915"
-    "radeonsi"
-    "swrast"
-  ];
-  vulkanDrivers = [
-    "intel"
-    "amd"
-    "swrast"
-  ];
-  enableGalliumNine = false;
-  enableOpenCL = true;
-}).overrideAttrs (prevAttrs:
+((mesa-radv-jupiter'.override (prevAttrs: {
+  
+})).overrideAttrs (prevAttrs:
 let
   rev = "90eae30bcb84d54dc871ddbb8355f729cf8fa900";
 in
@@ -37,11 +23,10 @@ in
   };
 
   patches = (builtins.filter (x: !lib.strings.hasInfix "000" x /* skip macOS backports */) prevAttrs.patches) ++ [
-    (fetchpatch {
-      url = "https://github.com/Jovian-Experiments/mesa/commit/9ca7d7775f34bca9578306b139ddd03e4f176e01.patch";
-      hash = "sha256-dVqt0x0yDyNfpBKOo/tRk8394PPVOooNTpCLsFqZwUE=";
-    })
-
     ./25352.diff
   ];
-})
+
+  mesonFlags = (builtins.filter (x: !lib.strings.hasInfix "-Dintel-clc" x) prevAttrs.mesonFlags) ++ [
+    "-Dintel-clc=system"
+  ];
+}))
