@@ -16,15 +16,17 @@ in
   ];
 
   boot = {
-    kernelPackages = lib.mkForce (kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage "${inputs.jovian}/pkgs/linux-jovian" {
+    kernelPackages = lib.mkForce ((kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage "${inputs.jovian}/pkgs/linux-jovian" {
       kernelPatches = with kernelPkgs; [
         kernelPatches.bridge_stp_helper
         kernelPatches.request_key_helper
         kernelPatches.export-rt-sched-migrate
       ];
+    })).extend (finalAttrs: prevAttrs: {
+      zfs = pkgs.callPackage ../../pkgs/zfs { };
     }));
 
-    zfs.package = lib.mkForce kernelPkgs.zfs;
+    zfs.package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { });
 
     kernelPatches = [
       {
