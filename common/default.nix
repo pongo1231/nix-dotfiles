@@ -196,25 +196,7 @@
     systemPackages = with pkgs; [
       home-manager
       pulseaudio
-      (distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-        version = "1.6.0.1";
-
-        src = fetchFromGitHub {
-          owner = "89luca89";
-          repo = "distrobox";
-          rev = finalAttrs.version;
-          hash = "sha256-UWrXpb20IHcwadPpwbhSjvOP1MBXic5ay+nP+OEVQE4=";
-        };
-
-        patches = [
-          ../patches/distrobox/always-mount-nix.patch
-        ];
-
-        postFixup = prevAttrs.postFixup + ''
-          mkdir -p $out/share/distrobox
-          echo 'container_additional_volumes="/nix:/nix"' > $out/share/distrobox/distrobox.conf
-        '';
-      }))
+      distrobox
       dconf
       inputs.nix-alien.packages.${system}.nix-alien
       nix-index
