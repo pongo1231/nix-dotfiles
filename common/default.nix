@@ -5,6 +5,8 @@
 }:
 {
   imports = [
+    inputs.nix-index-database.nixosModules.nix-index
+
     ./bluetooth.nix
     ./flatpak-fonts-icons.nix
     ./udev.nix
@@ -100,6 +102,10 @@
     };
 
     extra-container.enable = true;
+
+    nix-index.enable = false;
+
+    nix-index-database.comma.enable = true;
   };
 
   services = {
@@ -199,9 +205,7 @@
       distrobox
       dconf
       inputs.nix-alien.packages.${system}.nix-alien
-      nix-index
       inputs.nix-alien.packages.${system}.nix-index-update
-      comma
       krunner-translator
       ubuntu_font_family
       inputs.nix-be.packages.${system}.nix-be
