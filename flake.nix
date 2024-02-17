@@ -23,6 +23,11 @@
     };
 
     kde2nix.url = "github:nix-community/kde2nix";
+
+    nix-index-database = {
+      url = "github:Mic92/nix-index-database";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

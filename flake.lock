@@ -283,6 +283,26 @@
         "type": "github"
       }
     },
+    "nix-index-database_2": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1707620986,
+        "narHash": "sha256-XE0tCSkSVBeJDWhjFwusNInwAhrnp+TloUNUpvnTiLw=",
+        "owner": "Mic92",
+        "repo": "nix-index-database",
+        "rev": "0cb4345704123492e6d1f1068629069413c80de0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "repo": "nix-index-database",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1707689078,
@@ -430,6 +450,7 @@
         "nix-alien": "nix-alien",
         "nix-autobahn": "nix-autobahn",
         "nix-be": "nix-be",
+        "nix-index-database": "nix-index-database_2",
         "nixpkgs": "nixpkgs_4",
         "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel",
         "nixpkgs-jupiter-kernel": "nixpkgs-jupiter-kernel"
