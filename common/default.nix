@@ -92,6 +92,7 @@
   programs = {
     fish = {
       enable = true;
+      useBabelfish = true;
       shellAliases = {
         "cd.." = "cd ..";
         cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
