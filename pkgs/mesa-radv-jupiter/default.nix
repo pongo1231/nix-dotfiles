@@ -7,7 +7,7 @@
 
 (mesa-radv-jupiter'.overrideAttrs (prevAttrs:
 let
-  rev = "90eae30bcb84d54dc871ddbb8355f729cf8fa900";
+  rev = "85849ed9cb6ee802ae6917d8fa78cca86b41fb85";
 in
 {
   version = "git-${builtins.substring 0 6 rev}";
@@ -17,7 +17,7 @@ in
     owner = "Mesa";
     repo = "mesa";
     inherit rev;
-    hash = "sha256-EJihKqmLHJmIgRpKx5lTTDlFoT5jCEFLQlJYTYifJLY=";
+    hash = "sha256-Jxx53T87i/u56Mk8tobYVX3JJn5o9MUCa0zatYjSwtM=";
   };
 
   patches = (builtins.filter (x: !lib.strings.hasInfix "000" x /* skip macOS backports */) prevAttrs.patches) ++ [
@@ -26,5 +26,6 @@ in
 
   mesonFlags = (builtins.filter (x: !lib.strings.hasInfix "-Dintel-clc" x) prevAttrs.mesonFlags) ++ [
     "-Dintel-clc=system"
+    "-Dintel-rt=disabled"
   ];
 }))
