@@ -5,9 +5,7 @@
 , fetchpatch
 }:
 
-((mesa-radv-jupiter'.override (prevAttrs: {
-  
-})).overrideAttrs (prevAttrs:
+(mesa-radv-jupiter'.overrideAttrs (prevAttrs:
 let
   rev = "90eae30bcb84d54dc871ddbb8355f729cf8fa900";
 in

@@ -98,12 +98,12 @@
         cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
       };
       shellInit = ''
-        function fish_command_not_found
-	  , $argv
-          return $status
-        end
+                function fish_command_not_found
+        	  , $argv
+                  return $status
+                end
 
-        fish_add_path -maP ~/.local/bin
+                fish_add_path -maP ~/.local/bin
       '';
     };
 
