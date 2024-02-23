@@ -1,9 +1,11 @@
 { zfs
 , fetchFromGitHub
+, configFile
+, kernel ? null
 , removeLinuxDRM ? true
 }:
 
-(zfs.override (prevAttrs: { inherit removeLinuxDRM; })).overrideAttrs (finalAttrs: prevAttrs:
+(zfs.override (prevAttrs: { inherit configFile kernel removeLinuxDRM; })).overrideAttrs (finalAttrs: prevAttrs:
 let
   rev = "af4da5ccf28e1de6d4f6771a8d9d7cc578aba087";
 in

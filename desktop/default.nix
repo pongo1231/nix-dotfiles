@@ -16,7 +16,7 @@
 
   boot = {
     kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
-      zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
+      #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
     extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
@@ -35,14 +35,14 @@
 
     plymouth.enable = lib.mkDefault true;
 
-    supportedFilesystems = [ "zfs" ];
     extraModprobeConfig = ''
       options zfs zfs_bclone_enabled=1
       options spl spl_taskq_thread_priority=0
     '';
 
     zfs = {
-      package = pkgs.kernel.callPackage ../pkgs/zfs { };
+      package = pkgs.kernel.callPackage ../pkgs/zfs { configFile = "user"; };
+      modulePackage = pkgs.kernel.callPackage ../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; };
       removeLinuxDRM = true;
     };
 
