@@ -23,10 +23,13 @@ in
         kernelPatches.export-rt-sched-migrate
       ];
     })).extend (finalAttrs: prevAttrs: {
-      zfs = pkgs.callPackage ../../pkgs/zfs { inherit (prevAttrs) zfs; };
+      #zfs = pkgs.callPackage ../../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
-    zfs.package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { });
+    zfs = {
+      package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "user"; });
+      modulePackage = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
+    };
 
     kernelPatches = [
       {
