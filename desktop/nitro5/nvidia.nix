@@ -12,10 +12,10 @@
         let generic = args: selfLinux.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
-            version = "545.29.02";
-            sha256_64bit = "sha256-RncPlaSjhvBFUCOzWdXSE3PAfRPCIrWAXyJMdLPKuIU=";
-            settingsSha256 = "sha256-zj173HCZJaxAbVV/A2sbJ9IPdT1+3yrwyxD+AQdkSD8=";
-            persistencedSha256 = "sha256-mmMi2pfwzI1WYOffMVdD0N1HfbswTGg7o57x9/IiyVU=";
+            version = "550.54.14";
+            sha256_64bit = "sha256-jEl/8c/HwxD7h1FJvDD6pP0m0iN7LLps0uiweAFXz+M=";
+            settingsSha256 = "sha256-m2rNASJp0i0Ez2OuqL+JpgEF0Yd8sYVCyrOoo/ln2a4=";
+            persistencedSha256 = "sha256-mmMB2pfwzI1WYOffMVdD0N1HfbswTGg7o57x9/IiyVU=";
           }).overrideAttrs (prevAttrs: {
             builder = ../../patches/nvidia/builder.sh;
           });
