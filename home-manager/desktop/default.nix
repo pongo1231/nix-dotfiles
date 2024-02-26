@@ -46,6 +46,7 @@
       ffmpeg
       protontricks
       appimage-run
+      syncthing
     ];
   };
 }
