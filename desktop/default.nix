@@ -27,6 +27,7 @@
       "loglevel=3"
       "nowatchdog"
       "mitigations=off"
+      "i915.mitigations=off"
       "kvm.ignore_msrs=1"
       "preempt=full"
       "workqueue.power_efficient=1"
