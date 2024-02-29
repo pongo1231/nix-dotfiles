@@ -68,6 +68,18 @@
                           '';
                         });
                       });
+
+                      distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
+                        version = "1.7.0";
+                        src = final.fetchFromGitHub {
+                          owner = "89luca89";
+                          repo = "distrobox";
+                          rev = finalAttrs.version;
+                          hash = "sha256-g936ofLlYZTgzD7lKpjKT6ct6mAv7IJsgkaAUXXAJLw=";
+                        };
+
+                        patches = [ ];
+                      });
                     })
                   ];
 
