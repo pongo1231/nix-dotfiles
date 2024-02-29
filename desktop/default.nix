@@ -87,6 +87,7 @@
   };
 
   environment.systemPackages = with pkgs; [
+    kdePackages.kcmutils
     sddm-kcm
     kate
     ark
