@@ -5,10 +5,6 @@
 , ...
 }:
 {
-  imports = [
-    inputs.kde2nix.nixosModules.default
-  ];
-
   nix = {
     daemonCPUSchedPolicy = "idle";
     daemonIOSchedClass = "idle";
@@ -90,13 +86,12 @@
     };
   };
 
-  environment.systemPackages = with pkgs; with inputs.kde2nix.packages.x86_64-linux; [
-    flatpak-kcm
+  environment.systemPackages = with pkgs; [
     sddm-kcm
     kate
     ark
     ocs-url
-    kdeconnect-kde
+    kdeconnect
     sshfs
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
