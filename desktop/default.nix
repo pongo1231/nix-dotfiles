@@ -88,11 +88,11 @@
 
   environment.systemPackages = with pkgs; [
     kdePackages.kcmutils
+    kdePackages.kdeconnect-kde
     sddm-kcm
     kate
     ark
     ocs-url
-    kdeconnect
     sshfs
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
