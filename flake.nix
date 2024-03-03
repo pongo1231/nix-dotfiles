@@ -2,7 +2,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=3ce7f9e4f54f85c6a94614329d02a3af6d918bc1";
+    nixpkgs-desktop-kernel.url = "github:nixos/nixpkgs?rev=6702ca1a624de6f3677feffc0d9071b18e1560bb";
 
     jovian.url = "github:pongo1231/Jovian-NixOS";
     nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=a5a28fa58b8e8b03fd104356d71ac65cc2147d86";
