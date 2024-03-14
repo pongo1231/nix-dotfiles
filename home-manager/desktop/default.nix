@@ -47,6 +47,7 @@
       protontricks
       appimage-run
       syncthing
+      audacious
     ];
   };
 }
