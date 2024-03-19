@@ -1,8 +1,6 @@
 { lib
 , mesa-radv-jupiter'
 , fetchFromGitLab
-, fetchurl
-, fetchpatch
 }:
 
 (mesa-radv-jupiter'.overrideAttrs (prevAttrs:
