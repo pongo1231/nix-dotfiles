@@ -11,7 +11,7 @@
   };
 
   boot = {
-    kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages.extend (finalAttrs: prevAttrs: {
+    kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
