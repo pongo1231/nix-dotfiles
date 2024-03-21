@@ -3,8 +3,8 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-desktop-kernel = {
-      url = "github:nixos/nixpkgs?rev=9bd90c8c25d9476f47fbda50031cdb76484bde79";
-      follows = "nixpkgs";
+      url = "github:nixos/nixpkgs?rev=85049df2ba6d234ab29df23f4501f06358afe936";
+      #follows = "nixpkgs";
     };
 
     jovian = {
