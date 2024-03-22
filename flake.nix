@@ -88,6 +88,8 @@
                             url = "https://patch-diff.githubusercontent.com/raw/89luca89/distrobox/pull/1296.patch";
                             hash = "sha256-FmubiTpRGPveVttQUz9YDuq5DdM2U/JkrqyxlT1zCu0=";
                           })
+
+                          ./patches/distrobox/fish-cmd-substitution-fix.patch
                         ];
                       });
                     })
