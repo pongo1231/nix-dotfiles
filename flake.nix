@@ -12,7 +12,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=85049df2ba6d234ab29df23f4501f06358afe936";
+    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs?rev=7cadc175919016d329c868915f1f1c42fc8fb817";
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
