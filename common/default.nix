@@ -111,8 +111,6 @@
 
     command-not-found.enable = false;
 
-    nix-index.enable = false;
-
     nix-index-database.comma.enable = true;
   };
 
