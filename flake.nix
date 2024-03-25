@@ -75,20 +75,15 @@
                       });
 
                       distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-                        version = "1.7.0.1";
+                        version = "1.7.1";
                         src = final.fetchFromGitHub {
                           owner = "89luca89";
                           repo = "distrobox";
                           rev = finalAttrs.version;
-                          hash = "sha256-mIVMy09VO8l6/wzlVUhXCq2de8xSwFU1eXMBl9S6uWU=";
+                          hash = "sha256-mSka8QyoLjnaVEP23TtyzbPTBHDlnrSomVZdfw4PPng=";
                         };
 
                         patches = [
-                          (final.fetchpatch {
-                            url = "https://patch-diff.githubusercontent.com/raw/89luca89/distrobox/pull/1296.patch";
-                            hash = "sha256-FmubiTpRGPveVttQUz9YDuq5DdM2U/JkrqyxlT1zCu0=";
-                          })
-
                           ./patches/distrobox/fish-cmd-substitution-fix.patch
                         ];
                       });
