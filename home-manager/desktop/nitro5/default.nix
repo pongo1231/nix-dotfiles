@@ -16,7 +16,6 @@
     virt-manager
     nvtop
     intel-gpu-tools
-    authy
     (discord.overrideAttrs (prevAttrs: {
       desktopItem = prevAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling --enable-features=WaylandWindowDecorations --ozone-platform-hint=auto"; };
     }))
