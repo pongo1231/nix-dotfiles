@@ -39,7 +39,6 @@
       pciutils
       killall
       lsof
-      compsize
       powertop
       htop
       wget
