@@ -5,7 +5,7 @@
 
 (mesa-radv-jupiter'.overrideAttrs (prevAttrs:
 let
-  rev = "1a475c70b26680b48dfddc3893397c44c8886583";
+  rev = "96ee0d6711ed162b2d3545d7f70927ed35d20c91";
 in
 {
   version = "git-${builtins.substring 0 6 rev}";
@@ -15,7 +15,7 @@ in
     owner = "Mesa";
     repo = "mesa";
     inherit rev;
-    hash = "sha256-ytSCxfoCldTZ86VBRnykHWRvwcV9ZWKC77ObkMpuPPM=";
+    hash = "sha256-iVLvEaTpBMDse6VX24F5CGgz2t/8GTd3z49LFZULZqs=";
   };
 
   patches = (builtins.filter (x: !lib.strings.hasInfix "000" x /* skip macOS backports */) prevAttrs.patches) ++ [
