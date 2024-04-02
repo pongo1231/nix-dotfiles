@@ -1,11 +1,13 @@
 { lib
 , mesa-radv-jupiter'
+, wayland-protocols
+, fetchurl
 , fetchFromGitLab
 }:
 
-(mesa-radv-jupiter'.overrideAttrs (prevAttrs:
+mesa-radv-jupiter'.overrideAttrs (prevAttrs:
 let
-  rev = "96ee0d6711ed162b2d3545d7f70927ed35d20c91";
+  rev = "80652de67ba990cee16ee68f51d86a156ad40e2e";
 in
 {
   version = "git-${builtins.substring 0 6 rev}";
@@ -15,7 +17,7 @@ in
     owner = "Mesa";
     repo = "mesa";
     inherit rev;
-    hash = "sha256-iVLvEaTpBMDse6VX24F5CGgz2t/8GTd3z49LFZULZqs=";
+    hash = "sha256-zSmFiCp8/qEyuwnLQT5+X/iVD8dqBjHWP9aJaMsAFYc=";
   };
 
   patches = (builtins.filter (x: !lib.strings.hasInfix "000" x /* skip macOS backports */) prevAttrs.patches) ++ [
@@ -26,4 +28,15 @@ in
     "-Dintel-clc=system"
     "-Dintel-rt=disabled"
   ];
-}))
+
+  buildInputs = (builtins.filter (x: x.pname != "wayland-protocols") prevAttrs.buildInputs) ++ [
+    (wayland-protocols.overrideAttrs (finalAttrs: prevAttrs: {
+      version = "1.34";
+
+      src = fetchurl {
+        url = "https://gitlab.freedesktop.org/wayland/${finalAttrs.pname}/-/releases/${finalAttrs.version}/downloads/${finalAttrs.pname}-${finalAttrs.version}.tar.xz";
+        hash = "sha256-xZsnys2F9guvTuX4DfXA0Vdg6taiQysAq34uBXTcr+s=";
+      };
+    }))
+  ];
+})
