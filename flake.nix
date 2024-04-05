@@ -3,7 +3,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nixpkgs-desktop-kernel = {
-      url = "github:nixos/nixpkgs?rev=a2d38866bdaeb787a3f3c67dc7d5eafb281599a4";
+      url = "github:nixos/nixpkgs?rev=7cadc175919016d329c868915f1f1c42fc8fb817";
       #follows = "nixpkgs";
     };
 
