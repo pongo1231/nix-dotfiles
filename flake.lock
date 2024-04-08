@@ -74,11 +74,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1712404857,
-        "narHash": "sha256-BREizLvfitz+XvH7WkKzBMnYsM2adEMFygdYWFMPgkY=",
+        "lastModified": 1712601534,
+        "narHash": "sha256-c9ujo8foDWNDTSRDzK7Ew+lR0MsQ4TcD2Ks4/bJL/J0=",
         "owner": "pongo1231",
         "repo": "Jovian-NixOS",
-        "rev": "99ab4707cd971e825896749a89e227f665c4ba3e",
+        "rev": "bcf3e72cd841aaa44782d90a71208a136a0ca18a",
         "type": "github"
       },
       "original": {
