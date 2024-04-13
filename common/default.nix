@@ -34,7 +34,10 @@
       options = "--delete-older-than 7d";
       persistent = true;
     };
-    nixPath = [ "/etc/nix/inputs" ];
+    nixPath = [
+      "/etc/nix/inputs"
+      "nixpkgs-overlays=/etc/nixos/overlays-compat"
+    ];
     registry.nixpkgs.flake = inputs.nixpkgs;
   };
 
