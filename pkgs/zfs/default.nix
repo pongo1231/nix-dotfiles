@@ -7,7 +7,7 @@
 
 (zfs.override (prevAttrs: { inherit configFile kernel removeLinuxDRM; })).overrideAttrs (finalAttrs: prevAttrs:
 let
-  rev = "d98973dbdd5a85b6c8a8556d5bd5c9903e2d2ee6";
+  rev = "b181b2e604de3f36feab1092c702cdec5e78c693";
 in
 {
   name = builtins.replaceStrings [ prevAttrs.version ] [ finalAttrs.version ] prevAttrs.name;
@@ -17,7 +17,7 @@ in
     owner = "openzfs";
     repo = "zfs";
     inherit rev;
-    hash = "sha256-Dt/MRIjqqiJOFwpkfoJPO23Eu+CrkIg2RaIUfIa9AHk=";
+    hash = "sha256-e3MFZR1Mx2Z51e0ZE5DmL01KWVctyht2HVycu8MGVSY=";
   };
 
   meta = prevAttrs.meta // { broken = false; };
