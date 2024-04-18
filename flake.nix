@@ -33,13 +33,18 @@
       url = "github:Mic92/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     { ... }@inputs: {
       nixosConfigurations =
         let
-          commonSystem = { type ? "", hostName, config }:
+          commonSystem = { type ? null, hostName, config ? null }:
             let
               system = "x86_64-linux";
             in
@@ -111,6 +116,11 @@
           vm = commonSystem {
             type = "vm";
             hostName = "pongo-vm";
+          };
+
+          wsl = commonSystem {
+            hostName = "wsl-nixos";
+            config = ./common/wsl;
           };
 
           pongo-nitro5 = commonSystem {

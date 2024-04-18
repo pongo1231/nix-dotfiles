@@ -14,6 +14,10 @@
       homes = [
         {
           user = "pongo";
+          host = "wsl-nixos";
+        }
+        {
+          user = "pongo";
           host = "pongo-nitro5";
           type = "desktop";
           config = ./desktop/nitro5;
