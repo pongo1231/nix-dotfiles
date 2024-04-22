@@ -301,22 +301,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-desktop-kernel": {
-      "locked": {
-        "lastModified": 1711288339,
-        "narHash": "sha256-uoBVj1aYKQqsIIi8dd/HeOQcQxYbr+iDVYYulMcmlAA=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "7cadc175919016d329c868915f1f1c42fc8fb817",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "7cadc175919016d329c868915f1f1c42fc8fb817",
-        "type": "github"
-      }
-    },
     "nixpkgs-jupiter-kernel": {
       "locked": {
         "lastModified": 1712250942,
@@ -358,7 +342,9 @@
         "nix-index-database": "nix-index-database_2",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs_2",
-        "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel",
+        "nixpkgs-desktop-kernel": [
+          "nixpkgs"
+        ],
         "nixpkgs-jupiter-kernel": "nixpkgs-jupiter-kernel"
       }
     },
