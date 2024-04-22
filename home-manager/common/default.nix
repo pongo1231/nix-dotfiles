@@ -31,7 +31,7 @@
   home = {
     stateVersion = "22.05";
 
-    sessionVariables.NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs:nixpkgs-overlays=/etc/nixos/overlays-compat:$\{NIX_PATH:+:$NIX_PATH}";
+    sessionVariables.NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs:$\{NIX_PATH:+:$NIX_PATH}";
 
     packages = with pkgs; [
       gotop

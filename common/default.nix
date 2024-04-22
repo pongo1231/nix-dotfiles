@@ -36,7 +36,6 @@
     };
     nixPath = [
       "/etc/nix/inputs"
-      "nixpkgs-overlays=/etc/nixos/overlays-compat"
     ];
     registry.nixpkgs.flake = inputs.nixpkgs;
   };
