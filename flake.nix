@@ -113,12 +113,12 @@
             };
         in
         {
-          vm = commonSystem {
+          pongo-vm = commonSystem {
             type = "vm";
             hostName = "pongo-vm";
           };
 
-          wsl = commonSystem {
+          wsl-nixos = commonSystem {
             hostName = "wsl-nixos";
             config = ./common/wsl;
           };
