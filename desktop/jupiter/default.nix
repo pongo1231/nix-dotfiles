@@ -31,21 +31,6 @@ in
       modulePackage = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
     };
 
-    kernelPatches = [
-      {
-        patch = null;
-        extraConfig = ''
-          LRU_GEN y
-          LRU_GEN_ENABLED y
-        '';
-      }
-      {
-        patch = ../../patches/linux/faster_memchr.patch;
-      }
-      {
-        patch = ../../patches/linux/zstd-upstream.patch;
-      }
-    ];
     plymouth.enable = false;
     initrd = {
       availableKernelModules = [ "nvme" "xhci_pci" "usbhid" "sdhci_pci" ];
