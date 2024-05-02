@@ -23,7 +23,6 @@
 
     "distrobox/distrobox.conf".text = ''
       container_image_default="docker.io/library/archlinux"
-      container_init_hook="echo '$(uname -n)' > /etc/hostname"
       non_interactive="1"
     '';
   };

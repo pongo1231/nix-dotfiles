@@ -80,17 +80,13 @@
                       });
 
                       distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-                        version = "1.7.1";
+                        version = "1.7.2.0";
                         src = final.fetchFromGitHub {
                           owner = "89luca89";
                           repo = "distrobox";
                           rev = finalAttrs.version;
-                          hash = "sha256-mSka8QyoLjnaVEP23TtyzbPTBHDlnrSomVZdfw4PPng=";
+                          hash = "sha256-KIrWzO2RwrEgNrgVN8m9jTSxG78qAtM3X/leA8UMtyg=";
                         };
-
-                        patches = [
-                          ./patches/distrobox/fish-cmd-substitution-fix.patch
-                        ];
                       });
                     })
                   ];
