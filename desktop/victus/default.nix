@@ -38,8 +38,6 @@
   programs.fish = {
     shellAliases = {
       nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";
-      turbo_off = "echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo";
-      turbo_on = "echo 0 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo";
     };
   };
 }
