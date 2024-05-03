@@ -130,6 +130,12 @@
             hostName = "pongo-jupiter";
             config = ./desktop/jupiter;
           };
+
+          pongo-victus = commonSystem {
+            type = "desktop";
+            hostName = "pongo-victus";
+            config = ./desktop/victus;
+          };
         };
     };
 }

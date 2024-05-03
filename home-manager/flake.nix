@@ -27,6 +27,12 @@
           host = "pongo-jupiter";
           type = "desktop";
         }
+        {
+          user = "pongo";
+          host = "pongo-victus";
+          type = "desktop";
+          config = ./desktop/nitro5;
+        }
       ];
     in
     {

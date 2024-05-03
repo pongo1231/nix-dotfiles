@@ -17,7 +17,7 @@
             settingsSha256 = "sha256-FUEwXpeUMH1DYH77/t76wF1UslkcW721x9BHasaRUaM=";
             persistencedSha256 = "sha256-mmBB2pfwzI1WYOffMVdD0N1HfbswTGg7o57x9/IiyVU=";
           }).overrideAttrs (prevAttrs: {
-            builder = ../../patches/nvidia/builder.sh;
+            builder = ../patches/nvidia/builder.sh;
           });
         })).nvidiaPackages.production;
     modesetting.enable = true;

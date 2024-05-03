@@ -6,13 +6,13 @@
     ../../modules/nbfc-linux
 
     ../intel.nix
+    ../nvidia.nix
+    ../tlp.nix
     ../samba.nix
 
     ./gpu_passthrough.nix
     ./libvirt.nix
-    ./nvidia.nix
     ./snapper.nix
-    ./tlp.nix
   ];
 
   boot = {
