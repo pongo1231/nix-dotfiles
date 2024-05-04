@@ -62,8 +62,8 @@
         "vm.dirty_background_bytes" = 134217728;
 
         # yanked from linux-zen
-        "vm.compact_unevictable_allowed" = 0;
-        "vm.compaction_proactiveness" = 0;
+        #"vm.compact_unevictable_allowed" = 0;
+        #"vm.compaction_proactiveness" = 0;
       };
     };
   };
