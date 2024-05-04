@@ -219,6 +219,9 @@
       inputs.nix-be.packages.${system}.nix-be
       ddcutil
       fwupd
+      snapper
+      duperemove
+      compsize
     ];
   };
 }
