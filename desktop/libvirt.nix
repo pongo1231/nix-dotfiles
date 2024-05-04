@@ -13,8 +13,8 @@
             patches =
               previousAttrs.patches or [ ]
               ++ [
-                #../../patches/qemu/qemu-device-fix.patch
-                ../../patches/qemu/qemu_higher_gui_refresh_rate.patch
+                #../patches/qemu/qemu-device-fix.patch
+                ../patches/qemu/qemu_higher_gui_refresh_rate.patch
               ];
           });
         verbatimConfig = ''
@@ -41,7 +41,7 @@
     };
   };
 
-  system.activationScripts.qemu_hook.text = ''
+  /*system.activationScripts.qemu_hook.text = ''
     mkdir -p /var/lib/libvirt/hooks
 
     cat << EOF > /var/lib/libvirt/hooks/qemu
@@ -64,5 +64,5 @@
     EOF
 
     chmod +x /var/lib/libvirt/hooks/qemu
-  '';
+  '';*/
 }

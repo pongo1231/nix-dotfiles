@@ -9,9 +9,9 @@
     ../nvidia.nix
     ../tlp.nix
     ../samba.nix
+    ../libvirt.nix
 
     ./gpu_passthrough.nix
-    ./libvirt.nix
     ./snapper.nix
   ];
 

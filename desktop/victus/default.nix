@@ -5,6 +5,7 @@
     ../amd.nix
     ../nvidia.nix
     ../tlp.nix
+    ../libvirt.nix
   ];
 
   boot = {
