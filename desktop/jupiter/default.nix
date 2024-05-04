@@ -26,10 +26,10 @@ in
       #zfs = pkgs.callPackage ../../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
-    zfs = {
+    /*zfs = {
       package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "user"; });
       modulePackage = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
-    };
+    };*/
 
     plymouth.enable = false;
     initrd = {
@@ -40,7 +40,7 @@ in
 
       luks.devices = {
         root = {
-          device = "/dev/disk/by-uuid/dca4efe8-4291-4cb6-8cce-977a83b88361";
+          device = "/dev/disk/by-uuid/ac2b73ac-bae8-4345-8951-36a0ee38e2f1";
           allowDiscards = true;
           bypassWorkqueues = true;
           keyFile = "/keyfile";
@@ -49,25 +49,17 @@ in
     };
   };
 
+
   fileSystems = {
     "/" = {
-      device = "root/root";
-      fsType = "zfs";
+      device = "/dev/disk/by-uuid/d685db49-ec70-4854-9949-4da35a09ad31";
+      fsType = "btrfs";
+      options = [ "compress-force=zstd:6" "noatime" ];
     };
 
     "/boot" = {
-      device = "/dev/disk/by-uuid/8C2B-5F58";
+      device = "/dev/disk/by-uuid/0573-D9FE";
       fsType = "vfat";
-    };
-
-    "/nix" = {
-      device = "root/nix";
-      fsType = "zfs";
-    };
-
-    "/home" = {
-      device = "root/home";
-      fsType = "zfs";
     };
   };
 
@@ -76,8 +68,8 @@ in
   hardware = {
     cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
-    opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
-    opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
+    #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
+    #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };
 
   networking.hostId = "a1f92a1f";
@@ -89,7 +81,7 @@ in
   };
 
   environment = {
-    etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
+    #etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
 
     systemPackages = with pkgs; [
       steam
