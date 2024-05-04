@@ -32,7 +32,7 @@
 
     plymouth.enable = lib.mkDefault true;
 
-    extraModprobeConfig = ''
+    /*extraModprobeConfig = ''
       options zfs zfs_bclone_enabled=1
       options spl spl_taskq_thread_priority=0
     '';
@@ -53,7 +53,7 @@
       ${pkgs.zfs}/bin/zfs mount -a
 
       echo "=== ZPOOL IMPORT COMPLETE ==="
-    '';
+    '';*/
 
     kernel = {
       sysctl = {

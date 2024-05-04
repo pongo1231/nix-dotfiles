@@ -141,7 +141,7 @@
     '';
 
     fstrim.enable = true;
-    zfs.trim.enable = true;
+    #zfs.trim.enable = true;
   };
 
   security.rtkit.enable = true;
