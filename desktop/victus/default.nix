@@ -1,9 +1,12 @@
-{ config, lib, pkgs, modulesPath, ... }:
-
+{ config
+, lib
+, pkgs
+, modulesPath
+, ... }:
 {
   imports = [
     ../amd.nix
-    ../nvidia.nix
+    (import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
     ../libvirt.nix
   ];

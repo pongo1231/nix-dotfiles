@@ -6,7 +6,7 @@
     ../../modules/nbfc-linux
 
     ../intel.nix
-    ../nvidia.nix
+    (import ../nvidia.nix { platform = "intel"; })
     ../tlp.nix
     ../samba.nix
     ../libvirt.nix
