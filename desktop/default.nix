@@ -35,16 +35,16 @@
     /*extraModprobeConfig = ''
       options zfs zfs_bclone_enabled=1
       options spl spl_taskq_thread_priority=0
-    '';
+      '';
 
-    zfs = {
+      zfs = {
       package = pkgs.kernel.callPackage ../pkgs/zfs { configFile = "user"; };
       modulePackage = pkgs.kernel.callPackage ../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; };
       removeLinuxDRM = true;
-    };
+      };
 
-    # Thanks to https://toxicfrog.github.io/automounting-zfs-on-nixos/
-    postBootCommands = ''
+      # Thanks to https://toxicfrog.github.io/automounting-zfs-on-nixos/
+      postBootCommands = ''
       echo "=== STARTING ZPOOL IMPORT ==="
 
       ${pkgs.zfs}/bin/zpool import -a
