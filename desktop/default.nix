@@ -96,5 +96,6 @@
     sshfs
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
+    virt-manager
   ];
 }

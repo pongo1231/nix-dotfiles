@@ -13,7 +13,6 @@
   home.packages = with pkgs; [
     vscodium
     ghidra
-    virt-manager
     nvtop
     intel-gpu-tools
     (discord.overrideAttrs (prevAttrs: {
