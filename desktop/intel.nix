@@ -5,6 +5,7 @@
   boot = {
     kernelParams = [
       "intel_iommu=on"
+      "iommu=pt"
       "i915.enable_guc=3"
       "i915.enable_fbc=1"
       "i915.enable_gvt=1"
