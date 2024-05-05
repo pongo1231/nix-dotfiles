@@ -19,6 +19,15 @@
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
     kernelModules = [ "kvm-amd" ];
+    kernelPatches = [
+      {
+        name = "dgpu passthrough fix";
+        patch = null;
+        extraConfig = ''
+          HSA_AMD_SVM n
+        '';
+      }
+    ];
   };
 
   fileSystems = {
