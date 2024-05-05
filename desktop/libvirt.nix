@@ -1,4 +1,5 @@
-{ pkgs
+{ config
+, pkgs
 , ...
 }:
 {
@@ -27,7 +28,11 @@
             "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
           ]
         '';
-        ovmf.enable = true;
+        ovmf = {
+          enable = true;
+          packages = [ pkgs.OVMFFull.fd ];
+        };
+        swtpm.enable = true;
       };
     };
 
@@ -65,4 +70,11 @@
 
     chmod +x /var/lib/libvirt/hooks/qemu
   '';*/
+
+  system.activationScripts.ovmf_secure_boot.text = ''
+    mkdir -p /var/run/libvirt/nix-ovmf
+
+    ln -sf "${config.virtualisation.libvirtd.qemu.package}/share/qemu/edk2-x86_64-secure-code.fd" /var/run/libvirt/nix-ovmf/
+    ln -sf "${config.virtualisation.libvirtd.qemu.package}/share/qemu/edk2-i386-vars.fd" /var/run/libvirt/nix-ovmf/
+  '';
 }
