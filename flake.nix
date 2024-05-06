@@ -80,12 +80,12 @@
                       });
 
                       distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-                        version = "1.7.2.0";
+                        version = "1.7.2.1";
                         src = final.fetchFromGitHub {
                           owner = "89luca89";
                           repo = "distrobox";
                           rev = finalAttrs.version;
-                          hash = "sha256-KIrWzO2RwrEgNrgVN8m9jTSxG78qAtM3X/leA8UMtyg=";
+                          hash = "sha256-H2jeKs0h4ZAcP33HB5jptlubq62cwnjPK2wSlEIfFWA=";
                         };
                       });
                     })
