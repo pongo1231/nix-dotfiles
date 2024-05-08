@@ -53,4 +53,12 @@
       nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";
     };
   };
+
+  systemd.services.amdctl-undervolt = {
+    enable = true;
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.amdctl}/bin/amdctl -m -p0 -v124 && ${pkgs.amdctl}/bin/amdctl -p1 -v124 && ${pkgs.amdctl}/bin/amdctl -p2 -v124'";
+    };
+  };
 }
