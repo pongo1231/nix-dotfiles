@@ -117,6 +117,11 @@
   };
 
   services = {
+    dbus = {
+      enable = true;
+      implementation = "broker";
+    };
+
     xserver = {
       enable = true;
       xkb.layout = "de";
