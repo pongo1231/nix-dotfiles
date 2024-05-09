@@ -2,9 +2,9 @@
 , ...
 }: {
   services = {
-    power-profiles-daemon.enable = lib.mkForce false;
+    power-profiles-daemon.enable = true;
 
-    tlp.enable = true;
+    tlp.enable = false;
     tlp.settings = {
       AHCI_RUNTIME_PM_ON_AC = "auto";
       AHCI_RUNTIME_PM_ON_BAT = "auto";
