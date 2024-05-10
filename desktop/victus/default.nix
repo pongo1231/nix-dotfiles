@@ -31,6 +31,7 @@
         '';
       }
     ];
+    kernelParams = [ "amdgpu.dcdebugmask=0x10" ];
   };
 
   fileSystems = {
