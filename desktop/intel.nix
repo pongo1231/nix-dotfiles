@@ -12,9 +12,6 @@
       "i915.enable_psr=1"
       "i915.fastboot=1"
     ];
-    initrd = {
-      kernelModules = [ "i915" ];
-    };
   };
 
   environment.sessionVariables = {
