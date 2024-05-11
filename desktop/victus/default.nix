@@ -32,12 +32,15 @@
         '';
       }
     ];
-    kernelModules = [ "vfio-pci" ];
+    kernelModules = [ "vfio-pci" "kvmfr" ];
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
       "vfio_pci.ids=10de:22be" # dgpu audio
+      "kvmfr.static_size_mb=32"
     ];
+
+    extraModulePackages = with config.boot.kernelPackages; [ kvmfr ];
   };
 
   fileSystems = {
@@ -61,11 +64,17 @@
     };
   };
 
-  systemd.services.amdctl-undervolt = {
-    enable = true;
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.amdctl}/bin/amdctl -m -p0 -v124 && ${pkgs.amdctl}/bin/amdctl -p1 -v124 && ${pkgs.amdctl}/bin/amdctl -p2 -v124'";
+  services.udev.extraRules = ''
+    SUBSYSTEM=="kvmfr", OWNER="pongo", GROUP="wheel", MODE="0600"
+  '';
+
+  systemd = {
+    services.amdctl-undervolt = {
+      enable = true;
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.amdctl}/bin/amdctl -m -p0 -v124 && ${pkgs.amdctl}/bin/amdctl -p1 -v124 && ${pkgs.amdctl}/bin/amdctl -p2 -v124'";
+      };
     };
   };
 }
