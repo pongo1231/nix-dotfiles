@@ -88,6 +88,14 @@
                           hash = "sha256-H2jeKs0h4ZAcP33HB5jptlubq62cwnjPK2wSlEIfFWA=";
                         };
                       });
+
+                      virtiofsd = final.callPackage ./pkgs/qemu_7/virtiofsd.nix {
+                        qemu = (final.callPackage ./pkgs/qemu_7 {
+                          inherit (final.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
+                          inherit (final.darwin.stubs) rez setfile;
+                          inherit (final.darwin) sigtool;
+                        });
+                      };
                     })
                   ];
 
