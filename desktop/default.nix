@@ -15,7 +15,7 @@
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
-    extraModulePackages = with config.boot.kernelPackages; lib.mkDefault [ xpadneo ];
+    extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
 
     kernelParams = [
       "quiet"
