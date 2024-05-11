@@ -34,7 +34,6 @@ in
     plymouth.enable = false;
     initrd = {
       availableKernelModules = [ "nvme" "xhci_pci" "usbhid" "sdhci_pci" ];
-      kernelModules = [ "amdgpu" ];
 
       secrets."/keyfile" = "/keyfile";
 
