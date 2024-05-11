@@ -2,7 +2,8 @@
 , lib
 , pkgs
 , modulesPath
-, ... }:
+, ...
+}:
 {
   imports = [
     ../amd.nix
@@ -21,7 +22,7 @@
         };
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
-    kernelModules = [ "kvm-amd" ];
+    kernelPackages = lib.mkForce pkgs.kernel.linuxPackages_testing;
     kernelPatches = [
       {
         name = "dgpu passthrough fix";
@@ -31,7 +32,11 @@
         '';
       }
     ];
-    kernelParams = [ "amdgpu.dcdebugmask=0x10" ];
+    kernelParams = [
+      "amdgpu.dcdebugmask=0x10"
+      "amdgpu.ppfeaturemask=0xffffffff"
+      "vfio_pci.ids=10de:22be" # dgpu audio
+    ];
   };
 
   fileSystems = {
