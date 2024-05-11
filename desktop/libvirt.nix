@@ -25,7 +25,8 @@
             "/dev/ptmx", "/dev/kvm",
             "/dev/input/by-id/uinput-persist-mouse1",
             "/dev/input/by-id/usb-PixArt_OpticalMouse-event-mouse",
-            "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
+            "/dev/input/by-path/platform-i8042-serio-0-event-kbd",
+            "/dev/kvmfr0"
           ]
         '';
         ovmf = {
