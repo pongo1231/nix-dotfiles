@@ -1,3 +1,4 @@
+{ sharePath }:
 { pkgs
 , ...
 }:
@@ -6,9 +7,13 @@
     enable = true;
     configText = ''
       [global]
+      inherit owner = unix only
+      inherit permissions = yes
+      create mask = 0664
+      directory mask = 2755
+      force create mode = 0644
+      force directory mode = 2755
       security = user
-      map to guest = bad user
-      guest account = guest
       load printers = no
       printing = bsd
       printcap name = /dev/null
@@ -21,35 +26,17 @@
       aio read size = 1
       aio write size = 1
       socket options = IPTOS_LOWDELAY TCP_NODELAY IPTOS_THROUGHPUT SO_RCVBUF=131072 SO_SNDBUF=131072
-      min protocol = SMB2
-      max protocol = SMB3
-      client min protocol = SMB2
-      client max protocol = SMB3
-      client ipc min protocol = SMB2
-      client ipc max protocol = SMB3
-      server min protocol = SMB2
-      server max protocol = SMB3
-      smb ports = 445
       allow insecure wide links = yes
 
-      [guest]
-      comment = guest
-      path = /media/ssd/public
+      [public]
+      comment = public
+      path = ${sharePath}
       public = yes
-      only guest = yes
       writable = yes
       printable = no
       inherit permissions = yes
       follow symlinks = yes
       wide links = yes
     '';
-  };
-
-  users = {
-    users.guest = {
-      isNormalUser = true;
-      createHome = false;
-      shell = pkgs.shadow;
-    };
   };
 }

@@ -10,6 +10,7 @@
     (import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
     ../libvirt.nix
+    (import ../samba.nix { sharePath = "/home/pongo/Public"; })
   ];
 
   boot = {

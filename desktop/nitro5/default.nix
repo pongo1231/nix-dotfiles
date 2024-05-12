@@ -10,6 +10,7 @@
     ../tlp.nix
     ../samba.nix
     ../libvirt.nix
+    (import ../samba.nix { sharePath = "/media/ssd/public"; })
 
     ./gpu_passthrough.nix
     ./snapper.nix
