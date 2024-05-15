@@ -37,7 +37,7 @@
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
-      "vfio_pci.ids=10de:22be" # dgpu audio
+      "vfio_pci.ids=10de:22bd" # dgpu audio
       "kvmfr.static_size_mb=32"
     ];
 
