@@ -2,9 +2,9 @@
 , ...
 }: {
   services = {
-    power-profiles-daemon.enable = lib.mkForce false;
+    power-profiles-daemon.enable = true;
 
-    tlp.enable = true;
+    tlp.enable = false;
     tlp.settings = {
       TLP_DEFAULT_MODE = "BAT";
       TLP_PERSISTENT_DEFAULT = 1;
