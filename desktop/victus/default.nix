@@ -36,7 +36,7 @@
         '';
       }
     ];
-    kernelModules = [ "vfio-pci" "kvmfr" ];
+    kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" ];
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
