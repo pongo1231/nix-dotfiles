@@ -39,6 +39,7 @@
       "amdgpu.ppfeaturemask=0xffffffff"
       "vfio_pci.ids=10de:22bd" # dgpu audio
       "kvmfr.static_size_mb=32"
+      "amd-pstate=active"
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [ kvmfr ];
