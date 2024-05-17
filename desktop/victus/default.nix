@@ -23,7 +23,10 @@
         };
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
-    kernelPackages = lib.mkForce pkgs.kernel.linuxPackages_testing;
+    kernelPackages = lib.mkForce (pkgs.kernel.linuxPackages_testing.extend
+      (finalAttrs: prevAttrs: {
+        hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
+      }));
     kernelPatches = [
       {
         name = "dgpu passthrough fix";
@@ -42,7 +45,10 @@
       "amd-pstate=active"
     ];
 
-    extraModulePackages = with config.boot.kernelPackages; [ kvmfr ];
+    extraModulePackages = with config.boot.kernelPackages; [
+      kvmfr
+      hp-omen-linux-module
+    ];
   };
 
   fileSystems = {
