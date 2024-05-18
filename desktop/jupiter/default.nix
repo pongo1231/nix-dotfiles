@@ -34,6 +34,9 @@ in
         '';
       }
     ];
+    kernelParams = [
+      "amdgpu.ppfeaturemask=0xffffffff"
+    ];
 
     /*zfs = {
       package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "user"; });
