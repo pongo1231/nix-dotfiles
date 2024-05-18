@@ -47,6 +47,10 @@
     };
   };
 
+  environment.systemPackages = with pkgs; [
+    libguestfs-with-appliance
+  ];
+
   /*system.activationScripts.qemu_hook.text = ''
     mkdir -p /var/lib/libvirt/hooks
 
