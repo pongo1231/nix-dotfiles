@@ -25,6 +25,15 @@ in
     })).extend (finalAttrs: prevAttrs: {
       #zfs = pkgs.callPackage ../../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
+    kernelPatches = [
+      {
+        name = "amd pstate";
+        patch = null;
+        extraConfig = ''
+          X86_AMD_PSTATE y
+        '';
+      }
+    ];
 
     /*zfs = {
       package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "user"; });
