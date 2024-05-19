@@ -26,6 +26,5 @@
     mangohud
     gamescope
     httm
-    jamesdsp
   ];
 }

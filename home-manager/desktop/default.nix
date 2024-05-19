@@ -48,6 +48,7 @@
       appimage-run
       syncthing
       audacious
+      jamesdsp
     ];
   };
 }
