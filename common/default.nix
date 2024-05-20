@@ -220,7 +220,6 @@
       inputs.nix-alien.packages.${system}.nix-alien
       inputs.nix-alien.packages.${system}.nix-index-update
       krunner-translator
-      ubuntu_font_family
       inputs.nix-be.packages.${system}.nix-be
       ddcutil
       fwupd
