@@ -99,5 +99,12 @@
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
     virt-manager
+
+    # for KDE info center
+    clinfo
+    glxinfo
+    vulkan-tools
+    wayland-utils
+    aha
   ];
 }
