@@ -99,6 +99,7 @@
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
     virt-manager
+    kdePackages.qtstyleplugin-kvantum
 
     # for KDE info center
     clinfo
