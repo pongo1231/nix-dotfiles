@@ -49,6 +49,7 @@
       syncthing
       audacious
       jamesdsp
+      qbittorrent
     ];
   };
 }
