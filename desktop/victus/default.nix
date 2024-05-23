@@ -36,7 +36,7 @@
         '';
       }
     ];
-    kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" ];
+    kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
@@ -47,6 +47,7 @@
     extraModulePackages = with config.boot.kernelPackages; [
       kvmfr
       hp-omen-linux-module
+      ryzen-smu
     ];
   };
 
@@ -74,17 +75,6 @@
   services.udev.extraRules = ''
     SUBSYSTEM=="kvmfr", OWNER="pongo", GROUP="wheel", MODE="0600"
   '';
-
-  systemd = {
-    services.amdctl-undervolt = {
-      enable = true;
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        Type = "idle";
-        ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.amdctl}/bin/amdctl -p0 -v124 && ${pkgs.amdctl}/bin/amdctl -p1 -v124 && ${pkgs.amdctl}/bin/amdctl -p2 -v124'";
-      };
-    };
-  };
 
   environment.systemPackages = with pkgs; [
     looking-glass-client
