@@ -9,4 +9,8 @@
       "amd_pstate=active"
     ];
   };
+
+  environment.systemPackages = with pkgs; [
+    ryzenadj
+  ];
 }
