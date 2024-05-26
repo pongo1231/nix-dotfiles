@@ -1,0 +1,4 @@
+{
+  user = "pongo";
+  type = "desktop";
+}

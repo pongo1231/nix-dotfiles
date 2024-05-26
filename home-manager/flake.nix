@@ -11,59 +11,42 @@
   outputs =
     { ... }@inputs:
     let
-      homes = [
-        {
-          user = "pongo";
-          host = "wsl-nixos";
-        }
-        {
-          user = "pongo";
-          host = "pongo-nitro5";
-          type = "desktop";
-          config = ./desktop/nitro5;
-        }
-        {
-          user = "pongo";
-          host = "pongo-jupiter";
-          type = "desktop";
-        }
-        {
-          user = "pongo";
-          host = "pongo-victus";
-          type = "desktop";
-          config = ./desktop/nitro5;
-        }
-      ];
+      commonConfig = config: inputs.home-manager.lib.homeManagerConfiguration {
+        pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+        extraSpecialArgs = { inherit inputs; };
+
+        modules = [
+          ({ ...
+           }: {
+            nixpkgs.overlays = [
+              (final: prev: {
+                # ...
+              })
+            ];
+
+            home = {
+              username = config.user;
+              homeDirectory = "/home/${config.user}";
+            };
+          })
+
+          ./common
+        ] ++ inputs.nixpkgs.lib.optionals (config ? config && config.config != null) [
+          config.config
+        ] ++ inputs.nixpkgs.lib.optionals (config ? type && config.type == "desktop") [
+          ./desktop
+        ];
+      };
     in
     {
-      homeConfigurations = builtins.listToAttrs (inputs.nixpkgs.lib.lists.forEach homes (home: {
-        name = "${home.user}@${home.host}";
-        value = inputs.home-manager.lib.homeManagerConfiguration {
-          pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-          extraSpecialArgs = { inherit inputs; };
-
-          modules = [
-            ({ ...
-             }: {
-              nixpkgs.overlays = [
-                (final: prev: {
-                  # ...
-                })
-              ];
-
-              home = {
-                username = home.user;
-                homeDirectory = "/home/${home.user}";
-              };
-            })
-
-            ./common
-          ] ++ inputs.nixpkgs.lib.optionals (home ? config && home.config != null) [
-            home.config
-          ] ++ inputs.nixpkgs.lib.optionals (home ? type && home.type == "desktop") [
-            ./desktop
-          ];
-        };
-      }));
+      homeConfigurations = inputs.nixpkgs.lib.concatMapAttrs
+        (name: value:
+          let
+            config = (import ./configs/${name});
+          in
+          {
+            "${config.user}@${inputs.nixpkgs.lib.removeSuffix ".nix" name}" = commonConfig config;
+          })
+        (builtins.readDir ./configs);
     };
 }

@@ -116,34 +116,14 @@
               ];
             };
         in
-        {
-          pongo-vm = commonSystem {
-            type = "vm";
-            hostName = "pongo-vm";
-          };
-
-          wsl-nixos = commonSystem {
-            hostName = "wsl-nixos";
-            config = ./common/wsl;
-          };
-
-          pongo-nitro5 = commonSystem {
-            type = "desktop";
-            hostName = "pongo-nitro5";
-            config = ./desktop/nitro5;
-          };
-
-          pongo-jupiter = commonSystem {
-            type = "desktop";
-            hostName = "pongo-jupiter";
-            config = ./desktop/jupiter;
-          };
-
-          pongo-victus = commonSystem {
-            type = "desktop";
-            hostName = "pongo-victus";
-            config = ./desktop/victus;
-          };
-        };
+        inputs.nixpkgs.lib.concatMapAttrs
+          (name: value:
+            let
+              hostName = inputs.nixpkgs.lib.removeSuffix ".nix" name;
+            in
+            {
+              ${hostName} = commonSystem ((import ./systems/${name}) // { inherit hostName; });
+            })
+          (builtins.readDir ./systems);
     };
 }
