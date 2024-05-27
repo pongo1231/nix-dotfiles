@@ -6,21 +6,27 @@
 , ...
 }:
 {
-  /*services.xserver.videoDrivers = [ "nvidia" ];
+  services.xserver.videoDrivers = [ "nvidia" ];
 
-    hardware.nvidia = {
+  hardware.nvidia = {
     package = (config.boot.kernelPackages.extend
       (final: prev:
         let generic = args: final.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
-          nvidiaPackages.production = prev.nvidiaPackages.beta.overrideAttrs (prevAttrs: {
-            patches = (prevAttrs.patches or [ ]) ++ [ ../patches/nvidia/6.10.patch ];
-            builder = ../patches/nvidia/builder.sh;
+          nvidiaPackages.production = (generic {
+            version = "555.42.02";
+            sha256_64bit = "sha256-k7cI3ZDlKp4mT46jMkLaIrc2YUx1lh1wj/J4SVSHWyk=";
+            openSha256 = "sha256-3/eI1VsBzuZ3Y6RZmt3Q5HrzI2saPTqUNs6zPh5zy6w=";
+            settingsSha256 = "sha256-rtDxQjClJ+gyrCLvdZlT56YyHQ4sbaL+d5tL4L4VfkA=";
+            persistencedSha256 = "sha256-3ae31/egyMKpqtGEqgtikWcwMwfcqMv2K4MVFa70Bqs=";
+            patches = [ ../patches/nvidia/6.10.patch ];
+          }).overrideAttrs (prevAttrs: {
+            #builder = ../patches/nvidia/builder.sh;
           });
         })).nvidiaPackages.production;
     modesetting.enable = true;
     nvidiaPersistenced = true;
-    open = true;
+    open = false;
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
@@ -34,7 +40,7 @@
       finegrained = true;
     };
     dynamicBoost.enable = true;
-  };*/
+  };
 
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "prime-run" ''
