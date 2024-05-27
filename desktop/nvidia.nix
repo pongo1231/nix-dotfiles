@@ -10,8 +10,8 @@
 
   hardware.nvidia = {
     package = (config.boot.kernelPackages.extend
-      (final: prev:
-        let generic = args: final.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
+      (finalAttrs: prevAttrs:
+        let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
             version = "555.42.02";
@@ -20,13 +20,18 @@
             settingsSha256 = "sha256-rtDxQjClJ+gyrCLvdZlT56YyHQ4sbaL+d5tL4L4VfkA=";
             persistencedSha256 = "sha256-3ae31/egyMKpqtGEqgtikWcwMwfcqMv2K4MVFa70Bqs=";
             patches = [ ../patches/nvidia/6.10.patch ];
-          }).overrideAttrs (prevAttrs: {
+          }).overrideAttrs (prevAttrs': {
             #builder = ../patches/nvidia/builder.sh;
+            passthru = prevAttrs'.passthru // {
+              open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
+                patches = (prevAttrs''.patches or [ ]) ++ [ ../patches/nvidia/6.10-open.patch ];
+              });
+            };
           });
         })).nvidiaPackages.production;
     modesetting.enable = true;
     nvidiaPersistenced = true;
-    open = false;
+    open = true;
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
