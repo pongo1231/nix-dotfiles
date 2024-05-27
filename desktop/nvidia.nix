@@ -6,20 +6,21 @@
 , ...
 }:
 {
-  services.xserver.videoDrivers = [ "nvidia" ];
+  /*services.xserver.videoDrivers = [ "nvidia" ];
 
-  hardware.nvidia = {
+    hardware.nvidia = {
     package = (config.boot.kernelPackages.extend
       (final: prev:
         let generic = args: final.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
-          nvidiaPackages.production = prev.nvidiaPackages.production.overrideAttrs (prevAttrs: {
+          nvidiaPackages.production = prev.nvidiaPackages.beta.overrideAttrs (prevAttrs: {
+            patches = (prevAttrs.patches or [ ]) ++ [ ../patches/nvidia/6.10.patch ];
             builder = ../patches/nvidia/builder.sh;
           });
         })).nvidiaPackages.production;
     modesetting.enable = true;
     nvidiaPersistenced = true;
-    open = false;
+    open = true;
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
@@ -33,7 +34,7 @@
       finegrained = true;
     };
     dynamicBoost.enable = true;
-  };
+  };*/
 
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "prime-run" ''
