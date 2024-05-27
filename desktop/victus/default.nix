@@ -23,16 +23,53 @@
         };
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
-    kernelPackages = lib.mkForce (pkgs.kernel.linuxPackages_testing.extend
-      (finalAttrs: prevAttrs: {
-        hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
-      }));
+    kernelPackages = lib.mkForce
+      (pkgs.kernel.linuxPackages_testing.extend
+        (finalAttrs: prevAttrs: {
+          kernel = prevAttrs.kernel.override (prevAttrs': {
+            kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
+            ignoreConfigErrors = true;
+            argsOverride = {
+              version = "6.10-rc1";
+              modDirVersion = "6.10.0-rc1";
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-6.10-rc1.tar.gz";
+                hash = "sha256-BaiRVS0U4+nvhgQT+8KPTub3ldfb9MMrUSlyZg7NzgA=";
+              };
+            };
+          });
+          hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
+        }));
     kernelPatches = [
       {
         name = "dgpu passthrough fix";
         patch = null;
         extraConfig = ''
           HSA_AMD_SVM n
+        '';
+      }
+      {
+        name = "fast-cppc";
+        patch = pkgs.fetchpatch {
+          url = "https://lore.kernel.org/linux-pm/e717feea3df0a178a9951491040a76c79a00556c.1716649578.git.Xiaojian.Du@amd.com/t.mbox";
+          hash = "sha256-csR9oBePEhB5J9bTpZUHd0qyU9gopspvaXvIUJDAfdY=";
+          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
+          decode = pkgs.writeShellScript "decodeMbox" ''
+            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
+            export XDG_DATA_HOME="$TMPDIR"
+            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
+          '';
+        };
+      }
+      {
+        name = "6.10 fixups";
+        patch = null;
+        extraConfig = ''
+          DRM_DP_AUX_CHARDEV n
+          DRM_DISPLAY_DP_AUX_CHARDEV y
+
+          DRM_DP_CEC n
+          DRM_DISPLAY_DP_AUX_CEC y
         '';
       }
     ];
@@ -45,24 +82,27 @@
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [
-      kvmfr
+      (kvmfr.overrideAttrs (prevAttrs: {
+        patches = (prevAttrs.patches or [ ]) ++ [ ../../patches/kvmfr/6.10.patch ];
+      }))
       hp-omen-linux-module
       ryzen-smu
     ];
   };
 
-  fileSystems = {
-    "/" = {
-      device = "/dev/disk/by-uuid/e4c4c179-e254-46a3-b28a-acec2ce1775f";
-      fsType = "btrfs";
-      options = [ "compress-force=zstd:6" "noatime" ];
-    };
+  fileSystems =
+    {
+      "/" = {
+        device = "/dev/disk/by-uuid/e4c4c179-e254-46a3-b28a-acec2ce1775f";
+        fsType = "btrfs";
+        options = [ "compress-force=zstd:6" "noatime" ];
+      };
 
-    "/boot" = {
-      device = "/dev/disk/by-uuid/7651-3774";
-      fsType = "vfat";
+      "/boot" = {
+        device = "/dev/disk/by-uuid/7651-3774";
+        fsType = "vfat";
+      };
     };
-  };
 
   hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
