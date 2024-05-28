@@ -38,6 +38,8 @@
       "/etc/nix/inputs"
     ];
     registry.nixpkgs.flake = inputs.nixpkgs;
+    daemonCPUSchedPolicy = "idle";
+    daemonIOSchedClass = "idle";
   };
 
   boot = {
@@ -120,12 +122,6 @@
     dbus = {
       enable = true;
       implementation = "broker";
-    };
-
-    xserver = {
-      enable = true;
-      xkb.layout = "de";
-      libinput.enable = true;
     };
 
     pipewire = {

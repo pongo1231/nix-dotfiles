@@ -5,11 +5,6 @@
 , ...
 }:
 {
-  nix = {
-    daemonCPUSchedPolicy = "idle";
-    daemonIOSchedClass = "idle";
-  };
-
   boot = {
     kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
@@ -78,14 +73,13 @@
   programs.cfs-zen-tweaks.enable = true;
 
   services = {
-    xserver = {
-      displayManager.sddm = {
-        enable = lib.mkDefault true;
-        wayland.enable = true;
-        autoNumlock = true;
-      };
-      desktopManager.plasma6.enable = true;
+    displayManager.sddm = {
+      enable = lib.mkDefault true;
+      wayland.enable = true;
+      autoNumlock = true;
     };
+    desktopManager.plasma6.enable = true;
+    xserver.xkb.layout = "de";
   };
 
   environment.systemPackages = with pkgs; [
