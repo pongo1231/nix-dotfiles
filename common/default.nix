@@ -219,7 +219,6 @@
       dconf
       inputs.nix-alien.packages.${system}.nix-alien
       inputs.nix-alien.packages.${system}.nix-index-update
-      krunner-translator
       inputs.nix-be.packages.${system}.nix-be
       ddcutil
       fwupd
