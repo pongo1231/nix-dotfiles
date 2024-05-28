@@ -73,7 +73,8 @@
         '';
       }
     ];
-    kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
+    blacklistedKernelModules = [ "k10temp" ];
+    kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" "zenpower" ];
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
@@ -87,6 +88,7 @@
       }))
       hp-omen-linux-module
       ryzen-smu
+      zenpower
     ];
   };
 
