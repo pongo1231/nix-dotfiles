@@ -2,10 +2,25 @@
 , ...
 }:
 {
-  programs.firefox.profiles.settings = {
-    "gfx.webrender.all" = true;
-    "media.ffmpeg.vaapi.enabled" = true;
-    "browser.cache.disk.enable" = false;
+  programs.firefox = {
+    enable = true;
+    policies = {
+      DisableTelemetry = true;
+      DisableFirefoxStudies = true;
+      EnableTrackingProtection = {
+        Value = true;
+        Locked = true;
+        Cryptomining = true;
+        Fingerprinting = true;
+      };
+      DisablePocket = true;
+      DisplayBookmarksToolbar = "always";
+      Preferences = {
+        "gfx.webrender.all" = true;
+        "media.ffmpeg.vaapi.enabled" = true;
+        "browser.cache.disk.enable" = false;
+      };
+    };
   };
 
   home = {
@@ -35,7 +50,6 @@
     };
 
     packages = with pkgs; [
-      firefox
       nil
       nixpkgs-fmt
       deadnix
