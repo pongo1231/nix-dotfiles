@@ -73,7 +73,6 @@
         '';
       }
     ];
-    blacklistedKernelModules = [ "k10temp" ];
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" "zenpower" ];
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
