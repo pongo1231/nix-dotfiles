@@ -116,6 +116,20 @@
     SUBSYSTEM=="kvmfr", OWNER="pongo", GROUP="wheel", MODE="0600"
   '';
 
+  # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
+  # work around this silly bug by binding it to vfio-pci first and then rebinding it to snd_hda_intel
+  systemd = {
+    services.dgpu-audio-to-snd_hda_intel = {
+      enable = true;
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${pkgs.bash}/bin/bash -c 'echo 0000:01:00.1 > /sys/bus/pci/drivers/vfio-pci/unbind && echo 0000:01:00.1 > /sys/bus/pci/drivers/snd_hda_intel/bind'";
+      };
+    };
+  };
+
   environment.systemPackages = with pkgs; [
     looking-glass-client
     virtiofsd
