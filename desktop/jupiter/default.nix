@@ -86,7 +86,7 @@ in
   networking.hostId = "a1f92a1f";
 
   services = {
-    xserver.displayManager.sddm.enable = false;
+    displayManager.sddm.enable = false;
 
     fstrim.enable = true;
   };
