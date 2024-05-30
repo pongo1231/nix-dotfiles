@@ -64,6 +64,9 @@
         "dev.i915.perf_stream_paranoid" = 0;
         "kernel.sysrq" = 1;
         "kernel.core_pattern" = "/dev/null";
+
+        # as per powertop's suggestion
+        "vm.dirty_writeback_centisecs" = 1500;
       };
     };
     initrd.systemd.enable = true;
