@@ -31,7 +31,7 @@
         })).nvidiaPackages.production;
     modesetting.enable = true;
     nvidiaPersistenced = true;
-    open = true;
+    open = false;
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
