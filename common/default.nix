@@ -68,6 +68,21 @@
     };
     initrd.systemd.enable = true;
 
+    kernelParams = [
+      "quiet"
+      "splash"
+      "loglevel=3"
+      "nowatchdog"
+      "mitigations=off"
+      "i915.mitigations=off"
+      "kvm.ignore_msrs=1"
+      "preempt=full"
+      "workqueue.power_efficient=1"
+      "threadirqs"
+      "ec_sys.write_support=1"
+      "msr.allow_writes=on"
+    ];
+
     extraModprobeConfig = ''
       options snd_hda_intel power_save=1
     '';
