@@ -2,10 +2,13 @@
 , lib
 , pkgs
 , modulesPath
+, inputs
 , ...
 }:
 {
   imports = [
+    inputs.jovian.nixosModules.default
+
     ../amd.nix
     (import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
@@ -104,7 +107,14 @@
       };
     };
 
-  hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+  hardware = {
+    cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+
+    opengl = {
+      extraPackages = [ (lib.hiPrio pkgs.mesa-radv-jupiter.drivers) ];
+      extraPackages32 = [ (lib.hiPrio pkgs.pkgsi686Linux.mesa-radv-jupiter.drivers) ];
+    };
+  };
 
   programs.fish = {
     shellAliases = {
@@ -130,8 +140,12 @@
     };
   };
 
-  environment.systemPackages = with pkgs; [
-    looking-glass-client
-    virtiofsd
-  ];
+  environment = {
+    etc."drirc".source = pkgs.mesa-radv-jupiter + "/share/drirc.d/00-radv-defaults.conf";
+
+    systemPackages = with pkgs; [
+      looking-glass-client
+      virtiofsd
+    ];
+  };
 }
