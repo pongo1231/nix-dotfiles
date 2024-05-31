@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable-small";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
 
     nixpkgs-desktop-kernel = {
       #url = "github:nixos/nixpkgs?rev=7cadc175919016d329c868915f1f1c42fc8fb817";
