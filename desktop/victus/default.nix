@@ -107,16 +107,9 @@
       };
     };
 
-  hardware = {
-    cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+  hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
-    opengl = {
-      package = lib.mkForce pkgs.mesa-radeonsi-jupiter.drivers;
-      package32 = lib.mkForce pkgs.pkgsi686Linux.mesa-radeonsi-jupiter.drivers;
-      extraPackages = [ (lib.hiPrio pkgs.mesa-radv-jupiter.drivers) ];
-      extraPackages32 = [ (lib.hiPrio pkgs.pkgsi686Linux.mesa-radv-jupiter.drivers) ];
-    };
-  };
+  jovian.steamos.enableDefaultCmdlineConfig = false;
 
   programs.fish = {
     shellAliases = {
@@ -143,8 +136,6 @@
   };
 
   environment = {
-    etc."drirc".source = pkgs.mesa-radv-jupiter + "/share/drirc.d/00-radv-defaults.conf";
-
     systemPackages = with pkgs; [
       looking-glass-client
       virtiofsd
