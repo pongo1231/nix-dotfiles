@@ -76,6 +76,7 @@
       "splash"
       "loglevel=3"
       "nowatchdog"
+      "audit=0"
       "mitigations=off"
       "i915.mitigations=off"
       "kvm.ignore_msrs=1"
