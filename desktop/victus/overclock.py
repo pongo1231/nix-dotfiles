@@ -12,5 +12,5 @@ nvmlDeviceSetGpcClkVfOffset(myGPU, 235)
 
 # The Mem frequency Offset should be **multiplied by 2** to replace the "2500" below
 # for example, an offset of 500 in GWE means inserting a value of 1000 in the next line
-nvmlDeviceSetMemClkVfOffset(myGPU, 3700)
-# safe: 3700
+nvmlDeviceSetMemClkVfOffset(myGPU, 3675)
+# safe: 3675
