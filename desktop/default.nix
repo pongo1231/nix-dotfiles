@@ -79,6 +79,7 @@
     maliit-keyboard
     virt-manager
     kdePackages.qtstyleplugin-kvantum
+    systemdgenie
 
     # for KDE info center
     clinfo
