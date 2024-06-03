@@ -33,11 +33,11 @@
             kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = {
-              version = "6.10-rc1";
-              modDirVersion = "6.10.0-rc1";
+              version = "6.10-rc2";
+              modDirVersion = "6.10.0-rc2";
               src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-6.10-rc1.tar.gz";
-                hash = "sha256-BaiRVS0U4+nvhgQT+8KPTub3ldfb9MMrUSlyZg7NzgA=";
+                url = "https://git.kernel.org/torvalds/t/linux-6.10-rc2.tar.gz";
+                hash = "sha256-wty5z12u5rCwSzxEEJuagARJ6nWUkldpIkiGfbi+0bA=";
               };
             };
           });
@@ -56,6 +56,19 @@
         patch = pkgs.fetchpatch {
           url = "https://lore.kernel.org/linux-pm/e717feea3df0a178a9951491040a76c79a00556c.1716649578.git.Xiaojian.Du@amd.com/t.mbox";
           hash = "sha256-csR9oBePEhB5J9bTpZUHd0qyU9gopspvaXvIUJDAfdY=";
+          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
+          decode = pkgs.writeShellScript "decodeMbox" ''
+            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
+            export XDG_DATA_HOME="$TMPDIR"
+            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
+          '';
+        };
+      }
+      {
+        name = "fast-aes-gcm";
+        patch = pkgs.fetchpatch {
+          url = "https://lore.kernel.org/lkml/20240602222221.176625-1-ebiggers@kernel.org/t.mbox";
+          hash = "sha256-ijYl+f0x/v52zlelxJWm9/heXqliOPEODX8Xt3w+f5I=";
           # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
           decode = pkgs.writeShellScript "decodeMbox" ''
             export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
