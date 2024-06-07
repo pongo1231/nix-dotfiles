@@ -10,7 +10,7 @@
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
-    extraModulePackages = with config.boot.kernelPackages; [ xpadneo ];
+    extraModulePackages = with config.boot.kernelPackages; [ ];
 
     plymouth.enable = lib.mkDefault true;
 
@@ -50,9 +50,12 @@
     };
   };
 
-  hardware.opengl = {
-    enable = true;
-    driSupport32Bit = true;
+  hardware = {
+    opengl = {
+      enable = true;
+      driSupport32Bit = true;
+    };
+    xpadneo.enable = true;
   };
 
   programs.cfs-zen-tweaks.enable = true;
