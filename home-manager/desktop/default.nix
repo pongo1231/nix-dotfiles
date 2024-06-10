@@ -64,6 +64,7 @@
       audacious
       jamesdsp
       qbittorrent
+      weston
     ];
   };
 }
