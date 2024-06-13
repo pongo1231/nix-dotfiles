@@ -80,7 +80,6 @@
       "kvm.ignore_msrs=1"
       "preempt=full"
       "workqueue.power_efficient=1"
-      "threadirqs"
       "ec_sys.write_support=1"
       "msr.allow_writes=on"
     ];
