@@ -17,6 +17,11 @@
   ];
 
   boot = {
+    kernelParams = [
+      "mitigations=off"
+      "i915.mitigations=off"
+    ];
+
     initrd = {
       availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
       kernelModules = [ "kvm-intel" "kvmgt" "vfio-iommu-type1" "mdev" ];
