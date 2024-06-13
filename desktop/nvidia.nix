@@ -8,6 +8,10 @@
 {
   services.xserver.videoDrivers = [ "nvidia" ];
 
+  boot.extraModprobeConfig = ''
+    options nvidia NVreg_EnableGpuFirmware=0
+  '';
+
   hardware.nvidia = {
     package = (config.boot.kernelPackages.extend
       (finalAttrs: prevAttrs:
@@ -31,7 +35,7 @@
         })).nvidiaPackages.production;
     modesetting.enable = true;
     nvidiaPersistenced = true;
-    open = true;
+    open = false;
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
