@@ -7,8 +7,6 @@
 }:
 {
   imports = [
-    inputs.jovian.nixosModules.default
-
     ../amd.nix
     (import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
@@ -121,8 +119,6 @@
     };
 
   hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
-
-  jovian.steamos.enableDefaultCmdlineConfig = false;
 
   programs.fish = {
     shellAliases = {
