@@ -15,6 +15,7 @@
     ghidra
     nvtop
     intel-gpu-tools
+    amdgpu_top
     (discord.overrideAttrs (prevAttrs: {
       desktopItem = prevAttrs.desktopItem.override { exec = "Discord --disable-smooth-scrolling --enable-features=WaylandWindowDecorations --ozone-platform-hint=auto"; };
     }))
