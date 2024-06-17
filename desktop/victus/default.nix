@@ -31,11 +31,11 @@
             kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = {
-              version = "6.10-rc3";
-              modDirVersion = "6.10.0-rc3";
+              version = "6.10-rc4";
+              modDirVersion = "6.10.0-rc4";
               src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-6.10-rc3.tar.gz";
-                hash = "sha256-k9Mpff96xgfTyjRMn0wOQBOm7NKZ7IDtJBRYwrnccoY=";
+                url = "https://git.kernel.org/torvalds/t/linux-6.10-rc4.tar.gz";
+                hash = "sha256-Dqqt4+0LETDJBj4HnQ99nSqfG24ZwMvhUvsi5Ypgp7M=";
               };
             };
           });
