@@ -11,6 +11,8 @@
   wsl = {
     enable = true;
     defaultUser = "pongo";
+    usbip.enable = true;
+    useWindowsDriver = true;
   };
 
   systemd.oomd.enable = lib.mkForce false;
