@@ -241,6 +241,7 @@
       snapper
       duperemove
       compsize
+      nixos-shell
     ];
   };
 }
