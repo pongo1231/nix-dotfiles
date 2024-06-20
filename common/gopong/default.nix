@@ -22,4 +22,20 @@
       fsType = "btrfs";
       options = [ "noatime" "compress-force=zstd:6" ];
     };
+
+  services.nginx = {
+    enable = true;
+    virtualHosts = {
+      "gopong.dev" = {
+        forceSSL = true;
+        enableACME = true;
+        root = "/srv/http";
+      };
+    };
+  };
+
+  security.acme = {
+    acceptTerms = true;
+    defaults.email = "pongo1999712@gmail.com";
+  };
 }
