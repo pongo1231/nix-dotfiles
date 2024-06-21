@@ -82,6 +82,7 @@
       "workqueue.power_efficient=1"
       "ec_sys.write_support=1"
       "msr.allow_writes=on"
+      "cgroup_no_v1=all"
     ];
 
     extraModprobeConfig = ''
