@@ -49,7 +49,7 @@
       e2fsprogs
       nix-du
       nix-tree
-      screen
+      tmux
     ];
   };
 }
