@@ -38,6 +38,12 @@
         enableACME = true;
         locations."/".proxyPass = "https://gopong.dev:9907";
       };
+
+      "habbo.gopong.dev" = {
+        forceSSL = true;
+        enableACME = true;
+        locations."/".proxyPass = "https://gopong.dev:8081";
+      };
     };
   };
 
