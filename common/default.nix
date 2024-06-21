@@ -201,6 +201,8 @@
     ];
 
     oomd.enable = true;
+
+    services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
   };
 
   environment = {
