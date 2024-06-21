@@ -25,11 +25,18 @@
 
   services.nginx = {
     enable = true;
+    recommendedProxySettings = true;
     virtualHosts = {
       "gopong.dev" = {
         forceSSL = true;
         enableACME = true;
         root = "/srv/http";
+      };
+
+      "chaos.gopong.dev" = {
+        forceSSL = true;
+        enableACME = true;
+        locations."/".proxyPass = "https://gopong.dev:9907";
       };
     };
   };
