@@ -13,6 +13,8 @@
     defaultUser = "pongo";
     usbip.enable = true;
     useWindowsDriver = true;
+    nativeSystemd = true;
+    startMenuLaunchers = true;
   };
 
   systemd.oomd.enable = lib.mkForce false;
