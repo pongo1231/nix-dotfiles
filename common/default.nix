@@ -137,6 +137,11 @@
     command-not-found.enable = false;
 
     nix-index-database.comma.enable = true;
+
+    nix-ld = {
+      enable = true;
+      package = pkgs.nix-ld-rs;
+    };
   };
 
   services = {
