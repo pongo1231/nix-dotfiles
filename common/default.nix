@@ -169,6 +169,8 @@
 
     fstrim.enable = true;
     #zfs.trim.enable = true;
+
+    envfs.enable = true;
   };
 
   security.rtkit.enable = true;
