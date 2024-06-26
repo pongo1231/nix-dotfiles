@@ -51,4 +51,13 @@
     acceptTerms = true;
     defaults.email = "pongo1999712@gmail.com";
   };
+
+  users = {
+    users.habbo = {
+      isNormalUser = true;
+      home = "/home/habbo";
+      extraGroups = [ "podman" ];
+      hashedPassword = "$y$j9T$okA7Iq1HvpZz9jhUnm4kz.$yX/qF3P.WElXbCAZph5p/qSQ7BDOaX4j4l/3bh3ZjyB";
+    };
+  };
 }
