@@ -20,7 +20,7 @@
           nvidiaPackages.production = (generic {
             version = "555.58";
             sha256_64bit = "sha256-bXvcXkg2kQZuCNKRZM5QoTaTjF4l2TtrsKUvyicj5ew=";
-            openSha256 = "";
+            openSha256 = "sha256-hEAmFISMuXm8tbsrB+WiUcEFuSGRNZ37aKWvf0WJ2/c=";
             settingsSha256 = "sha256-vWnrXlBCb3K5uVkDFmJDVq51wrCoqgPF03lSjZOuU8M=";
             persistencedSha256 = "";
             #patches = [ ../patches/nvidia/6.10.patch ];
@@ -35,7 +35,7 @@
         })).nvidiaPackages.production;
     modesetting.enable = true;
     #nvidiaPersistenced = true;
-    open = false;
+    open = true;
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
