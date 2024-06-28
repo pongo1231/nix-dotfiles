@@ -8,9 +8,9 @@
 {
   services.xserver.videoDrivers = [ "nvidia" ];
 
-  boot.extraModprobeConfig = ''
+  /*boot.extraModprobeConfig = ''
     options nvidia NVreg_EnableGpuFirmware=0
-  '';
+  '';*/
 
   hardware.nvidia = {
     package = (config.boot.kernelPackages.extend
@@ -18,11 +18,11 @@
         let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
-            version = "555.52.04";
-            sha256_64bit = "sha256-nVOubb7zKulXhux9AruUTVBQwccFFuYGWrU1ZiakRAI=";
-            openSha256 = "sha256-wDimW8/rJlmwr1zQz8+b1uvxxxbOf3Bpk060lfLKuy0=";
-            settingsSha256 = "sha256-PMh5efbSEq7iqEMBr2+VGQYkBG73TGUh6FuDHZhmwHk=";
-            persistencedSha256 = "sha256-KAYIvPjUVilQQcD04h163MHmKcQrn2a8oaXujL2Bxro=";
+            version = "555.58";
+            sha256_64bit = "sha256-bXvcXkg2kQZuCNKRZM5QoTaTjF4l2TtrsKUvyicj5ew=";
+            openSha256 = "";
+            settingsSha256 = "sha256-vWnrXlBCb3K5uVkDFmJDVq51wrCoqgPF03lSjZOuU8M=";
+            persistencedSha256 = "";
             #patches = [ ../patches/nvidia/6.10.patch ];
           }).overrideAttrs (prevAttrs': {
             /*builder = ../patches/nvidia/builder.sh;
@@ -34,7 +34,7 @@
           });
         })).nvidiaPackages.production;
     modesetting.enable = true;
-    nvidiaPersistenced = true;
+    #nvidiaPersistenced = true;
     open = false;
     prime = {
       offload.enable = true;
