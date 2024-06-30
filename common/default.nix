@@ -150,14 +150,6 @@
       implementation = "broker";
     };
 
-    pipewire = {
-      enable = true;
-      alsa.enable = true;
-      pulse.enable = true;
-    };
-
-    flatpak.enable = true;
-
     openssh.enable = true;
 
     fwupd.enable = true;

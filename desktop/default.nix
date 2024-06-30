@@ -68,6 +68,14 @@
     };
     desktopManager.plasma6.enable = true;
     xserver.xkb.layout = "de";
+
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      pulse.enable = true;
+    };
+
+    flatpak.enable = true;
   };
 
   environment.systemPackages = with pkgs; [
