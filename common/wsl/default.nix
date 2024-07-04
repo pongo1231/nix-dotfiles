@@ -21,7 +21,7 @@
     extraPackages = with pkgs; [
       mesa.drivers
       libvdpau-va-gl
-      (libedit.overrideAttrs (attrs: {postInstall = (attrs.postInstall or "") + ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';}))
+      (libedit.overrideAttrs (attrs: { postInstall = (attrs.postInstall or "") + ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2''; }))
     ];
   };
 
