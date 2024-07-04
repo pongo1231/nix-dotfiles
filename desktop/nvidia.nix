@@ -25,8 +25,8 @@
             persistencedSha256 = "";
             #patches = [ ../patches/nvidia/6.10.patch ];
           }).overrideAttrs (prevAttrs': {
-            /*builder = ../patches/nvidia/builder.sh;
-            passthru = prevAttrs'.passthru // {
+            builder = ../patches/nvidia/builder.sh;
+            /*passthru = prevAttrs'.passthru // {
               open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
                 patches = (prevAttrs''.patches or [ ]) ++ [ ../patches/nvidia/6.10-open.patch ];
               });
