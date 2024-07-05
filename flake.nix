@@ -69,7 +69,7 @@
 
                       extest = final.pkgsi686Linux.callPackage ./pkgs/extest { };
 
-                      mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
+                      #mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
 
                       steamPackages = prev.steamPackages.overrideScope (finalScope: prevScope: {
                         steam = prevScope.steam.overrideAttrs (finalAttrs: prevAttrs: {
