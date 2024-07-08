@@ -25,6 +25,7 @@
             persistencedSha256 = "";
             #patches = [ ../patches/nvidia/6.10.patch ];
           }).overrideAttrs (prevAttrs': {
+            # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
             builder = ../patches/nvidia/builder.sh;
             /*passthru = prevAttrs'.passthru // {
               open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
