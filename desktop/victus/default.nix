@@ -91,7 +91,7 @@
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
-      "vfio_pci.ids=10de:22bd" # dgpu audio
+      #"vfio_pci.ids=10de:22bd" # dgpu audio
       "kvmfr.static_size_mb=32"
       "mitigations=off"
     ];
@@ -133,7 +133,7 @@
 
   # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
   # work around this silly bug by binding it to vfio-pci first and then rebinding it to snd_hda_intel
-  systemd = {
+  /*systemd = {
     services.dgpu-audio-to-snd_hda_intel = {
       enable = true;
       wantedBy = [ "multi-user.target" ];
@@ -143,7 +143,7 @@
         ExecStart = "${pkgs.bash}/bin/bash -c 'echo 0000:01:00.1 > /sys/bus/pci/drivers/vfio-pci/unbind && echo 0000:01:00.1 > /sys/bus/pci/drivers/snd_hda_intel/bind'";
       };
     };
-  };
+  };*/
 
   environment = {
     systemPackages = with pkgs; [
