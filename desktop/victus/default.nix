@@ -30,12 +30,12 @@
           kernel = prevAttrs.kernel.override (prevAttrs': {
             kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
-            argsOverride = {
-              version = "6.10-rc6";
-              modDirVersion = "6.10.0-rc6";
+            argsOverride = rec {
+              version = "6.10-rc7";
+              modDirVersion = "6.10.0-rc7";
               src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-6.10-rc6.tar.gz";
-                hash = "sha256-fjsLKo9gTam54zuXdDfYMGng2xNvgM1gNWLmjEjoUCo=";
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-KWgzFm8EPP3WwBZGqhh03qIoRFhrkbw0+6ThT5N6SUQ=";
               };
             };
           });
