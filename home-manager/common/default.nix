@@ -51,6 +51,7 @@
       nix-tree
       tmux
       borgbackup
+      gptfdisk
     ];
   };
 }
