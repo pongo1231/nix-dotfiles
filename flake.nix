@@ -38,6 +38,11 @@
       url = "github:nix-community/NixOS-WSL";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    lix-module = {
+      url = "https://git.lix.systems/lix-project/nixos-module/archive/2.90.0.tar.gz";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -105,6 +110,8 @@
                     inherit hostName;
                   };
                 })
+
+                inputs.lix-module.nixosModules.default
 
                 ./common
               ] ++ inputs.nixpkgs.lib.optionals (config != null) [
