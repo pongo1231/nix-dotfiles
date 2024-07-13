@@ -36,7 +36,7 @@
         })).nvidiaPackages.production;
     modesetting.enable = true;
     #nvidiaPersistenced = true;
-    open = true;
+    open = false; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
