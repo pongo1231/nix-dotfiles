@@ -52,6 +52,7 @@
       tmux
       borgbackup
       gptfdisk
+      iotop
     ];
   };
 }
