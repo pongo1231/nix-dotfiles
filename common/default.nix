@@ -201,7 +201,19 @@
 
     oomd.enable = true;
 
-    services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+    services = {
+      "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+
+      "mglru-tweaks" = {
+        enable = true;
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = "${pkgs.bash}/bin/bash -c 'echo 1000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
+        };
+      };
+    };
   };
 
   environment = {
