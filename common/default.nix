@@ -197,6 +197,7 @@
     # yanked from linux-zen
     tmpfiles.rules = [
       "w /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
+      "w /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
     ];
 
     oomd.enable = true;
