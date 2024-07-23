@@ -18,25 +18,29 @@
         let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
-            version = "555.58.02";
-            sha256_64bit = "sha256-xctt4TPRlOJ6r5S54h5W6PT6/3Zy2R4ASNFPu8TSHKM=";
-            openSha256 = "sha256-8hyRiGB+m2hL3c9MDA/Pon+Xl6E788MZ50WrrAGUVuY=";
-            settingsSha256 = "sha256-ZpuVZybW6CFN/gz9rx+UJvQ715FZnAOYfHn5jt5Z2C8=";
+            version = "560.28.03";
+            sha256_64bit = "sha256-martv18vngYBJw1IFUCAaYr+uc65KtlHAMdLMdtQJ+Y=";
+            openSha256 = "sha256-asGpqOpU0tIO9QqceA8XRn5L27OiBFuI9RZ1NjSVwaM=";
+            settingsSha256 = "sha256-b4nhUMCzZc3VANnNb0rmcEH6H7SK2D5eZIplgPV59c8=";
             persistencedSha256 = "";
             #patches = [ ../patches/nvidia/6.10.patch ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
             builder = ../patches/nvidia/builder.sh;
-            /*passthru = prevAttrs'.passthru // {
-              open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
-                patches = (prevAttrs''.patches or [ ]) ++ [ ../patches/nvidia/6.10-open.patch ];
+            passthru = prevAttrs'.passthru // {
+              /*open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
+                nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
+                #patches = (prevAttrs''.patches or [ ]) ++ [ ../patches/nvidia/6.10-open.patch ];
+              });*/
+              settings = prevAttrs'.passthru.settings.overrideAttrs (prevAttrs'': {
+                nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
               });
-            };*/
+            };
           });
         })).nvidiaPackages.production;
     modesetting.enable = true;
     #nvidiaPersistenced = true;
-    open = false; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)
+    open = true; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
