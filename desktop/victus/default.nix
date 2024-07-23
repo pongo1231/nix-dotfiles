@@ -31,11 +31,16 @@
             kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.10-rc7";
-              modDirVersion = "6.10.0-rc7";
+              version = "6.10";
+              modDirVersion = "6.10.0";
+              /*src = pkgs.fetchgit {
+                url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
+                rev = "66ebbdfdeb093e097399b1883390079cd4c3022b";
+                hash = "sha256-T2a/UtjMfzYhjtgNhDu4RgQE7wtzwULIVcXUawLzAL8=";
+              };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-KWgzFm8EPP3WwBZGqhh03qIoRFhrkbw0+6ThT5N6SUQ=";
+                hash = "sha256-cWbH1/Ab3NqQJ1Gn/nX5koCcn1o1PexiMd5AXliNpDc=";
               };
             };
           });
@@ -75,7 +80,7 @@
           '';
         };
       }
-      {
+      /*{
         name = "6.10 fixups";
         patch = null;
         extraConfig = ''
@@ -85,7 +90,7 @@
           DRM_DP_CEC n
           DRM_DISPLAY_DP_AUX_CEC y
         '';
-      }
+      }*/
     ];
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
     kernelParams = [
