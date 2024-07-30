@@ -25,9 +25,9 @@
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
     kernelPackages = lib.mkForce
-      (pkgs.kernel.linuxPackages_testing.extend
+      (pkgs.kernel.linuxPackages_latest.extend
         (finalAttrs: prevAttrs: {
-          kernel = prevAttrs.kernel.override (prevAttrs': {
+          /*kernel = prevAttrs.kernel.override (prevAttrs': {
             kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
@@ -37,13 +37,13 @@
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "66ebbdfdeb093e097399b1883390079cd4c3022b";
                 hash = "sha256-T2a/UtjMfzYhjtgNhDu4RgQE7wtzwULIVcXUawLzAL8=";
-              };*/
+              };
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-cWbH1/Ab3NqQJ1Gn/nX5koCcn1o1PexiMd5AXliNpDc=";
               };
             };
-          });
+          });*/
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
         }));
     kernelPatches = [
