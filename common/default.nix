@@ -264,7 +264,7 @@
       inputs.nix-be.packages.${system}.nix-be
       ddcutil
       fwupd
-      snapper
+      #snapper
       duperemove
       compsize
       nixos-shell

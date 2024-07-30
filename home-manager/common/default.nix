@@ -47,7 +47,7 @@
       file
       gdu
       e2fsprogs
-      nix-du
+      #nix-du
       nix-tree
       tmux
       borgbackup
