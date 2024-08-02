@@ -27,23 +27,23 @@
     kernelPackages = lib.mkForce
       (pkgs.kernel.linuxPackages_latest.extend
         (finalAttrs: prevAttrs: {
-          /*kernel = prevAttrs.kernel.override (prevAttrs': {
+          kernel = prevAttrs.kernel.override (prevAttrs': {
             kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.10";
-              modDirVersion = "6.10.0";
-              /*src = pkgs.fetchgit {
+              version = "6.11";
+              modDirVersion = "6.11.0-rc1";
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "66ebbdfdeb093e097399b1883390079cd4c3022b";
-                hash = "sha256-T2a/UtjMfzYhjtgNhDu4RgQE7wtzwULIVcXUawLzAL8=";
+                rev = "c0ecd6388360d930440cc5554026818895199923";
+                hash = "sha256-Dzrr0j3blHZpsi8D7DcXn7uUW+W8bdR+PMesXesOK4c=";
               };
-              src = pkgs.fetchzip {
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-cWbH1/Ab3NqQJ1Gn/nX5koCcn1o1PexiMd5AXliNpDc=";
-              };
+              };*/
             };
-          });*/
+          });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
         }));
     kernelPatches = [
@@ -54,7 +54,7 @@
           HSA_AMD_SVM n
         '';
       }
-      {
+      /*{
         name = "fast-cppc";
         patch = pkgs.fetchpatch {
           url = "https://lore.kernel.org/linux-pm/e717feea3df0a178a9951491040a76c79a00556c.1716649578.git.Xiaojian.Du@amd.com/t.mbox";
@@ -80,7 +80,7 @@
           '';
         };
       }
-      /*{
+      {
         name = "6.10 fixups";
         patch = null;
         extraConfig = ''
