@@ -25,18 +25,18 @@
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
     kernelPackages = lib.mkForce
-      (pkgs.kernel.linuxPackages_latest.extend
+      (pkgs.kernel.linuxPackages_testing.extend
         (finalAttrs: prevAttrs: {
           kernel = prevAttrs.kernel.override (prevAttrs': {
-            kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
+            #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
               version = "6.11";
               modDirVersion = "6.11.0-rc1";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "c0ecd6388360d930440cc5554026818895199923";
-                hash = "sha256-Dzrr0j3blHZpsi8D7DcXn7uUW+W8bdR+PMesXesOK4c=";
+                rev = "defaf1a2113a22b00dfa1abc0fd2014820eaf065";
+                hash = "sha256-Az2sLF7gIjEa6R/vAVExdLxLj5YM9viU6L+Q9qFahdo=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -53,6 +53,19 @@
         extraConfig = ''
           HSA_AMD_SVM n
         '';
+      }
+      {
+        name = "no-latency-multiplier";
+        patch = pkgs.fetchpatch {
+          url = "https://lore.kernel.org/linux-pm/20240728192659.58115-1-qyousef@layalina.io/t.mbox";
+          hash = "sha256-kDKpSmZflv0B0023W35Gm9F3D8BYfiltLOrDMxQS23s=";
+          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
+          decode = pkgs.writeShellScript "decodeMbox" ''
+            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
+            export XDG_DATA_HOME="$TMPDIR"
+            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
+          '';
+        };
       }
       /*{
         name = "fast-cppc";
