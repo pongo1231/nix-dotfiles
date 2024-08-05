@@ -31,17 +31,17 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.11";
-              modDirVersion = "6.11.0-rc1";
-              src = pkgs.fetchgit {
+              version = "6.11-rc2";
+              modDirVersion = "6.11.0-rc2";
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "defaf1a2113a22b00dfa1abc0fd2014820eaf065";
                 hash = "sha256-Az2sLF7gIjEa6R/vAVExdLxLj5YM9viU6L+Q9qFahdo=";
-              };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-cWbH1/Ab3NqQJ1Gn/nX5koCcn1o1PexiMd5AXliNpDc=";
               };*/
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-+nfCerBqzOtf3xYVQfXA24r557V7v0Pe9J9p/R0DXOs=";
+              };
             };
           });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
