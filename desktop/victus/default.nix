@@ -7,6 +7,8 @@
 }:
 {
   imports = [
+    inputs.chaotic.nixosModules.default
+
     ../amd.nix
     (import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
@@ -162,6 +164,8 @@
       };
     };
   };*/
+
+  chaotic.mesa-git.enable = true;
 
   environment = {
     systemPackages = with pkgs; [
