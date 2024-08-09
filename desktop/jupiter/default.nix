@@ -10,6 +10,7 @@ in
 {
   imports = [
     inputs.jovian.nixosModules.default
+    inputs.chaotic.nixosModules.default
 
     ./steam.nix
     ./tlp.nix
@@ -91,6 +92,8 @@ in
 
     fstrim.enable = true;
   };
+
+  chaotic.mesa-git.enable = true;
 
   environment = {
     #etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
