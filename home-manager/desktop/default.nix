@@ -16,8 +16,8 @@
       DisablePocket = true;
       DisplayBookmarksToolbar = "always";
       Preferences = {
-        #"gfx.webrender.all" = true;
-        #"media.ffmpeg.vaapi.enabled" = true;
+        "gfx.webrender.all" = true;
+        "media.ffmpeg.vaapi.enabled" = true;
         "browser.cache.disk.enable" = false;
       };
     };
