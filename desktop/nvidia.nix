@@ -26,6 +26,7 @@
             #patches = [ ../patches/nvidia/6.10.patch ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
+            # UPDATE: undone for now just to see if it's still necessary
             builder = ../patches/nvidia/builder.sh;
             passthru = prevAttrs'.passthru // {
               /*open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
@@ -33,7 +34,7 @@
                 #patches = (prevAttrs''.patches or [ ]) ++ [ ../patches/nvidia/6.10-open.patch ];
               });*/
               settings = prevAttrs'.passthru.settings.overrideAttrs (prevAttrs'': {
-                nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
+                #nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
               });
             };
           });
