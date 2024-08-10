@@ -14,16 +14,15 @@
         "yafas": "yafas"
       },
       "locked": {
-        "lastModified": 1723215873,
-        "narHash": "sha256-LuSdVL3GztsIERwdJdr4EeBP9Ris8jbdyL+AlIn8G48=",
-        "owner": "chaotic-cx",
+        "lastModified": 1723327044,
+        "narHash": "sha256-E/uQpzYYR7eAe5R+OowBzXVUFSC87aVcgZTT0Y8gydk=",
+        "owner": "pongo1231",
         "repo": "nyx",
-        "rev": "d756ef86407a02a6749cf4231acbc4cbf7448c61",
+        "rev": "47c5ccd2eeff503e3b0824c4851beee73daa258b",
         "type": "github"
       },
       "original": {
-        "owner": "chaotic-cx",
-        "ref": "nyxpkgs-unstable",
+        "owner": "pongo1231",
         "repo": "nyx",
         "type": "github"
       }

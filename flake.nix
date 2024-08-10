@@ -45,7 +45,7 @@
     };
 
     chaotic = {
-      url = "github:chaotic-cx/nyx/nyxpkgs-unstable";
+      url = "github:pongo1231/nyx";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
