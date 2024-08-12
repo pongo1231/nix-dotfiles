@@ -16,6 +16,32 @@
     (import ../samba.nix { sharePath = "/home/pongo/Public"; })
   ];
 
+  nixpkgs.overlays = [
+    (final: prev: {
+      kdePackages = prev.kdePackages.overrideScope (finalScope: prevScope: {
+        kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
+          src = final.fetchgit {
+            url = "https://invent.kde.org/plasma/kwin.git";
+            rev = "cfc0f05c942eec50d4596d5531b183356e504784";
+            hash = "sha256-kznSeO7yhyWT0f4YzNb8tiGukpitjQHYHQ5ahX2xPAA=";
+          };
+
+          buildInputs = prevAttrs.buildInputs ++ [
+            final.libcanberra
+            (prevScope.plasma-wayland-protocols.overrideAttrs (finalAttrs: prevAttrs: {
+              src = final.fetchgit {
+                url = "https://invent.kde.org/libraries/plasma-wayland-protocols.git";
+                rev = "f8915796a606f672fb3f456cde782f66d1adfa14";
+                hash = "sha256-KC1ocnCLF2fMUX4MkRs2spHwPbZc91j4ALBPzF/ahDw=";
+              };
+            }))
+          ];
+        });
+      });
+
+    })
+  ];
+
   boot = {
     initrd = {
       luks.devices."root" =
