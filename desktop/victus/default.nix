@@ -173,9 +173,29 @@
     };
   };
 
-  services.udev.extraRules = ''
-    SUBSYSTEM=="kvmfr", OWNER="pongo", GROUP="wheel", MODE="0600"
-  '';
+  services = {
+    udev.extraRules = ''
+      SUBSYSTEM=="kvmfr", OWNER="pongo", GROUP="wheel", MODE="0600"
+    '';
+
+    keyd = {
+      enable = true;
+      keyboards.main.settings = {
+        alt = {
+          kp1 = "end";
+          kp2 = "down";
+          kp3 = "pagedown";
+          kp4 = "left";
+          kp6 = "right";
+          kp7 = "home";
+          kp8 = "up";
+          kp9 = "pageup";
+          kp0 = "insert";
+          kpdot = "delete";
+        };
+      };
+    };
+  };
 
   # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
   # work around this silly bug by binding it to vfio-pci first and then rebinding it to snd_hda_intel
