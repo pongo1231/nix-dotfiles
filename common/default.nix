@@ -23,9 +23,11 @@
       trusted-users = [ "root" "@wheel" ];
       substituters = [
         "https://nix-community.cachix.org"
+        "https://pongo1231.cachix.org"
       ];
       trusted-public-keys = [
         "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+        "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
       ];
     };
     gc = {
