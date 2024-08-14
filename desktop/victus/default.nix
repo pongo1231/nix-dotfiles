@@ -59,8 +59,8 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.11-rc2";
-              modDirVersion = "6.11.0-rc2";
+              version = "6.11-rc3";
+              modDirVersion = "6.11.0-rc3";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "defaf1a2113a22b00dfa1abc0fd2014820eaf065";
@@ -68,7 +68,7 @@
               };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-+nfCerBqzOtf3xYVQfXA24r557V7v0Pe9J9p/R0DXOs=";
+                hash = "sha256-1aXnvurRZMqHhbkmlQhBdLdJMWTifrn49JI/40kmg4g=";
               };
             };
           });
