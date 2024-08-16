@@ -22,13 +22,18 @@
         kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
           src = final.fetchgit {
             url = "https://invent.kde.org/plasma/kwin.git";
-            rev = "cfc0f05c942eec50d4596d5531b183356e504784";
-            hash = "sha256-kznSeO7yhyWT0f4YzNb8tiGukpitjQHYHQ5ahX2xPAA=";
+            rev = "f9b88ee2f30f76caa38a24d311fab7887679a585";
+            hash = "sha256-IbfPTwwdGeFoSfjqSJoJ2T0+Zqee6VQuPyaAa1knLBk=";
           };
+
+          postPatch = prevAttrs.postPatch + ''
+            substituteInPlace src/wayland/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
+            substituteInPlace src/wayland/tools/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
+          '';
 
           buildInputs = prevAttrs.buildInputs ++ [
             final.libcanberra
-            (prevScope.plasma-wayland-protocols.overrideAttrs (finalAttrs: prevAttrs: {
+            (prevScope.plasma-wayland-protocols.overrideAttrs (prevAttrs: {
               src = final.fetchgit {
                 url = "https://invent.kde.org/libraries/plasma-wayland-protocols.git";
                 rev = "f8915796a606f672fb3f456cde782f66d1adfa14";
