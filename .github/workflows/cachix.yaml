@@ -1,4 +1,4 @@
-name: "Cachix-Jupiter"
+name: "Cachix"
 on:
   pull_request:
   push:
@@ -13,4 +13,5 @@ jobs:
         name: pongo1231
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
     - run: nix build .#nixosConfigurations.pongo-victus.pkgs.kdePackages.kwin
-    - run: nix build .#nixosConfigurations.pongo-victus.pkgs.mesa
+    - run: nix build .#nixosConfigurations.pongo-victus.pkgs.mesa.drivers
+    - run: nix build .#nixosConfigurations.pongo-jupiter.pkgs.mesa.drivers
