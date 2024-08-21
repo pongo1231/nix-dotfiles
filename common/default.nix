@@ -17,6 +17,8 @@
   nix = {
     extraOptions = ''
       experimental-features = ca-derivations nix-command flakes
+      keep-outputs = true
+      keep-derivations = true
     '';
     settings = {
       auto-optimise-store = true;
@@ -33,7 +35,6 @@
     gc = {
       automatic = true;
       dates = "weekly";
-      options = "--delete-older-than 7d";
       persistent = true;
     };
     nixPath = [
@@ -268,7 +269,6 @@
       fwupd
       #snapper
       duperemove
-      compsize
       nixos-shell
     ];
   };
