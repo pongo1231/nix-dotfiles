@@ -18,16 +18,16 @@
         let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
-            version = "560.31.02";
-            sha256_64bit = "sha256-0cwgejoFsefl2M6jdWZC+CKc58CqOXDjSi4saVPNKY0=";
-            openSha256 = "sha256-X5UzbIkILvo0QZlsTl9PisosgPj/XRmuuMH+cDohdZQ=";
-            settingsSha256 = "sha256-A3SzGAW4vR2uxT1Cv+Pn+Sbm9lLF5a/DGzlnPhxVvmE=";
+            version = "560.35.03";
+            sha256_64bit = "sha256-8pMskvrdQ8WyNBvkU/xPc/CtcYXCa7ekP73oGuKfH+M=";
+            openSha256 = "sha256-/32Zf0dKrofTmPZ3Ratw4vDM7B+OgpC4p7s+RHUjCrg=";
+            settingsSha256 = "sha256-kQsvDgnxis9ANFmwIwB7HX5MkIAcpEEAHc8IBOLdXvk=";
             persistencedSha256 = "";
             #patches = [ ../patches/nvidia/6.10.patch ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
             # UPDATE: undone for now just to see if it's still necessary
-            builder = ../patches/nvidia/builder.sh;
+            #builder = ../patches/nvidia/builder.sh;
             passthru = prevAttrs'.passthru // {
               /*open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
                 nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
