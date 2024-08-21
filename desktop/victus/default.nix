@@ -22,8 +22,8 @@
         kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
           src = final.fetchgit {
             url = "https://invent.kde.org/plasma/kwin.git";
-            rev = "f9b88ee2f30f76caa38a24d311fab7887679a585";
-            hash = "sha256-IbfPTwwdGeFoSfjqSJoJ2T0+Zqee6VQuPyaAa1knLBk=";
+            rev = "d56dbb04e60f06f4d48ea004ce0837db0d1720e3";
+            hash = "sha256-ixSWdaUkqkRDoyHaULfx1fb0R+/cZ9OtYea5XTx2TK0=";
           };
 
           postPatch = prevAttrs.postPatch + ''
@@ -64,8 +64,8 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.11-rc3";
-              modDirVersion = "6.11.0-rc3";
+              version = "6.11-rc4";
+              modDirVersion = "6.11.0-rc4";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "defaf1a2113a22b00dfa1abc0fd2014820eaf065";
@@ -73,7 +73,7 @@
               };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-1aXnvurRZMqHhbkmlQhBdLdJMWTifrn49JI/40kmg4g=";
+                hash = "sha256-EYb+AUCKtLWEh9IGcExa5ruP8gF2SVMqYk/Ub23VW7I=";
               };
             };
           });
@@ -100,6 +100,19 @@
           '';
         };
       }
+      /*{
+        name = "faster-schedutil";
+        patch = pkgs.fetchpatch {
+          url = "https://lore.kernel.org/linux-pm/20240820163512.1096301-1-qyousef@layalina.io/t.mbox";
+          hash = "sha256-ivIwXGpnxyv479iuh/TMslKP/6iGoiBhc7o0TKpoE3s=";
+          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
+          decode = pkgs.writeShellScript "decodeMbox" ''
+            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
+            export XDG_DATA_HOME="$TMPDIR"
+            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
+          '';
+        };
+      }*/
       /*{
         name = "fast-cppc";
         patch = pkgs.fetchpatch {
