@@ -53,6 +53,7 @@
       borgbackup
       gptfdisk
       iotop
+      inputs.nixpkgs-stable.legacyPackages.x86_64-linux.compsize
     ];
   };
 }

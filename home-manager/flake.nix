@@ -2,6 +2,8 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/nixos-unstable";
 
+    nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
