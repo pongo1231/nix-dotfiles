@@ -2,6 +2,8 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/nixos-unstable";
 
+    nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
+
     nixpkgs-desktop-kernel = {
       #url = "github:nixos/nixpkgs?rev=7cadc175919016d329c868915f1f1c42fc8fb817";
       follows = "nixpkgs";

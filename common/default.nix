@@ -270,6 +270,7 @@
       #snapper
       duperemove
       nixos-shell
+      inputs.nixpkgs-stable.legacyPackages.${system}.compsize
     ];
   };
 }

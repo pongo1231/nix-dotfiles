@@ -531,6 +531,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-stable": {
+      "locked": {
+        "lastModified": 1724316499,
+        "narHash": "sha256-Qb9MhKBUTCfWg/wqqaxt89Xfi6qTD3XpTzQ9eXi3JmE=",
+        "owner": "pongo1231",
+        "repo": "nixpkgs",
+        "rev": "797f7dc49e0bc7fab4b57c021cdf68f595e47841",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pongo1231",
+        "repo": "nixpkgs",
+        "rev": "797f7dc49e0bc7fab4b57c021cdf68f595e47841",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "chaotic": "chaotic",
@@ -545,7 +561,8 @@
         "nixpkgs-desktop-kernel": [
           "nixpkgs"
         ],
-        "nixpkgs-jupiter-kernel": "nixpkgs-jupiter-kernel"
+        "nixpkgs-jupiter-kernel": "nixpkgs-jupiter-kernel",
+        "nixpkgs-stable": "nixpkgs-stable"
       }
     },
     "rust-analyzer-src": {
