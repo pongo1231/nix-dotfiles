@@ -99,6 +99,15 @@
                         };
                       });
 
+                      duperemove = prev.duperemove.overrideAttrs (finalAttrs: prevAttrs: {
+                        src = final.fetchFromGitHub {
+                          owner = "markfasheh";
+                          repo = "duperemove";
+                          rev = "131bee3fda7112fdbe4419f24485022eff1815f3";
+                          hash = "sha256-h6TZGST+jaqsKOf/CRQ3cJQAWoyHS+v0Fniw+PoB5dI=";
+                        };
+                      });
+
                       virtiofsd = final.callPackage ./pkgs/qemu_7/virtiofsd.nix {
                         qemu = (final.callPackage ./pkgs/qemu_7 {
                           inherit (final.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
