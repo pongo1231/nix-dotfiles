@@ -6,6 +6,7 @@
 }:
 {
   boot = {
+    kernelPackages = pkgs.kernel.linuxPackages_latest;
     initrd.availableKernelModules = [ "ata_piix" "virtio_pci" "virtio_scsi" "xhci_pci" "sd_mod" "sr_mod" ];
     loader = {
       systemd-boot.enable = lib.mkForce false;
