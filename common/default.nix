@@ -69,7 +69,7 @@
         "kernel.core_pattern" = "/dev/null";
 
         # as per powertop's suggestion
-        "vm.dirty_writeback_centisecs" = 1500;
+        #"vm.dirty_writeback_centisecs" = 1500;
       };
     };
     initrd.systemd.enable = true;
