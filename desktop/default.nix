@@ -11,7 +11,7 @@
     }));
 
     kernelParams = [
-      "preempt=full"
+      #"preempt=full"
       #"workqueue.power_efficient=1"
     ];
 
