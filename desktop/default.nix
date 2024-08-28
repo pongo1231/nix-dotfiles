@@ -10,6 +10,11 @@
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
+    kernelParams = [
+      "preempt=full"
+      "workqueue.power_efficient=1"
+    ];
+
     extraModulePackages = with config.boot.kernelPackages; [ ];
 
     plymouth.enable = lib.mkDefault true;
