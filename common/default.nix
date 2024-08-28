@@ -84,6 +84,7 @@
       "ec_sys.write_support=1"
       "msr.allow_writes=on"
       "cgroup_no_v1=all"
+      "mitigations=off"
     ];
 
     extraModprobeConfig = ''

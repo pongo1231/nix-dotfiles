@@ -18,7 +18,6 @@
 
   boot = {
     kernelParams = [
-      "mitigations=off"
       "i915.mitigations=off"
     ];
 
