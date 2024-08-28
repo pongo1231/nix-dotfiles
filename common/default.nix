@@ -205,27 +205,6 @@
 
     services = {
       "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
-
-      "mglru-tweaks" = {
-        enable = true;
-        wantedBy = [ "multi-user.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${pkgs.bash}/bin/bash -c 'echo 1000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
-        };
-      };
-
-      # from cachyos
-      "pci-tweaks" = {
-        enable = true;
-        wantedBy = [ "multi-user.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.pciutils}/bin/setpci -v -s \'*:*\' latency_timer=20 && ${pkgs.pciutils}/bin/setpci -v -s \'0:0\' latency_timer=0 && ${pkgs.pciutils}/bin/setpci -v -d \"*:*:04xx\" latency_timer=80'";
-        };
-      };
     };
   };
 
