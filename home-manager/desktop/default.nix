@@ -65,6 +65,7 @@
       jamesdsp
       qbittorrent
       weston
+      mission-center
     ];
   };
 }
