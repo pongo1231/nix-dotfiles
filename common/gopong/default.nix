@@ -34,6 +34,13 @@
         root = "/srv/http";
       };
 
+      "tf.gopong.dev" = {
+        root = "/srv/http/tf";
+        extraConfig = ''
+          autoindex on;
+        '';
+      };
+
       "chaos.gopong.dev" = {
         forceSSL = true;
         enableACME = true;
