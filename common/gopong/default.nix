@@ -37,10 +37,11 @@
       };
 
       "tf.gopong.dev" = {
-        root = "/srv/http/tf";
+        rejectSSL = true;
         extraConfig = ''
           autoindex on;
         '';
+        root = "/srv/http/tf";
       };
 
       "chaos.gopong.dev" = {
