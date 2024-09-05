@@ -26,6 +26,8 @@
 
   services.nginx = {
     enable = true;
+    recommendedOptimisation = true;
+    recommendedTlsSettings = true;
     recommendedProxySettings = true;
     virtualHosts = {
       "gopong.dev" = {
