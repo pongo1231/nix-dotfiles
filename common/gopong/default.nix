@@ -30,6 +30,11 @@
     recommendedTlsSettings = true;
     recommendedProxySettings = true;
     virtualHosts = {
+      "_" = {
+        rejectSSL = true;
+        globalRedirect = "gopong.dev";
+      };
+
       "gopong.dev" = {
         forceSSL = true;
         enableACME = true;
