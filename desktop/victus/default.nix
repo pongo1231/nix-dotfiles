@@ -22,8 +22,8 @@
         kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
           src = final.fetchgit {
             url = "https://invent.kde.org/plasma/kwin.git";
-            rev = "d56dbb04e60f06f4d48ea004ce0837db0d1720e3";
-            hash = "sha256-ixSWdaUkqkRDoyHaULfx1fb0R+/cZ9OtYea5XTx2TK0=";
+            rev = "4f03404fb3ebebf416f2af33f06a0b9b8c5eae65";
+            hash = "sha256-oA3DOKJf6B6Jmm+wGvI4k6zvoMISh5N8lfAeST62ql0=";
           };
 
           postPatch = prevAttrs.postPatch + ''
