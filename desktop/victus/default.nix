@@ -43,7 +43,6 @@
           ];
         });
       });
-
     })
   ];
 
@@ -57,6 +56,7 @@
         };
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
+
     kernelPackages = lib.mkForce
       (pkgs.kernel.linuxPackages_testing.extend
         (finalAttrs: prevAttrs: {
@@ -64,12 +64,12 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.11-rc5";
-              modDirVersion = "6.11.0-rc5";
+              version = "6.11-rc6";
+              modDirVersion = "6.11.0-rc6";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "e8784b0aef62cd6117e1c93c64d060e4c7314a1f";
-                hash = "sha256-ZnGaybzccfNCi8krIViyLxGSMK9GCX4D8VkafRVso+4=";
+                rev = "b831f83e40a24f07c8dcba5be408d93beedc820f";
+                hash = "sha256-vPPTmqNMvExq1Zhs+KeUhx1I/EQ4WMDFIr7VYUUO9ck=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -79,79 +79,40 @@
           });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
         }));
-    kernelPatches = [
-      {
-        name = "dgpu passthrough fix";
-        patch = null;
-        extraConfig = ''
-          HSA_AMD_SVM n
-        '';
-      }
-      {
-        name = "no-latency-multiplier";
-        patch = pkgs.fetchpatch {
-          url = "https://lore.kernel.org/linux-pm/20240728192659.58115-1-qyousef@layalina.io/t.mbox";
-          hash = "sha256-kDKpSmZflv0B0023W35Gm9F3D8BYfiltLOrDMxQS23s=";
-          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
-          decode = pkgs.writeShellScript "decodeMbox" ''
-            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
-            export XDG_DATA_HOME="$TMPDIR"
-            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
-          '';
-        };
-      }
-      /*{
-        name = "faster-schedutil";
-        patch = pkgs.fetchpatch {
-          url = "https://lore.kernel.org/linux-pm/20240820163512.1096301-1-qyousef@layalina.io/t.mbox";
-          hash = "sha256-ivIwXGpnxyv479iuh/TMslKP/6iGoiBhc7o0TKpoE3s=";
-          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
-          decode = pkgs.writeShellScript "decodeMbox" ''
-            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
-            export XDG_DATA_HOME="$TMPDIR"
-            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
-          '';
-        };
-      }*/
-      /*{
-        name = "fast-cppc";
-        patch = pkgs.fetchpatch {
-          url = "https://lore.kernel.org/linux-pm/e717feea3df0a178a9951491040a76c79a00556c.1716649578.git.Xiaojian.Du@amd.com/t.mbox";
-          hash = "sha256-csR9oBePEhB5J9bTpZUHd0qyU9gopspvaXvIUJDAfdY=";
-          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
-          decode = pkgs.writeShellScript "decodeMbox" ''
-            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
-            export XDG_DATA_HOME="$TMPDIR"
-            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
-          '';
-        };
-      }
-      {
-        name = "fast-aes-gcm";
-        patch = pkgs.fetchpatch {
-          url = "https://lore.kernel.org/lkml/20240602222221.176625-1-ebiggers@kernel.org/t.mbox";
-          hash = "sha256-ijYl+f0x/v52zlelxJWm9/heXqliOPEODX8Xt3w+f5I=";
-          # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
-          decode = pkgs.writeShellScript "decodeMbox" ''
-            export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
-            export XDG_DATA_HOME="$TMPDIR"
-            gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
-          '';
-        };
-      }
-      {
-        name = "6.10 fixups";
-        patch = null;
-        extraConfig = ''
-          DRM_DP_AUX_CHARDEV n
-          DRM_DISPLAY_DP_AUX_CHARDEV y
 
-          DRM_DP_CEC n
-          DRM_DISPLAY_DP_AUX_CEC y
+    kernelPatches =
+      let
+        # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
+        decode = pkgs.writeShellScript "decodeMbox" ''
+          export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
+          export XDG_DATA_HOME="$TMPDIR"
+          gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
         '';
-      }*/
-    ];
+      in
+      [
+        {
+          name = "dgpu passthrough fix";
+          patch = null;
+          extraConfig = ''
+            HSA_AMD_SVM n
+          '';
+        }
+        {
+          name = "no-latency-multiplier";
+          patch = pkgs.fetchpatch {
+            url = "https://lore.kernel.org/linux-pm/20240728192659.58115-1-qyousef@layalina.io/t.mbox";
+            hash = "sha256-kDKpSmZflv0B0023W35Gm9F3D8BYfiltLOrDMxQS23s=";
+            inherit decode;
+          };
+        }
+        {
+          name = "amdgpu-perf-fix";
+          patch = ../../patches/linux/drm-fixes-2024-09-06.patch;
+        }
+      ];
+
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
+
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
@@ -217,7 +178,7 @@
   # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
   # work around this silly bug by binding it to vfio-pci first and then rebinding it to snd_hda_intel
   /*systemd = {
-    services.dgpu-audio-to-snd_hda_intel = {
+          services.dgpu-audio-to-snd_hda_intel = {
       enable = true;
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
@@ -225,8 +186,8 @@
         RemainAfterExit = true;
         ExecStart = "${pkgs.bash}/bin/bash -c 'echo 0000:01:00.1 > /sys/bus/pci/drivers/vfio-pci/unbind && echo 0000:01:00.1 > /sys/bus/pci/drivers/snd_hda_intel/bind'";
       };
-    };
-  };*/
+          };
+        };*/
 
   chaotic.mesa-git.enable = true;
 
