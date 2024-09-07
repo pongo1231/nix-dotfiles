@@ -105,8 +105,8 @@
                         src = final.fetchFromGitHub {
                           owner = "markfasheh";
                           repo = "duperemove";
-                          rev = "131bee3fda7112fdbe4419f24485022eff1815f3";
-                          hash = "sha256-h6TZGST+jaqsKOf/CRQ3cJQAWoyHS+v0Fniw+PoB5dI=";
+                          rev = "8d5921e084bfeb10bc736e6c7eabe219cc9a8326";
+                          hash = "sha256-27L3CigG5BLJLMQxUGZtHNreZ9fV1CxZr7iD9BVwgrU=";
                         };
                       });
 
