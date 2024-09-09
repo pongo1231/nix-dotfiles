@@ -195,6 +195,7 @@
     systemPackages = with pkgs; [
       looking-glass-client
       virtiofsd
+      kde-rounded-corners
     ];
   };
 }
