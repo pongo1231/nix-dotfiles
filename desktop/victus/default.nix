@@ -189,7 +189,7 @@
           };
         };*/
 
-  chaotic.mesa-git.enable = true;
+  #chaotic.mesa-git.enable = true;
 
   environment = {
     systemPackages = with pkgs; [
