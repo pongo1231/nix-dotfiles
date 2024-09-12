@@ -12,7 +12,6 @@
 
   home.packages = with pkgs; [
     vscodium
-    ghidra
     nvtop
     intel-gpu-tools
     amdgpu_top

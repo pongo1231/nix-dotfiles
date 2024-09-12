@@ -5,8 +5,8 @@
     nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
 
     nixpkgs-desktop-kernel = {
-      #url = "github:nixos/nixpkgs/7cadc175919016d329c868915f1f1c42fc8fb817";
-      follows = "nixpkgs";
+      url = "github:pongo1231/nixpkgs/aa31761c4a1aae12dd70a7e2fb1ef0b8a627afdf";
+      #follows = "nixpkgs";
     };
 
     jovian = {
@@ -14,7 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/ac63aa91609080ea542349b6f958e512196b8ba5";
+    nixpkgs-jupiter-kernel.url = "github:pongo1231/nixpkgs/ab9ed1c45580dfc7d05f22abbf4cd4e28b655a52";
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
@@ -109,6 +109,8 @@
                           hash = "sha256-27L3CigG5BLJLMQxUGZtHNreZ9fV1CxZr7iD9BVwgrU=";
                         };
                       });
+
+                      openvswitch = prev.openvswitch.override { kernel = null; };
 
                       virtiofsd = final.callPackage ./pkgs/qemu_7/virtiofsd.nix {
                         qemu = (final.callPackage ./pkgs/qemu_7 {
