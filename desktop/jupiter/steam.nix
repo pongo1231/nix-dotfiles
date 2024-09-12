@@ -9,7 +9,7 @@
   jovian = {
     devices.steamdeck.enable = true;
     steamos = {
-      enableVendorRadv = true;
+      enableVendorRadv = false;
       enableMesaPatches = true;
     };
     steam = {
