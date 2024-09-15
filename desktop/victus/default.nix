@@ -19,7 +19,7 @@
   nixpkgs.overlays = [
     (final: prev: {
       kdePackages = prev.kdePackages.overrideScope (finalScope: prevScope: {
-        kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
+        /*kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
           src = final.fetchgit {
             url = "https://invent.kde.org/plasma/kwin.git";
             rev = "4f03404fb3ebebf416f2af33f06a0b9b8c5eae65";
@@ -41,7 +41,7 @@
               };
             }))
           ];
-        });
+        });*/
       });
     })
   ];
