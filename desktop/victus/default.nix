@@ -64,17 +64,17 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.11-rc6";
-              modDirVersion = "6.11.0-rc6";
-              src = pkgs.fetchgit {
+              version = "6.11";
+              modDirVersion = "6.11.0";
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "b831f83e40a24f07c8dcba5be408d93beedc820f";
                 hash = "sha256-vPPTmqNMvExq1Zhs+KeUhx1I/EQ4WMDFIr7VYUUO9ck=";
-              };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-EYb+AUCKtLWEh9IGcExa5ruP8gF2SVMqYk/Ub23VW7I=";
               };*/
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-QIbHTLWI5CaStQmuoJ1k7odQUDRLsWNGY10ek0eKo8M=";
+              };
             };
           });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
@@ -105,9 +105,13 @@
             inherit decode;
           };
         }
-        {
+        /*{
           name = "amdgpu-perf-fix";
           patch = ../../patches/linux/drm-fixes-2024-09-06.patch;
+        }*/
+        {
+          name = "shrink-file-struct";
+          patch = ../../patches/linux/shrink-file-struct.patch;
         }
       ];
 
