@@ -66,15 +66,15 @@
             argsOverride = rec {
               version = "6.11";
               modDirVersion = "6.11.0";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "b831f83e40a24f07c8dcba5be408d93beedc820f";
-                hash = "sha256-vPPTmqNMvExq1Zhs+KeUhx1I/EQ4WMDFIr7VYUUO9ck=";
-              };*/
-              src = pkgs.fetchzip {
+                rev = "4a39ac5b7d62679c07a3e3d12b0f6982377d8a7d";
+                hash = "sha256-zowQ+7flQ+SCQ4OgOxJ3rF65u8qgZL+ywxY0C4jtXWc=";
+              };
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-QIbHTLWI5CaStQmuoJ1k7odQUDRLsWNGY10ek0eKo8M=";
-              };
+              };*/
             };
           });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
@@ -90,29 +90,13 @@
         '';
       in
       [
-        {
+        /*{
           name = "dgpu passthrough fix";
           patch = null;
           extraConfig = ''
             HSA_AMD_SVM n
           '';
-        }
-        {
-          name = "no-latency-multiplier";
-          patch = pkgs.fetchpatch {
-            url = "https://lore.kernel.org/linux-pm/20240728192659.58115-1-qyousef@layalina.io/t.mbox";
-            hash = "sha256-kDKpSmZflv0B0023W35Gm9F3D8BYfiltLOrDMxQS23s=";
-            inherit decode;
-          };
-        }
-        /*{
-          name = "amdgpu-perf-fix";
-          patch = ../../patches/linux/drm-fixes-2024-09-06.patch;
         }*/
-        {
-          name = "shrink-file-struct";
-          patch = ../../patches/linux/shrink-file-struct.patch;
-        }
       ];
 
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
