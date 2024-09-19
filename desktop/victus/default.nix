@@ -10,7 +10,7 @@
     inputs.chaotic.nixosModules.default
 
     ../amd.nix
-    (import ../nvidia.nix { platform = "amd"; })
+    #(import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
     ../libvirt.nix
     (import ../samba.nix { sharePath = "/home/pongo/Public"; })
@@ -64,12 +64,12 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.11";
+              version = "6.12-git";
               modDirVersion = "6.11.0";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "4a39ac5b7d62679c07a3e3d12b0f6982377d8a7d";
-                hash = "sha256-zowQ+7flQ+SCQ4OgOxJ3rF65u8qgZL+ywxY0C4jtXWc=";
+                rev = "2004cef11ea072838f99bd95cefa5c8e45df0847";
+                hash = "sha256-9qkixflnBQ3KRuqsX3ewqnNtC4J4d+S3iDtUzO5FfFw=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -104,6 +104,7 @@
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
       "amdgpu.ppfeaturemask=0xffffffff"
+      "modprobe.blacklist=nouveau"
       #"vfio_pci.ids=10de:22bd" # dgpu audio
       "kvmfr.static_size_mb=32"
     ];
@@ -131,7 +132,11 @@
       };
     };
 
-  hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+  hardware = {
+    cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+
+    xpadneo.enable = lib.mkForce false;
+  };
 
   programs.fish = {
     shellAliases = {
