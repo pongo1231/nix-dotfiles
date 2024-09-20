@@ -10,7 +10,7 @@
     inputs.chaotic.nixosModules.default
 
     ../amd.nix
-    #(import ../nvidia.nix { platform = "amd"; })
+    (import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
     ../libvirt.nix
     (import ../samba.nix { sharePath = "/home/pongo/Public"; })
