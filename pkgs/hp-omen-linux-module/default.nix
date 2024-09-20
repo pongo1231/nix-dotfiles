@@ -5,13 +5,13 @@
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "hp-omen-linux-module";
-  version = "rebase-6.12";
+  version = "rebase-6.11";
 
   src = fetchFromGitHub {
     owner = "pongo1231";
     repo = "hp-omen-linux-module";
     rev = finalAttrs.version;
-    sha256 = "sha256-NwtObMqezlU+yJL65dxUbhdfzUEtJkytwkx7lfraEZ0=";
+    sha256 = "sha256-y4y30LBObDgvU5AH+jIF9AmwjSE3L4sKtsqgymmBeNk=";
   };
 
   setSourceRoot = ''

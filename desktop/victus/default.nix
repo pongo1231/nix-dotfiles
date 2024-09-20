@@ -64,17 +64,17 @@
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
             argsOverride = rec {
-              version = "6.12-git";
+              version = "6.11";
               modDirVersion = "6.11.0";
-              src = pkgs.fetchgit {
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "2004cef11ea072838f99bd95cefa5c8e45df0847";
                 hash = "sha256-9qkixflnBQ3KRuqsX3ewqnNtC4J4d+S3iDtUzO5FfFw=";
-              };
-              /*src = pkgs.fetchzip {
+              };*/
+              src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-QIbHTLWI5CaStQmuoJ1k7odQUDRLsWNGY10ek0eKo8M=";
-              };*/
+              };
             };
           });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
@@ -83,7 +83,8 @@
     kernelPatches =
       let
         # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
-        decode = pkgs.writeShellScript "decodeMbox" ''
+        decode = pkgs.writeShellScript "
+                  decodeMbox " ''
           export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
           export XDG_DATA_HOME="$TMPDIR"
           gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
@@ -97,6 +98,22 @@
             HSA_AMD_SVM n
           '';
         }*/
+        {
+          name = "no-latency-multiplier";
+          patch = pkgs.fetchpatch {
+            url = "https://lore.kernel.org/linux-pm/20240728192659.58115-1-qyousef@layalina.io/t.mbox";
+            hash = "sha256-kDKpSmZflv0B0023W35Gm9F3D8BYfiltLOrDMxQS23s=";
+            inherit decode;
+          };
+        }
+        /*{
+          name = "amdgpu-perf-fix";
+          patch = ../../patches/linux/drm-fixes-2024-09-06.patch;
+         }*/
+        {
+          name = "shrink-file-struct";
+          patch = ../../patches/linux/shrink-file-struct.patch;
+        }
       ];
 
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
@@ -192,3 +209,4 @@
     ];
   };
 }
+
