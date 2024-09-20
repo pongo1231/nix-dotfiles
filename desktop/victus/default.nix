@@ -117,8 +117,8 @@
         {
           name = "bore-6.11";
           patch = pkgs.fetchpatch {
-            url = "https://raw.githubusercontent.com/firelzrd/bore-scheduler/refs/heads/main/patches/stable/linux-6.11-bore/0001-linux6.11.y-bore5.2.11.patch";
-            hash = "sha256-bhpkbiIa9tcupU1SBaaZprzPANMpSpVFb2ikcTywtFw=";
+            url = "https://raw.githubusercontent.com/firelzrd/bore-scheduler/refs/heads/main/patches/testing/linux-6.11-bore/0001-linux6.11.y-bore5.3.0-rc4.patch";
+            hash = "sha256-nm+IxyxbsKKueJBLbkkrY7raI64MRnwV0g5WwXQSMF0=";
           };
         }
       ];
