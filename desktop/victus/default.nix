@@ -114,6 +114,13 @@
           name = "shrink-file-struct";
           patch = ../../patches/linux/shrink-file-struct.patch;
         }
+        {
+          name = "bore-6.11";
+          patch = pkgs.fetchpatch {
+            url = "https://raw.githubusercontent.com/firelzrd/bore-scheduler/refs/heads/main/patches/stable/linux-6.11-bore/0001-linux6.11.y-bore5.2.11.patch";
+            hash = "sha256-bhpkbiIa9tcupU1SBaaZprzPANMpSpVFb2ikcTywtFw=";
+          };
+        }
       ];
 
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
