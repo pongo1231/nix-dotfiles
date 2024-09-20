@@ -68,7 +68,7 @@
     xpadneo.enable = true;
   };
 
-  #programs.cfs-zen-tweaks.enable = true;
+  programs.cfs-zen-tweaks.enable = true;
 
   services = {
     displayManager.sddm = {
