@@ -33,7 +33,7 @@
     sessionVariables.NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs:$\{NIX_PATH:+:$NIX_PATH}";
 
     packages = with pkgs; [
-      gotop
+      btop
       p7zip
       pciutils
       killall
