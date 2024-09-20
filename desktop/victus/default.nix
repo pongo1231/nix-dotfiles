@@ -119,7 +119,7 @@
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
 
     kernelParams = [
-      #"amdgpu.dcdebugmask=0x10"
+      "amdgpu.dcdebugmask=0x10"
       #"amdgpu.ppfeaturemask=0xffffffff"
       "modprobe.blacklist=nouveau"
       #"vfio_pci.ids=10de:22bd" # dgpu audio
