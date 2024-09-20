@@ -11,12 +11,8 @@
     }));
 
     kernelParams = [
-      "workqueue.power_efficient=1"
-      "preempt=full"
-      "nohz_full=0-N"
-      "threadirqs"
-      "rcu_nocbs=0-N"
-      "rcutree.enable_rcu_lazy=1"
+      #"preempt=full"
+      #"workqueue.power_efficient=1"
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [ ];
