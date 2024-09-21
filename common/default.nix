@@ -144,6 +144,8 @@
       enable = true;
       package = pkgs.nix-ld-rs;
     };
+
+    usbtop.enable = true;
   };
 
   services = {
