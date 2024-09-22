@@ -11,8 +11,7 @@
     }));
 
     kernelParams = [
-      #"preempt=full"
-      #"workqueue.power_efficient=1"
+      "workqueue.power_efficient=1"
       "preempt=full"
       "nohz_full=0-N"
       "threadirqs"
