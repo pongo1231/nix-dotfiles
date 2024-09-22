@@ -156,16 +156,10 @@
       };
     };
 
-  hardware = {
-    cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+  hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
-    xpadneo.enable = lib.mkForce false;
-  };
-
-  programs.fish = {
-    shellAliases = {
-      nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";
-    };
+  programs.fish.shellAliases = {
+    nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";
   };
 
   services = {
