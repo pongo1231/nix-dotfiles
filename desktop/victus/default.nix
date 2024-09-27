@@ -10,7 +10,7 @@
     inputs.chaotic.nixosModules.default
 
     ../amd.nix
-    (import ../nvidia.nix { platform = "amd"; })
+    #(import ../nvidia.nix { platform = "amd"; })
     ../tlp.nix
     ../libvirt.nix
     (import ../samba.nix { sharePath = "/home/pongo/Public"; })
@@ -58,23 +58,23 @@
     };
 
     kernelPackages = lib.mkForce
-      (pkgs.kernel.linuxPackages_testing.extend
+      (pkgs.kernel.linuxPackages_latest.extend
         (finalAttrs: prevAttrs: {
           kernel = prevAttrs.kernel.override (prevAttrs': {
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
-            argsOverride = rec {
-              version = "6.11";
+            argsOverride = {
+              version = "6.12";
               modDirVersion = "6.11.0";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "2004cef11ea072838f99bd95cefa5c8e45df0847";
-                hash = "sha256-9qkixflnBQ3KRuqsX3ewqnNtC4J4d+S3iDtUzO5FfFw=";
-              };*/
-              src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-QIbHTLWI5CaStQmuoJ1k7odQUDRLsWNGY10ek0eKo8M=";
+                rev = "eee280841e1c8188fe9af5536c193d07d184e874";
+                hash = "sha256-DbCBWmOHQA/h/RlLackDqfeauK4werdwk+zkSywRkxE=";
               };
+              /*src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-vi+GMKXCVxz/kcDlPTFg+GgQFcYWGB1WrIIAlTffiJ0=";
+              };*/
             };
           });
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
@@ -99,28 +99,35 @@
           '';
         }*/
         {
+          name = "Fix 6.12 build";
+          patch = null;
+          extraConfig = ''
+            I2C_DESIGNWARE_PLATFORM m
+          '';
+        }
+        /*{
           name = "no-latency-multiplier";
           patch = pkgs.fetchpatch {
             url = "https://lore.kernel.org/linux-pm/20240728192659.58115-1-qyousef@layalina.io/t.mbox";
             hash = "sha256-kDKpSmZflv0B0023W35Gm9F3D8BYfiltLOrDMxQS23s=";
             inherit decode;
           };
-        }
+        }*/
         /*{
           name = "amdgpu-perf-fix";
           patch = ../../patches/linux/drm-fixes-2024-09-06.patch;
          }*/
-        {
+        /*{
           name = "shrink-file-struct";
           patch = ../../patches/linux/shrink-file-struct.patch;
-        }
-        {
+        }*/
+        /*{
           name = "bore-6.11";
           patch = pkgs.fetchpatch {
             url = "https://raw.githubusercontent.com/firelzrd/bore-scheduler/refs/heads/main/patches/testing/linux-6.11-bore/0001-linux6.11.y-bore5.3.0-rc4.patch";
             hash = "sha256-nm+IxyxbsKKueJBLbkkrY7raI64MRnwV0g5WwXQSMF0=";
           };
-        }
+        }*/
       ];
 
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
@@ -156,7 +163,11 @@
       };
     };
 
-  hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+  hardware = {
+    cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
+
+    xpadneo.enable = lib.mkForce false;
+  };
 
   programs.fish.shellAliases = {
     nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";

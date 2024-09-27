@@ -5,7 +5,7 @@
     nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
 
     nixpkgs-desktop-kernel = {
-      url = "github:pongo1231/nixpkgs/aa31761c4a1aae12dd70a7e2fb1ef0b8a627afdf";
+      url = "github:pongo1231/nixpkgs/d08d8fdd1c3107ea9c00003b03972c35fb6ab175";
       #follows = "nixpkgs";
     };
 
