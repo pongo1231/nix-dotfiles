@@ -53,6 +53,7 @@
       borgbackup
       gptfdisk
       iotop
+      micro
     ];
   };
 }
