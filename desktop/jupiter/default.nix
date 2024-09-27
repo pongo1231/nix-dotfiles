@@ -36,7 +36,7 @@ in
       }
     ];
     kernelParams = [
-      "amdgpu.ppfeaturemask=0xffffffff"
+      #"amdgpu.ppfeaturemask=0xffffffff"
     ];
 
     /*zfs = {
