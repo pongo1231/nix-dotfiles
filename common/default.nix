@@ -85,6 +85,7 @@
       "msr.allow_writes=on"
       "cgroup_no_v1=all"
       "mitigations=off"
+      "nosoftlockup"
     ];
 
     extraModprobeConfig = ''
