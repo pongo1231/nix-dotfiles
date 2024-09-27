@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:pongo1231/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
     nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
 
@@ -14,7 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-jupiter-kernel.url = "github:pongo1231/nixpkgs/ab9ed1c45580dfc7d05f22abbf4cd4e28b655a52";
+    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/d08d8fdd1c3107ea9c00003b03972c35fb6ab175";
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
