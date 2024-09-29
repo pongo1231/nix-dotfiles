@@ -12,4 +12,4 @@ jobs:
       with:
         name: pongo1231
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-    - run: nix build .#nixosConfigurations.pongo-victus.pkgs.lix .#nixosConfigurations.pongo-victus.pkgs.kdePackages.kwin .#nixosConfigurations.pongo-victus.pkgs.mesa .#nixosConfigurations.pongo-jupiter.pkgs.mesa
+    - run: nix build .#nixosConfigurations.victus.pkgs.lix .#nixosConfigurations.victus.pkgs.kdePackages.kwin .#nixosConfigurations.victus.pkgs.mesa .#nixosConfigurations.jupiter.pkgs.mesa
