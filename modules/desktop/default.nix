@@ -11,7 +11,7 @@
     }));
 
     kernelParams = [
-      #"preempt=full"
+      "preempt=full"
       "nohz_full=0-N"
       "threadirqs"
       "rcu_nocbs=0-N"
