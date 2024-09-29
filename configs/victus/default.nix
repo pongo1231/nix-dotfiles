@@ -136,6 +136,7 @@
       "amdgpu.dcdebugmask=0x10"
       #"amdgpu.ppfeaturemask=0xffffffff"
       "modprobe.blacklist=nouveau"
+      "modprobe.blacklist=btusb"
       #"vfio_pci.ids=10de:22bd" # dgpu audio
       "kvmfr.static_size_mb=32"
     ];
