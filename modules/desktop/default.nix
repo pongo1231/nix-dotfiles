@@ -100,7 +100,7 @@
     };
   };
 
-  environment.systemPackages = with pkgs; [
+  environment.systemPackages = with pkgs; with pkgs.kdePackages; [
     kdePackages.kcmutils
     kdePackages.kdeconnect-kde
     sddm-kcm
