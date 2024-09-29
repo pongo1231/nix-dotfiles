@@ -13,7 +13,8 @@ in
     inputs.chaotic.nixosModules.default
 
     ./steam.nix
-    ./tlp.nix
+    #./tlp.nix
+    ../../modules/power.nix
   ];
 
   boot = {

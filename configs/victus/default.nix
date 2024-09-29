@@ -9,11 +9,11 @@
   imports = [
     inputs.chaotic.nixosModules.default
 
-    ../amd.nix
-    #(import ../nvidia.nix { platform = "amd"; })
-    ../tlp.nix
-    ../libvirt.nix
-    (import ../samba.nix { sharePath = "/home/pongo/Public"; })
+    ../../modules/amdcpu.nix
+    #(import ../../modules/nvidia.nix { platform = "amd"; })
+    ../../modules/power.nix
+    ../../modules/libvirt.nix
+    (import ../../modules/samba.nix { sharePath = "/home/pongo/Public"; })
   ];
 
   nixpkgs.overlays = [

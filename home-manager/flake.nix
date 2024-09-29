@@ -11,7 +11,7 @@
   outputs =
     { ... }@inputs:
     let
-      commonConfig = config: inputs.home-manager.lib.homeManagerConfiguration {
+      commonConfig = { info, config ? null }: inputs.home-manager.lib.homeManagerConfiguration {
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
         extraSpecialArgs = { inherit inputs; };
 
@@ -25,16 +25,18 @@
             ];
 
             home = {
-              username = config.user;
-              homeDirectory = "/home/${config.user}";
+              username = info.user;
+              homeDirectory = "/home/${info.user}";
             };
           })
 
-          ./common
-        ] ++ inputs.nixpkgs.lib.optionals (config ? config && config.config != null) [
-          config.config
-        ] ++ inputs.nixpkgs.lib.optionals (config ? type && config.type == "desktop") [
-          ./desktop
+          ./modules/common
+        ] ++ inputs.nixpkgs.lib.optionals (config != null) [
+          config
+        ] ++ inputs.nixpkgs.lib.optionals (info ? type && (info.type == "graphical" || info.type == "desktop")) [
+          ./modules/graphical
+        ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type == "desktop") [
+          ./modules/desktop
         ];
       };
     in
@@ -42,10 +44,11 @@
       homeConfigurations = inputs.nixpkgs.lib.concatMapAttrs
         (name: value:
           let
-            config = (import ./configs/${name});
+            info = (import ./configs/${name}/info.nix);
           in
           {
-            "${config.user}@${inputs.nixpkgs.lib.removeSuffix ".nix" name}" = commonConfig config;
+            "${info.user}@${name}" = commonConfig { inherit info; }
+              // inputs.nixpkgs.lib.attrsets.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; };
           })
         (builtins.readDir ./configs);
     };

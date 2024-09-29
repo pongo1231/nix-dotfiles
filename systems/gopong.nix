@@ -1,3 +1,0 @@
-{
-  config = ../common/gopong;
-}

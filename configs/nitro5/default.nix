@@ -3,14 +3,15 @@
 , ...
 }: {
   imports = [
-    ../../modules/nbfc-linux
+    #../../modules/nbfc-linux
 
-    ../intel.nix
-    (import ../nvidia.nix { platform = "intel"; })
-    ../tlp.nix
-    ../samba.nix
-    ../libvirt.nix
-    (import ../samba.nix { sharePath = "/media/ssd/public"; })
+    ../../modules/intelcpu.nix
+    ../../modules/intelgpu.nix
+    (import ../../modules/nvidia.nix { platform = "intel"; })
+    ../../modules/power.nix
+    ../../modules/samba.nix
+    ../../modules/libvirt.nix
+    (import ../../modules/samba.nix { sharePath = "/media/ssd/public"; })
 
     ./gpu_passthrough.nix
     ./snapper.nix

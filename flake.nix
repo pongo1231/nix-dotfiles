@@ -131,24 +131,22 @@
 
                 inputs.lix-module.nixosModules.default
 
-                ./common
+                ./modules/common
               ] ++ inputs.nixpkgs.lib.optionals (config != null) [
                 config
               ] ++ inputs.nixpkgs.lib.optionals (type == "desktop") [
-                ./desktop
+                ./modules/desktop
               ] ++ inputs.nixpkgs.lib.optionals (type == "vm") [
-                ./vm
+                ./modules/vm
               ];
             };
         in
         inputs.nixpkgs.lib.concatMapAttrs
           (name: value:
-            let
-              hostName = inputs.nixpkgs.lib.removeSuffix ".nix" name;
-            in
             {
-              ${hostName} = commonSystem ((import ./systems/${name}) // { inherit hostName; });
+              ${name} = commonSystem ((import ./configs/${name}/info.nix) // { hostName = name; }
+                // inputs.nixpkgs.lib.attrsets.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; });
             })
-          (builtins.readDir ./systems);
+          (builtins.readDir ./configs);
     };
 }
