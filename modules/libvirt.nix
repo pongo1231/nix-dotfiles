@@ -10,13 +10,13 @@
         package = pkgs.qemu_kvm.overrideAttrs
           (finalAttrs: previousAttrs: {
             # for gvt-g to work
-            cephSupport = true;
+            /*cephSupport = true;
             patches =
               previousAttrs.patches or [ ]
               ++ [
                 #../patches/qemu/qemu-device-fix.patch
                 ../patches/qemu/qemu_higher_gui_refresh_rate.patch
-              ];
+              ];*/
           });
         verbatimConfig = ''
           cgroup_device_acl = [
