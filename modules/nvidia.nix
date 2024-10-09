@@ -23,18 +23,24 @@
             openSha256 = "sha256-/32Zf0dKrofTmPZ3Ratw4vDM7B+OgpC4p7s+RHUjCrg=";
             settingsSha256 = "sha256-kQsvDgnxis9ANFmwIwB7HX5MkIAcpEEAHc8IBOLdXvk=";
             persistencedSha256 = "";
-            #patches = [ ../patches/nvidia/6.10.patch ];
+            patches = [ ../patches/nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
             builder = ../patches/nvidia/builder.sh;
+
+            patches = prevAttrs'.patches ++ [
+
+            ];
+
             passthru = prevAttrs'.passthru // {
-              /*open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
-                nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
-                #patches = (prevAttrs''.patches or [ ]) ++ [ ../patches/nvidia/6.10-open.patch ];
-              });*/
-              settings = prevAttrs'.passthru.settings.overrideAttrs (prevAttrs'': {
-                #nativeBuildInputs = prevAttrs''.nativeBuildInputs ++ [ pkgs.vulkan-headers ];
+              open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
+                patches = prevAttrs''.patches ++ [
+                  ../patches/nvidia/open/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch
+                  ../patches/nvidia/open/0007-Replace-PageSwapCache-for-6.12-kernel.patch
+                ];
               });
+
+              #settings = prevAttrs'.passthru.settings.overrideAttrs (prevAttrs'': {});
             };
           });
         })).nvidiaPackages.production;
@@ -44,11 +50,15 @@
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
-    } // lib.optionalAttrs (platform == "intel") {
-      intelBusId = "PCI:0:2:0";
-    } // lib.optionalAttrs (platform == "amd") {
-      amdgpuBusId = "PCI:5:0:0";
-    };
+    } // lib.optionalAttrs
+      (platform == "intel")
+      {
+        intelBusId = "PCI:0:2:0";
+      } // lib.optionalAttrs
+      (platform == "amd")
+      {
+        amdgpuBusId = "PCI:5:0:0";
+      };
     powerManagement = {
       enable = true;
       finegrained = true;
@@ -66,3 +76,4 @@
     '')
   ];
 }
+

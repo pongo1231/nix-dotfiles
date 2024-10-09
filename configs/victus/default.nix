@@ -10,7 +10,7 @@
     inputs.chaotic.nixosModules.default
 
     ../../modules/amdcpu.nix
-    #(import ../../modules/nvidia.nix { platform = "amd"; })
+    (import ../../modules/nvidia.nix { platform = "amd"; })
     ../../modules/power.nix
     ../../modules/libvirt.nix
     (import ../../modules/samba.nix { sharePath = "/home/pongo/Public"; })
@@ -58,25 +58,35 @@
     };
 
     kernelPackages = lib.mkForce
-      (pkgs.kernel.linuxPackages_latest.extend
+      (pkgs.kernel.linuxPackages_testing.extend
         (finalAttrs: prevAttrs: {
           kernel = prevAttrs.kernel.override (prevAttrs': {
             #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
             ignoreConfigErrors = true;
-            argsOverride = {
-              version = "6.12";
-              modDirVersion = "6.11.0";
-              src = pkgs.fetchgit {
+            argsOverride =
+              let
+                version = "6.12-rc2";
+              in
+              {
+                inherit version;
+                modDirVersion = "6.12.0-rc2";
+                /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "eee280841e1c8188fe9af5536c193d07d184e874";
                 hash = "sha256-DbCBWmOHQA/h/RlLackDqfeauK4werdwk+zkSywRkxE=";
+                };*/
+                src = pkgs.fetchzip {
+                  url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                  hash = "sha256-3SREZ3EHC0poAH3CyA0HY5xnh8lbCIl3S6cqZx3ckbM=";
+                };
               };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-vi+GMKXCVxz/kcDlPTFg+GgQFcYWGB1WrIIAlTffiJ0=";
-              };*/
-            };
           });
+
+          kvmfr = prevAttrs.kvmfr.overrideAttrs
+            (prevAttrs': {
+              patches = [ ];
+            });
+
           hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
         }));
 
