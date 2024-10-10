@@ -12,7 +12,7 @@
 
   home.packages = with pkgs; [
     vscodium
-    nvtop
+    nvtopPackages.full
     intel-gpu-tools
     amdgpu_top
     (discord.overrideAttrs (prevAttrs: {
