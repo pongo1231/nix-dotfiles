@@ -26,5 +26,6 @@
     mangohud
     gamescope
     httm
+    remmina
   ];
 }
