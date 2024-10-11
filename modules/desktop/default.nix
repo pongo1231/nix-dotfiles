@@ -6,12 +6,12 @@
 }:
 {
   boot = {
-    kernelPackages = lib.lowPrio (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
+    kernelPackages = lib.mkDefault (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
     }));
 
     kernelParams = [
-      "preempt=full"
+      #"preempt=full"
       /*"nohz_full=0-N"
       "threadirqs"
       "rcu_nocbs=0-N"
