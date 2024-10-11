@@ -40,7 +40,7 @@
       "flatpak.sh" = {
         text = ''
           #!/bin/sh
-          flatpak "''${@:1}"
+          flatpak --user "''${@:1}"
         '';
         executable = true;
       };
