@@ -15,27 +15,33 @@ in
     ./steam.nix
     #./tlp.nix
     ../../modules/power.nix
+    ../../modules/wicked_kernel.nix
   ];
 
   boot = {
-    kernelPackages = lib.mkForce ((kernelPkgs.linuxPackagesFor (kernelPkgs.callPackage "${inputs.jovian}/pkgs/linux-jovian" {
-      kernelPatches = with kernelPkgs; [
-        kernelPatches.bridge_stp_helper
-        kernelPatches.request_key_helper
-        kernelPatches.export-rt-sched-migrate
-      ];
-    })).extend (finalAttrs: prevAttrs: {
-      #zfs = pkgs.callPackage ../../pkgs/zfs { inherit (prevAttrs) zfs; };
-    }));
     kernelPatches = [
       {
-        name = "amd pstate";
-        patch = null;
+        name = "jupiter-color-management";
+        patch = pkgs.fetchpatch {
+          url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
+          hash = "sha256-/ji6JF5gOY/wyaiT39kXKyWTbCMyI0CAvbvgQgWORnk=";
+        };
         extraConfig = ''
-          X86_AMD_PSTATE y
+          AMD_PRIVATE_COLOR y
+        '';
+      }
+      {
+        name = "jupiter-mfd";
+        patch = ../../patches/linux/6.12/jupiter-mfd.patch;
+        extraConfig = ''
+          LEDS_STEAMDECK m
+          EXTCON_STEAMDECK m
+          MFD_STEAMDECK m
+          SENSORS_STEAMDECK m
         '';
       }
     ];
+
     kernelParams = [
       #"amdgpu.ppfeaturemask=0xffffffff"
     ];
@@ -83,6 +89,8 @@ in
 
     #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
     #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
+
+    xpadneo.enable = lib.mkForce false;
   };
 
   networking.hostId = "a1f92a1f";
