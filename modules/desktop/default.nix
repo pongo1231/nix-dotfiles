@@ -86,6 +86,8 @@
     };
 
     flatpak.enable = true;
+
+    seatd.enable = true;
   };
 
   systemd.services = {
