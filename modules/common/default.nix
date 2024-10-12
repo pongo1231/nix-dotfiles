@@ -185,7 +185,7 @@
     users.pongo = {
       isNormalUser = true;
       home = "/home/pongo";
-      extraGroups = [ "wheel" "input" "libvirtd" "networkmanager" "podman" "video" "tty" "dialout" ];
+      extraGroups = [ "wheel" "input" "libvirtd" "networkmanager" "podman" "video" "tty" "dialout" "seat" ];
       hashedPassword = "$6$jTFwtF9QaSc/j2sI$W9nNE/f6QK1NE3uinzPYBffvxck86lmKf772auIG/8uESh.H1U9ZUUndd.DpW0tZKWOehfpJOxnGOVIxqmvh00";
     };
   };
