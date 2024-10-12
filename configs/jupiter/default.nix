@@ -99,6 +99,12 @@ in
     displayManager.sddm.enable = false;
 
     fstrim.enable = true;
+
+    sunshine = {
+      enable = true;
+      capSysAdmin = true;
+      autoStart = false;
+    };
   };
 
   #chaotic.mesa-git.enable = true;
