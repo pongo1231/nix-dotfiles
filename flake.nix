@@ -107,9 +107,17 @@
                         src = final.fetchFromGitHub {
                           owner = "markfasheh";
                           repo = "duperemove";
-                          rev = "8d5921e084bfeb10bc736e6c7eabe219cc9a8326";
-                          hash = "sha256-27L3CigG5BLJLMQxUGZtHNreZ9fV1CxZr7iD9BVwgrU=";
+                          rev = "b76d569c4b96d4afb745b7970f87fbb0193b2792";
+                          hash = "sha256-stieItCithFmvUf5IcaX39vTQwy6q+jm5utCt45i+9g=";
                         };
+
+                        nativeBuildInputs = prevAttrs.nativeBuildInputs ++ [ final.libbsd final.xxHash ];
+
+                        postPatch = ''
+                          substituteInPlace Makefile --replace "--std=c23" "--std=c2x"
+                          substituteInPlace results-tree.h --replace "// TODO: delete this" "#include \"list.h\""
+                          substituteInPlace results-tree.h --replace "struct list_head {" "struct list_head_b {"
+                        '';
                       });
 
                       openvswitch = prev.openvswitch.override { kernel = null; };
