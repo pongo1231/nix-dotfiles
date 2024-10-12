@@ -27,5 +27,6 @@
     gamescope
     httm
     remmina
+    moonlight-qt
   ];
 }
