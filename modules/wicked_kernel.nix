@@ -8,20 +8,20 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.12-rc2";
+              version = "6.12-rc3";
             in
             {
               inherit version;
-              modDirVersion = "6.12.0-rc2";
-              /*src = pkgs.fetchgit {
+              modDirVersion = "6.12.0-rc3";
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "eee280841e1c8188fe9af5536c193d07d184e874";
-                hash = "sha256-DbCBWmOHQA/h/RlLackDqfeauK4werdwk+zkSywRkxE=";
-                };*/
-              src = pkgs.fetchzip {
+                rev = "3d5ad2d4eca337e80f38df77de89614aa5aaceb9";
+                hash = "sha256-wHF3nBUhA0ZAokFNw7bFg/jL43aHLhpLE35K+kiUi2E=";
+              };
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-3SREZ3EHC0poAH3CyA0HY5xnh8lbCIl3S6cqZx3ckbM=";
-              };
+              };*/
             };
         });
       }));
@@ -82,12 +82,40 @@
         {
           name = "preempt-lazy";
           patch = pkgs.fetchpatch {
-            url = "https://lore.kernel.org/all/20241009110733.5S5z_mq0@linutronix.de/t.mbox";
+            url = "https://lore.kernel.org/all/20241007074609.447006177@infradead.org/t.mbox";
             hash = "sha256-S455vwyf9cnLMHquE2CnFg3n/2VCa5+C3ukZpiK2gLg=";
             inherit decode;
           };
           extraConfig = ''
             PREEMPT_LAZY y
+          '';
+        }
+        {
+          name = "preempt-lazy2";
+          patch = pkgs.fetchpatch {
+            url = "https://lore.kernel.org/lkml/20241009105709.887510-1-bigeasy@linutronix.de/t.mbox";
+            hash = "sha256-np95Cl2zWMgwj3ZmtwvtcnLyMMc3Zm8bvoaeCG+l99I=";
+            inherit decode;
+          };
+        }
+        {
+          name = "amd-color-management";
+          patch = pkgs.fetchpatch {
+            url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
+            hash = "sha256-/ji6JF5gOY/wyaiT39kXKyWTbCMyI0CAvbvgQgWORnk=";
+          };
+          extraConfig = ''
+            AMD_PRIVATE_COLOR y
+          '';
+        }
+        {
+          name = "jupiter-mfd";
+          patch = ../patches/linux/6.12/jupiter-mfd.patch;
+          extraConfig = ''
+            LEDS_STEAMDECK m
+            EXTCON_STEAMDECK m
+            MFD_STEAMDECK m
+            SENSORS_STEAMDECK m
           '';
         }
       ];

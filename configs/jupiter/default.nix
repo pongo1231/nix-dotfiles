@@ -19,29 +19,6 @@ in
   ];
 
   boot = {
-    kernelPatches = [
-      {
-        name = "jupiter-color-management";
-        patch = pkgs.fetchpatch {
-          url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
-          hash = "sha256-/ji6JF5gOY/wyaiT39kXKyWTbCMyI0CAvbvgQgWORnk=";
-        };
-        extraConfig = ''
-          AMD_PRIVATE_COLOR y
-        '';
-      }
-      {
-        name = "jupiter-mfd";
-        patch = ../../patches/linux/6.12/jupiter-mfd.patch;
-        extraConfig = ''
-          LEDS_STEAMDECK m
-          EXTCON_STEAMDECK m
-          MFD_STEAMDECK m
-          SENSORS_STEAMDECK m
-        '';
-      }
-    ];
-
     kernelParams = [
       #"amdgpu.ppfeaturemask=0xffffffff"
     ];
