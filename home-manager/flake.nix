@@ -12,7 +12,7 @@
     { ... }@inputs:
     let
       commonConfig = { info, config ? null }: inputs.home-manager.lib.homeManagerConfiguration {
-        pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+        pkgs = inputs.nixpkgs.legacyPackages.${if info.system != null then info.system else "x86_64-linux"};
         extraSpecialArgs = { inherit inputs; };
 
         modules = [
