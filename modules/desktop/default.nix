@@ -6,9 +6,9 @@
 }:
 {
   boot = {
-    kernelPackages = lib.mkDefault (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
+    /*kernelPackages = lib.mkDefault (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
       #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
-    }));
+    }));*/
 
     kernelParams = [
       #"preempt=full"

@@ -55,7 +55,11 @@
       efi.canTouchEfiVariables = true;
       timeout = lib.mkForce 0;
     };
+
     tmp.useTmpfs = true;
+
+    kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
+
     kernel = {
       sysctl = {
         # https://wiki.archlinux.org/title/Zram#Optimizing_swap_on_zram
