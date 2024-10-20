@@ -5,7 +5,7 @@
     nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
 
     nixpkgs-desktop-kernel = {
-      url = "github:pongo1231/nixpkgs/ade9b654ce5e07c77b7ac08e5df08e49be9bce13";
+      url = "github:pongo1231/nixpkgs/632fcb59da0b4a1a270037d9959ef25475d7fdab";
       #follows = "nixpkgs";
     };
 
@@ -14,7 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/ade9b654ce5e07c77b7ac08e5df08e49be9bce13";
+    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/632fcb59da0b4a1a270037d9959ef25475d7fdab";
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
