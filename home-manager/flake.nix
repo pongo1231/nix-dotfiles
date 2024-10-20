@@ -47,8 +47,8 @@
             info = (import ./configs/${name}/info.nix);
           in
           {
-            "${info.user}@${name}" = commonConfig { inherit info; }
-              // inputs.nixpkgs.lib.attrsets.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; };
+            "${info.user}@${name}" = commonConfig ({ inherit info; }
+              // inputs.nixpkgs.lib.attrsets.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; });
           })
         (builtins.readDir ./configs);
     };
