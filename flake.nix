@@ -56,12 +56,8 @@
     { ... }@inputs: {
       nixosConfigurations =
         let
-          commonSystem = { type ? null, hostName, config ? null }:
-            let
-              system = "x86_64-linux";
-            in
+          commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
             inputs.nixpkgs.lib.nixosSystem {
-              inherit system;
               specialArgs = { inherit inputs; };
 
               modules = [
@@ -132,7 +128,12 @@
                     })
                   ];
 
-                  nixpkgs.config.allowUnfree = true;
+                  nixpkgs = {
+                    hostPlatform.system = system;
+                    #buildPlatform.system = "x86_64-linux";
+
+                    config.allowUnfree = true;
+                  };
 
                   networking = {
                     inherit hostName;
