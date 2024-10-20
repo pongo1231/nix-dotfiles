@@ -15,8 +15,8 @@
               modDirVersion = "6.12.0-rc3";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "3d5ad2d4eca337e80f38df77de89614aa5aaceb9";
-                hash = "sha256-wHF3nBUhA0ZAokFNw7bFg/jL43aHLhpLE35K+kiUi2E=";
+                rev = "715ca9dd687f89ddaac8ec8ccb3b5e5a30311a99";
+                hash = "sha256-R/DQU0wPDnOeHP+my4P3HGsJ0BM2m2l4u8VIiITWVhY=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -97,6 +97,10 @@
             hash = "sha256-np95Cl2zWMgwj3ZmtwvtcnLyMMc3Zm8bvoaeCG+l99I=";
             inherit decode;
           };
+        }
+        {
+          name = "lightweight-guard-pages";
+          patch = ../patches/linux/6.12/lightweight-guard-pages.patch;
         }
         {
           name = "amd-color-management";
