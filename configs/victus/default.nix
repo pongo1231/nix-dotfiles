@@ -85,6 +85,10 @@
       hp-omen-linux-module
       ryzen-smu
     ];
+
+    binfmt.emulatedSystems = [
+      "aarch64-linux"
+    ];
   };
 
   fileSystems =
