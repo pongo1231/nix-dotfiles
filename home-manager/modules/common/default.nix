@@ -54,6 +54,7 @@
       gptfdisk
       iotop
       micro
+      pstree
     ];
   };
 }
