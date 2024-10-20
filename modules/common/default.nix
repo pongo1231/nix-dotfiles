@@ -47,6 +47,7 @@
 
   boot = {
     loader = {
+      grub.enable = lib.mkDefault false;
       systemd-boot = {
         enable = true;
         configurationLimit = 10;
