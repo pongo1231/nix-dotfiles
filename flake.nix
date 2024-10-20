@@ -140,9 +140,9 @@
                   };
                 })
 
-                inputs.lix-module.nixosModules.default
-
                 ./modules/common
+              ] ++ inputs.nixpkgs.lib.optionals (system == "x86_64-linux") [
+                inputs.lix-module.nixosModules.default
               ] ++ inputs.nixpkgs.lib.optionals (config != null) [
                 config
               ] ++ inputs.nixpkgs.lib.optionals (type == "desktop") [
