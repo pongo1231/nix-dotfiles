@@ -33,6 +33,9 @@
         pciutils
         libpulseaudio
       ];
+      extraPythonPackages = pythonPackages: with pythonPackages; [
+        click
+      ];
     };
   };
 }
