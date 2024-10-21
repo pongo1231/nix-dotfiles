@@ -32,6 +32,7 @@
         procps
         pciutils
         libpulseaudio
+        xorg.xprop
       ];
       extraPythonPackages = pythonPackages: with pythonPackages; [
         click
