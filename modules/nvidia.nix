@@ -18,12 +18,12 @@
         let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
-            version = "560.35.03";
-            sha256_64bit = "sha256-8pMskvrdQ8WyNBvkU/xPc/CtcYXCa7ekP73oGuKfH+M=";
-            openSha256 = "sha256-/32Zf0dKrofTmPZ3Ratw4vDM7B+OgpC4p7s+RHUjCrg=";
-            settingsSha256 = "sha256-kQsvDgnxis9ANFmwIwB7HX5MkIAcpEEAHc8IBOLdXvk=";
+            version = "565.57.01";
+            sha256_64bit = "sha256-buvpTlheOF6IBPWnQVLfQUiHv4GcwhvZW3Ks0PsYLHo=";
+            openSha256 = "sha256-/tM3n9huz1MTE6KKtTCBglBMBGGL/GOHi5ZSUag4zXA=";
+            settingsSha256 = "sha256-H7uEe34LdmUFcMcS6bz7sbpYhg9zPCb/5AmZZFTx1QA=";
             persistencedSha256 = "";
-            patches = [ ../patches/nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch ];
+            #patches = [ ../patches/nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
             builder = ../patches/nvidia/builder.sh;
@@ -35,8 +35,8 @@
             passthru = prevAttrs'.passthru // {
               open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
                 patches = prevAttrs''.patches ++ [
-                  ../patches/nvidia/open/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch
-                  ../patches/nvidia/open/0007-Replace-PageSwapCache-for-6.12-kernel.patch
+                  #../patches/nvidia/open/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch
+                  #../patches/nvidia/open/0007-Replace-PageSwapCache-for-6.12-kernel.patch
                 ];
               });
 
