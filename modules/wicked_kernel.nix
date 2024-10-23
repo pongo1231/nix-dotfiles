@@ -13,15 +13,15 @@
             {
               inherit version;
               modDirVersion = "6.12.0-rc4";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "715ca9dd687f89ddaac8ec8ccb3b5e5a30311a99";
-                hash = "sha256-R/DQU0wPDnOeHP+my4P3HGsJ0BM2m2l4u8VIiITWVhY=";
-              };*/
-              src = pkgs.fetchzip {
+                rev = "c2ee9f594da826bea183ed14f2cc029c719bf4da";
+                hash = "sha256-mtrKclMNMlZ09sIV5KsLg5NS+gi3e9g1LFszgyAIfW0=";
+              };
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-k0+IByRl5Qp0Q73uF0N2lRJNiPEQV0z9pFmEUu/SJWM=";
-              };
+              };*/
             };
         });
       }));
@@ -101,6 +101,10 @@
         {
           name = "lightweight-guard-pages";
           patch = ../patches/linux/6.12/lightweight-guard-pages.patch;
+        }
+        {
+          name = "crypto-optimizations";
+          patch = ../patches/linux/6.12/crypto-optimizations.patch;
         }
         {
           name = "amd-color-management";
