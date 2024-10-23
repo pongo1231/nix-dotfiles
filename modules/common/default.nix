@@ -110,7 +110,13 @@
   };
 
   networking = {
-    networkmanager.enable = true;
+    networkmanager = {
+      enable = true;
+      wifi = {
+        backend = "iwd";
+        powersave = true;
+      };
+    };
 
     firewall.enable = false;
   };
