@@ -131,5 +131,7 @@
           '';
         }
       ];
+
+    kernelParams = [ "preempt=lazy" ];
   };
 }
