@@ -64,6 +64,10 @@
           patches = [ ];
         });
 
+      ryzen-smu = prevAttrs.ryzen-smu.overrideAttrs (prevAttrs': {
+        patches = (prevAttrs'.patches or [ ]) ++ [ ../../patches/ryzen-smu/phoenix-new-pm-table-version.patch ];
+      });
+
       hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
     }));
 
