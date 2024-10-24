@@ -1,0 +1,28 @@
+From 69bd0cad4a09103026cb4f0e603b44f58782085a Mon Sep 17 00:00:00 2001
+From: Hamza Mahfooz <hamza.mahfooz@amd.com>
+Date: Tue, 1 Oct 2024 13:58:13 -0400
+Subject: [PATCH] drm/amd/display: [WIP] increase vblank off delay
+
+...
+
+Signed-off-by: Hamza Mahfooz <hamza.mahfooz@amd.com>
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 87429766c70f..b0bff24f4797 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -8372,7 +8372,7 @@ static void manage_dm_interrupts(struct amdgpu_device *adev,
+ 						      timing->h_total,
+ 						      timing->pix_clk_100hz);
+ 
+-			config.offdelay_ms = offdelay ?: 30;
++			config.offdelay_ms = offdelay + 500;
+ 		} else {
+ 			config.disable_immediate = true;
+ 		}
+-- 
+2.46.0
+

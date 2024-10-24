@@ -107,6 +107,10 @@
           patch = ../patches/linux/6.12/crypto-optimizations.patch;
         }
         {
+          name = "psr-fix";
+          patch = ../patches/linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
+        }
+        {
           name = "amd-color-management";
           patch = pkgs.fetchpatch {
             url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
