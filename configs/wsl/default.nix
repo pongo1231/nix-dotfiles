@@ -8,6 +8,15 @@
     inputs.nixos-wsl.nixosModules.default
   ];
 
+  boot = {
+    loader.systemd-boot.enable = lib.mkForce false;
+    binfmt.emulatedSystems = [
+      "aarch64-linux"
+    ];
+  };
+
+  system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
+
   wsl = {
     enable = true;
     defaultUser = "pongo";
@@ -27,7 +36,9 @@
 
   systemd.oomd.enable = lib.mkForce false;
 
-  boot.loader.systemd-boot.enable = lib.mkForce false;
+  networking.networkmanager.enable = lib.mkForce false;
 
-  system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
+  services.fwupd.enable = lib.mkForce false;
+
+  virtualisation.waydroid.enable = lib.mkForce false;
 }
