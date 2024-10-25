@@ -90,13 +90,19 @@
                       libvirt = prev.libvirt.override (prevAttrs: { enableXen = false; });
 
                       distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-                        version = "1.7.2.1";
+                        version = "1.8.0";
                         src = final.fetchFromGitHub {
                           owner = "89luca89";
                           repo = "distrobox";
                           rev = finalAttrs.version;
-                          hash = "sha256-H2jeKs0h4ZAcP33HB5jptlubq62cwnjPK2wSlEIfFWA=";
+                          hash = "sha256-e9oSTk+UlkrkRSipqjjMqwtxEvEZffVBmlSTmsIT7cU=";
                         };
+
+                        installPhase = ''
+                          substituteInPlace ./distrobox-generate-entry \
+                                --replace-fail 'icon_default="''${XDG_DATA_HOME:-''${HOME}/.local' 'icon_default="''${XDG_DATA_HOME:-''$out'
+                          ./install -P $out
+                        '';
                       });
 
                       duperemove = prev.duperemove.overrideAttrs (finalAttrs: prevAttrs: {
