@@ -25,6 +25,8 @@
       options = [ "noatime" "compress-force=zstd:6" ];
     };
 
+  networking.networkmanager.enable = lib.mkForce false;
+
   services.nginx = {
     enable = true;
     recommendedOptimisation = true;
