@@ -91,6 +91,8 @@
     seatd.enable = true;
   };
 
+  virtualisation.waydroid.enable = true;
+
   systemd.services = {
     "mglru-tweaks" = {
       enable = true;

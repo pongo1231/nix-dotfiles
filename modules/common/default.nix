@@ -184,11 +184,7 @@
 
   security.rtkit.enable = true;
 
-  virtualisation = {
-    podman.enable = true;
-
-    waydroid.enable = true;
-  };
+  virtualisation.podman.enable = true;
 
   users = {
     mutableUsers = false;

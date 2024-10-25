@@ -39,6 +39,4 @@
   networking.networkmanager.enable = lib.mkForce false;
 
   services.fwupd.enable = lib.mkForce false;
-
-  virtualisation.waydroid.enable = lib.mkForce false;
 }

@@ -19,6 +19,4 @@
   };
 
   services.fwupd.enable = lib.mkForce false;
-
-  virtualization.waydroid.enable = lib.mkForce false;
 }
