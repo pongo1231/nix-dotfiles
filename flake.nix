@@ -103,8 +103,8 @@
                         src = final.fetchFromGitHub {
                           owner = "markfasheh";
                           repo = "duperemove";
-                          rev = "b76d569c4b96d4afb745b7970f87fbb0193b2792";
-                          hash = "sha256-stieItCithFmvUf5IcaX39vTQwy6q+jm5utCt45i+9g=";
+                          rev = "c389d3d5309ed5641aae8cb5d7a255019396bf86";
+                          hash = "sha256-5yyeHGttSlVro+j72VUBoscwIPd4scsQ8X2He4xWFJU=";
                         };
 
                         nativeBuildInputs = prevAttrs.nativeBuildInputs ++ [ final.libbsd final.xxHash ];
