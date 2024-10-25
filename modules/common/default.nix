@@ -169,8 +169,6 @@
 
     openssh.enable = true;
 
-    fwupd.enable = true;
-
     journald.extraConfig = ''
       SystemMaxUse=1G
       SystemMaxFileSize=50M
@@ -255,7 +253,6 @@
       inputs.nix-alien.packages.${system}.nix-index-update
       inputs.nix-be.packages.${system}.nix-be
       ddcutil
-      fwupd
       #snapper
       duperemove
       nixos-shell

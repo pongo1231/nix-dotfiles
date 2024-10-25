@@ -37,6 +37,4 @@
   systemd.oomd.enable = lib.mkForce false;
 
   networking.networkmanager.enable = lib.mkForce false;
-
-  services.fwupd.enable = lib.mkForce false;
 }

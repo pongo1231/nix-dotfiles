@@ -17,6 +17,4 @@
 
     kernelParams = [ "preempt=none" ];
   };
-
-  services.fwupd.enable = lib.mkForce false;
 }
