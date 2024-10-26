@@ -15,8 +15,8 @@
               modDirVersion = "6.12.0-rc4";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "c2ee9f594da826bea183ed14f2cc029c719bf4da";
-                hash = "sha256-mtrKclMNMlZ09sIV5KsLg5NS+gi3e9g1LFszgyAIfW0=";
+                rev = "850925a8133c73c4a2453c360b2c3beb3bab67c9";
+                hash = "sha256-HypxpamjR3ONpTNx10SexudqkB6YnAjqAI+ILcXYyYc=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
