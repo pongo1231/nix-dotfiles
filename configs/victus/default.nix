@@ -141,6 +141,12 @@
         };
       };
     };
+
+    sunshine = {
+      enable = true;
+      capSysAdmin = true;
+      autoStart = false;
+    };
   };
 
   # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
