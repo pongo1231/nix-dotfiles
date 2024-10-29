@@ -34,7 +34,5 @@
     ];
   };
 
-  systemd.oomd.enable = lib.mkForce false;
-
   networking.networkmanager.enable = lib.mkForce false;
 }

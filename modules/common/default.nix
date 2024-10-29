@@ -211,8 +211,6 @@
       "w /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
     ];
 
-    oomd.enable = true;
-
     services = {
       "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
     };
