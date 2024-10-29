@@ -18,4 +18,9 @@
 
     kernelParams = [ "preempt=none" ];
   };
+
+  networking = {
+    networkmanager.enable = lib.mkForce false;
+    wireless.iwd.enable = true;
+  };
 }
