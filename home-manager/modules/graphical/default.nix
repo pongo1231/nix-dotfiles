@@ -67,6 +67,7 @@
       weston
       mission-center
       looking-glass-client
+      virt-manager
     ];
   };
 }
