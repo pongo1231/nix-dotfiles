@@ -196,14 +196,6 @@
     };
   };
 
-  xdg.portal = {
-    enable = true;
-    xdgOpenUsePortal = true;
-    extraPortals = with pkgs; [
-      xdg-desktop-portal-gtk
-    ];
-  };
-
   systemd = {
     # yanked from linux-zen
     tmpfiles.rules = [

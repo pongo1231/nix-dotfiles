@@ -93,6 +93,11 @@
 
   virtualisation.waydroid.enable = true;
 
+  xdg.portal = {
+    enable = true;
+    xdgOpenUsePortal = true;
+  };
+
   systemd.services = {
     "mglru-tweaks" = {
       enable = true;
