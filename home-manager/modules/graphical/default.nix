@@ -66,6 +66,7 @@
       qbittorrent
       weston
       mission-center
+      looking-glass-client
     ];
   };
 }
