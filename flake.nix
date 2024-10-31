@@ -5,7 +5,7 @@
     nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
 
     nixpkgs-desktop-kernel = {
-      url = "github:pongo1231/nixpkgs/632fcb59da0b4a1a270037d9959ef25475d7fdab";
+      url = "github:pongo1231/nixpkgs/95447fbb609a5d91380b048e130ec1533613151d";
       #follows = "nixpkgs";
     };
 
@@ -14,7 +14,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/632fcb59da0b4a1a270037d9959ef25475d7fdab";
+    nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/95447fbb609a5d91380b048e130ec1533613151d";
 
     lix = {
       url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
