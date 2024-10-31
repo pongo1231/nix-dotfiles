@@ -16,6 +16,14 @@
 
     nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/632fcb59da0b4a1a270037d9959ef25475d7fdab";
 
+    lix = {
+      url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        lix.url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
+      };
+    };
+
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
       inputs.nixpkgs.follows = "nixpkgs";

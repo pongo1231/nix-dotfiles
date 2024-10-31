@@ -7,6 +7,7 @@
 }:
 {
   imports = [
+    inputs.lix.nixosModules.default
     inputs.chaotic.nixosModules.default
 
     ../../modules/amdcpu.nix

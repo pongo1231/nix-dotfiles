@@ -15,7 +15,7 @@
   system.stateVersion = "22.05";
 
   nix = {
-    package = pkgs.lix;
+    package = lib.mkDefault pkgs.lix;
     extraOptions = ''
       experimental-features = ca-derivations nix-command flakes
       keep-outputs = true
