@@ -4,19 +4,19 @@
     (final: prev: {
       linuxPackages_wicked = (final.kernel.linuxPackages_testing.extend (finalAttrs: prevAttrs: {
         kernel = prevAttrs.kernel.override (prevAttrs': {
-          #kernelPatches = builtins.filter (x: !lib.hasPrefix "rust" x.name) prevAttrs'.kernelPatches;
+          kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.12-rc4";
+              version = "6.12-rc5";
             in
             {
               inherit version;
-              modDirVersion = "6.12.0-rc4";
+              modDirVersion = "6.12.0-rc5";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "850925a8133c73c4a2453c360b2c3beb3bab67c9";
-                hash = "sha256-HypxpamjR3ONpTNx10SexudqkB6YnAjqAI+ILcXYyYc=";
+                rev = "0fc810ae3ae110f9e2fcccce80fc8c8d62f97907";
+                hash = "sha256-3rlrUJ45fHeG3gptGWtwNS7hNUEYnKIEwPWVTPaUW4I=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
