@@ -1,8 +1,9 @@
 { platform }:
-{ config
+{ inputs
+, patch
+, config
 , pkgs
 , lib
-, inputs
 , ...
 }:
 {
@@ -23,10 +24,10 @@
             openSha256 = "sha256-/tM3n9huz1MTE6KKtTCBglBMBGGL/GOHi5ZSUag4zXA=";
             settingsSha256 = "sha256-H7uEe34LdmUFcMcS6bz7sbpYhg9zPCb/5AmZZFTx1QA=";
             persistencedSha256 = "";
-            #patches = [ ../patches/nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch ];
+            #patches = [ (patch /nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch) ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-            builder = ../patches/nvidia/builder.sh;
+            builder = (patch /nvidia/builder.sh);
 
             patches = prevAttrs'.patches ++ [
 
@@ -35,8 +36,8 @@
             passthru = prevAttrs'.passthru // {
               open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
                 patches = prevAttrs''.patches ++ [
-                  #../patches/nvidia/open/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch
-                  #../patches/nvidia/open/0007-Replace-PageSwapCache-for-6.12-kernel.patch
+                  #(patch /nvidia/open/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch)
+                  #(patch /nvidia/open/0007-Replace-PageSwapCache-for-6.12-kernel.patch)
                 ];
               });
 

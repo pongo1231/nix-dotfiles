@@ -67,7 +67,12 @@
           commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
             inputs.nixpkgs.lib.nixosSystem
               {
-                specialArgs = { inherit inputs; };
+                specialArgs = {
+                  inherit inputs;
+                  module = file: modules/${file};
+                  patch = file: patches/${file};
+                  pkg = file: pkgs/${file};
+                };
 
                 modules = [
                   ({ ...

@@ -1,7 +1,8 @@
-{ config
+{ inputs
+, pkg
+, config
 , pkgs
 , lib
-, inputs
 , ...
 }:
 {
@@ -11,7 +12,7 @@
 
   boot = {
     /*kernelPackages = lib.mkDefault (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
-      #zfs = pkgs.callPackage ../pkgs/zfs { inherit (prevAttrs) zfs; };
+      #zfs = pkgs.callPackage (pkg /zfs) { inherit (prevAttrs) zfs; };
     }));*/
 
     kernelParams = [
@@ -35,8 +36,8 @@
       '';
 
       zfs = {
-      package = pkgs.kernel.callPackage ../pkgs/zfs { configFile = "user"; };
-      modulePackage = pkgs.kernel.callPackage ../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; };
+      package = pkgs.kernel.callPackage (pkg /zfs) { configFile = "user"; };
+      modulePackage = pkgs.kernel.callPackage (pkg /zfs) { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; };
       removeLinuxDRM = true;
       };
 

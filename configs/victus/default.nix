@@ -1,20 +1,23 @@
-{ config
+{ inputs
+, module
+, patch
+, pkg
+, config
 , lib
 , pkgs
 , modulesPath
-, inputs
 , ...
 }:
 {
   imports = [
     inputs.chaotic.nixosModules.default
 
-    ../../modules/amdcpu.nix
-    (import ../../modules/nvidia.nix { platform = "amd"; })
-    ../../modules/power.nix
-    ../../modules/libvirt.nix
-    (import ../../modules/samba.nix { sharePath = "/home/pongo/Public"; })
-    ../../modules/wicked_kernel.nix
+    (module /amdcpu.nix)
+    (import (module /nvidia.nix) { platform = "amd"; })
+    (module /power.nix)
+    (module /libvirt.nix)
+    (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
+    (module /wicked_kernel.nix)
   ];
 
   nixpkgs.overlays = [
@@ -65,10 +68,10 @@
         });
 
       ryzen-smu = prevAttrs.ryzen-smu.overrideAttrs (prevAttrs': {
-        patches = (prevAttrs'.patches or [ ]) ++ [ ../../patches/ryzen-smu/phoenix-new-pm-table-version.patch ];
+        patches = (prevAttrs'.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
       });
 
-      hp-omen-linux-module = finalAttrs.callPackage ../../pkgs/hp-omen-linux-module { };
+      hp-omen-linux-module = finalAttrs.callPackage (pkg /hp-omen-linux-module) { };
     }));
 
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
@@ -84,7 +87,7 @@
 
     extraModulePackages = with config.boot.kernelPackages; [
       (kvmfr.overrideAttrs (prevAttrs: {
-        patches = (prevAttrs.patches or [ ]) ++ [ ../../patches/kvmfr/6.10.patch ];
+        patches = (prevAttrs.patches or [ ]) ++ [ (patch /kvmfr/6.10.patch) ];
       }))
       hp-omen-linux-module
       ryzen-smu

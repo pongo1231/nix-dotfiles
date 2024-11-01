@@ -1,4 +1,5 @@
-{ config
+{ patch
+, config
 , pkgs
 , ...
 }:
@@ -14,8 +15,8 @@
             patches =
               previousAttrs.patches or [ ]
               ++ [
-                #../patches/qemu/qemu-device-fix.patch
-                ../patches/qemu/qemu_higher_gui_refresh_rate.patch
+                #(patch /qemu/qemu-device-fix.patch)
+                (patch /qemu/qemu_higher_gui_refresh_rate.patch)
               ];*/
           });
         verbatimConfig = ''

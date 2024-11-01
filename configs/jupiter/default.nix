@@ -1,7 +1,9 @@
-{ config
+{ inputs
+, module
+, pkg
+, config
 , pkgs
 , lib
-, inputs
 , ...
 }:
 let
@@ -12,10 +14,11 @@ in
     inputs.jovian.nixosModules.default
     inputs.chaotic.nixosModules.default
 
-    ./steam.nix
-    #./tlp.nix
-    ../../modules/power.nix
-    ../../modules/wicked_kernel.nix
+    (module power.nix)
+    (module wicked_kernel.nix)
+
+    steam.nix
+    #tlp.nix
   ];
 
   boot = {
@@ -24,8 +27,8 @@ in
     ];
 
     /*zfs = {
-      package = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "user"; });
-      modulePackage = lib.mkForce (kernelPkgs.callPackage ../../pkgs/zfs { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
+      package = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "user"; });
+      modulePackage = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
     };*/
 
     plymouth.enable = false;

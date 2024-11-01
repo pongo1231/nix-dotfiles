@@ -1,4 +1,8 @@
-{ pkgs, lib, ... }:
+{ patch
+, pkgs
+, lib
+, ...
+}:
 {
   nixpkgs.overlays = [
     (final: prev: {
@@ -66,11 +70,11 @@
         }*/
         /*{
           name = "amdgpu-perf-fix";
-          patch = ../../patches/linux/drm-fixes-2024-09-06.patch;
+          patch = (patch /linux/drm-fixes-2024-09-06.patch);
          }*/
         /*{
           name = "shrink-file-struct";
-          patch = ../../patches/linux/shrink-file-struct.patch;
+          patch = (patch /linux/shrink-file-struct.patch);
         }*/
         /*{
           name = "bore-6.11";
@@ -100,15 +104,15 @@
         }
         {
           name = "lightweight-guard-pages";
-          patch = ../patches/linux/6.12/lightweight-guard-pages.patch;
+          patch = (patch /linux/6.12/lightweight-guard-pages.patch);
         }
         {
           name = "crypto-optimizations";
-          patch = ../patches/linux/6.12/crypto-optimizations.patch;
+          patch = (patch /linux/6.12/crypto-optimizations.patch);
         }
         {
           name = "psr-fix";
-          patch = ../patches/linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
+          patch = (patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch);
         }
         {
           name = "amd-color-management";
@@ -122,7 +126,7 @@
         }
         {
           name = "jupiter-mfd";
-          patch = ../patches/linux/6.12/jupiter-mfd.patch;
+          patch = (patch /linux/6.12/jupiter-mfd.patch);
           extraConfig = ''
             LEDS_STEAMDECK m
             EXTCON_STEAMDECK m

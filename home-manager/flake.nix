@@ -16,7 +16,10 @@
       ];
       commonConfig = { info, user, config ? null, userConfig ? null }: inputs.home-manager.lib.homeManagerConfiguration {
         pkgs = inputs.nixpkgs.legacyPackages.${if info ? system && info.system != null then info.system else "x86_64-linux"};
-        extraSpecialArgs = { inherit inputs; };
+        extraSpecialArgs = {
+          inherit inputs;
+          module = file: modules/${file};
+        };
 
         modules = [
           ({ ...

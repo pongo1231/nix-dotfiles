@@ -1,20 +1,21 @@
-{ config
+{ module
+, config
 , pkgs
 , ...
 }: {
   imports = [
-    #../../modules/nbfc-linux
+    #(module /nbfc-linux)
 
-    ../../modules/intelcpu.nix
-    ../../modules/intelgpu.nix
-    (import ../../modules/nvidia.nix { platform = "intel"; })
-    ../../modules/power.nix
-    ../../modules/samba.nix
-    ../../modules/libvirt.nix
-    (import ../../modules/samba.nix { sharePath = "/media/ssd/public"; })
+    (module /intelcpu.nix)
+    (module /intelgpu.nix)
+    (import (module /nvidia.nix) { platform = "intel"; })
+    (module /power.nix)
+    (module /samba.nix)
+    (module /libvirt.nix)
+    (import (module /samba.nix) { sharePath = "/media/ssd/public"; })
 
-    ./gpu_passthrough.nix
-    ./snapper.nix
+    gpu_passthrough.nix
+    snapper.nix
   ];
 
   boot = {
