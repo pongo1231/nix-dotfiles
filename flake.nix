@@ -164,12 +164,10 @@
               ];
             };
         in
-        inputs.nixpkgs.lib.concatMapAttrs
-          (name: value:
-            {
-              ${name} = commonSystem ((import ./configs/${name}/info.nix) // { hostName = name; }
-                // inputs.nixpkgs.lib.attrsets.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; });
-            })
+        inputs.nixpkgs.lib.mapAttrs
+          (name: value: commonSystem ((import ./configs/${name}/info.nix) // { hostName = name; }
+            // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; })
+          )
           (builtins.readDir ./configs);
     };
 }
