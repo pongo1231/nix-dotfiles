@@ -118,6 +118,7 @@
     kdePackages.kcmutils
     kdePackages.kdeconnect-kde
     sddm-kcm
+    flatpak-kcm
     kate
     ark
     kcalc
