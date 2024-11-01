@@ -13,11 +13,11 @@ in
     inputs.jovian.nixosModules.default
     inputs.chaotic.nixosModules.default
 
-    (module power.nix)
-    (module wicked_kernel.nix)
+    (module /power.nix)
+    (module /wicked_kernel.nix)
 
-    steam.nix
-    #tlp.nix
+    ./steam.nix
+    #./tlp.nix
   ];
 
   boot = {
