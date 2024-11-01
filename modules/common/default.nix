@@ -33,11 +33,6 @@
         "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
       ];
     };
-    gc = {
-      automatic = true;
-      dates = "weekly";
-      persistent = true;
-    };
     nixPath = [
       "/etc/nix/inputs"
     ];
@@ -145,6 +140,12 @@
 
                 fish_add_path -maP ~/.local/bin
       '';
+    };
+
+    nh = {
+      enable = true;
+      clean.enable = true;
+      flake = "/etc/nixos";
     };
 
     extra-container.enable = true;
