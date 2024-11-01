@@ -1,5 +1,4 @@
-{ patch
-, config
+{ config
 , pkgs
 , ...
 }:

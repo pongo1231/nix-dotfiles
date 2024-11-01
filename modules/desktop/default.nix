@@ -1,5 +1,4 @@
 { inputs
-, pkg
 , config
 , pkgs
 , lib

@@ -1,6 +1,5 @@
 { inputs
 , module
-, pkg
 , config
 , pkgs
 , lib
