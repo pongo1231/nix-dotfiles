@@ -2,6 +2,10 @@
 , ...
 }:
 {
+  imports = [
+    ../graphical
+  ];
+
   xdg.configFile = {
     "discord/settings.json".text = ''
       { 

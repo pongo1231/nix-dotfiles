@@ -31,10 +31,8 @@
           })
 
           ./modules/common
-        ] ++ inputs.nixpkgs.lib.optionals (info ? type && (info.type == "graphical" || info.type == "desktop")) [
-          ./modules/graphical
-        ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type == "desktop") [
-          ./modules/desktop
+        ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
+          ./modules/${info.type}
         ] ++ inputs.nixpkgs.lib.optionals (config != null) [
           config
         ] ++ inputs.nixpkgs.lib.optionals (userConfig != null) [
