@@ -1,4 +1,8 @@
 {
-  user = "pongo";
   type = "graphical";
+  users = [
+    {
+      name = "pongo";
+    }
+  ];
 }

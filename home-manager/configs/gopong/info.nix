@@ -1,3 +1,7 @@
 {
-  user = "pongo";
+  users = [
+    {
+      name = "pongo";
+    }
+  ];
 }
