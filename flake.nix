@@ -112,9 +112,11 @@
                             hash = "sha256-e9oSTk+UlkrkRSipqjjMqwtxEvEZffVBmlSTmsIT7cU=";
                           };
 
+                          patches = [
+                            ./patches/distrobox/relative-default-icon.patch
+                          ];
+
                           installPhase = ''
-                            substituteInPlace ./distrobox-generate-entry \
-                                  --replace-fail 'icon_default="''${XDG_DATA_HOME:-''${HOME}/.local' 'icon_default="''${XDG_DATA_HOME:-''$out'
                             ./install -P $out
                           '';
                         });
