@@ -168,7 +168,10 @@
       implementation = "broker";
     };
 
-    openssh.enable = true;
+    openssh = {
+      enable = true;
+      settings.X11Forwarding = true;
+    };
 
     journald.extraConfig = ''
       SystemMaxUse=1G
