@@ -18,10 +18,7 @@
 
     lix = {
       url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        lix.url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     nix-alien = {
@@ -46,11 +43,6 @@
 
     nixos-wsl = {
       url = "github:nix-community/NixOS-WSL";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    lix-module = {
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/2.91.1.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
