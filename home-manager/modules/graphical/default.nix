@@ -63,9 +63,6 @@
       mission-center
       looking-glass-client
       virt-manager
-      nvtopPackages.full
-      intel-gpu-tools
-      amdgpu_top
     ];
   };
 }
