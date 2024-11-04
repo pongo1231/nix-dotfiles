@@ -55,6 +55,12 @@
       iotop
       micro
       pstree
+      nvd
+      manix
+      nil
+      nixpkgs-fmt
+      deadnix
+      direnv
     ];
   };
 }
