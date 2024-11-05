@@ -17,8 +17,6 @@
     kernelParams = [ "preempt=none" ];
   };
 
-  zramSwap.memoryPercent = lib.mkForce 400;
-
   networking = {
     networkmanager.enable = lib.mkForce false;
     wireless.iwd.enable = true;
