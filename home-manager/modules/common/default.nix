@@ -48,6 +48,7 @@
       gdu
       e2fsprogs
       nix-du
+      graphviz
       nix-tree
       tmux
       borgbackup
