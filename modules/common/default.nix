@@ -5,8 +5,6 @@
 }:
 {
   imports = [
-    inputs.nix-index-database.nixosModules.nix-index
-
     ./bluetooth.nix
     ./flatpak-fonts-icons.nix
     ./udev.nix
@@ -15,28 +13,9 @@
   system.stateVersion = "22.05";
 
   nix = {
-    package = lib.mkDefault pkgs.lix;
-    extraOptions = ''
-      experimental-features = ca-derivations nix-command flakes
-      keep-outputs = true
-      keep-derivations = true
-    '';
-    settings = {
-      auto-optimise-store = true;
-      trusted-users = [ "root" "@wheel" ];
-      substituters = [
-        "https://nix-community.cachix.org"
-        "https://pongo1231.cachix.org"
-      ];
-      trusted-public-keys = [
-        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-        "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
-      ];
-    };
     nixPath = [
       "/etc/nix/inputs"
     ];
-    registry.nixpkgs.flake = inputs.nixpkgs;
     daemonCPUSchedPolicy = "idle";
     daemonIOSchedClass = "idle";
   };
@@ -128,18 +107,6 @@
     fish = {
       enable = true;
       useBabelfish = true;
-      shellAliases = {
-        "cd.." = "cd ..";
-        cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
-      };
-      shellInit = ''
-                function fish_command_not_found
-        	  , $argv
-                  return $status
-                end
-
-                fish_add_path -maP ~/.local/bin
-      '';
     };
 
     nh = {
@@ -149,10 +116,6 @@
     };
 
     extra-container.enable = true;
-
-    command-not-found.enable = false;
-
-    nix-index-database.comma.enable = true;
 
     nix-ld = {
       enable = true;
@@ -214,15 +177,9 @@
 
   environment = {
     # thanks to ElvishJerricco
-    etc = (lib.mapAttrs'
-      (name: flake: {
-        name = "nix/inputs/${name}";
-        value.source = flake.outPath;
-      })
-      inputs) // {
+    etc = (lib.mapAttrs' (name: flake: { name = "nix/inputs/${name}"; value.source = flake.outPath; }) inputs)
       # allow imperative edits to /etc/hosts
-      hosts.mode = "0644";
-    };
+      // { hosts.mode = "0644"; };
 
     sessionVariables = {
       GTK_USE_PORTAL = "1";
@@ -241,16 +198,9 @@
     systemPackages = with pkgs; [
       home-manager
       pulseaudio
-      distrobox
       dconf
-      inputs.nix-alien.packages.${system}.nix-alien
-      inputs.nix-alien.packages.${system}.nix-index-update
-      inputs.nix-be.packages.${system}.nix-be
       ddcutil
       #snapper
-      duperemove
-      nixos-shell
-      compsize
     ];
   };
 }

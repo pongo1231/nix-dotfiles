@@ -1,6 +1,7 @@
 { inputs
 , config
 , pkgs
+, lib
 , ...
 }: {
   imports = [
@@ -8,19 +9,41 @@
     ./suspender.nix
   ];
 
-  nix.registry.nixpkgs.flake = inputs.nixpkgs;
+  nix.nixPath = [
+    "${config.xdg.configHome}/nix/inputs"
+  ];
 
   nixpkgs.config.allowUnfreePredicate = pkg: true;
 
-  programs.git = {
-    enable = true;
-    userName = "pongo1231";
-    userEmail = "pongo1999712@gmail.com";
+  programs = {
+    fish = {
+      enable = true;
+
+      shellAliases = {
+        "cd.." = "cd ..";
+        cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
+      };
+
+      shellInit = ''
+        function fish_command_not_found
+          , $argv
+          return $status
+        end
+        fish_add_path -maP ~/.local/bin
+      '';
+    };
+
+    git = {
+      enable = true;
+      userName = "pongo1231";
+      userEmail = "pongo1999712@gmail.com";
+    };
+
+    nix-index-database.comma.enable = true;
   };
 
-  xdg.configFile = {
-    "nix/inputs/nixpkgs".source = inputs.nixpkgs;
-
+  xdg.configFile = (lib.mapAttrs' (name: flake: { name = "nix/inputs/${name}"; value.source = flake.outPath; }) inputs)
+    // {
     "distrobox/distrobox.conf".text = ''
       container_image_default="docker.io/library/archlinux"
       non_interactive="1"
@@ -29,8 +52,6 @@
 
   home = {
     stateVersion = "22.05";
-
-    sessionVariables.NIX_PATH = "nixpkgs=${config.xdg.configHome}/nix/inputs/nixpkgs:$\{NIX_PATH:+:$NIX_PATH}";
 
     packages = with pkgs; [
       btop
@@ -62,6 +83,15 @@
       nixpkgs-fmt
       deadnix
       direnv
+      nixos-generators
+      nix-melt
+      nurl
+      nix-health
+      distrobox
+      duperemove
+      compsize
+      inputs.nix-alien.packages.${system}.nix-alien
+      inputs.nix-be.packages.${system}.nix-be
     ];
   };
 }
