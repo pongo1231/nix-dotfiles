@@ -2,10 +2,10 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
-    nixpkgs-stable.url = "github:pongo1231/nixpkgs/797f7dc49e0bc7fab4b57c021cdf68f595e47841";
+    nixpkgs-stable.url = "github:pongo1231/nixpkgs/b313405a5d18353dd0ce011cee1725e17b7c8756";
 
     nixpkgs-desktop-kernel = {
-      url = "github:pongo1231/nixpkgs/95447fbb609a5d91380b048e130ec1533613151d";
+      url = "github:pongo1231/nixpkgs/b313405a5d18353dd0ce011cee1725e17b7c8756";
       #follows = "nixpkgs";
     };
 

@@ -12,15 +12,15 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.12-rc5";
+              version = "6.12-rc6";
             in
             {
               inherit version;
-              modDirVersion = "6.12.0-rc5";
+              modDirVersion = "6.12.0-rc6";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "0fc810ae3ae110f9e2fcccce80fc8c8d62f97907";
-                hash = "sha256-3rlrUJ45fHeG3gptGWtwNS7hNUEYnKIEwPWVTPaUW4I=";
+                rev = "2e1b3cc9d7f790145a80cb705b168f05dab65df2";
+                hash = "sha256-g+ByYZkKZoPZRRfshHNEUJ2H4ktLH4yKfDisDlfV2v4=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
