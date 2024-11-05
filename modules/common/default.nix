@@ -201,6 +201,7 @@
       dconf
       ddcutil
       #snapper
+      distrobox
     ];
   };
 }

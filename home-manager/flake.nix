@@ -50,24 +50,6 @@
            }: {
             nixpkgs.overlays = [
               (final: prev: {
-                distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
-                  version = "1.8.0";
-                  src = final.fetchFromGitHub {
-                    owner = "89luca89";
-                    repo = "distrobox";
-                    rev = finalAttrs.version;
-                    hash = "sha256-e9oSTk+UlkrkRSipqjjMqwtxEvEZffVBmlSTmsIT7cU=";
-                  };
-
-                  patches = [
-                    ./patches/distrobox/relative-default-icon.patch
-                  ];
-
-                  installPhase = ''
-                    ./install -P $out
-                  '';
-                });
-
                 duperemove = prev.duperemove.overrideAttrs (finalAttrs: prevAttrs: {
                   src = final.fetchFromGitHub {
                     owner = "markfasheh";

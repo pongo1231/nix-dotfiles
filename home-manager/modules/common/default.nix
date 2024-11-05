@@ -87,7 +87,6 @@
       nix-melt
       nurl
       nix-health
-      distrobox
       duperemove
       compsize
       inputs.nix-alien.packages.${system}.nix-alien
