@@ -182,17 +182,17 @@
       // { hosts.mode = "0644"; };
 
     sessionVariables = {
-      GTK_USE_PORTAL = "1";
+      GTK_USE_PORTAL = 1;
 
-      MOZ_ENABLE_WAYLAND = "1";
+      MOZ_ENABLE_WAYLAND = 1;
 
-      NIXPKGS_ALLOW_UNFREE = "1";
+      NIXPKGS_ALLOW_UNFREE = 1;
 
       DXVK_LOG_LEVEL = "none";
       VKD3D_DEBUG = "none";
       VKD3D_SHADER_DEBUG = "none";
       WINEDEBUG = "-all";
-      WINEFSYNC = "1";
+      WINEFSYNC = 1;
     };
 
     systemPackages = with pkgs; [
