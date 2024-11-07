@@ -1,0 +1,403 @@
+diff --git a/fs/iomap/buffered-io.c b/fs/iomap/buffered-io.c
+index ef0b68bccbb6..1a1d6c955d4a 100644
+--- a/fs/iomap/buffered-io.c
++++ b/fs/iomap/buffered-io.c
+@@ -959,6 +959,9 @@ static loff_t iomap_write_iter(struct iomap_iter *iter, struct iov_iter *i)
+ 		}
+ 		if (iter->iomap.flags & IOMAP_F_STALE)
+ 			break;
++		if (iter->flags & IOMAP_UNCACHED &&
++		    !(iter->iomap.flags & IOMAP_F_BUFFER_HEAD))
++			folio_set_uncached(folio);
+ 
+ 		offset = offset_in_folio(folio, pos);
+ 		if (bytes > folio_size(folio) - offset)
+@@ -1023,8 +1026,9 @@ ssize_t
+ iomap_file_buffered_write(struct kiocb *iocb, struct iov_iter *i,
+ 		const struct iomap_ops *ops, void *private)
+ {
++	struct address_space *mapping = iocb->ki_filp->f_mapping;
+ 	struct iomap_iter iter = {
+-		.inode		= iocb->ki_filp->f_mapping->host,
++		.inode		= mapping->host,
+ 		.pos		= iocb->ki_pos,
+ 		.len		= iov_iter_count(i),
+ 		.flags		= IOMAP_WRITE,
+@@ -1034,12 +1038,21 @@ iomap_file_buffered_write(struct kiocb *iocb, struct iov_iter *i,
+ 
+ 	if (iocb->ki_flags & IOCB_NOWAIT)
+ 		iter.flags |= IOMAP_NOWAIT;
++	if (iocb->ki_flags & IOCB_UNCACHED)
++		iter.flags |= IOMAP_UNCACHED;
+ 
+ 	while ((ret = iomap_iter(&iter, ops)) > 0)
+ 		iter.processed = iomap_write_iter(&iter, i);
+ 
+ 	if (unlikely(iter.pos == iocb->ki_pos))
+ 		return ret;
++	if (iocb->ki_flags & IOCB_UNCACHED) {
++		loff_t end = iocb->ki_pos + ret;
++
++		/* kick off uncached writeback, completion will drop it */
++		__filemap_fdatawrite_range(mapping, iocb->ki_pos, end,
++						WB_SYNC_NONE);
++	}
+ 	ret = iter.pos - iocb->ki_pos;
+ 	iocb->ki_pos = iter.pos;
+ 	return ret;
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 3559446279c1..a0c94c27baa3 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -320,6 +320,7 @@ struct readahead_control;
+ #define IOCB_NOWAIT		(__force int) RWF_NOWAIT
+ #define IOCB_APPEND		(__force int) RWF_APPEND
+ #define IOCB_ATOMIC		(__force int) RWF_ATOMIC
++#define IOCB_UNCACHED		(__force int) RWF_UNCACHED
+ 
+ /* non-RWF related bits - start at 16 */
+ #define IOCB_EVENTFD		(1 << 16)
+@@ -354,7 +355,8 @@ struct readahead_control;
+ 	{ IOCB_SYNC,		"SYNC" }, \
+ 	{ IOCB_NOWAIT,		"NOWAIT" }, \
+ 	{ IOCB_APPEND,		"APPEND" }, \
+-	{ IOCB_ATOMIC,		"ATOMIC"}, \
++	{ IOCB_ATOMIC,		"ATOMIC" }, \
++	{ IOCB_UNCACHED,	"UNCACHED" }, \
+ 	{ IOCB_EVENTFD,		"EVENTFD"}, \
+ 	{ IOCB_DIRECT,		"DIRECT" }, \
+ 	{ IOCB_WRITE,		"WRITE" }, \
+diff --git a/include/linux/iomap.h b/include/linux/iomap.h
+index f61407e3b121..89b24fbb1399 100644
+--- a/include/linux/iomap.h
++++ b/include/linux/iomap.h
+@@ -173,8 +173,9 @@ struct iomap_folio_ops {
+ #define IOMAP_NOWAIT		(1 << 5) /* do not block */
+ #define IOMAP_OVERWRITE_ONLY	(1 << 6) /* only pure overwrites allowed */
+ #define IOMAP_UNSHARE		(1 << 7) /* unshare_file_range */
++#define IOMAP_UNCACHED		(1 << 8) /* uncached IO */
+ #ifdef CONFIG_FS_DAX
+-#define IOMAP_DAX		(1 << 8) /* DAX mapping */
++#define IOMAP_DAX		(1 << 9) /* DAX mapping */
+ #else
+ #define IOMAP_DAX		0
+ #endif /* CONFIG_FS_DAX */
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+index cc839e4365c1..63954678fe4f 100644
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -110,6 +110,7 @@ enum pageflags {
+ 	PG_reclaim,		/* To be reclaimed asap */
+ 	PG_swapbacked,		/* Page is backed by RAM/swap */
+ 	PG_unevictable,		/* Page is "unevictable"  */
++	PG_uncached,		/* uncached read/write IO */
+ #ifdef CONFIG_MMU
+ 	PG_mlocked,		/* Page is vma mlocked */
+ #endif
+@@ -562,6 +563,10 @@ PAGEFLAG(Reclaim, reclaim, PF_NO_TAIL)
+ FOLIO_FLAG(readahead, FOLIO_HEAD_PAGE)
+ 	FOLIO_TEST_CLEAR_FLAG(readahead, FOLIO_HEAD_PAGE)
+ 
++FOLIO_FLAG(uncached, FOLIO_HEAD_PAGE)
++	__FOLIO_CLEAR_FLAG(uncached, FOLIO_HEAD_PAGE)
++	__FOLIO_SET_FLAG(uncached, FOLIO_HEAD_PAGE)
++
+ #ifdef CONFIG_HIGHMEM
+ /*
+  * Must use a macro here due to header dependency issues. page_zone() is not
+diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
+index 68a5f1ff3301..8afacb7520d4 100644
+--- a/include/linux/pagemap.h
++++ b/include/linux/pagemap.h
+@@ -1350,6 +1350,7 @@ struct readahead_control {
+ 	pgoff_t _index;
+ 	unsigned int _nr_pages;
+ 	unsigned int _batch_count;
++	bool uncached;
+ 	bool _workingset;
+ 	unsigned long _pflags;
+ };
+diff --git a/include/trace/events/mmflags.h b/include/trace/events/mmflags.h
+index bb8a59c6caa2..b60057284102 100644
+--- a/include/trace/events/mmflags.h
++++ b/include/trace/events/mmflags.h
+@@ -116,7 +116,8 @@
+ 	DEF_PAGEFLAG_NAME(head),					\
+ 	DEF_PAGEFLAG_NAME(reclaim),					\
+ 	DEF_PAGEFLAG_NAME(swapbacked),					\
+-	DEF_PAGEFLAG_NAME(unevictable)					\
++	DEF_PAGEFLAG_NAME(unevictable),					\
++	DEF_PAGEFLAG_NAME(uncached)					\
+ IF_HAVE_PG_MLOCK(mlocked)						\
+ IF_HAVE_PG_HWPOISON(hwpoison)						\
+ IF_HAVE_PG_IDLE(idle)							\
+diff --git a/include/uapi/linux/fs.h b/include/uapi/linux/fs.h
+index 753971770733..dc77cd8ae1a3 100644
+--- a/include/uapi/linux/fs.h
++++ b/include/uapi/linux/fs.h
+@@ -332,9 +332,13 @@ typedef int __bitwise __kernel_rwf_t;
+ /* Atomic Write */
+ #define RWF_ATOMIC	((__force __kernel_rwf_t)0x00000040)
+ 
++/* buffered IO that drops the cache after reading or writing data */
++#define RWF_UNCACHED	((__force __kernel_rwf_t)0x00000080)
++
+ /* mask of flags supported by the kernel */
+ #define RWF_SUPPORTED	(RWF_HIPRI | RWF_DSYNC | RWF_SYNC | RWF_NOWAIT |\
+-			 RWF_APPEND | RWF_NOAPPEND | RWF_ATOMIC)
++			 RWF_APPEND | RWF_NOAPPEND | RWF_ATOMIC |\
++			 RWF_UNCACHED)
+ 
+ #define PROCFS_IOCTL_MAGIC 'f'
+ 
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 36d22968be9a..b35ac0297590 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -985,7 +985,8 @@ int filemap_add_folio(struct address_space *mapping, struct folio *folio,
+ 		WARN_ON_ONCE(folio_test_active(folio));
+ 		if (!(gfp & __GFP_WRITE) && shadow)
+ 			workingset_refault(folio, shadow);
+-		folio_add_lru(folio);
++		if (!folio_test_uncached(folio))
++			folio_add_lru(folio);
+ 	}
+ 	return ret;
+ }
+@@ -1634,6 +1635,21 @@ void folio_end_writeback(struct folio *folio)
+ 	if (__folio_end_writeback(folio))
+ 		folio_wake_bit(folio, PG_writeback);
+ 	acct_reclaim_writeback(folio);
++
++	/*
++	 * If folio is marked as uncached, then pages should be dropped when
++	 * writeback completes. Do that now.
++	 */
++	if (folio_test_uncached(folio)) {
++		int ret;
++
++		folio_lock(folio);
++		ret = mapping_evict_folio(folio->mapping, folio);
++		if (ret)
++			folio_clear_uncached(folio);
++		folio_unlock(folio);
++
++	}
+ 	folio_put(folio);
+ }
+ EXPORT_SYMBOL(folio_end_writeback);
+@@ -2460,9 +2476,8 @@ static int filemap_update_page(struct kiocb *iocb,
+ 	return error;
+ }
+ 
+-static int filemap_create_folio(struct file *file,
+-		struct address_space *mapping, loff_t pos,
+-		struct folio_batch *fbatch)
++static int filemap_create_folio(struct kiocb *iocb,
++		struct address_space *mapping, struct folio_batch *fbatch)
+ {
+ 	struct folio *folio;
+ 	int error;
+@@ -2472,6 +2487,8 @@ static int filemap_create_folio(struct file *file,
+ 	folio = filemap_alloc_folio(mapping_gfp_mask(mapping), min_order);
+ 	if (!folio)
+ 		return -ENOMEM;
++	if (iocb->ki_flags & IOCB_UNCACHED)
++		folio_set_uncached(folio);
+ 
+ 	/*
+ 	 * Protect against truncate / hole punch. Grabbing invalidate_lock
+@@ -2487,7 +2504,7 @@ static int filemap_create_folio(struct file *file,
+ 	 * well to keep locking rules simple.
+ 	 */
+ 	filemap_invalidate_lock_shared(mapping);
+-	index = (pos >> (PAGE_SHIFT + min_order)) << min_order;
++	index = (iocb->ki_pos >> (PAGE_SHIFT + min_order)) << min_order;
+ 	error = filemap_add_folio(mapping, folio, index,
+ 			mapping_gfp_constraint(mapping, GFP_KERNEL));
+ 	if (error == -EEXIST)
+@@ -2495,7 +2512,8 @@ static int filemap_create_folio(struct file *file,
+ 	if (error)
+ 		goto error;
+ 
+-	error = filemap_read_folio(file, mapping->a_ops->read_folio, folio);
++	error = filemap_read_folio(iocb->ki_filp, mapping->a_ops->read_folio,
++					folio);
+ 	if (error)
+ 		goto error;
+ 
+@@ -2516,6 +2534,8 @@ static int filemap_readahead(struct kiocb *iocb, struct file *file,
+ 
+ 	if (iocb->ki_flags & IOCB_NOIO)
+ 		return -EAGAIN;
++	if (iocb->ki_flags & IOCB_UNCACHED)
++		ractl.uncached = 1;
+ 	page_cache_async_ra(&ractl, folio, last_index - folio->index);
+ 	return 0;
+ }
+@@ -2525,7 +2545,6 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
+ {
+ 	struct file *filp = iocb->ki_filp;
+ 	struct address_space *mapping = filp->f_mapping;
+-	struct file_ra_state *ra = &filp->f_ra;
+ 	pgoff_t index = iocb->ki_pos >> PAGE_SHIFT;
+ 	pgoff_t last_index;
+ 	struct folio *folio;
+@@ -2540,12 +2559,14 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
+ 
+ 	filemap_get_read_batch(mapping, index, last_index - 1, fbatch);
+ 	if (!folio_batch_count(fbatch)) {
++		DEFINE_READAHEAD(ractl, filp, &filp->f_ra, mapping, index);
+ 		if (iocb->ki_flags & IOCB_NOIO)
+ 			return -EAGAIN;
+ 		if (iocb->ki_flags & IOCB_NOWAIT)
+ 			flags = memalloc_noio_save();
+-		page_cache_sync_readahead(mapping, ra, filp, index,
+-				last_index - index);
++		if (iocb->ki_flags & IOCB_UNCACHED)
++			ractl.uncached = 1;
++		page_cache_sync_ra(&ractl, last_index - index);
+ 		if (iocb->ki_flags & IOCB_NOWAIT)
+ 			memalloc_noio_restore(flags);
+ 		filemap_get_read_batch(mapping, index, last_index - 1, fbatch);
+@@ -2553,7 +2574,7 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
+ 	if (!folio_batch_count(fbatch)) {
+ 		if (iocb->ki_flags & (IOCB_NOWAIT | IOCB_WAITQ))
+ 			return -EAGAIN;
+-		err = filemap_create_folio(filp, mapping, iocb->ki_pos, fbatch);
++		err = filemap_create_folio(iocb, mapping, fbatch);
+ 		if (err == AOP_TRUNCATED_PAGE)
+ 			goto retry;
+ 		return err;
+@@ -2705,8 +2726,16 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 			}
+ 		}
+ put_folios:
+-		for (i = 0; i < folio_batch_count(&fbatch); i++)
+-			folio_put(fbatch.folios[i]);
++		for (i = 0; i < folio_batch_count(&fbatch); i++) {
++			struct folio *folio = fbatch.folios[i];
++
++			if (iocb->ki_flags & IOCB_UNCACHED) {
++				folio_lock(folio);
++				mapping_evict_folio(mapping, folio);
++				folio_unlock(folio);
++			}
++			folio_put(folio);
++		}
+ 		folio_batch_init(&fbatch);
+ 	} while (iov_iter_count(iter) && iocb->ki_pos < isize && !error);
+ 
+@@ -4019,6 +4048,7 @@ ssize_t generic_perform_write(struct kiocb *iocb, struct iov_iter *i)
+ 	struct address_space *mapping = file->f_mapping;
+ 	const struct address_space_operations *a_ops = mapping->a_ops;
+ 	size_t chunk = mapping_max_folio_size(mapping);
++	bool uncached = iocb->ki_flags & IOCB_UNCACHED;
+ 	long status = 0;
+ 	ssize_t written = 0;
+ 
+@@ -4056,6 +4086,16 @@ ssize_t generic_perform_write(struct kiocb *iocb, struct iov_iter *i)
+ 		if (unlikely(status < 0))
+ 			break;
+ 
++		if (uncached) {
++			/*
++			 * Legacy cases that use buffer_heads cannot sanely be
++			 * reclaimed at writeback completion, skip them.
++			 */
++			uncached = !folio_buffers(folio);
++			if (uncached)
++				folio_set_uncached(folio);
++		}
++
+ 		offset = offset_in_folio(folio, pos);
+ 		if (bytes > folio_size(folio) - offset)
+ 			bytes = folio_size(folio) - offset;
+@@ -4096,6 +4136,13 @@ ssize_t generic_perform_write(struct kiocb *iocb, struct iov_iter *i)
+ 
+ 	if (!written)
+ 		return status;
++	if (uncached) {
++		loff_t end = iocb->ki_pos + written;
++
++		/* kick off uncached writeback, completion will drop it */
++		__filemap_fdatawrite_range(mapping, iocb->ki_pos, end,
++						WB_SYNC_NONE);
++	}
+ 	iocb->ki_pos += written;
+ 	return written;
+ }
+diff --git a/mm/readahead.c b/mm/readahead.c
+index 3dc6c7a128dd..09cddbbfe28f 100644
+--- a/mm/readahead.c
++++ b/mm/readahead.c
+@@ -188,6 +188,18 @@ static void read_pages(struct readahead_control *rac)
+ 	BUG_ON(readahead_count(rac));
+ }
+ 
++static struct folio *ractl_alloc_folio(struct readahead_control *ractl,
++				       gfp_t gfp_mask, unsigned int order)
++{
++	struct folio *folio;
++
++	folio = filemap_alloc_folio(gfp_mask, order);
++	if (folio && ractl->uncached)
++		folio_set_uncached(folio);
++
++	return folio;
++}
++
+ /**
+  * page_cache_ra_unbounded - Start unchecked readahead.
+  * @ractl: Readahead control.
+@@ -260,8 +272,8 @@ void page_cache_ra_unbounded(struct readahead_control *ractl,
+ 			continue;
+ 		}
+ 
+-		folio = filemap_alloc_folio(gfp_mask,
+-					    mapping_min_folio_order(mapping));
++		folio = ractl_alloc_folio(ractl, gfp_mask,
++					mapping_min_folio_order(mapping));
+ 		if (!folio)
+ 			break;
+ 
+@@ -431,7 +443,7 @@ static inline int ra_alloc_folio(struct readahead_control *ractl, pgoff_t index,
+ 		pgoff_t mark, unsigned int order, gfp_t gfp)
+ {
+ 	int err;
+-	struct folio *folio = filemap_alloc_folio(gfp, order);
++	struct folio *folio = ractl_alloc_folio(ractl, gfp, order);
+ 
+ 	if (!folio)
+ 		return -ENOMEM;
+@@ -753,7 +765,7 @@ void readahead_expand(struct readahead_control *ractl,
+ 		if (folio && !xa_is_value(folio))
+ 			return; /* Folio apparently present */
+ 
+-		folio = filemap_alloc_folio(gfp_mask, min_order);
++		folio = ractl_alloc_folio(ractl, gfp_mask, min_order);
+ 		if (!folio)
+ 			return;
+ 
+@@ -782,7 +794,7 @@ void readahead_expand(struct readahead_control *ractl,
+ 		if (folio && !xa_is_value(folio))
+ 			return; /* Folio apparently present */
+ 
+-		folio = filemap_alloc_folio(gfp_mask, min_order);
++		folio = ractl_alloc_folio(ractl, gfp_mask, min_order);
+ 		if (!folio)
+ 			return;
+ 
+diff --git a/mm/swap.c b/mm/swap.c
+index 835bdf324b76..f2457acae383 100644
+--- a/mm/swap.c
++++ b/mm/swap.c
+@@ -472,6 +472,8 @@ static void folio_inc_refs(struct folio *folio)
+  */
+ void folio_mark_accessed(struct folio *folio)
+ {
++	if (folio_test_uncached(folio))
++		return;
+ 	if (lru_gen_enabled()) {
+ 		folio_inc_refs(folio);
+ 		return;

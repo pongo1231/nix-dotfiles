@@ -19,8 +19,8 @@
               modDirVersion = "6.12.0-rc6";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "2e1b3cc9d7f790145a80cb705b168f05dab65df2";
-                hash = "sha256-g+ByYZkKZoPZRRfshHNEUJ2H4ktLH4yKfDisDlfV2v4=";
+                rev = "80fb25341631b75f57b84f99cc35b95ca2aad329";
+                hash = "sha256-w4RXGJooi4tBnYShPpsJpP7Yb1HIVpCnR+htjkH1+hA=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -70,11 +70,11 @@
         }*/
         /*{
           name = "amdgpu-perf-fix";
-          patch = (patch /linux/drm-fixes-2024-09-06.patch);
+          patch = patch /linux/drm-fixes-2024-09-06.patch;
          }*/
         /*{
           name = "shrink-file-struct";
-          patch = (patch /linux/shrink-file-struct.patch);
+          patch = patch /linux/shrink-file-struct.patch;
         }*/
         /*{
           name = "bore-6.11";
@@ -85,34 +85,26 @@
         }*/
         {
           name = "preempt-lazy";
-          patch = pkgs.fetchpatch {
-            url = "https://lore.kernel.org/all/20241007074609.447006177@infradead.org/t.mbox";
-            hash = "sha256-S455vwyf9cnLMHquE2CnFg3n/2VCa5+C3ukZpiK2gLg=";
-            inherit decode;
-          };
+          patch = patch /linux/6.12/preempt-lazy.patch;
           extraConfig = ''
             PREEMPT_LAZY y
           '';
         }
         {
-          name = "preempt-lazy2";
-          patch = pkgs.fetchpatch {
-            url = "https://lore.kernel.org/lkml/20241009105709.887510-1-bigeasy@linutronix.de/t.mbox";
-            hash = "sha256-np95Cl2zWMgwj3ZmtwvtcnLyMMc3Zm8bvoaeCG+l99I=";
-            inherit decode;
-          };
-        }
-        {
           name = "lightweight-guard-pages";
-          patch = (patch /linux/6.12/lightweight-guard-pages.patch);
+          patch = patch /linux/6.12/lightweight-guard-pages.patch;
         }
         {
           name = "crypto-optimizations";
-          patch = (patch /linux/6.12/crypto-optimizations.patch);
+          patch = patch /linux/6.12/crypto-optimizations.patch;
         }
         {
           name = "psr-fix";
-          patch = (patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch);
+          patch = patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
+        }
+        {
+          name = "";
+          patch = patch /linux/6.12/buffered-uncached.patch;
         }
         {
           name = "amd-color-management";
@@ -126,7 +118,7 @@
         }
         {
           name = "jupiter-mfd";
-          patch = (patch /linux/6.12/jupiter-mfd.patch);
+          patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
             LEDS_STEAMDECK m
             EXTCON_STEAMDECK m
