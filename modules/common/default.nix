@@ -117,10 +117,7 @@
 
     extra-container.enable = true;
 
-    nix-ld = {
-      enable = true;
-      package = pkgs.nix-ld-rs;
-    };
+    nix-ld.enable = true;
 
     usbtop.enable = true;
   };
