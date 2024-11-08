@@ -10,9 +10,12 @@
 
   boot = {
     loader.systemd-boot.enable = lib.mkForce false;
+
     binfmt.emulatedSystems = [
       "aarch64-linux"
     ];
+
+    kernelParams = [ "preempt=none" ];
   };
 
   system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
