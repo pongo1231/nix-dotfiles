@@ -35,6 +35,4 @@
   };
 
   networking.networkmanager.enable = lib.mkForce false;
-
-  environment.sessionVariables = { PODMAN_IGNORE_CGROUPSV1_WARNING = 1; };
 }
