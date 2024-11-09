@@ -2,8 +2,6 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
-    nixpkgs-stable.url = "github:pongo1231/nixpkgs/b313405a5d18353dd0ce011cee1725e17b7c8756";
-
     nixpkgs-desktop-kernel = {
       url = "github:pongo1231/nixpkgs/50cff47c417ca9530671786e14038d39a9e08762";
       #follows = "nixpkgs";
