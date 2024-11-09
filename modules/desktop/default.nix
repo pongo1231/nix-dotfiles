@@ -5,10 +5,6 @@
 , ...
 }:
 {
-  imports = [
-    inputs.lix.nixosModules.default
-  ];
-
   boot = {
     /*kernelPackages = lib.mkDefault (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
       #zfs = pkgs.callPackage (pkg /zfs) { inherit (prevAttrs) zfs; };
