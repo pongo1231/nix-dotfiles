@@ -19,8 +19,8 @@
               modDirVersion = "6.12.0-rc6";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "80fb25341631b75f57b84f99cc35b95ca2aad329";
-                hash = "sha256-w4RXGJooi4tBnYShPpsJpP7Yb1HIVpCnR+htjkH1+hA=";
+                rev = "da4373fbcf006deda90e5e6a87c499e0ff747572";
+                hash = "sha256-/2pb1+Bxto7C3kLdnz8jRktQwwDL9P3CiyU2v2XJ8eU=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -103,8 +103,12 @@
           patch = patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
         }
         {
-          name = "";
+          name = "buffered-uncached";
           patch = patch /linux/6.12/buffered-uncached.patch;
+        }
+        {
+          name = "context-switch-optimizations";
+          patch = patch /linux/6.12/context-switch-optimizations.patch;
         }
         {
           name = "amd-color-management";
