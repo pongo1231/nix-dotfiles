@@ -1,4 +1,5 @@
-{ lib
+{ pkgs
+, lib
 , ...
 }:
 {
@@ -13,6 +14,8 @@
       systemd-boot.enable = lib.mkForce false;
       generic-extlinux-compatible.enable = true;
     };
+
+    kernelPackages = pkgs.kernel.linuxPackages_latest;
 
     kernelParams = [ "preempt=none" ];
   };
