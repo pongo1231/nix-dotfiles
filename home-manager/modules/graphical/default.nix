@@ -26,13 +26,6 @@
   home = {
     sessionVariables.MOZ_ENABLE_WAYLAND = 1;
 
-    pointerCursor = {
-      gtk.enable = true;
-      x11.enable = true;
-      package = pkgs.breeze-icons;
-      name = "Breeze";
-    };
-
     file = {
       # Wrapper for running flatpak inside steam-session
       # Steam-rom-manager doesn't let us point to a non-existing file
