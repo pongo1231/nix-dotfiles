@@ -19,8 +19,8 @@
               modDirVersion = "6.12.0-rc6";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "da4373fbcf006deda90e5e6a87c499e0ff747572";
-                hash = "sha256-/2pb1+Bxto7C3kLdnz8jRktQwwDL9P3CiyU2v2XJ8eU=";
+                rev = "de2f378f2b771b39594c04695feee86476743a69";
+                hash = "sha256-PVdx4n/DuUTOMSnmUadR6qA4QHXanRkxMn5NUMQMxhM=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -109,6 +109,10 @@
         {
           name = "context-switch-optimizations";
           patch = patch /linux/6.12/context-switch-optimizations.patch;
+        }
+        {
+          name = "kcore-optimizations";
+          patch = patch /linux/6.12/kcore-optimizations.patch;
         }
         {
           name = "amd-color-management";
