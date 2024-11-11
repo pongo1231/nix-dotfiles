@@ -8,7 +8,7 @@
     (final: prev: {
       linuxPackages_wicked = (final.kernel.linuxPackages_testing.extend (finalAttrs: prevAttrs: {
         kernel = prevAttrs.kernel.override (prevAttrs': {
-          kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
+          #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
           ignoreConfigErrors = true;
           argsOverride =
             let
@@ -17,15 +17,15 @@
             {
               inherit version;
               modDirVersion = "6.12.0-rc7";
-              src = pkgs.fetchgit {
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "2d5404caa8c7bb5c4e0435f94b28834ae5456623";
                 hash = "sha256-+9s1+n970M8rbc73MwfQiweVEZUlPbK5ccQu/s+iT+c=";
-              };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-k0+IByRl5Qp0Q73uF0N2lRJNiPEQV0z9pFmEUu/SJWM=";
               };*/
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-+9s1+n970M8rbc73MwfQiweVEZUlPbK5ccQu/s+iT+c=";
+              };
             };
         });
       }));
@@ -38,8 +38,7 @@
     kernelPatches =
       let
         # from https://gist.github.com/al3xtjames/a9aff722b7ddf8c79d6ce4ca85c11eaa
-        decode = pkgs.writeShellScript "
-                  decodeMbox " ''
+        decode = pkgs.writeShellScript "decodeMbox" ''
           export PATH="${lib.makeBinPath [ pkgs.git ]}:$PATH"
           export XDG_DATA_HOME="$TMPDIR"
           gzip -dc | ${pkgs.b4}/bin/b4 -n --offline-mode am -m - -o -
@@ -53,13 +52,13 @@
             HSA_AMD_SVM n
           '';
         }*/
-        {
+        /*{
           name = "Fix 6.12 build";
           patch = null;
           extraConfig = ''
             I2C_DESIGNWARE_PLATFORM m
           '';
-        }
+        }*/
         /*{
           name = "no-latency-multiplier";
           patch = pkgs.fetchpatch {
@@ -94,10 +93,10 @@
           name = "lightweight-guard-pages";
           patch = patch /linux/6.12/lightweight-guard-pages.patch;
         }
-        {
+        /*{
           name = "crypto-optimizations";
           patch = patch /linux/6.12/crypto-optimizations.patch;
-        }
+        }*/
         {
           name = "psr-fix";
           patch = patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
@@ -106,15 +105,22 @@
           name = "buffered-uncached";
           patch = patch /linux/6.12/buffered-uncached.patch;
         }
-        {
+        /*{
           name = "context-switch-optimizations";
           patch = patch /linux/6.12/context-switch-optimizations.patch;
-        }
+        }*/
         {
           name = "kcore-optimizations";
           patch = patch /linux/6.12/kcore-optimizations.patch;
         }
         {
+          name = "cachyos";
+          patch = patch /linux/6.12/cachyos.patch;
+          extraConfig = ''
+            AMD_PRIVATE_COLOR y
+          '';
+        }
+        /*{
           name = "amd-color-management";
           patch = pkgs.fetchpatch {
             url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
@@ -123,7 +129,7 @@
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
-        }
+        }*/
         {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
