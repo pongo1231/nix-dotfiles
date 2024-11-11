@@ -1,9 +1,14 @@
 { patch
+, pkg
 , pkgs
 , lib
 , ...
 }:
 {
+  imports = [
+    (pkg /uksmd)
+  ];
+
   nixpkgs.overlays = [
     (final: prev: {
       linuxPackages_wicked = (final.kernel.linuxPackages_testing.extend (finalAttrs: prevAttrs: {
