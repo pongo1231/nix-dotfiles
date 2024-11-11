@@ -84,7 +84,7 @@
 
     ksm = {
       enable = true;
-      sleep = 10000; # this really doesn't need to run that often
+      sleep = 50;
     };
   };
 
