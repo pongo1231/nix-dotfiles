@@ -14,7 +14,7 @@ in
     inputs.chaotic.nixosModules.default
 
     (module /power.nix)
-    (module /wicked_kernel.nix)
+    (import (module /wicked_kernel.nix) { })
 
     ./steam.nix
     #./tlp.nix

@@ -1,7 +1,12 @@
-{ lib
+{ module
+, lib
 , ...
 }:
 {
+  imports = [
+    (import (module /wicked_kernel.nix) { desktop = false; })
+  ];
+
   boot = {
     kernelParams = [ "preempt=none" ];
     initrd.availableKernelModules = [ "ata_piix" "virtio_pci" "virtio_scsi" "xhci_pci" "sd_mod" "sr_mod" ];

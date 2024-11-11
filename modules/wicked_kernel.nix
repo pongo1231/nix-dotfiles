@@ -1,3 +1,5 @@
+{ desktop ? true
+}:
 { patch
 , pkg
 , pkgs
@@ -147,6 +149,6 @@
         }
       ];
 
-    kernelParams = [ "preempt=lazy" ];
+    kernelParams = lib.optionals desktop [ "preempt=lazy" ];
   };
 }

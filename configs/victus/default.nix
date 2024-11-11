@@ -16,7 +16,7 @@
     (module /power.nix)
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
-    (module /wicked_kernel.nix)
+    (import (module /wicked_kernel.nix) { })
   ];
 
   nixpkgs.overlays = [
