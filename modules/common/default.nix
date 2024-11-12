@@ -50,6 +50,11 @@
 
         # as per powertop's suggestion
         #"vm.dirty_writeback_centisecs" = 1500;
+
+        # https://github.com/pop-os/default-settings/blob/master_noble/etc/sysctl.d/10-pop-default-settings.conf
+        "vm.dirty_bytes" = 268435456;
+        "vm.dirty_background_bytes" = 134217728;
+        "fs.inotify.max_user_instances" = 1024;
       };
     };
     initrd.systemd.enable = true;
