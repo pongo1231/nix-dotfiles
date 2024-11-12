@@ -22,6 +22,9 @@
       shellAliases = {
         "cd.." = "cd ..";
         cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
+
+        ksminfo = "grep -r . /sys/kernel/mm/ksm";
+        ksmprofit = "echo | awk -v profit=$(cat /sys/kernel/mm/ksm/general_profit) '{print \"\\033[35m\"profit / 1024 / 1024\" MB\\033[0m\"}'";
       };
 
       shellInit = ''
