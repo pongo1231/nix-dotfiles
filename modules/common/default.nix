@@ -166,10 +166,11 @@
   };
 
   systemd = {
-    # yanked from linux-zen
     tmpfiles.rules = [
-      "w /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
-      "w /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
+      "w! /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise"
+      "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
+      "w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
+      "w! /sys/kernel/mm/transparent_hugepage/khugepaged/defrag - - - - 1"
     ];
 
     services = {

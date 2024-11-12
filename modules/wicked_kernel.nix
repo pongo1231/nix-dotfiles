@@ -151,4 +151,11 @@
 
     kernelParams = lib.optionals desktop [ "preempt=lazy" ];
   };
+
+  systemd.tmpfiles.rules = [
+    "w! /sys/kernel/mm/transparent_hugepage/enabled - - - - always"
+    "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
+    "w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - always"
+    "w! /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
+  ];
 }
