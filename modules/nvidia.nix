@@ -27,7 +27,7 @@
             #patches = [ (patch /nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch) ];
           }).overrideAttrs (prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-            builder = (patch /nvidia/builder.sh);
+            #builder = (patch /nvidia/builder.sh);
 
             patches = prevAttrs'.patches ++ [
 
