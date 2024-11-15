@@ -24,15 +24,15 @@
             {
               inherit version;
               modDirVersion = "6.12.0-rc7";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "2d5404caa8c7bb5c4e0435f94b28834ae5456623";
-                hash = "sha256-+9s1+n970M8rbc73MwfQiweVEZUlPbK5ccQu/s+iT+c=";
-              };*/
-              src = pkgs.fetchzip {
+                rev = "f868cd2517763c66783c6000b29d97f0b966b311";
+                hash = "sha256-qZLSAfFWjyYBHY+D0rz/OsiV2owYe3ZVapELw13XQzE=";
+              };
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-+9s1+n970M8rbc73MwfQiweVEZUlPbK5ccQu/s+iT+c=";
-              };
+              };*/
             };
         });
       }));
@@ -137,6 +137,10 @@
             AMD_PRIVATE_COLOR y
           '';
         }*/
+        {
+          name = "faster-suspend-resume";
+          patch = patch /linux/6.12/PATCH-v1-0-5-Optimize-async-device-suspend-resume.patch;
+        }
         {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
