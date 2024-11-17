@@ -35,6 +35,15 @@
               };*/
             };
         });
+
+        xpadneo = prevAttrs.xpadneo.overrideAttrs (prevAttrs: {
+          src = final.fetchFromGitHub {
+            owner = "atar-axis";
+            repo = "xpadneo";
+            rev = "be65dbb793b09241c4a525ce3363f797672b3301";
+            hash = "sha256-COmi4sxz6m5IPW8ruzHsw+LsepEgA5+A6Yh1642MSAM=";
+          };
+        });
       }));
     })
   ];

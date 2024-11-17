@@ -68,8 +68,6 @@ in
 
     #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
     #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
-
-    xpadneo.enable = lib.mkForce false;
   };
 
   networking.hostId = "a1f92a1f";
