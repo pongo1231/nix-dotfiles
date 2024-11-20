@@ -181,6 +181,8 @@
   };
 
   systemd = {
+    network.wait-online.enable = false;
+
     tmpfiles.rules = [
       "w! /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise"
       "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
