@@ -19,20 +19,20 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.12-rc7";
+              version = "6.12";
             in
             {
               inherit version;
-              modDirVersion = "6.12.0-rc7";
-              src = pkgs.fetchgit {
+              modDirVersion = "6.12.0";
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "f868cd2517763c66783c6000b29d97f0b966b311";
-                hash = "sha256-qZLSAfFWjyYBHY+D0rz/OsiV2owYe3ZVapELw13XQzE=";
-              };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-+9s1+n970M8rbc73MwfQiweVEZUlPbK5ccQu/s+iT+c=";
+                rev = "adc218676eef25575469234709c2d87185ca223a";
+                hash = "sha256-49t94CaLdkxrmxG9Wie+p1wk6VNhraawR0vOjoFR3bY=";
               };*/
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-49t94CaLdkxrmxG9Wie+p1wk6VNhraawR0vOjoFR3bY=";
+              };
             };
         });
 
@@ -100,7 +100,8 @@
         }*/
         {
           name = "preempt-lazy";
-          patch = patch /linux/6.12/preempt-lazy.patch;
+          #patch = patch /linux/6.12/preempt-lazy.patch;
+          patch = null;
           extraConfig = ''
             PREEMPT_LAZY y
           '';
@@ -117,10 +118,10 @@
           name = "psr-fix";
           patch = patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
         }
-        {
+        /*{
           name = "buffered-uncached";
           patch = patch /linux/6.12/buffered-uncached.patch;
-        }
+        }*/
         /*{
           name = "context-switch-optimizations";
           patch = patch /linux/6.12/context-switch-optimizations.patch;
@@ -149,6 +150,10 @@
         {
           name = "faster-suspend-resume";
           patch = patch /linux/6.12/PATCH-v1-0-5-Optimize-async-device-suspend-resume.patch;
+        }
+        {
+          name = "btrfs-6.13-backport-and-buffered-uncached";
+          patch = patch /linux/6.12/btrfs-6.13-backport-and-buffered-uncached.patch;
         }
         {
           name = "jupiter-mfd";
