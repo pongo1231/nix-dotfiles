@@ -101,6 +101,9 @@
   };
 
   networking = {
+    dhcpcd.enable = false;
+    useNetworkd = true;
+
     networkmanager = {
       enable = true;
       wifi = {
