@@ -155,6 +155,14 @@
           patch = patch /linux/6.12/btrfs-6.13-backport-and-buffered-uncached.patch;
         }
         {
+          name = "crc32c-optimizations";
+          patch = patch /linux/6.12/crc32c-optimizations.patch;
+        }
+        {
+          name = "multigrain-timestamps";
+          patch = patch /linux/6.12/multigrain-timestamps.patch;
+        }
+        {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
