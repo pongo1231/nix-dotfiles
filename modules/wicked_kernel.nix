@@ -61,6 +61,13 @@
         '';
       in
       [
+        {
+          name = "cachyos";
+          patch = patch /linux/6.12/cachyos.patch;
+          extraConfig = ''
+            AMD_PRIVATE_COLOR y
+          '';
+        }
         /*{
           name = "dgpu passthrough fix";
           patch = null;
@@ -100,8 +107,7 @@
         }*/
         {
           name = "preempt-lazy";
-          #patch = patch /linux/6.12/preempt-lazy.patch;
-          patch = null;
+          patch = patch /linux/6.12/preempt-lazy.patch;
           extraConfig = ''
             PREEMPT_LAZY y
           '';
@@ -129,13 +135,6 @@
         {
           name = "kcore-optimizations";
           patch = patch /linux/6.12/kcore-optimizations.patch;
-        }
-        {
-          name = "cachyos";
-          patch = patch /linux/6.12/cachyos.patch;
-          extraConfig = ''
-            AMD_PRIVATE_COLOR y
-          '';
         }
         /*{
           name = "amd-color-management";

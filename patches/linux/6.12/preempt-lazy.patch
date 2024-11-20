@@ -1,5 +1,5 @@
 diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
-index 62545946ecf4..3516c5848061 100644
+index 62545946ecf43..3516c58480612 100644
 --- a/arch/riscv/Kconfig
 +++ b/arch/riscv/Kconfig
 @@ -39,6 +39,7 @@ config RISCV
@@ -11,7 +11,7 @@ index 62545946ecf4..3516c5848061 100644
  	select ARCH_HAS_PTE_DEVMAP if 64BIT && MMU
  	select ARCH_HAS_PTE_SPECIAL
 diff --git a/arch/riscv/include/asm/thread_info.h b/arch/riscv/include/asm/thread_info.h
-index 9c10fb180f43..f5916a70879a 100644
+index 9c10fb180f438..f5916a70879a8 100644
 --- a/arch/riscv/include/asm/thread_info.h
 +++ b/arch/riscv/include/asm/thread_info.h
 @@ -107,9 +107,10 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src);
@@ -41,7 +41,7 @@ index 9c10fb180f43..f5916a70879a 100644
  #define _TIF_UPROBE		(1 << TIF_UPROBE)
  #define _TIF_RISCV_V_DEFER_RESTORE	(1 << TIF_RISCV_V_DEFER_RESTORE)
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 2852fcd82cbd..b76aa7f20710 100644
+index 2852fcd82cbd8..b76aa7f207109 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
 @@ -93,6 +93,7 @@ config X86
@@ -53,7 +53,7 @@ index 2852fcd82cbd..b76aa7f20710 100644
  	select ARCH_HAS_PTE_SPECIAL
  	select ARCH_HAS_HW_PTE_YOUNG
 diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
-index 12da7dfd5ef1..75bb390f7baf 100644
+index 12da7dfd5ef13..a55c214f3ba64 100644
 --- a/arch/x86/include/asm/thread_info.h
 +++ b/arch/x86/include/asm/thread_info.h
 @@ -87,8 +87,9 @@ struct thread_info {
@@ -62,7 +62,7 @@ index 12da7dfd5ef1..75bb390f7baf 100644
  #define TIF_NEED_RESCHED	3	/* rescheduling necessary */
 -#define TIF_SINGLESTEP		4	/* reenable singlestep on user return*/
 -#define TIF_SSBD		5	/* Speculative store bypass disable */
-+#define TIF_NEED_RESCHED_LAZY	4	/* rescheduling necessary */
++#define TIF_NEED_RESCHED_LAZY	4	/* Lazy rescheduling needed */
 +#define TIF_SINGLESTEP		5	/* reenable singlestep on user return*/
 +#define TIF_SSBD		6	/* Speculative store bypass disable */
  #define TIF_SPEC_IB		9	/* Indirect branch speculation mitigation */
@@ -76,8 +76,21 @@ index 12da7dfd5ef1..75bb390f7baf 100644
  #define _TIF_SINGLESTEP		(1 << TIF_SINGLESTEP)
  #define _TIF_SSBD		(1 << TIF_SSBD)
  #define _TIF_SPEC_IB		(1 << TIF_SPEC_IB)
+diff --git a/fs/exec.c b/fs/exec.c
+index 6c53920795c2e..aaa605529a750 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -990,7 +990,7 @@ static int exec_mmap(struct mm_struct *mm)
+ 	active_mm = tsk->active_mm;
+ 	tsk->active_mm = mm;
+ 	tsk->mm = mm;
+-	mm_init_cid(mm);
++	mm_init_cid(mm, tsk);
+ 	/*
+ 	 * This prevents preemption while active_mm is being loaded and
+ 	 * it and mm are being updated, which could cause problems for
 diff --git a/include/linux/entry-common.h b/include/linux/entry-common.h
-index 1e50cdb83ae5..fc61d0205c97 100644
+index 1e50cdb83ae50..fc61d0205c970 100644
 --- a/include/linux/entry-common.h
 +++ b/include/linux/entry-common.h
 @@ -64,7 +64,8 @@
@@ -91,7 +104,7 @@ index 1e50cdb83ae5..fc61d0205c97 100644
  
  /**
 diff --git a/include/linux/entry-kvm.h b/include/linux/entry-kvm.h
-index 6813171afccb..16149f6625e4 100644
+index 6813171afccb2..16149f6625e48 100644
 --- a/include/linux/entry-kvm.h
 +++ b/include/linux/entry-kvm.h
 @@ -17,8 +17,9 @@
@@ -106,8 +119,143 @@ index 6813171afccb..16149f6625e4 100644
  
  struct kvm_vcpu;
  
+diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+index 6e3bdf8e38bca..381d22eba0887 100644
+--- a/include/linux/mm_types.h
++++ b/include/linux/mm_types.h
+@@ -782,6 +782,7 @@ struct vm_area_struct {
+ struct mm_cid {
+ 	u64 time;
+ 	int cid;
++	int recent_cid;
+ };
+ #endif
+ 
+@@ -852,6 +853,27 @@ struct mm_struct {
+ 		 * When the next mm_cid scan is due (in jiffies).
+ 		 */
+ 		unsigned long mm_cid_next_scan;
++		/**
++		 * @nr_cpus_allowed: Number of CPUs allowed for mm.
++		 *
++		 * Number of CPUs allowed in the union of all mm's
++		 * threads allowed CPUs.
++		 */
++		unsigned int nr_cpus_allowed;
++		/**
++		 * @max_nr_cid: Maximum number of concurrency IDs allocated.
++		 *
++		 * Track the highest number of concurrency IDs allocated for the
++		 * mm.
++		 */
++		atomic_t max_nr_cid;
++		/**
++		 * @cpus_allowed_lock: Lock protecting mm cpus_allowed.
++		 *
++		 * Provide mutual exclusion for mm cpus_allowed and
++		 * mm nr_cpus_allowed updates.
++		 */
++		raw_spinlock_t cpus_allowed_lock;
+ #endif
+ #ifdef CONFIG_MMU
+ 		atomic_long_t pgtables_bytes;	/* size of all page tables */
+@@ -1170,18 +1192,30 @@ static inline int mm_cid_clear_lazy_put(int cid)
+ 	return cid & ~MM_CID_LAZY_PUT;
+ }
+ 
++/*
++ * mm_cpus_allowed: Union of all mm's threads allowed CPUs.
++ */
++static inline cpumask_t *mm_cpus_allowed(struct mm_struct *mm)
++{
++	unsigned long bitmap = (unsigned long)mm;
++
++	bitmap += offsetof(struct mm_struct, cpu_bitmap);
++	/* Skip cpu_bitmap */
++	bitmap += cpumask_size();
++	return (struct cpumask *)bitmap;
++}
++
+ /* Accessor for struct mm_struct's cidmask. */
+ static inline cpumask_t *mm_cidmask(struct mm_struct *mm)
+ {
+-	unsigned long cid_bitmap = (unsigned long)mm;
++	unsigned long cid_bitmap = (unsigned long)mm_cpus_allowed(mm);
+ 
+-	cid_bitmap += offsetof(struct mm_struct, cpu_bitmap);
+-	/* Skip cpu_bitmap */
++	/* Skip mm_cpus_allowed */
+ 	cid_bitmap += cpumask_size();
+ 	return (struct cpumask *)cid_bitmap;
+ }
+ 
+-static inline void mm_init_cid(struct mm_struct *mm)
++static inline void mm_init_cid(struct mm_struct *mm, struct task_struct *p)
+ {
+ 	int i;
+ 
+@@ -1189,17 +1223,22 @@ static inline void mm_init_cid(struct mm_struct *mm)
+ 		struct mm_cid *pcpu_cid = per_cpu_ptr(mm->pcpu_cid, i);
+ 
+ 		pcpu_cid->cid = MM_CID_UNSET;
++		pcpu_cid->recent_cid = MM_CID_UNSET;
+ 		pcpu_cid->time = 0;
+ 	}
++	mm->nr_cpus_allowed = p->nr_cpus_allowed;
++	atomic_set(&mm->max_nr_cid, 0);
++	raw_spin_lock_init(&mm->cpus_allowed_lock);
++	cpumask_copy(mm_cpus_allowed(mm), &p->cpus_mask);
+ 	cpumask_clear(mm_cidmask(mm));
+ }
+ 
+-static inline int mm_alloc_cid_noprof(struct mm_struct *mm)
++static inline int mm_alloc_cid_noprof(struct mm_struct *mm, struct task_struct *p)
+ {
+ 	mm->pcpu_cid = alloc_percpu_noprof(struct mm_cid);
+ 	if (!mm->pcpu_cid)
+ 		return -ENOMEM;
+-	mm_init_cid(mm);
++	mm_init_cid(mm, p);
+ 	return 0;
+ }
+ #define mm_alloc_cid(...)	alloc_hooks(mm_alloc_cid_noprof(__VA_ARGS__))
+@@ -1212,16 +1251,31 @@ static inline void mm_destroy_cid(struct mm_struct *mm)
+ 
+ static inline unsigned int mm_cid_size(void)
+ {
+-	return cpumask_size();
++	return 2 * cpumask_size();	/* mm_cpus_allowed(), mm_cidmask(). */
++}
++
++static inline void mm_set_cpus_allowed(struct mm_struct *mm, const struct cpumask *cpumask)
++{
++	struct cpumask *mm_allowed = mm_cpus_allowed(mm);
++
++	if (!mm)
++		return;
++	/* The mm_cpus_allowed is the union of each thread allowed CPUs masks. */
++	raw_spin_lock(&mm->cpus_allowed_lock);
++	cpumask_or(mm_allowed, mm_allowed, cpumask);
++	WRITE_ONCE(mm->nr_cpus_allowed, cpumask_weight(mm_allowed));
++	raw_spin_unlock(&mm->cpus_allowed_lock);
+ }
+ #else /* CONFIG_SCHED_MM_CID */
+-static inline void mm_init_cid(struct mm_struct *mm) { }
+-static inline int mm_alloc_cid(struct mm_struct *mm) { return 0; }
++static inline void mm_init_cid(struct mm_struct *mm, struct task_struct *p) { }
++static inline int mm_alloc_cid(struct mm_struct *mm, struct task_struct *p) { return 0; }
+ static inline void mm_destroy_cid(struct mm_struct *mm) { }
++
+ static inline unsigned int mm_cid_size(void)
+ {
+ 	return 0;
+ }
++static inline void mm_set_cpus_allowed(struct mm_struct *mm, const struct cpumask *cpumask) { }
+ #endif /* CONFIG_SCHED_MM_CID */
+ 
+ struct mmu_gather;
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index ce76f1a45722..ca86235ac15c 100644
+index ce76f1a457225..ca86235ac15c0 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -486,6 +486,7 @@ DEFINE_LOCK_GUARD_0(migrate, migrate_disable(), migrate_enable())
@@ -140,9 +288,18 @@ index ce76f1a45722..ca86235ac15c 100644
  
  #endif /* __LINUX_PREEMPT_H */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index a76e3d074a2a..1d5cc3e50884 100644
+index bb343136ddd05..1d5cc3e508843 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
+@@ -1898,7 +1898,7 @@ extern unsigned long init_stack[THREAD_SIZE / sizeof(unsigned long)];
+ 
+ #ifdef CONFIG_THREAD_INFO_IN_TASK
+ # define task_thread_info(task)	(&(task)->thread_info)
+-#elif !defined(__HAVE_THREAD_FUNCTIONS)
++#else
+ # define task_thread_info(task)	((struct thread_info *)(task)->stack)
+ #endif
+ 
 @@ -2002,7 +2002,8 @@ static inline void set_tsk_need_resched(struct task_struct *tsk)
  
  static inline void clear_tsk_need_resched(struct task_struct *tsk)
@@ -154,7 +311,7 @@ index a76e3d074a2a..1d5cc3e50884 100644
  
  static inline int test_tsk_need_resched(struct task_struct *tsk)
 diff --git a/include/linux/sched/ext.h b/include/linux/sched/ext.h
-index 1ddbde64a31b..2799e7284fff 100644
+index 1ddbde64a31b4..2799e7284fff7 100644
 --- a/include/linux/sched/ext.h
 +++ b/include/linux/sched/ext.h
 @@ -199,7 +199,6 @@ struct sched_ext_entity {
@@ -165,8 +322,21 @@ index 1ddbde64a31b..2799e7284fff 100644
  	struct list_head	tasks_node;
  };
  
+diff --git a/include/linux/sched/task_stack.h b/include/linux/sched/task_stack.h
+index bf10bdb487ddc..2e52cc421bce9 100644
+--- a/include/linux/sched/task_stack.h
++++ b/include/linux/sched/task_stack.h
+@@ -33,7 +33,7 @@ static __always_inline unsigned long *end_of_stack(const struct task_struct *tas
+ #endif
+ }
+ 
+-#elif !defined(__HAVE_THREAD_FUNCTIONS)
++#else
+ 
+ #define task_stack_page(task)	((void *)(task)->stack)
+ 
 diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
-index 9ea0b28068f4..cf2446c9c30d 100644
+index 9ea0b28068f49..cf2446c9c30d4 100644
 --- a/include/linux/thread_info.h
 +++ b/include/linux/thread_info.h
 @@ -59,6 +59,14 @@ enum syscall_work_bit {
@@ -216,8 +386,595 @@ index 9ea0b28068f4..cf2446c9c30d 100644
  #ifndef CONFIG_HAVE_ARCH_WITHIN_STACK_FRAMES
  static inline int arch_within_stack_frames(const void * const stack,
  					   const void * const stackend,
+diff --git a/include/linux/wait_bit.h b/include/linux/wait_bit.h
+index 7725b7579b781..9e29d79fc790a 100644
+--- a/include/linux/wait_bit.h
++++ b/include/linux/wait_bit.h
+@@ -8,7 +8,7 @@
+ #include <linux/wait.h>
+ 
+ struct wait_bit_key {
+-	void			*flags;
++	unsigned long		*flags;
+ 	int			bit_nr;
+ 	unsigned long		timeout;
+ };
+@@ -23,14 +23,14 @@ struct wait_bit_queue_entry {
+ 
+ typedef int wait_bit_action_f(struct wait_bit_key *key, int mode);
+ 
+-void __wake_up_bit(struct wait_queue_head *wq_head, void *word, int bit);
++void __wake_up_bit(struct wait_queue_head *wq_head, unsigned long *word, int bit);
+ int __wait_on_bit(struct wait_queue_head *wq_head, struct wait_bit_queue_entry *wbq_entry, wait_bit_action_f *action, unsigned int mode);
+ int __wait_on_bit_lock(struct wait_queue_head *wq_head, struct wait_bit_queue_entry *wbq_entry, wait_bit_action_f *action, unsigned int mode);
+-void wake_up_bit(void *word, int bit);
+-int out_of_line_wait_on_bit(void *word, int, wait_bit_action_f *action, unsigned int mode);
+-int out_of_line_wait_on_bit_timeout(void *word, int, wait_bit_action_f *action, unsigned int mode, unsigned long timeout);
+-int out_of_line_wait_on_bit_lock(void *word, int, wait_bit_action_f *action, unsigned int mode);
+-struct wait_queue_head *bit_waitqueue(void *word, int bit);
++void wake_up_bit(unsigned long *word, int bit);
++int out_of_line_wait_on_bit(unsigned long *word, int, wait_bit_action_f *action, unsigned int mode);
++int out_of_line_wait_on_bit_timeout(unsigned long *word, int, wait_bit_action_f *action, unsigned int mode, unsigned long timeout);
++int out_of_line_wait_on_bit_lock(unsigned long *word, int, wait_bit_action_f *action, unsigned int mode);
++struct wait_queue_head *bit_waitqueue(unsigned long *word, int bit);
+ extern void __init wait_bit_init(void);
+ 
+ int wake_bit_function(struct wait_queue_entry *wq_entry, unsigned mode, int sync, void *key);
+@@ -49,23 +49,24 @@ int wake_bit_function(struct wait_queue_entry *wq_entry, unsigned mode, int sync
+ extern int bit_wait(struct wait_bit_key *key, int mode);
+ extern int bit_wait_io(struct wait_bit_key *key, int mode);
+ extern int bit_wait_timeout(struct wait_bit_key *key, int mode);
+-extern int bit_wait_io_timeout(struct wait_bit_key *key, int mode);
+ 
+ /**
+  * wait_on_bit - wait for a bit to be cleared
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * @word: the address containing the bit being waited on
++ * @bit: the bit at that address being waited on
+  * @mode: the task state to sleep in
+  *
+- * There is a standard hashed waitqueue table for generic use. This
+- * is the part of the hashtable's accessor API that waits on a bit.
+- * For instance, if one were to have waiters on a bitflag, one would
+- * call wait_on_bit() in threads waiting for the bit to clear.
+- * One uses wait_on_bit() where one is waiting for the bit to clear,
+- * but has no intention of setting it.
+- * Returned value will be zero if the bit was cleared, or non-zero
+- * if the process received a signal and the mode permitted wakeup
+- * on that signal.
++ * Wait for the given bit in an unsigned long or bitmap (see DECLARE_BITMAP())
++ * to be cleared.  The clearing of the bit must be signalled with
++ * wake_up_bit(), often as clear_and_wake_up_bit().
++ *
++ * The process will wait on a waitqueue selected by hash from a shared
++ * pool.  It will only be woken on a wake_up for the target bit, even
++ * if other processes on the same queue are waiting for other bits.
++ *
++ * Returned value will be zero if the bit was cleared in which case the
++ * call has ACQUIRE semantics, or %-EINTR if the process received a
++ * signal and the mode permitted wake up on that signal.
+  */
+ static inline int
+ wait_on_bit(unsigned long *word, int bit, unsigned mode)
+@@ -80,17 +81,20 @@ wait_on_bit(unsigned long *word, int bit, unsigned mode)
+ 
+ /**
+  * wait_on_bit_io - wait for a bit to be cleared
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * @word: the address containing the bit being waited on
++ * @bit: the bit at that address being waited on
+  * @mode: the task state to sleep in
+  *
+- * Use the standard hashed waitqueue table to wait for a bit
+- * to be cleared.  This is similar to wait_on_bit(), but calls
+- * io_schedule() instead of schedule() for the actual waiting.
++ * Wait for the given bit in an unsigned long or bitmap (see DECLARE_BITMAP())
++ * to be cleared.  The clearing of the bit must be signalled with
++ * wake_up_bit(), often as clear_and_wake_up_bit().
+  *
+- * Returned value will be zero if the bit was cleared, or non-zero
+- * if the process received a signal and the mode permitted wakeup
+- * on that signal.
++ * This is similar to wait_on_bit(), but calls io_schedule() instead of
++ * schedule() for the actual waiting.
++ *
++ * Returned value will be zero if the bit was cleared in which case the
++ * call has ACQUIRE semantics, or %-EINTR if the process received a
++ * signal and the mode permitted wake up on that signal.
+  */
+ static inline int
+ wait_on_bit_io(unsigned long *word, int bit, unsigned mode)
+@@ -104,19 +108,24 @@ wait_on_bit_io(unsigned long *word, int bit, unsigned mode)
+ }
+ 
+ /**
+- * wait_on_bit_timeout - wait for a bit to be cleared or a timeout elapses
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * wait_on_bit_timeout - wait for a bit to be cleared or a timeout to elapse
++ * @word: the address containing the bit being waited on
++ * @bit: the bit at that address being waited on
+  * @mode: the task state to sleep in
+  * @timeout: timeout, in jiffies
+  *
+- * Use the standard hashed waitqueue table to wait for a bit
+- * to be cleared. This is similar to wait_on_bit(), except also takes a
+- * timeout parameter.
++ * Wait for the given bit in an unsigned long or bitmap (see
++ * DECLARE_BITMAP()) to be cleared, or for a timeout to expire.  The
++ * clearing of the bit must be signalled with wake_up_bit(), often as
++ * clear_and_wake_up_bit().
++ *
++ * This is similar to wait_on_bit(), except it also takes a timeout
++ * parameter.
+  *
+- * Returned value will be zero if the bit was cleared before the
+- * @timeout elapsed, or non-zero if the @timeout elapsed or process
+- * received a signal and the mode permitted wakeup on that signal.
++ * Returned value will be zero if the bit was cleared in which case the
++ * call has ACQUIRE semantics, or %-EINTR if the process received a
++ * signal and the mode permitted wake up on that signal, or %-EAGAIN if the
++ * timeout elapsed.
+  */
+ static inline int
+ wait_on_bit_timeout(unsigned long *word, int bit, unsigned mode,
+@@ -132,19 +141,21 @@ wait_on_bit_timeout(unsigned long *word, int bit, unsigned mode,
+ 
+ /**
+  * wait_on_bit_action - wait for a bit to be cleared
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * @word: the address containing the bit waited on
++ * @bit: the bit at that address being waited on
+  * @action: the function used to sleep, which may take special actions
+  * @mode: the task state to sleep in
+  *
+- * Use the standard hashed waitqueue table to wait for a bit
+- * to be cleared, and allow the waiting action to be specified.
+- * This is like wait_on_bit() but allows fine control of how the waiting
+- * is done.
++ * Wait for the given bit in an unsigned long or bitmap (see DECLARE_BITMAP())
++ * to be cleared.  The clearing of the bit must be signalled with
++ * wake_up_bit(), often as clear_and_wake_up_bit().
++ *
++ * This is similar to wait_on_bit(), but calls @action() instead of
++ * schedule() for the actual waiting.
+  *
+- * Returned value will be zero if the bit was cleared, or non-zero
+- * if the process received a signal and the mode permitted wakeup
+- * on that signal.
++ * Returned value will be zero if the bit was cleared in which case the
++ * call has ACQUIRE semantics, or the error code returned by @action if
++ * that call returned non-zero.
+  */
+ static inline int
+ wait_on_bit_action(unsigned long *word, int bit, wait_bit_action_f *action,
+@@ -157,23 +168,22 @@ wait_on_bit_action(unsigned long *word, int bit, wait_bit_action_f *action,
+ }
+ 
+ /**
+- * wait_on_bit_lock - wait for a bit to be cleared, when wanting to set it
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * wait_on_bit_lock - wait for a bit to be cleared, then set it
++ * @word: the address containing the bit being waited on
++ * @bit: the bit of the word being waited on and set
+  * @mode: the task state to sleep in
+  *
+- * There is a standard hashed waitqueue table for generic use. This
+- * is the part of the hashtable's accessor API that waits on a bit
+- * when one intends to set it, for instance, trying to lock bitflags.
+- * For instance, if one were to have waiters trying to set bitflag
+- * and waiting for it to clear before setting it, one would call
+- * wait_on_bit() in threads waiting to be able to set the bit.
+- * One uses wait_on_bit_lock() where one is waiting for the bit to
+- * clear with the intention of setting it, and when done, clearing it.
++ * Wait for the given bit in an unsigned long or bitmap (see
++ * DECLARE_BITMAP()) to be cleared.  The clearing of the bit must be
++ * signalled with wake_up_bit(), often as clear_and_wake_up_bit().  As
++ * soon as it is clear, atomically set it and return.
+  *
+- * Returns zero if the bit was (eventually) found to be clear and was
+- * set.  Returns non-zero if a signal was delivered to the process and
+- * the @mode allows that signal to wake the process.
++ * This is similar to wait_on_bit(), but sets the bit before returning.
++ *
++ * Returned value will be zero if the bit was successfully set in which
++ * case the call has the same memory sequencing semantics as
++ * test_and_clear_bit(), or %-EINTR if the process received a signal and
++ * the mode permitted wake up on that signal.
+  */
+ static inline int
+ wait_on_bit_lock(unsigned long *word, int bit, unsigned mode)
+@@ -185,15 +195,18 @@ wait_on_bit_lock(unsigned long *word, int bit, unsigned mode)
+ }
+ 
+ /**
+- * wait_on_bit_lock_io - wait for a bit to be cleared, when wanting to set it
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * wait_on_bit_lock_io - wait for a bit to be cleared, then set it
++ * @word: the address containing the bit being waited on
++ * @bit: the bit of the word being waited on and set
+  * @mode: the task state to sleep in
+  *
+- * Use the standard hashed waitqueue table to wait for a bit
+- * to be cleared and then to atomically set it.  This is similar
+- * to wait_on_bit(), but calls io_schedule() instead of schedule()
+- * for the actual waiting.
++ * Wait for the given bit in an unsigned long or bitmap (see
++ * DECLARE_BITMAP()) to be cleared.  The clearing of the bit must be
++ * signalled with wake_up_bit(), often as clear_and_wake_up_bit().  As
++ * soon as it is clear, atomically set it and return.
++ *
++ * This is similar to wait_on_bit_lock(), but calls io_schedule() instead
++ * of schedule().
+  *
+  * Returns zero if the bit was (eventually) found to be clear and was
+  * set.  Returns non-zero if a signal was delivered to the process and
+@@ -209,21 +222,19 @@ wait_on_bit_lock_io(unsigned long *word, int bit, unsigned mode)
+ }
+ 
+ /**
+- * wait_on_bit_lock_action - wait for a bit to be cleared, when wanting to set it
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * wait_on_bit_lock_action - wait for a bit to be cleared, then set it
++ * @word: the address containing the bit being waited on
++ * @bit: the bit of the word being waited on and set
+  * @action: the function used to sleep, which may take special actions
+  * @mode: the task state to sleep in
+  *
+- * Use the standard hashed waitqueue table to wait for a bit
+- * to be cleared and then to set it, and allow the waiting action
+- * to be specified.
+- * This is like wait_on_bit() but allows fine control of how the waiting
+- * is done.
++ * This is similar to wait_on_bit_lock(), but calls @action() instead of
++ * schedule() for the actual waiting.
+  *
+- * Returns zero if the bit was (eventually) found to be clear and was
+- * set.  Returns non-zero if a signal was delivered to the process and
+- * the @mode allows that signal to wake the process.
++ * Returned value will be zero if the bit was successfully set in which
++ * case the call has the same memory sequencing semantics as
++ * test_and_clear_bit(), or the error code returned by @action if that
++ * call returned non-zero.
+  */
+ static inline int
+ wait_on_bit_lock_action(unsigned long *word, int bit, wait_bit_action_f *action,
+@@ -269,7 +280,26 @@ __out:	__ret;								\
+ #define __wait_var_event(var, condition)				\
+ 	___wait_var_event(var, condition, TASK_UNINTERRUPTIBLE, 0, 0,	\
+ 			  schedule())
++#define __wait_var_event_io(var, condition)				\
++	___wait_var_event(var, condition, TASK_UNINTERRUPTIBLE, 0, 0,	\
++			  io_schedule())
+ 
++/**
++ * wait_var_event - wait for a variable to be updated and notified
++ * @var: the address of variable being waited on
++ * @condition: the condition to wait for
++ *
++ * Wait for a @condition to be true, only re-checking when a wake up is
++ * received for the given @var (an arbitrary kernel address which need
++ * not be directly related to the given condition, but usually is).
++ *
++ * The process will wait on a waitqueue selected by hash from a shared
++ * pool.  It will only be woken on a wake_up for the given address.
++ *
++ * The condition should normally use smp_load_acquire() or a similarly
++ * ordered access to ensure that any changes to memory made before the
++ * condition became true will be visible after the wait completes.
++ */
+ #define wait_var_event(var, condition)					\
+ do {									\
+ 	might_sleep();							\
+@@ -278,10 +308,56 @@ do {									\
+ 	__wait_var_event(var, condition);				\
+ } while (0)
+ 
++/**
++ * wait_var_event_io - wait for a variable to be updated and notified
++ * @var: the address of variable being waited on
++ * @condition: the condition to wait for
++ *
++ * Wait for an IO related @condition to be true, only re-checking when a
++ * wake up is received for the given @var (an arbitrary kernel address
++ * which need not be directly related to the given condition, but
++ * usually is).
++ *
++ * The process will wait on a waitqueue selected by hash from a shared
++ * pool.  It will only be woken on a wake_up for the given address.
++ *
++ * This is similar to wait_var_event(), but calls io_schedule() instead
++ * of schedule().
++ *
++ * The condition should normally use smp_load_acquire() or a similarly
++ * ordered access to ensure that any changes to memory made before the
++ * condition became true will be visible after the wait completes.
++ */
++#define wait_var_event_io(var, condition)				\
++do {									\
++	might_sleep();							\
++	if (condition)							\
++		break;							\
++	__wait_var_event_io(var, condition);				\
++} while (0)
++
+ #define __wait_var_event_killable(var, condition)			\
+ 	___wait_var_event(var, condition, TASK_KILLABLE, 0, 0,		\
+ 			  schedule())
+ 
++/**
++ * wait_var_event_killable - wait for a variable to be updated and notified
++ * @var: the address of variable being waited on
++ * @condition: the condition to wait for
++ *
++ * Wait for a @condition to be true or a fatal signal to be received,
++ * only re-checking the condition when a wake up is received for the given
++ * @var (an arbitrary kernel address which need not be directly related
++ * to the given condition, but usually is).
++ *
++ * This is similar to wait_var_event() but returns a value which is
++ * 0 if the condition became true, or %-ERESTARTSYS if a fatal signal
++ * was received.
++ *
++ * The condition should normally use smp_load_acquire() or a similarly
++ * ordered access to ensure that any changes to memory made before the
++ * condition became true will be visible after the wait completes.
++ */
+ #define wait_var_event_killable(var, condition)				\
+ ({									\
+ 	int __ret = 0;							\
+@@ -296,6 +372,26 @@ do {									\
+ 			  TASK_UNINTERRUPTIBLE, 0, timeout,		\
+ 			  __ret = schedule_timeout(__ret))
+ 
++/**
++ * wait_var_event_timeout - wait for a variable to be updated or a timeout to expire
++ * @var: the address of variable being waited on
++ * @condition: the condition to wait for
++ * @timeout: maximum time to wait in jiffies
++ *
++ * Wait for a @condition to be true or a timeout to expire, only
++ * re-checking the condition when a wake up is received for the given
++ * @var (an arbitrary kernel address which need not be directly related
++ * to the given condition, but usually is).
++ *
++ * This is similar to wait_var_event() but returns a value which is 0 if
++ * the timeout expired and the condition was still false, or the
++ * remaining time left in the timeout (but at least 1) if the condition
++ * was found to be true.
++ *
++ * The condition should normally use smp_load_acquire() or a similarly
++ * ordered access to ensure that any changes to memory made before the
++ * condition became true will be visible after the wait completes.
++ */
+ #define wait_var_event_timeout(var, condition, timeout)			\
+ ({									\
+ 	long __ret = timeout;						\
+@@ -309,6 +405,23 @@ do {									\
+ 	___wait_var_event(var, condition, TASK_INTERRUPTIBLE, 0, 0,	\
+ 			  schedule())
+ 
++/**
++ * wait_var_event_killable - wait for a variable to be updated and notified
++ * @var: the address of variable being waited on
++ * @condition: the condition to wait for
++ *
++ * Wait for a @condition to be true or a signal to be received, only
++ * re-checking the condition when a wake up is received for the given
++ * @var (an arbitrary kernel address which need not be directly related
++ * to the given condition, but usually is).
++ *
++ * This is similar to wait_var_event() but returns a value which is 0 if
++ * the condition became true, or %-ERESTARTSYS if a signal was received.
++ *
++ * The condition should normally use smp_load_acquire() or a similarly
++ * ordered access to ensure that any changes to memory made before the
++ * condition became true will be visible after the wait completes.
++ */
+ #define wait_var_event_interruptible(var, condition)			\
+ ({									\
+ 	int __ret = 0;							\
+@@ -319,15 +432,122 @@ do {									\
+ })
+ 
+ /**
+- * clear_and_wake_up_bit - clear a bit and wake up anyone waiting on that bit
++ * wait_var_event_any_lock - wait for a variable to be updated under a lock
++ * @var: the address of the variable being waited on
++ * @condition: condition to wait for
++ * @lock: the object that is locked to protect updates to the variable
++ * @type: prefix on lock and unlock operations
++ * @state: waiting state, %TASK_UNINTERRUPTIBLE etc.
++ *
++ * Wait for a condition which can only be reliably tested while holding
++ * a lock.  The variables assessed in the condition will normal be updated
++ * under the same lock, and the wake up should be signalled with
++ * wake_up_var_locked() under the same lock.
++ *
++ * This is similar to wait_var_event(), but assumes a lock is held
++ * while calling this function and while updating the variable.
+  *
++ * This must be called while the given lock is held and the lock will be
++ * dropped when schedule() is called to wait for a wake up, and will be
++ * reclaimed before testing the condition again.  The functions used to
++ * unlock and lock the object are constructed by appending _unlock and _lock
++ * to @type.
++ *
++ * Return %-ERESTARTSYS if a signal arrives which is allowed to interrupt
++ * the wait according to @state.
++ */
++#define wait_var_event_any_lock(var, condition, lock, type, state)	\
++({									\
++	int __ret = 0;							\
++	if (!(condition))						\
++		__ret = ___wait_var_event(var, condition, state, 0, 0,	\
++					  type ## _unlock(lock);	\
++					  schedule();			\
++					  type ## _lock(lock));		\
++	__ret;								\
++})
++
++/**
++ * wait_var_event_spinlock - wait for a variable to be updated under a spinlock
++ * @var: the address of the variable being waited on
++ * @condition: condition to wait for
++ * @lock: the spinlock which protects updates to the variable
++ *
++ * Wait for a condition which can only be reliably tested while holding
++ * a spinlock.  The variables assessed in the condition will normal be updated
++ * under the same spinlock, and the wake up should be signalled with
++ * wake_up_var_locked() under the same spinlock.
++ *
++ * This is similar to wait_var_event(), but assumes a spinlock is held
++ * while calling this function and while updating the variable.
++ *
++ * This must be called while the given lock is held and the lock will be
++ * dropped when schedule() is called to wait for a wake up, and will be
++ * reclaimed before testing the condition again.
++ */
++#define wait_var_event_spinlock(var, condition, lock)			\
++	wait_var_event_any_lock(var, condition, lock, spin, TASK_UNINTERRUPTIBLE)
++
++/**
++ * wait_var_event_mutex - wait for a variable to be updated under a mutex
++ * @var: the address of the variable being waited on
++ * @condition: condition to wait for
++ * @mutex: the mutex which protects updates to the variable
++ *
++ * Wait for a condition which can only be reliably tested while holding
++ * a mutex.  The variables assessed in the condition will normal be
++ * updated under the same mutex, and the wake up should be signalled
++ * with wake_up_var_locked() under the same mutex.
++ *
++ * This is similar to wait_var_event(), but assumes a mutex is held
++ * while calling this function and while updating the variable.
++ *
++ * This must be called while the given mutex is held and the mutex will be
++ * dropped when schedule() is called to wait for a wake up, and will be
++ * reclaimed before testing the condition again.
++ */
++#define wait_var_event_mutex(var, condition, lock)			\
++	wait_var_event_any_lock(var, condition, lock, mutex, TASK_UNINTERRUPTIBLE)
++
++/**
++ * wake_up_var_protected - wake up waiters for a variable asserting that it is safe
++ * @var: the address of the variable being waited on
++ * @cond: the condition which afirms this is safe
++ *
++ * When waking waiters which use wait_var_event_any_lock() the waker must be
++ * holding the reelvant lock to avoid races.  This version of wake_up_var()
++ * asserts that the relevant lock is held and so no barrier is needed.
++ * The @cond is only tested when CONFIG_LOCKDEP is enabled.
++ */
++#define wake_up_var_protected(var, cond)				\
++do {									\
++	lockdep_assert(cond);						\
++	wake_up_var(var);						\
++} while (0)
++
++/**
++ * wake_up_var_locked - wake up waiters for a variable while holding a spinlock or mutex
++ * @var: the address of the variable being waited on
++ * @lock: The spinlock or mutex what protects the variable
++ *
++ * Send a wake up for the given variable which should be waited for with
++ * wait_var_event_spinlock() or wait_var_event_mutex().  Unlike wake_up_var(),
++ * no extra barriers are needed as the locking provides sufficient sequencing.
++ */
++#define wake_up_var_locked(var, lock)					\
++	wake_up_var_protected(var, lockdep_is_held(lock))
++
++/**
++ * clear_and_wake_up_bit - clear a bit and wake up anyone waiting on that bit
+  * @bit: the bit of the word being waited on
+- * @word: the word being waited on, a kernel virtual address
++ * @word: the address containing the bit being waited on
+  *
+- * You can use this helper if bitflags are manipulated atomically rather than
+- * non-atomically under a lock.
++ * The designated bit is cleared and any tasks waiting in wait_on_bit()
++ * or similar will be woken.  This call has RELEASE semantics so that
++ * any changes to memory made before this call are guaranteed to be visible
++ * after the corresponding wait_on_bit() completes.
+  */
+-static inline void clear_and_wake_up_bit(int bit, void *word)
++static inline void clear_and_wake_up_bit(int bit, unsigned long *word)
+ {
+ 	clear_bit_unlock(bit, word);
+ 	/* See wake_up_bit() for which memory barrier you need to use. */
+@@ -335,4 +555,64 @@ static inline void clear_and_wake_up_bit(int bit, void *word)
+ 	wake_up_bit(word, bit);
+ }
+ 
++/**
++ * test_and_clear_wake_up_bit - clear a bit if it was set: wake up anyone waiting on that bit
++ * @bit: the bit of the word being waited on
++ * @word: the address of memory containing that bit
++ *
++ * If the bit is set and can be atomically cleared, any tasks waiting in
++ * wait_on_bit() or similar will be woken.  This call has the same
++ * complete ordering semantics as test_and_clear_bit().  Any changes to
++ * memory made before this call are guaranteed to be visible after the
++ * corresponding wait_on_bit() completes.
++ *
++ * Returns %true if the bit was successfully set and the wake up was sent.
++ */
++static inline bool test_and_clear_wake_up_bit(int bit, unsigned long *word)
++{
++	if (!test_and_clear_bit(bit, word))
++		return false;
++	/* no extra barrier required */
++	wake_up_bit(word, bit);
++	return true;
++}
++
++/**
++ * atomic_dec_and_wake_up - decrement an atomic_t and if zero, wake up waiters
++ * @var: the variable to dec and test
++ *
++ * Decrements the atomic variable and if it reaches zero, send a wake_up to any
++ * processes waiting on the variable.
++ *
++ * This function has the same complete ordering semantics as atomic_dec_and_test.
++ *
++ * Returns %true is the variable reaches zero and the wake up was sent.
++ */
++
++static inline bool atomic_dec_and_wake_up(atomic_t *var)
++{
++	if (!atomic_dec_and_test(var))
++		return false;
++	/* No extra barrier required */
++	wake_up_var(var);
++	return true;
++}
++
++/**
++ * store_release_wake_up - update a variable and send a wake_up
++ * @var: the address of the variable to be updated and woken
++ * @val: the value to store in the variable.
++ *
++ * Store the given value in the variable send a wake up to any tasks
++ * waiting on the variable.  All necessary barriers are included to ensure
++ * the task calling wait_var_event() sees the new value and all values
++ * written to memory before this call.
++ */
++#define store_release_wake_up(var, val)					\
++do {									\
++	smp_store_release(var, val);					\
++	smp_mb();							\
++	wake_up_var(var);						\
++} while (0)
++
+ #endif /* _LINUX_WAIT_BIT_H */
 diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
-index fe782cd77388..54ea59ff8fbe 100644
+index fe782cd773885..54ea59ff8fbeb 100644
 --- a/kernel/Kconfig.preempt
 +++ b/kernel/Kconfig.preempt
 @@ -11,12 +11,16 @@ config PREEMPT_BUILD
@@ -254,10 +1011,10 @@ index fe782cd77388..54ea59ff8fbe 100644
  	help
  	  This option reduces the latency of the kernel by making
  	  all kernel code (that is not executing in a critical section)
-@@ -67,9 +72,23 @@ config PREEMPT
+@@ -67,2 +72,16 @@ config PREEMPT
  	  embedded system with latency requirements in the milliseconds
  	  range.
- 
++
 +config PREEMPT_LAZY
 +	bool "Scheduler controlled preemption model"
 +	depends on !ARCH_NO_PREEMPT
@@ -271,14 +1028,6 @@ index fe782cd77388..54ea59ff8fbe 100644
 +	  gains seen from using Voluntary preemption.
 +
 +endchoice
-+
- config PREEMPT_RT
- 	bool "Fully Preemptible Kernel (Real-Time)"
--	depends on EXPERT && ARCH_SUPPORTS_RT
-+	depends on EXPERT && ARCH_SUPPORTS_RT && !COMPILE_TEST
- 	select PREEMPTION
- 	help
- 	  This option turns the kernel into a real-time kernel by replacing
 @@ -84,8 +103,6 @@ config PREEMPT_RT
  	  Select this if you are building a kernel for systems which
  	  require real-time guarantees.
@@ -298,7 +1047,7 @@ index fe782cd77388..54ea59ff8fbe 100644
  	select PREEMPT_BUILD
  	default y if HAVE_PREEMPT_DYNAMIC_CALL
 diff --git a/kernel/entry/common.c b/kernel/entry/common.c
-index 5b6934e23c21..e33691d5adf7 100644
+index 5b6934e23c21d..e33691d5adf7a 100644
 --- a/kernel/entry/common.c
 +++ b/kernel/entry/common.c
 @@ -98,7 +98,7 @@ __always_inline unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
@@ -311,7 +1060,7 @@ index 5b6934e23c21..e33691d5adf7 100644
  
  		if (ti_work & _TIF_UPROBE)
 diff --git a/kernel/entry/kvm.c b/kernel/entry/kvm.c
-index 2e0f75bcb7fd..8485f63863af 100644
+index 2e0f75bcb7fd1..8485f63863afc 100644
 --- a/kernel/entry/kvm.c
 +++ b/kernel/entry/kvm.c
 @@ -13,7 +13,7 @@ static int xfer_to_guest_mode_work(struct kvm_vcpu *vcpu, unsigned long ti_work)
@@ -332,10 +1081,703 @@ index 2e0f75bcb7fd..8485f63863af 100644
  	return 0;
  }
  
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 89ceb4a68af25..7d950e93f0809 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -1298,7 +1298,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
+ 	if (init_new_context(p, mm))
+ 		goto fail_nocontext;
+ 
+-	if (mm_alloc_cid(mm))
++	if (mm_alloc_cid(mm, p))
+ 		goto fail_cid;
+ 
+ 	if (percpu_counter_init_many(mm->rss_stat, 0, GFP_KERNEL_ACCOUNT,
+diff --git a/kernel/futex/pi.c b/kernel/futex/pi.c
+index 5722467f27379..d62cca5ed8f4c 100644
+--- a/kernel/futex/pi.c
++++ b/kernel/futex/pi.c
+@@ -922,6 +922,7 @@ int futex_lock_pi(u32 __user *uaddr, unsigned int flags, ktime_t *time, int tryl
+ 	struct rt_mutex_waiter rt_waiter;
+ 	struct futex_hash_bucket *hb;
+ 	struct futex_q q = futex_q_init;
++	DEFINE_WAKE_Q(wake_q);
+ 	int res, ret;
+ 
+ 	if (!IS_ENABLED(CONFIG_FUTEX_PI))
+@@ -1018,8 +1019,11 @@ int futex_lock_pi(u32 __user *uaddr, unsigned int flags, ktime_t *time, int tryl
+ 	 * such that futex_unlock_pi() is guaranteed to observe the waiter when
+ 	 * it sees the futex_q::pi_state.
+ 	 */
+-	ret = __rt_mutex_start_proxy_lock(&q.pi_state->pi_mutex, &rt_waiter, current);
++	ret = __rt_mutex_start_proxy_lock(&q.pi_state->pi_mutex, &rt_waiter, current, &wake_q);
++	preempt_disable();
+ 	raw_spin_unlock_irq(&q.pi_state->pi_mutex.wait_lock);
++	wake_up_q(&wake_q);
++	preempt_enable();
+ 
+ 	if (ret) {
+ 		if (ret == 1)
+diff --git a/kernel/locking/mutex.c b/kernel/locking/mutex.c
+index cbae8c0b89ab2..3302e52f0c967 100644
+--- a/kernel/locking/mutex.c
++++ b/kernel/locking/mutex.c
+@@ -56,31 +56,6 @@ __mutex_init(struct mutex *lock, const char *name, struct lock_class_key *key)
+ }
+ EXPORT_SYMBOL(__mutex_init);
+ 
+-/*
+- * @owner: contains: 'struct task_struct *' to the current lock owner,
+- * NULL means not owned. Since task_struct pointers are aligned at
+- * at least L1_CACHE_BYTES, we have low bits to store extra state.
+- *
+- * Bit0 indicates a non-empty waiter list; unlock must issue a wakeup.
+- * Bit1 indicates unlock needs to hand the lock to the top-waiter
+- * Bit2 indicates handoff has been done and we're waiting for pickup.
+- */
+-#define MUTEX_FLAG_WAITERS	0x01
+-#define MUTEX_FLAG_HANDOFF	0x02
+-#define MUTEX_FLAG_PICKUP	0x04
+-
+-#define MUTEX_FLAGS		0x07
+-
+-/*
+- * Internal helper function; C doesn't allow us to hide it :/
+- *
+- * DO NOT USE (outside of mutex code).
+- */
+-static inline struct task_struct *__mutex_owner(struct mutex *lock)
+-{
+-	return (struct task_struct *)(atomic_long_read(&lock->owner) & ~MUTEX_FLAGS);
+-}
+-
+ static inline struct task_struct *__owner_task(unsigned long owner)
+ {
+ 	return (struct task_struct *)(owner & ~MUTEX_FLAGS);
+@@ -575,8 +550,10 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 		    struct lockdep_map *nest_lock, unsigned long ip,
+ 		    struct ww_acquire_ctx *ww_ctx, const bool use_ww_ctx)
+ {
++	DEFINE_WAKE_Q(wake_q);
+ 	struct mutex_waiter waiter;
+ 	struct ww_mutex *ww;
++	unsigned long flags;
+ 	int ret;
+ 
+ 	if (!use_ww_ctx)
+@@ -619,13 +596,13 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 		return 0;
+ 	}
+ 
+-	raw_spin_lock(&lock->wait_lock);
++	raw_spin_lock_irqsave(&lock->wait_lock, flags);
+ 	/*
+ 	 * After waiting to acquire the wait_lock, try again.
+ 	 */
+ 	if (__mutex_trylock(lock)) {
+ 		if (ww_ctx)
+-			__ww_mutex_check_waiters(lock, ww_ctx);
++			__ww_mutex_check_waiters(lock, ww_ctx, &wake_q);
+ 
+ 		goto skip_wait;
+ 	}
+@@ -645,7 +622,7 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 		 * Add in stamp order, waking up waiters that must kill
+ 		 * themselves.
+ 		 */
+-		ret = __ww_mutex_add_waiter(&waiter, lock, ww_ctx);
++		ret = __ww_mutex_add_waiter(&waiter, lock, ww_ctx, &wake_q);
+ 		if (ret)
+ 			goto err_early_kill;
+ 	}
+@@ -680,7 +657,11 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 				goto err;
+ 		}
+ 
+-		raw_spin_unlock(&lock->wait_lock);
++		raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
++		/* Make sure we do wakeups before calling schedule */
++		wake_up_q(&wake_q);
++		wake_q_init(&wake_q);
++
+ 		schedule_preempt_disabled();
+ 
+ 		first = __mutex_waiter_is_first(lock, &waiter);
+@@ -701,9 +682,9 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 			trace_contention_begin(lock, LCB_F_MUTEX);
+ 		}
+ 
+-		raw_spin_lock(&lock->wait_lock);
++		raw_spin_lock_irqsave(&lock->wait_lock, flags);
+ 	}
+-	raw_spin_lock(&lock->wait_lock);
++	raw_spin_lock_irqsave(&lock->wait_lock, flags);
+ acquired:
+ 	__set_current_state(TASK_RUNNING);
+ 
+@@ -714,7 +695,7 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 		 */
+ 		if (!ww_ctx->is_wait_die &&
+ 		    !__mutex_waiter_is_first(lock, &waiter))
+-			__ww_mutex_check_waiters(lock, ww_ctx);
++			__ww_mutex_check_waiters(lock, ww_ctx, &wake_q);
+ 	}
+ 
+ 	__mutex_remove_waiter(lock, &waiter);
+@@ -729,7 +710,8 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 	if (ww_ctx)
+ 		ww_mutex_lock_acquired(ww, ww_ctx);
+ 
+-	raw_spin_unlock(&lock->wait_lock);
++	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
++	wake_up_q(&wake_q);
+ 	preempt_enable();
+ 	return 0;
+ 
+@@ -738,9 +720,10 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
+ 	__mutex_remove_waiter(lock, &waiter);
+ err_early_kill:
+ 	trace_contention_end(lock, ret);
+-	raw_spin_unlock(&lock->wait_lock);
++	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
+ 	debug_mutex_free_waiter(&waiter);
+ 	mutex_release(&lock->dep_map, ip);
++	wake_up_q(&wake_q);
+ 	preempt_enable();
+ 	return ret;
+ }
+@@ -908,6 +891,7 @@ static noinline void __sched __mutex_unlock_slowpath(struct mutex *lock, unsigne
+ 	struct task_struct *next = NULL;
+ 	DEFINE_WAKE_Q(wake_q);
+ 	unsigned long owner;
++	unsigned long flags;
+ 
+ 	mutex_release(&lock->dep_map, ip);
+ 
+@@ -934,7 +918,7 @@ static noinline void __sched __mutex_unlock_slowpath(struct mutex *lock, unsigne
+ 		}
+ 	}
+ 
+-	raw_spin_lock(&lock->wait_lock);
++	raw_spin_lock_irqsave(&lock->wait_lock, flags);
+ 	debug_mutex_unlock(lock);
+ 	if (!list_empty(&lock->wait_list)) {
+ 		/* get the first entry from the wait-list: */
+@@ -951,9 +935,10 @@ static noinline void __sched __mutex_unlock_slowpath(struct mutex *lock, unsigne
+ 	if (owner & MUTEX_FLAG_HANDOFF)
+ 		__mutex_handoff(lock, next);
+ 
+-	raw_spin_unlock(&lock->wait_lock);
+-
++	preempt_disable();
++	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
+ 	wake_up_q(&wake_q);
++	preempt_enable();
+ }
+ 
+ #ifndef CONFIG_DEBUG_LOCK_ALLOC
+diff --git a/kernel/locking/mutex.h b/kernel/locking/mutex.h
+index 0b2a79c4013bd..cbff35b9b7ae3 100644
+--- a/kernel/locking/mutex.h
++++ b/kernel/locking/mutex.h
+@@ -20,6 +20,33 @@ struct mutex_waiter {
+ #endif
+ };
+ 
++/*
++ * @owner: contains: 'struct task_struct *' to the current lock owner,
++ * NULL means not owned. Since task_struct pointers are aligned at
++ * at least L1_CACHE_BYTES, we have low bits to store extra state.
++ *
++ * Bit0 indicates a non-empty waiter list; unlock must issue a wakeup.
++ * Bit1 indicates unlock needs to hand the lock to the top-waiter
++ * Bit2 indicates handoff has been done and we're waiting for pickup.
++ */
++#define MUTEX_FLAG_WAITERS	0x01
++#define MUTEX_FLAG_HANDOFF	0x02
++#define MUTEX_FLAG_PICKUP	0x04
++
++#define MUTEX_FLAGS		0x07
++
++/*
++ * Internal helper function; C doesn't allow us to hide it :/
++ *
++ * DO NOT USE (outside of mutex & scheduler code).
++ */
++static inline struct task_struct *__mutex_owner(struct mutex *lock)
++{
++	if (!lock)
++		return NULL;
++	return (struct task_struct *)(atomic_long_read(&lock->owner) & ~MUTEX_FLAGS);
++}
++
+ #ifdef CONFIG_DEBUG_MUTEXES
+ extern void debug_mutex_lock_common(struct mutex *lock,
+ 				    struct mutex_waiter *waiter);
+diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
+index ebebd0eec7f63..c7de80ee1f9d8 100644
+--- a/kernel/locking/rtmutex.c
++++ b/kernel/locking/rtmutex.c
+@@ -34,13 +34,15 @@
+ 
+ static inline int __ww_mutex_add_waiter(struct rt_mutex_waiter *waiter,
+ 					struct rt_mutex *lock,
+-					struct ww_acquire_ctx *ww_ctx)
++					struct ww_acquire_ctx *ww_ctx,
++					struct wake_q_head *wake_q)
+ {
+ 	return 0;
+ }
+ 
+ static inline void __ww_mutex_check_waiters(struct rt_mutex *lock,
+-					    struct ww_acquire_ctx *ww_ctx)
++					    struct ww_acquire_ctx *ww_ctx,
++					    struct wake_q_head *wake_q)
+ {
+ }
+ 
+@@ -1201,7 +1203,8 @@ static int __sched task_blocks_on_rt_mutex(struct rt_mutex_base *lock,
+ 					   struct rt_mutex_waiter *waiter,
+ 					   struct task_struct *task,
+ 					   struct ww_acquire_ctx *ww_ctx,
+-					   enum rtmutex_chainwalk chwalk)
++					   enum rtmutex_chainwalk chwalk,
++					   struct wake_q_head *wake_q)
+ {
+ 	struct task_struct *owner = rt_mutex_owner(lock);
+ 	struct rt_mutex_waiter *top_waiter = waiter;
+@@ -1245,7 +1248,10 @@ static int __sched task_blocks_on_rt_mutex(struct rt_mutex_base *lock,
+ 
+ 		/* Check whether the waiter should back out immediately */
+ 		rtm = container_of(lock, struct rt_mutex, rtmutex);
+-		res = __ww_mutex_add_waiter(waiter, rtm, ww_ctx);
++		preempt_disable();
++		res = __ww_mutex_add_waiter(waiter, rtm, ww_ctx, wake_q);
++		wake_up_q(wake_q);
++		preempt_enable();
+ 		if (res) {
+ 			raw_spin_lock(&task->pi_lock);
+ 			rt_mutex_dequeue(lock, waiter);
+@@ -1674,12 +1680,14 @@ static void __sched rt_mutex_handle_deadlock(int res, int detect_deadlock,
+  * @state:	The task state for sleeping
+  * @chwalk:	Indicator whether full or partial chainwalk is requested
+  * @waiter:	Initializer waiter for blocking
++ * @wake_q:	The wake_q to wake tasks after we release the wait_lock
+  */
+ static int __sched __rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 				       struct ww_acquire_ctx *ww_ctx,
+ 				       unsigned int state,
+ 				       enum rtmutex_chainwalk chwalk,
+-				       struct rt_mutex_waiter *waiter)
++				       struct rt_mutex_waiter *waiter,
++				       struct wake_q_head *wake_q)
+ {
+ 	struct rt_mutex *rtm = container_of(lock, struct rt_mutex, rtmutex);
+ 	struct ww_mutex *ww = ww_container_of(rtm);
+@@ -1690,7 +1698,7 @@ static int __sched __rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 	/* Try to acquire the lock again: */
+ 	if (try_to_take_rt_mutex(lock, current, NULL)) {
+ 		if (build_ww_mutex() && ww_ctx) {
+-			__ww_mutex_check_waiters(rtm, ww_ctx);
++			__ww_mutex_check_waiters(rtm, ww_ctx, wake_q);
+ 			ww_mutex_lock_acquired(ww, ww_ctx);
+ 		}
+ 		return 0;
+@@ -1700,7 +1708,7 @@ static int __sched __rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 
+ 	trace_contention_begin(lock, LCB_F_RT);
+ 
+-	ret = task_blocks_on_rt_mutex(lock, waiter, current, ww_ctx, chwalk);
++	ret = task_blocks_on_rt_mutex(lock, waiter, current, ww_ctx, chwalk, wake_q);
+ 	if (likely(!ret))
+ 		ret = rt_mutex_slowlock_block(lock, ww_ctx, state, NULL, waiter);
+ 
+@@ -1708,7 +1716,7 @@ static int __sched __rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 		/* acquired the lock */
+ 		if (build_ww_mutex() && ww_ctx) {
+ 			if (!ww_ctx->is_wait_die)
+-				__ww_mutex_check_waiters(rtm, ww_ctx);
++				__ww_mutex_check_waiters(rtm, ww_ctx, wake_q);
+ 			ww_mutex_lock_acquired(ww, ww_ctx);
+ 		}
+ 	} else {
+@@ -1730,7 +1738,8 @@ static int __sched __rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 
+ static inline int __rt_mutex_slowlock_locked(struct rt_mutex_base *lock,
+ 					     struct ww_acquire_ctx *ww_ctx,
+-					     unsigned int state)
++					     unsigned int state,
++					     struct wake_q_head *wake_q)
+ {
+ 	struct rt_mutex_waiter waiter;
+ 	int ret;
+@@ -1739,7 +1748,7 @@ static inline int __rt_mutex_slowlock_locked(struct rt_mutex_base *lock,
+ 	waiter.ww_ctx = ww_ctx;
+ 
+ 	ret = __rt_mutex_slowlock(lock, ww_ctx, state, RT_MUTEX_MIN_CHAINWALK,
+-				  &waiter);
++				  &waiter, wake_q);
+ 
+ 	debug_rt_mutex_free_waiter(&waiter);
+ 	return ret;
+@@ -1755,6 +1764,7 @@ static int __sched rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 				     struct ww_acquire_ctx *ww_ctx,
+ 				     unsigned int state)
+ {
++	DEFINE_WAKE_Q(wake_q);
+ 	unsigned long flags;
+ 	int ret;
+ 
+@@ -1776,8 +1786,11 @@ static int __sched rt_mutex_slowlock(struct rt_mutex_base *lock,
+ 	 * irqsave/restore variants.
+ 	 */
+ 	raw_spin_lock_irqsave(&lock->wait_lock, flags);
+-	ret = __rt_mutex_slowlock_locked(lock, ww_ctx, state);
++	ret = __rt_mutex_slowlock_locked(lock, ww_ctx, state, &wake_q);
++	preempt_disable();
+ 	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
++	wake_up_q(&wake_q);
++	preempt_enable();
+ 	rt_mutex_post_schedule();
+ 
+ 	return ret;
+@@ -1803,1 +1816,1 @@ static __always_inline int __rt_mutex_lock(struct rt_mutex_base *lock,
+-static void __sched rtlock_slowlock_locked(struct rt_mutex_base *lock)
++static void __sched rtlock_slowlock_locked(struct rt_mutex_base *lock, struct wake_q_head *wake_q)
+@@ -1821,7 +1836,7 @@ static void __sched rtlock_slowlock_locked(struct rt_mutex_base *lock)
+ 
+ 	trace_contention_begin(lock, LCB_F_RT);
+ 
+-	task_blocks_on_rt_mutex(lock, &waiter, current, NULL, RT_MUTEX_MIN_CHAINWALK);
++	task_blocks_on_rt_mutex(lock, &waiter, current, NULL, RT_MUTEX_MIN_CHAINWALK, wake_q);
+ 
+ 	for (;;) {
+ 		/* Try to acquire the lock again */
+@@ -1832,7 +1847,11 @@ static void __sched rtlock_slowlock_locked(struct rt_mutex_base *lock)
+ 			owner = rt_mutex_owner(lock);
+ 		else
+ 			owner = NULL;
++		preempt_disable();
+ 		raw_spin_unlock_irq(&lock->wait_lock);
++		wake_up_q(wake_q);
++		wake_q_init(wake_q);
++		preempt_enable();
+ 
+ 		if (!owner || !rtmutex_spin_on_owner(lock, &waiter, owner))
+ 			schedule_rtlock();
+@@ -1857,10 +1876,14 @@ static void __sched rtlock_slowlock_locked(struct rt_mutex_base *lock)
+ static __always_inline void __sched rtlock_slowlock(struct rt_mutex_base *lock)
+ {
+ 	unsigned long flags;
++	DEFINE_WAKE_Q(wake_q);
+ 
+ 	raw_spin_lock_irqsave(&lock->wait_lock, flags);
+-	rtlock_slowlock_locked(lock);
++	rtlock_slowlock_locked(lock, &wake_q);
++	preempt_disable();
+ 	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
++	wake_up_q(&wake_q);
++	preempt_enable();
+ }
+ 
+ #endif /* RT_MUTEX_BUILD_SPINLOCKS */
+diff --git a/kernel/locking/rtmutex_api.c b/kernel/locking/rtmutex_api.c
+index a6974d0445930..2bc14c049a644 100644
+--- a/kernel/locking/rtmutex_api.c
++++ b/kernel/locking/rtmutex_api.c
+@@ -275,6 +275,7 @@ void __sched rt_mutex_proxy_unlock(struct rt_mutex_base *lock)
+  * @lock:		the rt_mutex to take
+  * @waiter:		the pre-initialized rt_mutex_waiter
+  * @task:		the task to prepare
++ * @wake_q:		the wake_q to wake tasks after we release the wait_lock
+  *
+  * Starts the rt_mutex acquire; it enqueues the @waiter and does deadlock
+  * detection. It does not wait, see rt_mutex_wait_proxy_lock() for that.
+@@ -291,7 +292,8 @@ void __sched rt_mutex_proxy_unlock(struct rt_mutex_base *lock)
+  */
+ int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
+ 					struct rt_mutex_waiter *waiter,
+-					struct task_struct *task)
++					struct task_struct *task,
++					struct wake_q_head *wake_q)
+ {
+ 	int ret;
+ 
+@@ -302,7 +304,7 @@ int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
+ 
+ 	/* We enforce deadlock detection for futexes */
+ 	ret = task_blocks_on_rt_mutex(lock, waiter, task, NULL,
+-				      RT_MUTEX_FULL_CHAINWALK);
++				      RT_MUTEX_FULL_CHAINWALK, wake_q);
+ 
+ 	if (ret && !rt_mutex_owner(lock)) {
+ 		/*
+@@ -341,12 +343,16 @@ int __sched rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
+ 				      struct task_struct *task)
+ {
+ 	int ret;
++	DEFINE_WAKE_Q(wake_q);
+ 
+ 	raw_spin_lock_irq(&lock->wait_lock);
+-	ret = __rt_mutex_start_proxy_lock(lock, waiter, task);
++	ret = __rt_mutex_start_proxy_lock(lock, waiter, task, &wake_q);
+ 	if (unlikely(ret))
+ 		remove_waiter(lock, waiter);
++	preempt_disable();
+ 	raw_spin_unlock_irq(&lock->wait_lock);
++	wake_up_q(&wake_q);
++	preempt_enable();
+ 
+ 	return ret;
+ }
+diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
+index 1162e07cdaea1..c38a2d2d4a7ee 100644
+--- a/kernel/locking/rtmutex_common.h
++++ b/kernel/locking/rtmutex_common.h
+@@ -83,7 +83,8 @@ extern void rt_mutex_init_proxy_locked(struct rt_mutex_base *lock,
+ extern void rt_mutex_proxy_unlock(struct rt_mutex_base *lock);
+ extern int __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
+ 				     struct rt_mutex_waiter *waiter,
+-				     struct task_struct *task);
++				     struct task_struct *task,
++				     struct wake_q_head *);
+ extern int rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
+ 				     struct rt_mutex_waiter *waiter,
+ 				     struct task_struct *task);
+diff --git a/kernel/locking/rwbase_rt.c b/kernel/locking/rwbase_rt.c
+index 34a59569db6be..9f4322c074862 100644
+--- a/kernel/locking/rwbase_rt.c
++++ b/kernel/locking/rwbase_rt.c
+@@ -69,6 +69,7 @@ static int __sched __rwbase_read_lock(struct rwbase_rt *rwb,
+ 				      unsigned int state)
+ {
+ 	struct rt_mutex_base *rtm = &rwb->rtmutex;
++	DEFINE_WAKE_Q(wake_q);
+ 	int ret;
+ 
+ 	rwbase_pre_schedule();
+@@ -110,7 +111,7 @@ static int __sched __rwbase_read_lock(struct rwbase_rt *rwb,
+ 	 * For rwlocks this returns 0 unconditionally, so the below
+ 	 * !ret conditionals are optimized out.
+ 	 */
+-	ret = rwbase_rtmutex_slowlock_locked(rtm, state);
++	ret = rwbase_rtmutex_slowlock_locked(rtm, state, &wake_q);
+ 
+ 	/*
+ 	 * On success the rtmutex is held, so there can't be a writer
+@@ -121,7 +122,12 @@ static int __sched __rwbase_read_lock(struct rwbase_rt *rwb,
+ 	 */
+ 	if (!ret)
+ 		atomic_inc(&rwb->readers);
++
++	preempt_disable();
+ 	raw_spin_unlock_irq(&rtm->wait_lock);
++	wake_up_q(&wake_q);
++	preempt_enable();
++
+ 	if (!ret)
+ 		rwbase_rtmutex_unlock(rtm);
+ 
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index 2bbb6eca51445..2ddb827e3bea0 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -1413,8 +1413,8 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
+ #define rwbase_rtmutex_lock_state(rtm, state)		\
+ 	__rt_mutex_lock(rtm, state)
+ 
+-#define rwbase_rtmutex_slowlock_locked(rtm, state)	\
+-	__rt_mutex_slowlock_locked(rtm, NULL, state)
++#define rwbase_rtmutex_slowlock_locked(rtm, state, wq)	\
++	__rt_mutex_slowlock_locked(rtm, NULL, state, wq)
+ 
+ #define rwbase_rtmutex_unlock(rtm)			\
+ 	__rt_mutex_unlock(rtm)
+diff --git a/kernel/locking/spinlock_rt.c b/kernel/locking/spinlock_rt.c
+index 38e292454fccb..014143934e001 100644
+--- a/kernel/locking/spinlock_rt.c
++++ b/kernel/locking/spinlock_rt.c
+@@ -162,9 +162,10 @@ rwbase_rtmutex_lock_state(struct rt_mutex_base *rtm, unsigned int state)
+ }
+ 
+ static __always_inline int
+-rwbase_rtmutex_slowlock_locked(struct rt_mutex_base *rtm, unsigned int state)
++rwbase_rtmutex_slowlock_locked(struct rt_mutex_base *rtm, unsigned int state,
++			       struct wake_q_head *wake_q)
+ {
+-	rtlock_slowlock_locked(rtm);
++	rtlock_slowlock_locked(rtm, wake_q);
+ 	return 0;
+ }
+ 
+diff --git a/kernel/locking/ww_mutex.h b/kernel/locking/ww_mutex.h
+index 76d204b7d29c9..37f025a096c9d 100644
+--- a/kernel/locking/ww_mutex.h
++++ b/kernel/locking/ww_mutex.h
+@@ -70,14 +70,14 @@ __ww_mutex_has_waiters(struct mutex *lock)
+ 	return atomic_long_read(&lock->owner) & MUTEX_FLAG_WAITERS;
+ }
+ 
+-static inline void lock_wait_lock(struct mutex *lock)
++static inline void lock_wait_lock(struct mutex *lock, unsigned long *flags)
+ {
+-	raw_spin_lock(&lock->wait_lock);
++	raw_spin_lock_irqsave(&lock->wait_lock, *flags);
+ }
+ 
+-static inline void unlock_wait_lock(struct mutex *lock)
++static inline void unlock_wait_lock(struct mutex *lock, unsigned long *flags)
+ {
+-	raw_spin_unlock(&lock->wait_lock);
++	raw_spin_unlock_irqrestore(&lock->wait_lock, *flags);
+ }
+ 
+ static inline void lockdep_assert_wait_lock_held(struct mutex *lock)
+@@ -144,14 +144,14 @@ __ww_mutex_has_waiters(struct rt_mutex *lock)
+ 	return rt_mutex_has_waiters(&lock->rtmutex);
+ }
+ 
+-static inline void lock_wait_lock(struct rt_mutex *lock)
++static inline void lock_wait_lock(struct rt_mutex *lock, unsigned long *flags)
+ {
+-	raw_spin_lock(&lock->rtmutex.wait_lock);
++	raw_spin_lock_irqsave(&lock->rtmutex.wait_lock, *flags);
+ }
+ 
+-static inline void unlock_wait_lock(struct rt_mutex *lock)
++static inline void unlock_wait_lock(struct rt_mutex *lock, unsigned long *flags)
+ {
+-	raw_spin_unlock(&lock->rtmutex.wait_lock);
++	raw_spin_unlock_irqrestore(&lock->rtmutex.wait_lock, *flags);
+ }
+ 
+ static inline void lockdep_assert_wait_lock_held(struct rt_mutex *lock)
+@@ -275,7 +275,7 @@ __ww_ctx_less(struct ww_acquire_ctx *a, struct ww_acquire_ctx *b)
+  */
+ static bool
+ __ww_mutex_die(struct MUTEX *lock, struct MUTEX_WAITER *waiter,
+-	       struct ww_acquire_ctx *ww_ctx)
++	       struct ww_acquire_ctx *ww_ctx, struct wake_q_head *wake_q)
+ {
+ 	if (!ww_ctx->is_wait_die)
+ 		return false;
+@@ -284,7 +284,7 @@ __ww_mutex_die(struct MUTEX *lock, struct MUTEX_WAITER *waiter,
+ #ifndef WW_RT
+ 		debug_mutex_wake_waiter(lock, waiter);
+ #endif
+-		wake_up_process(waiter->task);
++		wake_q_add(wake_q, waiter->task);
+ 	}
+ 
+ 	return true;
+@@ -299,7 +299,8 @@ __ww_mutex_die(struct MUTEX *lock, struct MUTEX_WAITER *waiter,
+  */
+ static bool __ww_mutex_wound(struct MUTEX *lock,
+ 			     struct ww_acquire_ctx *ww_ctx,
+-			     struct ww_acquire_ctx *hold_ctx)
++			     struct ww_acquire_ctx *hold_ctx,
++			     struct wake_q_head *wake_q)
+ {
+ 	struct task_struct *owner = __ww_mutex_owner(lock);
+ 
+@@ -331,7 +332,7 @@ static bool __ww_mutex_wound(struct MUTEX *lock,
+ 		 * wakeup pending to re-read the wounded state.
+ 		 */
+ 		if (owner != current)
+-			wake_up_process(owner);
++			wake_q_add(wake_q, owner);
+ 
+ 		return true;
+ 	}
+@@ -352,7 +353,8 @@ static bool __ww_mutex_wound(struct MUTEX *lock,
+  * The current task must not be on the wait list.
+  */
+ static void
+-__ww_mutex_check_waiters(struct MUTEX *lock, struct ww_acquire_ctx *ww_ctx)
++__ww_mutex_check_waiters(struct MUTEX *lock, struct ww_acquire_ctx *ww_ctx,
++			 struct wake_q_head *wake_q)
+ {
+ 	struct MUTEX_WAITER *cur;
+ 
+@@ -364,8 +366,8 @@ __ww_mutex_check_waiters(struct MUTEX *lock, struct ww_acquire_ctx *ww_ctx)
+ 		if (!cur->ww_ctx)
+ 			continue;
+ 
+-		if (__ww_mutex_die(lock, cur, ww_ctx) ||
+-		    __ww_mutex_wound(lock, cur->ww_ctx, ww_ctx))
++		if (__ww_mutex_die(lock, cur, ww_ctx, wake_q) ||
++		    __ww_mutex_wound(lock, cur->ww_ctx, ww_ctx, wake_q))
+ 			break;
+ 	}
+ }
+@@ -377,6 +379,9 @@ __ww_mutex_check_waiters(struct MUTEX *lock, struct ww_acquire_ctx *ww_ctx)
+ static __always_inline void
+ ww_mutex_set_context_fastpath(struct ww_mutex *lock, struct ww_acquire_ctx *ctx)
+ {
++	DEFINE_WAKE_Q(wake_q);
++	unsigned long flags;
++
+ 	ww_mutex_lock_acquired(lock, ctx);
+ 
+ 	/*
+@@ -404,9 +409,12 @@ ww_mutex_set_context_fastpath(struct ww_mutex *lock, struct ww_acquire_ctx *ctx)
+ 	 * Uh oh, we raced in fastpath, check if any of the waiters need to
+ 	 * die or wound us.
+ 	 */
+-	lock_wait_lock(&lock->base);
+-	__ww_mutex_check_waiters(&lock->base, ctx);
+-	unlock_wait_lock(&lock->base);
++	lock_wait_lock(&lock->base, &flags);
++	__ww_mutex_check_waiters(&lock->base, ctx, &wake_q);
++	preempt_disable();
++	unlock_wait_lock(&lock->base, &flags);
++	wake_up_q(&wake_q);
++	preempt_enable();
+ }
+ 
+ static __always_inline int
+@@ -488,7 +496,8 @@ __ww_mutex_check_kill(struct MUTEX *lock, struct MUTEX_WAITER *waiter,
+ static inline int
+ __ww_mutex_add_waiter(struct MUTEX_WAITER *waiter,
+ 		      struct MUTEX *lock,
+-		      struct ww_acquire_ctx *ww_ctx)
++		      struct ww_acquire_ctx *ww_ctx,
++		      struct wake_q_head *wake_q)
+ {
+ 	struct MUTEX_WAITER *cur, *pos = NULL;
+ 	bool is_wait_die;
+@@ -532,7 +541,7 @@ __ww_mutex_add_waiter(struct MUTEX_WAITER *waiter,
+ 		pos = cur;
+ 
+ 		/* Wait-Die: ensure younger waiters die. */
+-		__ww_mutex_die(lock, cur, ww_ctx);
++		__ww_mutex_die(lock, cur, ww_ctx, wake_q);
+ 	}
+ 
+ 	__ww_waiter_add(lock, waiter, pos);
+@@ -550,7 +559,7 @@ __ww_mutex_add_waiter(struct MUTEX_WAITER *waiter,
+ 		 * such that either we or the fastpath will wound @ww->ctx.
+ 		 */
+ 		smp_mb();
+-		__ww_mutex_wound(lock, ww_ctx, ww->ctx);
++		__ww_mutex_wound(lock, ww_ctx, ww->ctx, wake_q);
+ 	}
+ 
+ 	return 0;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 114adac5a9c8..5c47d70f4204 100644
+index dbfb5717d6afb..5c47d70f4204c 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
+@@ -832,7 +832,7 @@ static enum hrtimer_restart hrtick(struct hrtimer *timer)
+ 
+ 	rq_lock(rq, &rf);
+ 	update_rq_clock(rq);
+-	rq->curr->sched_class->task_tick(rq, rq->curr, 1);
++	rq->donor->sched_class->task_tick(rq, rq->curr, 1);
+ 	rq_unlock(rq, &rf);
+ 
+ 	return HRTIMER_NORESTART;
 @@ -941,10 +941,9 @@ static inline void hrtick_rq_init(struct rq *rq)
   * this avoids any races wrt polling state changes and thereby avoids
   * spurious IPIs.
@@ -485,7 +1927,69 @@ index 114adac5a9c8..5c47d70f4204 100644
  
  	/*
  	 * Must be before ->dequeue_task() because ->dequeue_task() can 'fail'
-@@ -4423,7 +4464,8 @@ int wake_up_state(struct task_struct *p, unsigned int state)
+@@ -2135,16 +2176,18 @@ void check_class_changed(struct rq *rq, struct task_struct *p,
+ 
+ void wakeup_preempt(struct rq *rq, struct task_struct *p, int flags)
+ {
+-	if (p->sched_class == rq->curr->sched_class)
+-		rq->curr->sched_class->wakeup_preempt(rq, p, flags);
+-	else if (sched_class_above(p->sched_class, rq->curr->sched_class))
++	struct task_struct *donor = rq->donor;
++
++	if (p->sched_class == donor->sched_class)
++		donor->sched_class->wakeup_preempt(rq, p, flags);
++	else if (sched_class_above(p->sched_class, donor->sched_class))
+ 		resched_curr(rq);
+ 
+ 	/*
+ 	 * A queue event has occurred, and we're going to schedule.  In
+ 	 * this case, we can save a useless back to back clock update.
+ 	 */
+-	if (task_on_rq_queued(rq->curr) && test_tsk_need_resched(rq->curr))
++	if (task_on_rq_queued(donor) && test_tsk_need_resched(rq->curr))
+ 		rq_clock_skip_update(rq);
+ }
+ 
+@@ -2620,9 +2663,7 @@ int push_cpu_stop(void *arg)
+ 
+ 	// XXX validate p is still the highest prio task
+ 	if (task_rq(p) == rq) {
+-		deactivate_task(rq, p, 0);
+-		set_task_cpu(p, lowest_rq->cpu);
+-		activate_task(lowest_rq, p, 0);
++		move_queued_task_locked(rq, lowest_rq, p);
+ 		resched_curr(lowest_rq);
+ 	}
+ 
+@@ -2682,7 +2723,7 @@ __do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
+ 		lockdep_assert_held(&p->pi_lock);
+ 
+ 	queued = task_on_rq_queued(p);
+-	running = task_current(rq, p);
++	running = task_current_donor(rq, p);
+ 
+ 	if (queued) {
+ 		/*
+@@ -2696,6 +2737,7 @@ __do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
+ 		put_prev_task(rq, p);
+ 
+ 	p->sched_class->set_cpus_allowed(p, ctx);
++	mm_set_cpus_allowed(p->mm, ctx->new_mask);
+ 
+ 	if (queued)
+ 		enqueue_task(rq, p, ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
+@@ -3308,9 +3350,7 @@ static void __migrate_swap_task(struct task_struct *p, int cpu)
+ 		rq_pin_lock(src_rq, &srf);
+ 		rq_pin_lock(dst_rq, &drf);
+ 
+-		deactivate_task(src_rq, p, 0);
+-		set_task_cpu(p, cpu);
+-		activate_task(dst_rq, p, 0);
++		move_queued_task_locked(src_rq, dst_rq, p);
+ 		wakeup_preempt(dst_rq, p, 0);
+ 
+ 		rq_unpin_lock(dst_rq, &drf);
+@@ -4424,7 +4464,8 @@ int wake_up_state(struct task_struct *p, unsigned int state)
   * Perform scheduler related setup for a newly forked process p.
   * p is forked by current.
   *
@@ -495,18 +1999,185 @@ index 114adac5a9c8..5c47d70f4204 100644
   */
  static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
  {
-@@ -5603,6 +5645,10 @@ void sched_tick(void)
+@@ -5517,7 +5558,7 @@ unsigned long long task_sched_runtime(struct task_struct *p)
+ 	 * project cycles that may never be accounted to this
+ 	 * thread, breaking clock_gettime().
+ 	 */
+-	if (task_current(rq, p) && task_on_rq_queued(p)) {
++	if (task_current_donor(rq, p) && task_on_rq_queued(p)) {
+ 		prefetch_curr_exec_start(p);
+ 		update_rq_clock(rq);
+ 		p->sched_class->update_curr(rq);
+@@ -5585,7 +5626,8 @@ void sched_tick(void)
+ {
+ 	int cpu = smp_processor_id();
+ 	struct rq *rq = cpu_rq(cpu);
+-	struct task_struct *curr;
++	/* accounting goes to the donor task */
++	struct task_struct *donor;
+ 	struct rq_flags rf;
+ 	unsigned long hw_pressure;
+ 	u64 resched_latency;
+@@ -5596,19 +5638,23 @@ void sched_tick(void)
+ 	sched_clock_tick();
+ 
+ 	rq_lock(rq, &rf);
++	donor = rq->donor;
+ 
+-	curr = rq->curr;
+-	psi_account_irqtime(rq, curr, NULL);
++	psi_account_irqtime(rq, donor, NULL);
+ 
  	update_rq_clock(rq);
  	hw_pressure = arch_scale_hw_pressure(cpu_of(rq));
  	update_hw_load_avg(rq_clock_task(rq), rq, hw_pressure);
+-	curr->sched_class->task_tick(rq, curr, 0);
 +
 +	if (dynamic_preempt_lazy() && tif_test_bit(TIF_NEED_RESCHED_LAZY))
 +		resched_curr(rq);
 +
- 	curr->sched_class->task_tick(rq, curr, 0);
++	donor->sched_class->task_tick(rq, donor, 0);
  	if (sched_feat(LATENCY_WARN))
  		resched_latency = cpu_resched_latency(rq);
-@@ -7365,6 +7411,7 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
+ 	calc_global_load_tick(rq);
+ 	sched_core_tick(rq);
+-	task_tick_mm_cid(rq, curr);
++	task_tick_mm_cid(rq, donor);
+ 	scx_tick(rq);
+ 
+ 	rq_unlock(rq, &rf);
+@@ -5618,8 +5664,8 @@ void sched_tick(void)
+ 
+ 	perf_event_task_tick();
+ 
+-	if (curr->flags & PF_WQ_WORKER)
+-		wq_worker_tick(curr);
++	if (donor->flags & PF_WQ_WORKER)
++		wq_worker_tick(donor);
+ 
+ #ifdef CONFIG_SMP
+ 	if (!scx_switched_all()) {
+@@ -5686,6 +5732,12 @@ static void sched_tick_remote(struct work_struct *work)
+ 		struct task_struct *curr = rq->curr;
+ 
+ 		if (cpu_online(cpu)) {
++			/*
++			 * Since this is a remote tick for full dynticks mode,
++			 * we are always sure that there is no proxy (only a
++			 * single task is running).
++			 */
++			SCHED_WARN_ON(rq->curr != rq->donor);
+ 			update_rq_clock(rq);
+ 
+ 			if (!is_idle_task(curr)) {
+@@ -6306,10 +6358,7 @@ static bool try_steal_cookie(int this, int that)
+ 		if (sched_task_is_throttled(p, this))
+ 			goto next;
+ 
+-		deactivate_task(src, p, 0);
+-		set_task_cpu(p, this);
+-		activate_task(dst, p, 0);
+-
++		move_queued_task_locked(src, dst, p);
+ 		resched_curr(dst);
+ 
+ 		success = true;
+@@ -6503,6 +6552,45 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
+ #define SM_PREEMPT		1
+ #define SM_RTLOCK_WAIT		2
+ 
++/*
++ * Helper function for __schedule()
++ *
++ * If a task does not have signals pending, deactivate it
++ * Otherwise marks the task's __state as RUNNING
++ */
++static bool try_to_block_task(struct rq *rq, struct task_struct *p,
++			      unsigned long task_state)
++{
++	int flags = DEQUEUE_NOCLOCK;
++
++	if (signal_pending_state(task_state, p)) {
++		WRITE_ONCE(p->__state, TASK_RUNNING);
++		return false;
++	}
++
++	p->sched_contributes_to_load =
++		(task_state & TASK_UNINTERRUPTIBLE) &&
++		!(task_state & TASK_NOLOAD) &&
++		!(task_state & TASK_FROZEN);
++
++	if (unlikely(is_special_task_state(task_state)))
++		flags |= DEQUEUE_SPECIAL;
++
++	/*
++	 * __schedule()			ttwu()
++	 *   prev_state = prev->state;    if (p->on_rq && ...)
++	 *   if (prev_state)		    goto out;
++	 *     p->on_rq = 0;		  smp_acquire__after_ctrl_dep();
++	 *				  p->state = TASK_WAKING
++	 *
++	 * Where __schedule() and ttwu() have matching control dependencies.
++	 *
++	 * After this, schedule() must not care about p->state any more.
++	 */
++	block_task(rq, p, flags);
++	return true;
++}
++
+ /*
+  * __schedule() is the main scheduler function.
+  *
+@@ -6611,37 +6699,12 @@ static void __sched notrace __schedule(int sched_mode)
+ 			goto picked;
+ 		}
+ 	} else if (!preempt && prev_state) {
+-		if (signal_pending_state(prev_state, prev)) {
+-			WRITE_ONCE(prev->__state, TASK_RUNNING);
+-		} else {
+-			int flags = DEQUEUE_NOCLOCK;
+-
+-			prev->sched_contributes_to_load =
+-				(prev_state & TASK_UNINTERRUPTIBLE) &&
+-				!(prev_state & TASK_NOLOAD) &&
+-				!(prev_state & TASK_FROZEN);
+-
+-			if (unlikely(is_special_task_state(prev_state)))
+-				flags |= DEQUEUE_SPECIAL;
+-
+-			/*
+-			 * __schedule()			ttwu()
+-			 *   prev_state = prev->state;    if (p->on_rq && ...)
+-			 *   if (prev_state)		    goto out;
+-			 *     p->on_rq = 0;		  smp_acquire__after_ctrl_dep();
+-			 *				  p->state = TASK_WAKING
+-			 *
+-			 * Where __schedule() and ttwu() have matching control dependencies.
+-			 *
+-			 * After this, schedule() must not care about p->state any more.
+-			 */
+-			block_task(rq, prev, flags);
+-			block = true;
+-		}
++		block = try_to_block_task(rq, prev, prev_state);
+ 		switch_count = &prev->nvcsw;
+ 	}
+ 
+ 	next = pick_next_task(rq, prev, &rf);
++	rq_set_donor(rq, next);
+ picked:
+ 	clear_tsk_need_resched(prev);
+ 	clear_preempt_need_resched();
+@@ -7148,7 +7211,7 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
+ 		dequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK);
+ 
+ 	queued = task_on_rq_queued(p);
+-	running = task_current(rq, p);
++	running = task_current_donor(rq, p);
+ 	if (queued)
+ 		dequeue_task(rq, p, queue_flag);
+ 	if (running)
+@@ -7348,6 +7411,7 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
   *   preempt_schedule           <- NOP
   *   preempt_schedule_notrace   <- NOP
   *   irqentry_exit_cond_resched <- NOP
@@ -514,7 +2185,7 @@ index 114adac5a9c8..5c47d70f4204 100644
   *
   * VOLUNTARY:
   *   cond_resched               <- __cond_resched
-@@ -7372,6 +7419,7 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
+@@ -7355,6 +7419,7 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
   *   preempt_schedule           <- NOP
   *   preempt_schedule_notrace   <- NOP
   *   irqentry_exit_cond_resched <- NOP
@@ -522,7 +2193,7 @@ index 114adac5a9c8..5c47d70f4204 100644
   *
   * FULL:
   *   cond_resched               <- RET0
-@@ -7379,6 +7427,15 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
+@@ -7362,6 +7427,15 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
   *   preempt_schedule           <- preempt_schedule
   *   preempt_schedule_notrace   <- preempt_schedule_notrace
   *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
@@ -538,7 +2209,7 @@ index 114adac5a9c8..5c47d70f4204 100644
   */
  
  enum {
-@@ -7386,30 +7443,41 @@ enum {
+@@ -7369,30 +7443,41 @@ enum {
  	preempt_dynamic_none,
  	preempt_dynamic_voluntary,
  	preempt_dynamic_full,
@@ -582,7 +2253,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  #else
  #error "Unsupported PREEMPT_DYNAMIC mechanism"
  #endif
-@@ -7429,6 +7497,7 @@ static void __sched_dynamic_update(int mode)
+@@ -7412,6 +7497,7 @@ static void __sched_dynamic_update(int mode)
  	preempt_dynamic_enable(preempt_schedule);
  	preempt_dynamic_enable(preempt_schedule_notrace);
  	preempt_dynamic_enable(irqentry_exit_cond_resched);
@@ -590,7 +2261,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  
  	switch (mode) {
  	case preempt_dynamic_none:
-@@ -7438,6 +7507,7 @@ static void __sched_dynamic_update(int mode)
+@@ -7421,6 +7507,7 @@ static void __sched_dynamic_update(int mode)
  		preempt_dynamic_disable(preempt_schedule);
  		preempt_dynamic_disable(preempt_schedule_notrace);
  		preempt_dynamic_disable(irqentry_exit_cond_resched);
@@ -598,7 +2269,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  		if (mode != preempt_dynamic_mode)
  			pr_info("Dynamic Preempt: none\n");
  		break;
-@@ -7449,6 +7519,7 @@ static void __sched_dynamic_update(int mode)
+@@ -7432,6 +7519,7 @@ static void __sched_dynamic_update(int mode)
  		preempt_dynamic_disable(preempt_schedule);
  		preempt_dynamic_disable(preempt_schedule_notrace);
  		preempt_dynamic_disable(irqentry_exit_cond_resched);
@@ -606,7 +2277,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  		if (mode != preempt_dynamic_mode)
  			pr_info("Dynamic Preempt: voluntary\n");
  		break;
-@@ -7460,9 +7531,22 @@ static void __sched_dynamic_update(int mode)
+@@ -7443,9 +7531,22 @@ static void __sched_dynamic_update(int mode)
  		preempt_dynamic_enable(preempt_schedule);
  		preempt_dynamic_enable(preempt_schedule_notrace);
  		preempt_dynamic_enable(irqentry_exit_cond_resched);
@@ -629,7 +2300,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  	}
  
  	preempt_dynamic_mode = mode;
-@@ -7525,6 +7609,8 @@ static void __init preempt_dynamic_init(void)
+@@ -7508,6 +7609,8 @@ static void __init preempt_dynamic_init(void)
  			sched_dynamic_update(preempt_dynamic_none);
  		} else if (IS_ENABLED(CONFIG_PREEMPT_VOLUNTARY)) {
  			sched_dynamic_update(preempt_dynamic_voluntary);
@@ -638,7 +2309,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  		} else {
  			/* Default static call setting, nothing to do */
  			WARN_ON_ONCE(!IS_ENABLED(CONFIG_PREEMPT));
-@@ -7545,6 +7631,7 @@ static void __init preempt_dynamic_init(void)
+@@ -7528,6 +7631,7 @@ static void __init preempt_dynamic_init(void)
  PREEMPT_MODEL_ACCESSOR(none);
  PREEMPT_MODEL_ACCESSOR(voluntary);
  PREEMPT_MODEL_ACCESSOR(full);
@@ -646,7 +2317,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  
  #else /* !CONFIG_PREEMPT_DYNAMIC: */
  
-@@ -7697,8 +7784,6 @@ void __init init_idle(struct task_struct *idle, int cpu)
+@@ -7680,8 +7784,6 @@ void __init init_idle(struct task_struct *idle, int cpu)
  	struct rq *rq = cpu_rq(cpu);
  	unsigned long flags;
  
@@ -655,7 +2326,7 @@ index 114adac5a9c8..5c47d70f4204 100644
  	raw_spin_lock_irqsave(&idle->pi_lock, flags);
  	raw_spin_rq_lock(rq);
  
-@@ -7713,10 +7798,8 @@ void __init init_idle(struct task_struct *idle, int cpu)
+@@ -7696,10 +7798,8 @@ void __init init_idle(struct task_struct *idle, int cpu)
  
  #ifdef CONFIG_SMP
  	/*
@@ -668,7 +2339,24 @@ index 114adac5a9c8..5c47d70f4204 100644
  	 */
  	set_cpus_allowed_common(idle, &ac);
  #endif
-@@ -8561,6 +8644,7 @@ void __init sched_init(void)
+@@ -7718,6 +7818,7 @@ void __init init_idle(struct task_struct *idle, int cpu)
+ 	rcu_read_unlock();
+ 
+ 	rq->idle = idle;
++	rq_set_donor(rq, idle);
+ 	rcu_assign_pointer(rq->curr, idle);
+ 	idle->on_rq = TASK_ON_RQ_QUEUED;
+ #ifdef CONFIG_SMP
+@@ -7807,7 +7908,7 @@ void sched_setnuma(struct task_struct *p, int nid)
+ 
+ 	rq = task_rq_lock(p, &rf);
+ 	queued = task_on_rq_queued(p);
+-	running = task_current(rq, p);
++	running = task_current_donor(rq, p);
+ 
+ 	if (queued)
+ 		dequeue_task(rq, p, DEQUEUE_SAVE);
+@@ -8543,6 +8644,7 @@ void __init sched_init(void)
  	 * but because we are the idle thread, we just pick up running again
  	 * when this runqueue becomes "idle".
  	 */
@@ -676,8 +2364,279 @@ index 114adac5a9c8..5c47d70f4204 100644
  	init_idle(current, smp_processor_id());
  
  	calc_load_update = jiffies + LOAD_FREQ;
+@@ -8957,7 +9059,7 @@ void sched_move_task(struct task_struct *tsk)
+ 
+ 	update_rq_clock(rq);
+ 
+-	running = task_current(rq, tsk);
++	running = task_current_donor(rq, tsk);
+ 	queued = task_on_rq_queued(tsk);
+ 
+ 	if (queued)
+@@ -10250,6 +10352,7 @@ int __sched_mm_cid_migrate_from_try_steal_cid(struct rq *src_rq,
+ 	 */
+ 	if (!try_cmpxchg(&src_pcpu_cid->cid, &lazy_cid, MM_CID_UNSET))
+ 		return -1;
++	WRITE_ONCE(src_pcpu_cid->recent_cid, MM_CID_UNSET);
+ 	return src_cid;
+ }
+ 
+@@ -10262,7 +10365,8 @@ void sched_mm_cid_migrate_to(struct rq *dst_rq, struct task_struct *t)
+ {
+ 	struct mm_cid *src_pcpu_cid, *dst_pcpu_cid;
+ 	struct mm_struct *mm = t->mm;
+-	int src_cid, dst_cid, src_cpu;
++	int src_cid, src_cpu;
++	bool dst_cid_is_set;
+ 	struct rq *src_rq;
+ 
+ 	lockdep_assert_rq_held(dst_rq);
+@@ -10279,9 +10383,9 @@ void sched_mm_cid_migrate_to(struct rq *dst_rq, struct task_struct *t)
+ 	 * allocation closest to 0 in cases where few threads migrate around
+ 	 * many CPUs.
+ 	 *
+-	 * If destination cid is already set, we may have to just clear
+-	 * the src cid to ensure compactness in frequent migrations
+-	 * scenarios.
++	 * If destination cid or recent cid is already set, we may have
++	 * to just clear the src cid to ensure compactness in frequent
++	 * migrations scenarios.
+ 	 *
+ 	 * It is not useful to clear the src cid when the number of threads is
+ 	 * greater or equal to the number of allowed CPUs, because user-space
+@@ -10289,9 +10393,9 @@ void sched_mm_cid_migrate_to(struct rq *dst_rq, struct task_struct *t)
+ 	 * allowed CPUs.
+ 	 */
+ 	dst_pcpu_cid = per_cpu_ptr(mm->pcpu_cid, cpu_of(dst_rq));
+-	dst_cid = READ_ONCE(dst_pcpu_cid->cid);
+-	if (!mm_cid_is_unset(dst_cid) &&
+-	    atomic_read(&mm->mm_users) >= t->nr_cpus_allowed)
++	dst_cid_is_set = !mm_cid_is_unset(READ_ONCE(dst_pcpu_cid->cid)) ||
++			 !mm_cid_is_unset(READ_ONCE(dst_pcpu_cid->recent_cid));
++	if (dst_cid_is_set && atomic_read(&mm->mm_users) >= READ_ONCE(mm->nr_cpus_allowed))
+ 		return;
+ 	src_pcpu_cid = per_cpu_ptr(mm->pcpu_cid, src_cpu);
+ 	src_rq = cpu_rq(src_cpu);
+@@ -10302,13 +10406,14 @@ void sched_mm_cid_migrate_to(struct rq *dst_rq, struct task_struct *t)
+ 							    src_cid);
+ 	if (src_cid == -1)
+ 		return;
+-	if (!mm_cid_is_unset(dst_cid)) {
++	if (dst_cid_is_set) {
+ 		__mm_cid_put(mm, src_cid);
+ 		return;
+ 	}
+ 	/* Move src_cid to dst cpu. */
+ 	mm_cid_snapshot_time(dst_rq, mm);
+ 	WRITE_ONCE(dst_pcpu_cid->cid, src_cid);
++	WRITE_ONCE(dst_pcpu_cid->recent_cid, src_cid);
+ }
+ 
+ static void sched_mm_cid_remote_clear(struct mm_struct *mm, struct mm_cid *pcpu_cid,
+@@ -10547,7 +10652,7 @@ void sched_mm_cid_after_execve(struct task_struct *t)
+ 		 * Matches barrier in sched_mm_cid_remote_clear_old().
+ 		 */
+ 		smp_mb();
+-		t->last_mm_cid = t->mm_cid = mm_cid_get(rq, mm);
++		t->last_mm_cid = t->mm_cid = mm_cid_get(rq, t, mm);
+ 	}
+ 	rseq_set_notify_resume(t);
+ }
+diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
+index be1b917dc8ce4..d9d5a702f1a61 100644
+--- a/kernel/sched/deadline.c
++++ b/kernel/sched/deadline.c
+@@ -1339,7 +1339,7 @@ static enum hrtimer_restart dl_task_timer(struct hrtimer *timer)
+ #endif
+ 
+ 	enqueue_task_dl(rq, p, ENQUEUE_REPLENISH);
+-	if (dl_task(rq->curr))
++	if (dl_task(rq->donor))
+ 		wakeup_preempt_dl(rq, p, 0);
+ 	else
+ 		resched_curr(rq);
+@@ -1736,11 +1736,11 @@ int dl_server_apply_params(struct sched_dl_entity *dl_se, u64 runtime, u64 perio
+  */
+ static void update_curr_dl(struct rq *rq)
+ {
+-	struct task_struct *curr = rq->curr;
+-	struct sched_dl_entity *dl_se = &curr->dl;
++	struct task_struct *donor = rq->donor;
++	struct sched_dl_entity *dl_se = &donor->dl;
+ 	s64 delta_exec;
+ 
+-	if (!dl_task(curr) || !on_dl_rq(dl_se))
++	if (!dl_task(donor) || !on_dl_rq(dl_se))
+ 		return;
+ 
+ 	/*
+@@ -2213,7 +2213,7 @@ static int find_later_rq(struct task_struct *task);
+ static int
+ select_task_rq_dl(struct task_struct *p, int cpu, int flags)
+ {
+-	struct task_struct *curr;
++	struct task_struct *curr, *donor;
+ 	bool select_rq;
+ 	struct rq *rq;
+ 
+@@ -2224,6 +2224,7 @@ select_task_rq_dl(struct task_struct *p, int cpu, int flags)
+ 
+ 	rcu_read_lock();
+ 	curr = READ_ONCE(rq->curr); /* unlocked access */
++	donor = READ_ONCE(rq->donor);
+ 
+ 	/*
+ 	 * If we are dealing with a -deadline task, we must
+@@ -2234,9 +2235,9 @@ select_task_rq_dl(struct task_struct *p, int cpu, int flags)
+ 	 * other hand, if it has a shorter deadline, we
+ 	 * try to make it stay here, it might be important.
+ 	 */
+-	select_rq = unlikely(dl_task(curr)) &&
++	select_rq = unlikely(dl_task(donor)) &&
+ 		    (curr->nr_cpus_allowed < 2 ||
+-		     !dl_entity_preempt(&p->dl, &curr->dl)) &&
++		     !dl_entity_preempt(&p->dl, &donor->dl)) &&
+ 		    p->nr_cpus_allowed > 1;
+ 
+ 	/*
+@@ -2299,7 +2300,7 @@ static void check_preempt_equal_dl(struct rq *rq, struct task_struct *p)
+ 	 * let's hope p can move out.
+ 	 */
+ 	if (rq->curr->nr_cpus_allowed == 1 ||
+-	    !cpudl_find(&rq->rd->cpudl, rq->curr, NULL))
++	    !cpudl_find(&rq->rd->cpudl, rq->donor, NULL))
+ 		return;
+ 
+ 	/*
+@@ -2338,7 +2339,7 @@ static int balance_dl(struct rq *rq, struct task_struct *p, struct rq_flags *rf)
+ static void wakeup_preempt_dl(struct rq *rq, struct task_struct *p,
+ 				  int flags)
+ {
+-	if (dl_entity_preempt(&p->dl, &rq->curr->dl)) {
++	if (dl_entity_preempt(&p->dl, &rq->donor->dl)) {
+ 		resched_curr(rq);
+ 		return;
+ 	}
+@@ -2348,7 +2349,7 @@ static void wakeup_preempt_dl(struct rq *rq, struct task_struct *p,
+ 	 * In the unlikely case current and p have the same deadline
+ 	 * let us try to decide what's the best thing to do...
+ 	 */
+-	if ((p->dl.deadline == rq->curr->dl.deadline) &&
++	if ((p->dl.deadline == rq->donor->dl.deadline) &&
+ 	    !test_tsk_need_resched(rq->curr))
+ 		check_preempt_equal_dl(rq, p);
+ #endif /* CONFIG_SMP */
+@@ -2380,7 +2381,7 @@ static void set_next_task_dl(struct rq *rq, struct task_struct *p, bool first)
+ 	if (!first)
+ 		return;
+ 
+-	if (rq->curr->sched_class != &dl_sched_class)
++	if (rq->donor->sched_class != &dl_sched_class)
+ 		update_dl_rq_load_avg(rq_clock_pelt(rq), rq, 0);
+ 
+ 	deadline_queue_push_tasks(rq);
+@@ -2487,14 +2488,6 @@ static void task_fork_dl(struct task_struct *p)
+ /* Only try algorithms three times */
+ #define DL_MAX_TRIES 3
+ 
+-static int pick_dl_task(struct rq *rq, struct task_struct *p, int cpu)
+-{
+-	if (!task_on_cpu(rq, p) &&
+-	    cpumask_test_cpu(cpu, &p->cpus_mask))
+-		return 1;
+-	return 0;
+-}
+-
+ /*
+  * Return the earliest pushable rq's task, which is suitable to be executed
+  * on the CPU, NULL otherwise:
+@@ -2513,7 +2506,7 @@ static struct task_struct *pick_earliest_pushable_dl_task(struct rq *rq, int cpu
+ 	if (next_node) {
+ 		p = __node_2_pdl(next_node);
+ 
+-		if (pick_dl_task(rq, p, cpu))
++		if (task_is_pushable(rq, p, cpu))
+ 			return p;
+ 
+ 		next_node = rb_next(next_node);
+@@ -2707,8 +2700,8 @@ static int push_dl_task(struct rq *rq)
+ 	 * can move away, it makes sense to just reschedule
+ 	 * without going further in pushing next_task.
+ 	 */
+-	if (dl_task(rq->curr) &&
+-	    dl_time_before(next_task->dl.deadline, rq->curr->dl.deadline) &&
++	if (dl_task(rq->donor) &&
++	    dl_time_before(next_task->dl.deadline, rq->donor->dl.deadline) &&
+ 	    rq->curr->nr_cpus_allowed > 1) {
+ 		resched_curr(rq);
+ 		return 0;
+@@ -2751,9 +2744,7 @@ static int push_dl_task(struct rq *rq)
+ 		goto retry;
+ 	}
+ 
+-	deactivate_task(rq, next_task, 0);
+-	set_task_cpu(next_task, later_rq->cpu);
+-	activate_task(later_rq, next_task, 0);
++	move_queued_task_locked(rq, later_rq, next_task);
+ 	ret = 1;
+ 
+ 	resched_curr(later_rq);
+@@ -2833,15 +2824,13 @@ static void pull_dl_task(struct rq *this_rq)
+ 			 * deadline than the current task of its runqueue.
+ 			 */
+ 			if (dl_time_before(p->dl.deadline,
+-					   src_rq->curr->dl.deadline))
++					   src_rq->donor->dl.deadline))
+ 				goto skip;
+ 
+ 			if (is_migration_disabled(p)) {
+ 				push_task = get_push_task(src_rq);
+ 			} else {
+-				deactivate_task(src_rq, p, 0);
+-				set_task_cpu(p, this_cpu);
+-				activate_task(this_rq, p, 0);
++				move_queued_task_locked(src_rq, this_rq, p);
+ 				dmin = p->dl.deadline;
+ 				resched = true;
+ 			}
+@@ -2874,9 +2863,9 @@ static void task_woken_dl(struct rq *rq, struct task_struct *p)
+ 	if (!task_on_cpu(rq, p) &&
+ 	    !test_tsk_need_resched(rq->curr) &&
+ 	    p->nr_cpus_allowed > 1 &&
+-	    dl_task(rq->curr) &&
++	    dl_task(rq->donor) &&
+ 	    (rq->curr->nr_cpus_allowed < 2 ||
+-	     !dl_entity_preempt(&p->dl, &rq->curr->dl))) {
++	     !dl_entity_preempt(&p->dl, &rq->donor->dl))) {
+ 		push_dl_tasks(rq);
+ 	}
+ }
+@@ -3051,12 +3040,12 @@ static void switched_to_dl(struct rq *rq, struct task_struct *p)
+ 		return;
+ 	}
+ 
+-	if (rq->curr != p) {
++	if (rq->donor != p) {
+ #ifdef CONFIG_SMP
+ 		if (p->nr_cpus_allowed > 1 && rq->dl.overloaded)
+ 			deadline_queue_push_tasks(rq);
+ #endif
+-		if (dl_task(rq->curr))
++		if (dl_task(rq->donor))
+ 			wakeup_preempt_dl(rq, p, 0);
+ 		else
+ 			resched_curr(rq);
+@@ -3085,7 +3074,7 @@ static void prio_changed_dl(struct rq *rq, struct task_struct *p,
+ 	if (!rq->dl.overloaded)
+ 		deadline_queue_pull_task(rq);
+ 
+-	if (task_current(rq, p)) {
++	if (task_current_donor(rq, p)) {
+ 		/*
+ 		 * If we now have a earlier deadline task than p,
+ 		 * then reschedule, provided p is still on this
 diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
-index f4035c7a0fa1..a48b2a701ec2 100644
+index f4035c7a0fa1d..a48b2a701ec27 100644
 --- a/kernel/sched/debug.c
 +++ b/kernel/sched/debug.c
 @@ -245,11 +245,12 @@ static ssize_t sched_dynamic_write(struct file *filp, const char __user *ubuf,
@@ -697,7 +2656,7 @@ index f4035c7a0fa1..a48b2a701ec2 100644
  			seq_puts(m, "(");
  		seq_puts(m, preempt_modes[i]);
 diff --git a/kernel/sched/ext.c b/kernel/sched/ext.c
-index 5900b06fd036..f6e9a14042d5 100644
+index 5900b06fd0364..f6e9a14042d51 100644
 --- a/kernel/sched/ext.c
 +++ b/kernel/sched/ext.c
 @@ -3548,12 +3548,7 @@ static void scx_ops_exit_task(struct task_struct *p)
@@ -715,10 +2674,26 @@ index 5900b06fd036..f6e9a14042d5 100644
  	RB_CLEAR_NODE(&scx->dsq_priq);
  	scx->sticky_cpu = -1;
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index 6512258dc71f..3356315d7e64 100644
+index c157d4860a3bf..3356315d7e641 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -1251,7 +1251,7 @@ static void update_curr(struct cfs_rq *cfs_rq)
+@@ -1200,12 +1200,12 @@ static inline bool do_preempt_short(struct cfs_rq *cfs_rq,
+  */
+ s64 update_curr_common(struct rq *rq)
+ {
+-	struct task_struct *curr = rq->curr;
++	struct task_struct *donor = rq->donor;
+ 	s64 delta_exec;
+ 
+-	delta_exec = update_curr_se(rq, &curr->se);
++	delta_exec = update_curr_se(rq, &donor->se);
+ 	if (likely(delta_exec > 0))
+-		update_curr_task(curr, delta_exec);
++		update_curr_task(donor, delta_exec);
+ 
+ 	return delta_exec;
+ }
+@@ -1251,14 +1251,14 @@ static void update_curr(struct cfs_rq *cfs_rq)
  		return;
  
  	if (resched || did_preempt_short(cfs_rq, curr)) {
@@ -727,7 +2702,24 @@ index 6512258dc71f..3356315d7e64 100644
  		clear_buddies(cfs_rq, curr);
  	}
  }
-@@ -5677,7 +5677,7 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
+ 
+ static void update_curr_fair(struct rq *rq)
+ {
+-	update_curr(cfs_rq_of(&rq->curr->se));
++	update_curr(cfs_rq_of(&rq->donor->se));
+ }
+ 
+ static inline void
+@@ -5280,7 +5280,7 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
+ 	 *
+ 	 * EEVDF: placement strategy #1 / #2
+ 	 */
+-	if (sched_feat(PLACE_LAG) && cfs_rq->nr_running) {
++	if (sched_feat(PLACE_LAG) && cfs_rq->nr_running && se->vlag) {
+ 		struct sched_entity *curr = cfs_rq->curr;
+ 		unsigned long load;
+ 
+@@ -5677,15 +5677,9 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
  	 * validating it and just reschedule.
  	 */
  	if (queued) {
@@ -735,8 +2727,63 @@ index 6512258dc71f..3356315d7e64 100644
 +		resched_curr_lazy(rq_of(cfs_rq));
  		return;
  	}
+-	/*
+-	 * don't let the period tick interfere with the hrtick preemption
+-	 */
+-	if (!sched_feat(DOUBLE_TICK) &&
+-			hrtimer_active(&rq_of(cfs_rq)->hrtick_timer))
+-		return;
  #endif
-@@ -8829,7 +8829,7 @@ static void check_preempt_wakeup_fair(struct rq *rq, struct task_struct *p, int
+ }
+ 
+@@ -6821,7 +6815,7 @@ static void hrtick_start_fair(struct rq *rq, struct task_struct *p)
+ 		s64 delta = slice - ran;
+ 
+ 		if (delta < 0) {
+-			if (task_current(rq, p))
++			if (task_current_donor(rq, p))
+ 				resched_curr(rq);
+ 			return;
+ 		}
+@@ -6836,12 +6830,12 @@ static void hrtick_start_fair(struct rq *rq, struct task_struct *p)
+  */
+ static void hrtick_update(struct rq *rq)
+ {
+-	struct task_struct *curr = rq->curr;
++	struct task_struct *donor = rq->donor;
+ 
+-	if (!hrtick_enabled_fair(rq) || curr->sched_class != &fair_sched_class)
++	if (!hrtick_enabled_fair(rq) || donor->sched_class != &fair_sched_class)
+ 		return;
+ 
+-	hrtick_start_fair(rq, curr);
++	hrtick_start_fair(rq, donor);
+ }
+ #else /* !CONFIG_SCHED_HRTICK */
+ static inline void
+@@ -8756,9 +8750,9 @@ static void set_next_buddy(struct sched_entity *se)
+  */
+ static void check_preempt_wakeup_fair(struct rq *rq, struct task_struct *p, int wake_flags)
+ {
+-	struct task_struct *curr = rq->curr;
+-	struct sched_entity *se = &curr->se, *pse = &p->se;
+-	struct cfs_rq *cfs_rq = task_cfs_rq(curr);
++	struct task_struct *donor = rq->donor;
++	struct sched_entity *se = &donor->se, *pse = &p->se;
++	struct cfs_rq *cfs_rq = task_cfs_rq(donor);
+ 	int cse_is_idle, pse_is_idle;
+ 
+ 	if (unlikely(se == pse))
+@@ -8787,7 +8781,7 @@ static void check_preempt_wakeup_fair(struct rq *rq, struct task_struct *p, int
+ 	 * prevents us from potentially nominating it as a false LAST_BUDDY
+ 	 * below.
+ 	 */
+-	if (test_tsk_need_resched(curr))
++	if (test_tsk_need_resched(rq->curr))
+ 		return;
+ 
+ 	if (!sched_feat(WAKEUP_PREEMPTION))
+@@ -8835,7 +8829,7 @@ static void check_preempt_wakeup_fair(struct rq *rq, struct task_struct *p, int
  	return;
  
  preempt:
@@ -745,11 +2792,333 @@ index 6512258dc71f..3356315d7e64 100644
  }
  
  static struct task_struct *pick_task_fair(struct rq *rq)
+@@ -13086,7 +13080,7 @@ prio_changed_fair(struct rq *rq, struct task_struct *p, int oldprio)
+ 	 * our priority decreased, or if we are not currently running on
+ 	 * this runqueue and our priority is higher than the current's
+ 	 */
+-	if (task_current(rq, p)) {
++	if (task_current_donor(rq, p)) {
+ 		if (p->prio > oldprio)
+ 			resched_curr(rq);
+ 	} else
+@@ -13193,7 +13187,7 @@ static void switched_to_fair(struct rq *rq, struct task_struct *p)
+ 		 * kick off the schedule if running, otherwise just see
+ 		 * if we can still preempt the current task.
+ 		 */
+-		if (task_current(rq, p))
++		if (task_current_donor(rq, p))
+ 			resched_curr(rq);
+ 		else
+ 			wakeup_preempt(rq, p, 0);
+diff --git a/kernel/sched/features.h b/kernel/sched/features.h
+index 290874079f60d..a3d331dd2d8ff 100644
+--- a/kernel/sched/features.h
++++ b/kernel/sched/features.h
+@@ -19,7 +19,7 @@ SCHED_FEAT(PLACE_REL_DEADLINE, true)
+  */
+ SCHED_FEAT(RUN_TO_PARITY, true)
+ /*
+- * Allow wakeup of tasks with a shorter slice to cancel RESPECT_SLICE for
++ * Allow wakeup of tasks with a shorter slice to cancel RUN_TO_PARITY for
+  * current.
+  */
+ SCHED_FEAT(PREEMPT_SHORT, true)
+@@ -56,7 +56,6 @@ SCHED_FEAT(WAKEUP_PREEMPTION, true)
+ 
+ SCHED_FEAT(HRTICK, false)
+ SCHED_FEAT(HRTICK_DL, false)
+-SCHED_FEAT(DOUBLE_TICK, false)
+ 
+ /*
+  * Decrement CPU capacity based on time not spent running tasks
+diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
+index d2f096bb274c3..ab911d1335ba2 100644
+--- a/kernel/sched/idle.c
++++ b/kernel/sched/idle.c
+@@ -271,7 +271,6 @@ static void do_idle(void)
+ 	tick_nohz_idle_enter();
+ 
+ 	while (!need_resched()) {
+-		rmb();
+ 
+ 		/*
+ 		 * Interrupts shouldn't be re-enabled from that point on until
+diff --git a/kernel/sched/pelt.c b/kernel/sched/pelt.c
+index a9c65d97b3cac..fc07382361a88 100644
+--- a/kernel/sched/pelt.c
++++ b/kernel/sched/pelt.c
+@@ -476,7 +476,7 @@ int update_irq_load_avg(struct rq *rq, u64 running)
+ bool update_other_load_avgs(struct rq *rq)
+ {
+ 	u64 now = rq_clock_pelt(rq);
+-	const struct sched_class *curr_class = rq->curr->sched_class;
++	const struct sched_class *curr_class = rq->donor->sched_class;
+ 	unsigned long hw_pressure = arch_scale_hw_pressure(cpu_of(rq));
+ 
+ 	lockdep_assert_rq_held(rq);
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+index 172c588de5427..bd66a46b06aca 100644
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -528,7 +528,7 @@ static void dequeue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flags)
+ 
+ static void sched_rt_rq_enqueue(struct rt_rq *rt_rq)
+ {
+-	struct task_struct *curr = rq_of_rt_rq(rt_rq)->curr;
++	struct task_struct *donor = rq_of_rt_rq(rt_rq)->donor;
+ 	struct rq *rq = rq_of_rt_rq(rt_rq);
+ 	struct sched_rt_entity *rt_se;
+ 
+@@ -542,7 +542,7 @@ static void sched_rt_rq_enqueue(struct rt_rq *rt_rq)
+ 		else if (!on_rt_rq(rt_se))
+ 			enqueue_rt_entity(rt_se, 0);
+ 
+-		if (rt_rq->highest_prio.curr < curr->prio)
++		if (rt_rq->highest_prio.curr < donor->prio)
+ 			resched_curr(rq);
+ 	}
+ }
+@@ -988,10 +988,10 @@ static inline int rt_se_prio(struct sched_rt_entity *rt_se)
+  */
+ static void update_curr_rt(struct rq *rq)
+ {
+-	struct task_struct *curr = rq->curr;
++	struct task_struct *donor = rq->donor;
+ 	s64 delta_exec;
+ 
+-	if (curr->sched_class != &rt_sched_class)
++	if (donor->sched_class != &rt_sched_class)
+ 		return;
+ 
+ 	delta_exec = update_curr_common(rq);
+@@ -999,7 +999,7 @@ static void update_curr_rt(struct rq *rq)
+ 		return;
+ 
+ #ifdef CONFIG_RT_GROUP_SCHED
+-	struct sched_rt_entity *rt_se = &curr->rt;
++	struct sched_rt_entity *rt_se = &donor->rt;
+ 
+ 	if (!rt_bandwidth_enabled())
+ 		return;
+@@ -1535,7 +1535,7 @@ static int find_lowest_rq(struct task_struct *task);
+ static int
+ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
+ {
+-	struct task_struct *curr;
++	struct task_struct *curr, *donor;
+ 	struct rq *rq;
+ 	bool test;
+ 
+@@ -1547,6 +1547,7 @@ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
+ 
+ 	rcu_read_lock();
+ 	curr = READ_ONCE(rq->curr); /* unlocked access */
++	donor = READ_ONCE(rq->donor);
+ 
+ 	/*
+ 	 * If the current task on @p's runqueue is an RT task, then
+@@ -1575,8 +1576,8 @@ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
+ 	 * systems like big.LITTLE.
+ 	 */
+ 	test = curr &&
+-	       unlikely(rt_task(curr)) &&
+-	       (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio);
++	       unlikely(rt_task(donor)) &&
++	       (curr->nr_cpus_allowed < 2 || donor->prio <= p->prio);
+ 
+ 	if (test || !rt_task_fits_capacity(p, cpu)) {
+ 		int target = find_lowest_rq(p);
+@@ -1606,12 +1607,8 @@ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
+ 
+ static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
+ {
+-	/*
+-	 * Current can't be migrated, useless to reschedule,
+-	 * let's hope p can move out.
+-	 */
+ 	if (rq->curr->nr_cpus_allowed == 1 ||
+-	    !cpupri_find(&rq->rd->cpupri, rq->curr, NULL))
++	    !cpupri_find(&rq->rd->cpupri, rq->donor, NULL))
+ 		return;
+ 
+ 	/*
+@@ -1654,7 +1651,9 @@ static int balance_rt(struct rq *rq, struct task_struct *p, struct rq_flags *rf)
+  */
+ static void wakeup_preempt_rt(struct rq *rq, struct task_struct *p, int flags)
+ {
+-	if (p->prio < rq->curr->prio) {
++	struct task_struct *donor = rq->donor;
++
++	if (p->prio < donor->prio) {
+ 		resched_curr(rq);
+ 		return;
+ 	}
+@@ -1672,7 +1671,7 @@ static void wakeup_preempt_rt(struct rq *rq, struct task_struct *p, int flags)
+ 	 * to move current somewhere else, making room for our non-migratable
+ 	 * task.
+ 	 */
+-	if (p->prio == rq->curr->prio && !test_tsk_need_resched(rq->curr))
++	if (p->prio == donor->prio && !test_tsk_need_resched(rq->curr))
+ 		check_preempt_equal_prio(rq, p);
+ #endif
+ }
+@@ -1697,7 +1696,7 @@ static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, bool f
+ 	 * utilization. We only care of the case where we start to schedule a
+ 	 * rt task
+ 	 */
+-	if (rq->curr->sched_class != &rt_sched_class)
++	if (rq->donor->sched_class != &rt_sched_class)
+ 		update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 0);
+ 
+ 	rt_queue_push_tasks(rq);
+@@ -1773,15 +1772,6 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p, struct task_s
+ /* Only try algorithms three times */
+ #define RT_MAX_TRIES 3
+ 
+-static int pick_rt_task(struct rq *rq, struct task_struct *p, int cpu)
+-{
+-	if (!task_on_cpu(rq, p) &&
+-	    cpumask_test_cpu(cpu, &p->cpus_mask))
+-		return 1;
+-
+-	return 0;
+-}
+-
+ /*
+  * Return the highest pushable rq's task, which is suitable to be executed
+  * on the CPU, NULL otherwise
+@@ -1795,7 +1785,7 @@ static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu)
+ 		return NULL;
+ 
+ 	plist_for_each_entry(p, head, pushable_tasks) {
+-		if (pick_rt_task(rq, p, cpu))
++		if (task_is_pushable(rq, p, cpu))
+ 			return p;
+ 	}
+ 
+@@ -1968,6 +1958,7 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
+ 
+ 	BUG_ON(rq->cpu != task_cpu(p));
+ 	BUG_ON(task_current(rq, p));
++	BUG_ON(task_current_donor(rq, p));
+ 	BUG_ON(p->nr_cpus_allowed <= 1);
+ 
+ 	BUG_ON(!task_on_rq_queued(p));
+@@ -2000,7 +1991,7 @@ static int push_rt_task(struct rq *rq, bool pull)
+ 	 * higher priority than current. If that's the case
+ 	 * just reschedule current.
+ 	 */
+-	if (unlikely(next_task->prio < rq->curr->prio)) {
++	if (unlikely(next_task->prio < rq->donor->prio)) {
+ 		resched_curr(rq);
+ 		return 0;
+ 	}
+@@ -2021,7 +2012,7 @@ static int push_rt_task(struct rq *rq, bool pull)
+ 		 * Note that the stoppers are masqueraded as SCHED_FIFO
+ 		 * (cf. sched_set_stop_task()), so we can't rely on rt_task().
+ 		 */
+-		if (rq->curr->sched_class != &rt_sched_class)
++		if (rq->donor->sched_class != &rt_sched_class)
+ 			return 0;
+ 
+ 		cpu = find_lowest_rq(rq->curr);
+@@ -2088,9 +2079,7 @@ static int push_rt_task(struct rq *rq, bool pull)
+ 		goto retry;
+ 	}
+ 
+-	deactivate_task(rq, next_task, 0);
+-	set_task_cpu(next_task, lowest_rq->cpu);
+-	activate_task(lowest_rq, next_task, 0);
++	move_queued_task_locked(rq, lowest_rq, next_task);
+ 	resched_curr(lowest_rq);
+ 	ret = 1;
+ 
+@@ -2355,15 +2344,13 @@ static void pull_rt_task(struct rq *this_rq)
+ 			 * p if it is lower in priority than the
+ 			 * current task on the run queue
+ 			 */
+-			if (p->prio < src_rq->curr->prio)
++			if (p->prio < src_rq->donor->prio)
+ 				goto skip;
+ 
+ 			if (is_migration_disabled(p)) {
+ 				push_task = get_push_task(src_rq);
+ 			} else {
+-				deactivate_task(src_rq, p, 0);
+-				set_task_cpu(p, this_cpu);
+-				activate_task(this_rq, p, 0);
++				move_queued_task_locked(src_rq, this_rq, p);
+ 				resched = true;
+ 			}
+ 			/*
+@@ -2399,9 +2386,9 @@ static void task_woken_rt(struct rq *rq, struct task_struct *p)
+ 	bool need_to_push = !task_on_cpu(rq, p) &&
+ 			    !test_tsk_need_resched(rq->curr) &&
+ 			    p->nr_cpus_allowed > 1 &&
+-			    (dl_task(rq->curr) || rt_task(rq->curr)) &&
++			    (dl_task(rq->donor) || rt_task(rq->donor)) &&
+ 			    (rq->curr->nr_cpus_allowed < 2 ||
+-			     rq->curr->prio <= p->prio);
++			     rq->donor->prio <= p->prio);
+ 
+ 	if (need_to_push)
+ 		push_rt_tasks(rq);
+@@ -2485,7 +2472,7 @@ static void switched_to_rt(struct rq *rq, struct task_struct *p)
+ 		if (p->nr_cpus_allowed > 1 && rq->rt.overloaded)
+ 			rt_queue_push_tasks(rq);
+ #endif /* CONFIG_SMP */
+-		if (p->prio < rq->curr->prio && cpu_online(cpu_of(rq)))
++		if (p->prio < rq->donor->prio && cpu_online(cpu_of(rq)))
+ 			resched_curr(rq);
+ 	}
+ }
+@@ -2500,7 +2487,7 @@ prio_changed_rt(struct rq *rq, struct task_struct *p, int oldprio)
+ 	if (!task_on_rq_queued(p))
+ 		return;
+ 
+-	if (task_current(rq, p)) {
++	if (task_current_donor(rq, p)) {
+ #ifdef CONFIG_SMP
+ 		/*
+ 		 * If our priority decreases while running, we
+@@ -2526,7 +2513,7 @@ prio_changed_rt(struct rq *rq, struct task_struct *p, int oldprio)
+ 		 * greater than the current running task
+ 		 * then reschedule.
+ 		 */
+-		if (p->prio < rq->curr->prio)
++		if (p->prio < rq->donor->prio)
+ 			resched_curr(rq);
+ 	}
+ }
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 7b139016cbd9..090dd4b38fa2 100644
+index 081519ffab464..090dd4b38fa29 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -2093,34 +2093,6 @@ static inline const struct cpumask *task_user_cpus(struct task_struct *p)
+@@ -1147,7 +1147,10 @@ struct rq {
+ 	 */
+ 	unsigned int		nr_uninterruptible;
+ 
+-	struct task_struct __rcu	*curr;
++	union {
++		struct task_struct __rcu *donor; /* Scheduler context */
++		struct task_struct __rcu *curr;  /* Execution context */
++	};
+ 	struct sched_dl_entity	*dl_server;
+ 	struct task_struct	*idle;
+ 	struct task_struct	*stop;
+@@ -1344,6 +1347,11 @@ DECLARE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
+ #define cpu_curr(cpu)		(cpu_rq(cpu)->curr)
+ #define raw_rq()		raw_cpu_ptr(&runqueues)
+ 
++static inline void rq_set_donor(struct rq *rq, struct task_struct *t)
++{
++	/* Do nothing */
++}
++
+ #ifdef CONFIG_SCHED_CORE
+ static inline struct cpumask *sched_group_span(struct sched_group *sg);
+ 
+@@ -2085,34 +2093,6 @@ static inline const struct cpumask *task_user_cpus(struct task_struct *p)
  
  #endif /* CONFIG_SMP */
  
@@ -784,7 +3153,51 @@ index 7b139016cbd9..090dd4b38fa2 100644
  #ifdef CONFIG_CGROUP_SCHED
  
  /*
-@@ -2717,6 +2689,7 @@ extern void init_sched_rt_class(void);
+@@ -2260,11 +2240,25 @@ static inline u64 global_rt_runtime(void)
+ 	return (u64)sysctl_sched_rt_runtime * NSEC_PER_USEC;
+ }
+ 
++/*
++ * Is p the current execution context?
++ */
+ static inline int task_current(struct rq *rq, struct task_struct *p)
+ {
+ 	return rq->curr == p;
+ }
+ 
++/*
++ * Is p the current scheduling context?
++ *
++ * Note that it might be the current execution context at the same time if
++ * rq->curr == rq->donor == p.
++ */
++static inline int task_current_donor(struct rq *rq, struct task_struct *p)
++{
++	return rq->donor == p;
++}
++
+ static inline int task_on_cpu(struct rq *rq, struct task_struct *p)
+ {
+ #ifdef CONFIG_SMP
+@@ -2451,7 +2445,7 @@ struct sched_class {
+ 
+ static inline void put_prev_task(struct rq *rq, struct task_struct *prev)
+ {
+-	WARN_ON_ONCE(rq->curr != prev);
++	WARN_ON_ONCE(rq->donor != prev);
+ 	prev->sched_class->put_prev_task(rq, prev, NULL);
+ }
+ 
+@@ -2615,7 +2609,7 @@ static inline cpumask_t *alloc_user_cpus_ptr(int node)
+ 
+ static inline struct task_struct *get_push_task(struct rq *rq)
+ {
+-	struct task_struct *p = rq->curr;
++	struct task_struct *p = rq->donor;
+ 
+ 	lockdep_assert_rq_held(rq);
+ 
+@@ -2695,6 +2689,7 @@ extern void init_sched_rt_class(void);
  extern void init_sched_fair_class(void);
  
  extern void resched_curr(struct rq *rq);
@@ -792,7 +3205,7 @@ index 7b139016cbd9..090dd4b38fa2 100644
  extern void resched_cpu(int cpu);
  
  extern void init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime);
-@@ -3191,6 +3164,34 @@ extern void nohz_run_idle_balance(int cpu);
+@@ -3169,6 +3164,34 @@ extern void nohz_run_idle_balance(int cpu);
  static inline void nohz_run_idle_balance(int cpu) { }
  #endif
  
@@ -827,8 +3240,151 @@ index 7b139016cbd9..090dd4b38fa2 100644
  #ifdef CONFIG_IRQ_TIME_ACCOUNTING
  
  struct irqtime {
+@@ -3599,24 +3622,41 @@ static inline void mm_cid_put(struct mm_struct *mm)
+ 	__mm_cid_put(mm, mm_cid_clear_lazy_put(cid));
+ }
+ 
+-static inline int __mm_cid_try_get(struct mm_struct *mm)
++static inline int __mm_cid_try_get(struct task_struct *t, struct mm_struct *mm)
+ {
+-	struct cpumask *cpumask;
+-	int cid;
++	struct cpumask *cidmask = mm_cidmask(mm);
++	struct mm_cid __percpu *pcpu_cid = mm->pcpu_cid;
++	int cid = __this_cpu_read(pcpu_cid->recent_cid);
+ 
+-	cpumask = mm_cidmask(mm);
++	/* Try to re-use recent cid. This improves cache locality. */
++	if (!mm_cid_is_unset(cid) && !cpumask_test_and_set_cpu(cid, cidmask))
++		return cid;
+ 	/*
++	 * Expand cid allocation if the maximum number of concurrency
++	 * IDs allocated (max_nr_cid) is below the number cpus allowed
++	 * and number of threads. Expanding cid allocation as much as
++	 * possible improves cache locality.
++	 */
++	cid = atomic_read(&mm->max_nr_cid);
++	while (cid < READ_ONCE(mm->nr_cpus_allowed) && cid < atomic_read(&mm->mm_users)) {
++		if (!atomic_try_cmpxchg(&mm->max_nr_cid, &cid, cid + 1))
++			continue;
++		if (!cpumask_test_and_set_cpu(cid, cidmask))
++			return cid;
++	}
++	/*
++	 * Find the first available concurrency id.
+ 	 * Retry finding first zero bit if the mask is temporarily
+ 	 * filled. This only happens during concurrent remote-clear
+ 	 * which owns a cid without holding a rq lock.
+ 	 */
+ 	for (;;) {
+-		cid = cpumask_first_zero(cpumask);
+-		if (cid < nr_cpu_ids)
++		cid = cpumask_first_zero(cidmask);
++		if (cid < READ_ONCE(mm->nr_cpus_allowed))
+ 			break;
+ 		cpu_relax();
+ 	}
+-	if (cpumask_test_and_set_cpu(cid, cpumask))
++	if (cpumask_test_and_set_cpu(cid, cidmask))
+ 		return -1;
+ 
+ 	return cid;
+@@ -3634,7 +3674,8 @@ static inline void mm_cid_snapshot_time(struct rq *rq, struct mm_struct *mm)
+ 	WRITE_ONCE(pcpu_cid->time, rq->clock);
+ }
+ 
+-static inline int __mm_cid_get(struct rq *rq, struct mm_struct *mm)
++static inline int __mm_cid_get(struct rq *rq, struct task_struct *t,
++			       struct mm_struct *mm)
+ {
+ 	int cid;
+ 
+@@ -3644,13 +3685,13 @@ static inline int __mm_cid_get(struct rq *rq, struct mm_struct *mm)
+ 	 * guarantee forward progress.
+ 	 */
+ 	if (!READ_ONCE(use_cid_lock)) {
+-		cid = __mm_cid_try_get(mm);
++		cid = __mm_cid_try_get(t, mm);
+ 		if (cid >= 0)
+ 			goto end;
+ 		raw_spin_lock(&cid_lock);
+ 	} else {
+ 		raw_spin_lock(&cid_lock);
+-		cid = __mm_cid_try_get(mm);
++		cid = __mm_cid_try_get(t, mm);
+ 		if (cid >= 0)
+ 			goto unlock;
+ 	}
+@@ -3670,7 +3711,7 @@ static inline int __mm_cid_get(struct rq *rq, struct mm_struct *mm)
+ 	 * all newcoming allocations observe the use_cid_lock flag set.
+ 	 */
+ 	do {
+-		cid = __mm_cid_try_get(mm);
++		cid = __mm_cid_try_get(t, mm);
+ 		cpu_relax();
+ 	} while (cid < 0);
+ 	/*
+@@ -3687,7 +3728,8 @@ static inline int __mm_cid_get(struct rq *rq, struct mm_struct *mm)
+ 	return cid;
+ }
+ 
+-static inline int mm_cid_get(struct rq *rq, struct mm_struct *mm)
++static inline int mm_cid_get(struct rq *rq, struct task_struct *t,
++			     struct mm_struct *mm)
+ {
+ 	struct mm_cid __percpu *pcpu_cid = mm->pcpu_cid;
+ 	struct cpumask *cpumask;
+@@ -3704,8 +3746,9 @@ static inline int mm_cid_get(struct rq *rq, struct mm_struct *mm)
+ 		if (try_cmpxchg(&this_cpu_ptr(pcpu_cid)->cid, &cid, MM_CID_UNSET))
+ 			__mm_cid_put(mm, mm_cid_clear_lazy_put(cid));
+ 	}
+-	cid = __mm_cid_get(rq, mm);
++	cid = __mm_cid_get(rq, t, mm);
+ 	__this_cpu_write(pcpu_cid->cid, cid);
++	__this_cpu_write(pcpu_cid->recent_cid, cid);
+ 
+ 	return cid;
+ }
+@@ -3758,7 +3801,7 @@ static inline void switch_mm_cid(struct rq *rq,
+ 		prev->mm_cid = -1;
+ 	}
+ 	if (next->mm_cid_active)
+-		next->last_mm_cid = next->mm_cid = mm_cid_get(rq, next->mm);
++		next->last_mm_cid = next->mm_cid = mm_cid_get(rq, next, next->mm);
+ }
+ 
+ #else /* !CONFIG_SCHED_MM_CID: */
+@@ -3771,6 +3814,28 @@ static inline void init_sched_mm_cid(struct task_struct *t) { }
+ 
+ extern u64 avg_vruntime(struct cfs_rq *cfs_rq);
+ extern int entity_eligible(struct cfs_rq *cfs_rq, struct sched_entity *se);
++#ifdef CONFIG_SMP
++static inline
++void move_queued_task_locked(struct rq *src_rq, struct rq *dst_rq, struct task_struct *task)
++{
++	lockdep_assert_rq_held(src_rq);
++	lockdep_assert_rq_held(dst_rq);
++
++	deactivate_task(src_rq, task, 0);
++	set_task_cpu(task, dst_rq->cpu);
++	activate_task(dst_rq, task, 0);
++}
++
++static inline
++bool task_is_pushable(struct rq *rq, struct task_struct *p, int cpu)
++{
++	if (!task_on_cpu(rq, p) &&
++	    cpumask_test_cpu(cpu, &p->cpus_mask))
++		return true;
++
++	return false;
++}
++#endif
+ 
+ #ifdef CONFIG_RT_MUTEXES
+ 
 diff --git a/kernel/sched/stats.h b/kernel/sched/stats.h
-index 767e098a3bd1..8ee0add5a48a 100644
+index 767e098a3bd13..8ee0add5a48a8 100644
 --- a/kernel/sched/stats.h
 +++ b/kernel/sched/stats.h
 @@ -127,21 +127,25 @@ static inline void psi_account_irqtime(struct rq *rq, struct task_struct *curr,
@@ -897,3 +3453,223 @@ index 767e098a3bd1..8ee0add5a48a 100644
  }
  
  static inline void psi_ttwu_dequeue(struct task_struct *p)
+diff --git a/kernel/sched/syscalls.c b/kernel/sched/syscalls.c
+index 0470bcc3d2048..60e66c31e85b2 100644
+--- a/kernel/sched/syscalls.c
++++ b/kernel/sched/syscalls.c
+@@ -91,7 +91,7 @@ void set_user_nice(struct task_struct *p, long nice)
+ 	}
+ 
+ 	queued = task_on_rq_queued(p);
+-	running = task_current(rq, p);
++	running = task_current_donor(rq, p);
+ 	if (queued)
+ 		dequeue_task(rq, p, DEQUEUE_SAVE | DEQUEUE_NOCLOCK);
+ 	if (running)
+@@ -713,7 +713,7 @@ int __sched_setscheduler(struct task_struct *p,
+ 		dequeue_task(rq, p, DEQUEUE_SLEEP | DEQUEUE_DELAYED | DEQUEUE_NOCLOCK);
+ 
+ 	queued = task_on_rq_queued(p);
+-	running = task_current(rq, p);
++	running = task_current_donor(rq, p);
+ 	if (queued)
+ 		dequeue_task(rq, p, queue_flags);
+ 	if (running)
+diff --git a/kernel/sched/wait_bit.c b/kernel/sched/wait_bit.c
+index 134d7112ef71a..b410b61cec959 100644
+--- a/kernel/sched/wait_bit.c
++++ b/kernel/sched/wait_bit.c
+@@ -9,7 +9,7 @@
+ 
+ static wait_queue_head_t bit_wait_table[WAIT_TABLE_SIZE] __cacheline_aligned;
+ 
+-wait_queue_head_t *bit_waitqueue(void *word, int bit)
++wait_queue_head_t *bit_waitqueue(unsigned long *word, int bit)
+ {
+ 	const int shift = BITS_PER_LONG == 32 ? 5 : 6;
+ 	unsigned long val = (unsigned long)word << shift | bit;
+@@ -55,7 +55,7 @@ __wait_on_bit(struct wait_queue_head *wq_head, struct wait_bit_queue_entry *wbq_
+ }
+ EXPORT_SYMBOL(__wait_on_bit);
+ 
+-int __sched out_of_line_wait_on_bit(void *word, int bit,
++int __sched out_of_line_wait_on_bit(unsigned long *word, int bit,
+ 				    wait_bit_action_f *action, unsigned mode)
+ {
+ 	struct wait_queue_head *wq_head = bit_waitqueue(word, bit);
+@@ -66,7 +66,7 @@ int __sched out_of_line_wait_on_bit(void *word, int bit,
+ EXPORT_SYMBOL(out_of_line_wait_on_bit);
+ 
+ int __sched out_of_line_wait_on_bit_timeout(
+-	void *word, int bit, wait_bit_action_f *action,
++	unsigned long *word, int bit, wait_bit_action_f *action,
+ 	unsigned mode, unsigned long timeout)
+ {
+ 	struct wait_queue_head *wq_head = bit_waitqueue(word, bit);
+@@ -108,7 +108,7 @@ __wait_on_bit_lock(struct wait_queue_head *wq_head, struct wait_bit_queue_entry
+ }
+ EXPORT_SYMBOL(__wait_on_bit_lock);
+ 
+-int __sched out_of_line_wait_on_bit_lock(void *word, int bit,
++int __sched out_of_line_wait_on_bit_lock(unsigned long *word, int bit,
+ 					 wait_bit_action_f *action, unsigned mode)
+ {
+ 	struct wait_queue_head *wq_head = bit_waitqueue(word, bit);
+@@ -118,7 +118,7 @@ int __sched out_of_line_wait_on_bit_lock(void *word, int bit,
+ }
+ EXPORT_SYMBOL(out_of_line_wait_on_bit_lock);
+ 
+-void __wake_up_bit(struct wait_queue_head *wq_head, void *word, int bit)
++void __wake_up_bit(struct wait_queue_head *wq_head, unsigned long *word, int bit)
+ {
+ 	struct wait_bit_key key = __WAIT_BIT_KEY_INITIALIZER(word, bit);
+ 
+@@ -128,23 +128,31 @@ void __wake_up_bit(struct wait_queue_head *wq_head, void *word, int bit)
+ EXPORT_SYMBOL(__wake_up_bit);
+ 
+ /**
+- * wake_up_bit - wake up a waiter on a bit
+- * @word: the word being waited on, a kernel virtual address
+- * @bit: the bit of the word being waited on
++ * wake_up_bit - wake up waiters on a bit
++ * @word: the address containing the bit being waited on
++ * @bit: the bit at that address being waited on
+  *
+- * There is a standard hashed waitqueue table for generic use. This
+- * is the part of the hash-table's accessor API that wakes up waiters
+- * on a bit. For instance, if one were to have waiters on a bitflag,
+- * one would call wake_up_bit() after clearing the bit.
++ * Wake up any process waiting in wait_on_bit() or similar for the
++ * given bit to be cleared.
+  *
+- * In order for this to function properly, as it uses waitqueue_active()
+- * internally, some kind of memory barrier must be done prior to calling
+- * this. Typically, this will be smp_mb__after_atomic(), but in some
+- * cases where bitflags are manipulated non-atomically under a lock, one
+- * may need to use a less regular barrier, such fs/inode.c's smp_mb(),
+- * because spin_unlock() does not guarantee a memory barrier.
++ * The wake-up is sent to tasks in a waitqueue selected by hash from a
++ * shared pool.  Only those tasks on that queue which have requested
++ * wake_up on this specific address and bit will be woken, and only if the
++ * bit is clear.
++ *
++ * In order for this to function properly there must be a full memory
++ * barrier after the bit is cleared and before this function is called.
++ * If the bit was cleared atomically, such as a by clear_bit() then
++ * smb_mb__after_atomic() can be used, othwewise smb_mb() is needed.
++ * If the bit was cleared with a fully-ordered operation, no further
++ * barrier is required.
++ *
++ * Normally the bit should be cleared by an operation with RELEASE
++ * semantics so that any changes to memory made before the bit is
++ * cleared are guaranteed to be visible after the matching wait_on_bit()
++ * completes.
+  */
+-void wake_up_bit(void *word, int bit)
++void wake_up_bit(unsigned long *word, int bit)
+ {
+ 	__wake_up_bit(bit_waitqueue(word, bit), word, bit);
+ }
+@@ -188,6 +196,36 @@ void init_wait_var_entry(struct wait_bit_queue_entry *wbq_entry, void *var, int
+ }
+ EXPORT_SYMBOL(init_wait_var_entry);
+ 
++/**
++ * wake_up_var - wake up waiters on a variable (kernel address)
++ * @var: the address of the variable being waited on
++ *
++ * Wake up any process waiting in wait_var_event() or similar for the
++ * given variable to change.  wait_var_event() can be waiting for an
++ * arbitrary condition to be true and associates that condition with an
++ * address.  Calling wake_up_var() suggests that the condition has been
++ * made true, but does not strictly require the condtion to use the
++ * address given.
++ *
++ * The wake-up is sent to tasks in a waitqueue selected by hash from a
++ * shared pool.  Only those tasks on that queue which have requested
++ * wake_up on this specific address will be woken.
++ *
++ * In order for this to function properly there must be a full memory
++ * barrier after the variable is updated (or more accurately, after the
++ * condition waited on has been made to be true) and before this function
++ * is called.  If the variable was updated atomically, such as a by
++ * atomic_dec() then smb_mb__after_atomic() can be used.  If the
++ * variable was updated by a fully ordered operation such as
++ * atomic_dec_and_test() then no extra barrier is required.  Otherwise
++ * smb_mb() is needed.
++ *
++ * Normally the variable should be updated (the condition should be made
++ * to be true) by an operation with RELEASE semantics such as
++ * smp_store_release() so that any changes to memory made before the
++ * variable was updated are guaranteed to be visible after the matching
++ * wait_var_event() completes.
++ */
+ void wake_up_var(void *var)
+ {
+ 	__wake_up_bit(__var_waitqueue(var), var, -1);
+@@ -228,20 +266,6 @@ __sched int bit_wait_timeout(struct wait_bit_key *word, int mode)
+ }
+ EXPORT_SYMBOL_GPL(bit_wait_timeout);
+ 
+-__sched int bit_wait_io_timeout(struct wait_bit_key *word, int mode)
+-{
+-	unsigned long now = READ_ONCE(jiffies);
+-
+-	if (time_after_eq(now, word->timeout))
+-		return -EAGAIN;
+-	io_schedule_timeout(word->timeout - now);
+-	if (signal_pending_state(mode, current))
+-		return -EINTR;
+-
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(bit_wait_io_timeout);
+-
+ void __init wait_bit_init(void)
+ {
+ 	int i;
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index d082e7840f880..b756d6b3fd096 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -748,10 +748,8 @@ EXPORT_SYMBOL(__tasklet_hi_schedule);
+ 
+ static bool tasklet_clear_sched(struct tasklet_struct *t)
+ {
+-	if (test_and_clear_bit(TASKLET_STATE_SCHED, &t->state)) {
+-		wake_up_var(&t->state);
++	if (test_and_clear_wake_up_bit(TASKLET_STATE_SCHED, &t->state))
+ 		return true;
+-	}
+ 
+ 	WARN_ONCE(1, "tasklet SCHED state not set: %s %pS\n",
+ 		  t->use_callback ? "callback" : "func",
+@@ -871,8 +869,7 @@ void tasklet_kill(struct tasklet_struct *t)
+ 	if (in_interrupt())
+ 		pr_notice("Attempt to kill tasklet from interrupt\n");
+ 
+-	while (test_and_set_bit(TASKLET_STATE_SCHED, &t->state))
+-		wait_var_event(&t->state, !test_bit(TASKLET_STATE_SCHED, &t->state));
++	wait_on_bit_lock(&t->state, TASKLET_STATE_SCHED, TASK_UNINTERRUPTIBLE);
+ 
+ 	tasklet_unlock_wait(t);
+ 	tasklet_clear_sched(t);
+@@ -882,16 +879,13 @@ EXPORT_SYMBOL(tasklet_kill);
+ #if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT_RT)
+ void tasklet_unlock(struct tasklet_struct *t)
+ {
+-	smp_mb__before_atomic();
+-	clear_bit(TASKLET_STATE_RUN, &t->state);
+-	smp_mb__after_atomic();
+-	wake_up_var(&t->state);
++	clear_and_wake_up_bit(TASKLET_STATE_RUN, &t->state);
+ }
+ EXPORT_SYMBOL_GPL(tasklet_unlock);
+ 
+ void tasklet_unlock_wait(struct tasklet_struct *t)
+ {
+-	wait_var_event(&t->state, !test_bit(TASKLET_STATE_RUN, &t->state));
++	wait_on_bit(&t->state, TASKLET_STATE_RUN, TASK_UNINTERRUPTIBLE);
+ }
+ EXPORT_SYMBOL_GPL(tasklet_unlock_wait);
+ #endif
