@@ -1,4 +1,5 @@
-{ pkgs
+{ inputs
+, pkgs
 , ...
 }:
 {
@@ -53,7 +54,7 @@
       jamesdsp
       qbittorrent
       weston
-      mission-center
+      inputs.nixpkgs-stable.legacyPackages.${system}.mission-center
       looking-glass-client
       virt-manager
     ];
