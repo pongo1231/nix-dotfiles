@@ -112,10 +112,10 @@
             PREEMPT_LAZY y
           '';
         }
-        {
+        /*{
           name = "lightweight-guard-pages";
           patch = patch /linux/6.12/lightweight-guard-pages.patch;
-        }
+        }*/
         /*{
           name = "crypto-optimizations";
           patch = patch /linux/6.12/crypto-optimizations.patch;
@@ -161,6 +161,14 @@
         {
           name = "multigrain-timestamps";
           patch = patch /linux/6.12/multigrain-timestamps.patch;
+        }
+        {
+          name = "mm-6.13-backport";
+          patch = patch /linux/6.12/mm-6.13-backport.patch;
+        }
+        {
+          name = "net-6.13-backport";
+          patch = patch /linux/6.12/net-6.13-backport.patch;
         }
         {
           name = "jupiter-mfd";
