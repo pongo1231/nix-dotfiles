@@ -1,5 +1,6 @@
 { inputs
 , module
+, patch
 , config
 , pkgs
 , lib
@@ -66,6 +67,20 @@ in
   hardware = {
     cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
+    graphics =
+      let
+        patchMesa = mesa: mesa.overrideAttrs (finalAttrs: prevAttrs: {
+          patches = prevAttrs.patches ++ [
+            (patch /mesa/24.3.0/d0722142079fdc5dab999aca9456cab6b8a9a214.patch)
+          ];
+        });
+      in
+      {
+        # chaotic-nyx's mesa-git module uses mkForce for some reason...
+        package = lib.mkOverride 49 (patchMesa pkgs.mesa_git.drivers);
+        package32 = lib.mkOverride 49 (patchMesa pkgs.mesa32_git.drivers);
+      };
+
     #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
     #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };
@@ -84,7 +99,7 @@ in
     };
   };
 
-  #chaotic.mesa-git.enable = true;
+  chaotic.mesa-git.enable = true;
 
   environment = {
     #etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
