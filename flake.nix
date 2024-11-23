@@ -20,7 +20,7 @@
     };
 
     chaotic = {
-      url = "github:pongo1231/nyx";
+      url = "github:chaotic-cx/nyx";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
