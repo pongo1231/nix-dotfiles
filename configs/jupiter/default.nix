@@ -62,8 +62,6 @@ in
     };
   };
 
-  powerManagement.cpuFreqGovernor = "powersave";
-
   hardware = {
     cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
