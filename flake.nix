@@ -26,7 +26,7 @@
   };
 
   outputs =
-    { ... }@inputs: {
+    inputs: {
       nixosConfigurations =
         let
           commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
@@ -40,8 +40,7 @@
                 };
 
                 modules = [
-                  ({ ...
-                   }: {
+                  (_: {
                     nixpkgs.overlays = [
                       (final: prev: {
                         kernel = import inputs.nixpkgs-desktop-kernel {
@@ -71,11 +70,11 @@
                         openvswitch = prev.openvswitch.override { kernel = null; };
 
                         virtiofsd = final.callPackage ./pkgs/qemu_7/virtiofsd.nix {
-                          qemu = (final.callPackage ./pkgs/qemu_7 {
+                          qemu = final.callPackage ./pkgs/qemu_7 {
                             inherit (final.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
                             inherit (final.darwin.stubs) rez setfile;
                             inherit (final.darwin) sigtool;
-                          });
+                          };
                         };
 
                         distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {

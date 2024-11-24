@@ -31,7 +31,7 @@
   };
 
   outputs =
-    { ... }@inputs:
+    inputs:
     let
       commonUsers = [
         "pongo"
@@ -48,8 +48,7 @@
         modules = [
           inputs.nix-index-database.hmModules.nix-index
 
-          ({ ...
-           }: {
+          (_: {
             nixpkgs.overlays = [
               (final: prev: {
                 duperemove = prev.duperemove.overrideAttrs (finalAttrs: prevAttrs: {
@@ -92,7 +91,7 @@
       homeConfigurations = inputs.nixpkgs.lib.foldlAttrs
         (acc: hostName: _:
           let
-            info = (import ./configs/${hostName}/info.nix);
+            info = import ./configs/${hostName}/info.nix;
             config = inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) { config = ./configs/${hostName}; };
           in
           acc // builtins.foldl'

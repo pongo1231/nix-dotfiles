@@ -13,7 +13,7 @@
 
   nixpkgs.overlays = [
     (final: prev: {
-      linuxPackages_wicked = (final.kernel.linuxPackages_testing.extend (finalAttrs: prevAttrs: {
+      linuxPackages_wicked = final.kernel.linuxPackages_testing.extend (finalAttrs: prevAttrs: {
         kernel = prevAttrs.kernel.override (prevAttrs': {
           #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
           ignoreConfigErrors = true;
@@ -44,7 +44,7 @@
             hash = "sha256-COmi4sxz6m5IPW8ruzHsw+LsepEgA5+A6Yh1642MSAM=";
           };
         });
-      }));
+      });
     })
   ];
 

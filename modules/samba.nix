@@ -1,5 +1,5 @@
 { sharePath }:
-{ ... }:
+_:
 {
   services.samba = {
     enable = true;
