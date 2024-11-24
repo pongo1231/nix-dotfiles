@@ -23,8 +23,10 @@ _:
         "min receivefile size" = 16384;
         "aio read size" = 1;
         "aio write size" = 1;
-        "socket options" = "IPTOS_LOWDELAY TCP_NODELAY IPTOS_THROUGHPUT SO_RCVBUF = 131072 SO_SNDBUF=131072";
+        "socket options" = "IPTOS_LOWDELAY TCP_NODELAY IPTOS_THROUGHPUT SO_RCVBUF=131072 SO_SNDBUF=131072";
         "allow insecure wide links" = "yes";
+        "fruit:copyfile" = "yes";
+        "smb compression" = "yes";
       };
 
       public = {
