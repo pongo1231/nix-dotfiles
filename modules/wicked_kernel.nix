@@ -175,6 +175,18 @@
           patch = patch /linux/6.12/vfs-6.13-backport.patch;
         }
         {
+          name = "pm-6.13-backport";
+          patch = patch /linux/6.12/pm-6.13-backport.patch;
+        }
+        {
+          name = "pm-6.13-backport-2";
+          patch = patch /linux/6.12/pm-6.13-backport-2.patch;
+        }
+        {
+          name = "mm-nonmm-6.13-backport";
+          patch = patch /linux/6.12/mm-nonmm-6.13-backport.patch;
+        }
+        {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
