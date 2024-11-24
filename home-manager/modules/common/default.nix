@@ -90,6 +90,7 @@
       nix-melt
       nurl
       nix-health
+      statix
       duperemove
       compsize
       inputs.nix-alien.packages.${system}.nix-alien
