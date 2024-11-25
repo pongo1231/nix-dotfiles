@@ -23,7 +23,7 @@
             in
             {
               inherit version;
-              modDirVersion = "6.12.0";
+              modDirVersion = "6.12.1";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "adc218676eef25575469234709c2d87185ca223a";
@@ -36,14 +36,14 @@
             };
         });
 
-        xpadneo = prevAttrs.xpadneo.overrideAttrs (prevAttrs: {
+        /*xpadneo = prevAttrs.xpadneo.overrideAttrs (prevAttrs: {
           src = final.fetchFromGitHub {
             owner = "atar-axis";
             repo = "xpadneo";
             rev = "be65dbb793b09241c4a525ce3363f797672b3301";
             hash = "sha256-COmi4sxz6m5IPW8ruzHsw+LsepEgA5+A6Yh1642MSAM=";
           };
-        });
+        });*/
       });
     })
   ];
@@ -154,18 +154,18 @@
           name = "btrfs-6.13-backport-and-buffered-uncached";
           patch = patch /linux/6.12/btrfs-6.13-backport-and-buffered-uncached.patch;
         }
-        {
+        /*{
           name = "crc32c-optimizations";
           patch = patch /linux/6.12/crc32c-optimizations.patch;
-        }
+        }*/
         {
           name = "multigrain-timestamps";
           patch = patch /linux/6.12/multigrain-timestamps.patch;
         }
-        {
+        /*{
           name = "mm-6.13-backport";
           patch = patch /linux/6.12/mm-6.13-backport.patch;
-        }
+        }*/
         {
           name = "net-6.13-backport";
           patch = patch /linux/6.12/net-6.13-backport.patch;
@@ -185,6 +185,14 @@
         {
           name = "mm-nonmm-6.13-backport";
           patch = patch /linux/6.12/mm-nonmm-6.13-backport.patch;
+        }
+        /*{
+          name = "ext4-6.13-backport";
+          patch = patch /linux/6.12/ext4-6.13-backport.patch;
+        }*/
+        {
+          name = "fuse-6.13-backport";
+          patch = patch /linux/6.12/fuse-6.13-backport.patch;
         }
         {
           name = "jupiter-mfd";

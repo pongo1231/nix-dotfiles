@@ -1,0 +1,1613 @@
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9CDEB186E59;
+	Mon, 25 Nov 2024 11:46:30 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535193; cv=none; b=B8wd1HZ13lPBLP+W3rrv2f1kDTk4rz/KnFprInPYCjA3zSTK4VYAbALbuxIrcuKSsLWH5aDmdwerRRatGxnm3uaF6Ud/G+Kh8Dz61a+eO903/4ATptdd62aMLB8its534fWRhnMNVUxrQyQrduXQPx/Ucr7b3Ylbgv1xMvwvEYk=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535193; c=relaxed/simple;
+	bh=vCTOertUZohQPhm3R+Ud9igr5aOQGYz3iB1Z+xenxoQ=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=tvY4fNb3tIhvVGf/fCZfsdWAAodFay8Fv1ivOx8e/K4oAjcZB0u6dIudSy6/f2/ZUHO/m9mHiEsFvwEI/xFLn9mMHOShEO/eskbHaPGN93MSeOxjK5n+pdxOymL8JexNxv4554rniMUiMGcstpZvpeENzcrXpPJEMp259pXRtdo=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.216])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkS56J0Pz4f3kk9;
+	Mon, 25 Nov 2024 19:46:13 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id 813541A018C;
+	Mon, 25 Nov 2024 19:46:27 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S5;
+	Mon, 25 Nov 2024 19:46:27 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 1/9] fs: make block_read_full_folio() support large folio
+Date: Mon, 25 Nov 2024 19:44:11 +0800
+Message-ID: <20241125114419.903270-2-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S5
+X-Coremail-Antispam: 1UD129KBjvJXoWxXr15tFy3XrW7tr15Aw43Jrb_yoW5Gw45pF
+	y3KFZ8Kr4kWr42gFnFyr13Zw1ftas7XF4UCayfJw13ZF98Awn0gryktw1DJFW0qr9xXr95
+	XF15WryrWF18XFUanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUm014x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_Jr4l82xGYIkIc2
+	x26xkF7I0E14v26r4j6ryUM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2z4x0
+	Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F4UJw
+	A2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq3wAS
+	0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7IYx2
+	IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4UM4x0
+	Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2kIc2
+	xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkEbVWU
+	JVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67AF67
+	kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUJVWUCwCI42IY
+	6xIIjxv20xvEc7CjxVAFwI0_Gr0_Cr1lIxAIcVCF04k26cxKx2IYs7xG6r1j6r1xMIIF0x
+	vEx4A2jsIE14v26r1j6r4UMIIF0xvEx4A2jsIEc7CjxVAFwI0_Gr0_Gr1UYxBIdaVFxhVj
+	vjDU0xZFpf9x0JUfKs8UUUUU=
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+block_read_full_folio() uses an on-stack array to save the un-uptodated
+buffers. This approach is acceptable for small folios, as there are not
+too many buffers in a single folio. However, if the folio is a large
+folio, the number of buffers could reach up to 2,000 for a 2MB folio
+size with a 1KB block size. Therefore, we cannot use the 'arr' array for
+large folios, instead, we should iterate through the buffers using 'bh =
+bh->b_this_page'.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/buffer.c | 34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/fs/buffer.c b/fs/buffer.c
+index 1fc9a50def0b..54e608c8912e 100644
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -2366,7 +2366,7 @@ int block_read_full_folio(struct folio *folio, get_block_t *get_block)
+ {
+ 	struct inode *inode = folio->mapping->host;
+ 	sector_t iblock, lblock;
+-	struct buffer_head *bh, *head, *arr[MAX_BUF_PER_PAGE];
++	struct buffer_head *bh, *head;
+ 	size_t blocksize;
+ 	int nr, i;
+ 	int fully_mapped = 1;
+@@ -2377,8 +2377,6 @@ int block_read_full_folio(struct folio *folio, get_block_t *get_block)
+ 	if (IS_ENABLED(CONFIG_FS_VERITY) && IS_VERITY(inode))
+ 		limit = inode->i_sb->s_maxbytes;
+ 
+-	VM_BUG_ON_FOLIO(folio_test_large(folio), folio);
+-
+ 	head = folio_create_buffers(folio, inode, 0);
+ 	blocksize = head->b_size;
+ 
+@@ -2416,7 +2414,10 @@ int block_read_full_folio(struct folio *folio, get_block_t *get_block)
+ 			if (buffer_uptodate(bh))
+ 				continue;
+ 		}
+-		arr[nr++] = bh;
++		/* lock the buffer */
++		lock_buffer(bh);
++		mark_buffer_async_read(bh);
++		nr++;
+ 	} while (i++, iblock++, (bh = bh->b_this_page) != head);
+ 
+ 	if (fully_mapped)
+@@ -2431,25 +2432,24 @@ int block_read_full_folio(struct folio *folio, get_block_t *get_block)
+ 		return 0;
+ 	}
+ 
+-	/* Stage two: lock the buffers */
+-	for (i = 0; i < nr; i++) {
+-		bh = arr[i];
+-		lock_buffer(bh);
+-		mark_buffer_async_read(bh);
+-	}
+-
+ 	/*
+-	 * Stage 3: start the IO.  Check for uptodateness
+-	 * inside the buffer lock in case another process reading
+-	 * the underlying blockdev brought it uptodate (the sct fix).
++	 * Start the IO.  Check for uptodateness inside the buffer lock
++	 * in case another process reading the underlying blockdev brought
++	 * it uptodate (the sct fix).
+ 	 */
+-	for (i = 0; i < nr; i++) {
+-		bh = arr[i];
++	bh = head;
++	do {
++		if (!buffer_async_read(bh))
++			continue;
++
+ 		if (buffer_uptodate(bh))
+ 			end_buffer_async_read(bh, 1);
+ 		else
+ 			submit_bh(REQ_OP_READ, bh);
+-	}
++
++		nr--;
++	} while (nr && (bh = bh->b_this_page) != head);
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(block_read_full_folio);
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 4EFBA191F7A;
+	Mon, 25 Nov 2024 11:46:31 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535194; cv=none; b=R+y7eEc9PYFjhJ6vcYr+9PlhxhlgC2U5RYn8oiaB6urwvDf2x6hu2TeY9Tkkh4rWozQdjZHqE1EUKBrdXDUZQMZb2nOAIkBjRXffvTryIwNH26SiDPX/vGbIiJo/1w+MXAVcoCPqdYUjmGQ5tIHHB2smgZwZR7up8fwe97YanEc=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535194; c=relaxed/simple;
+	bh=ZrquhWqppx0zkMcjlbReT7o51+YTL16rEUOas3S79JU=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=avSeXP9V+Bz7j/IJhkSE27WFL+Bk0V8TnbQjGmoRKm27PuiY+LxEI5TKD38jAbX+pIygDaMJf3KC7Cwhr70IWe2kmGDJTT+fnwlv6Of02ZV/0p03N0UTUgfU9+hlPUGZVAGvgsb5PncpLVSKpH32fcXTxGXxOESVzofpZaATv+k=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.235])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkS03Dgfz4f3n6H;
+	Mon, 25 Nov 2024 19:46:08 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id 154701A0568;
+	Mon, 25 Nov 2024 19:46:28 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S6;
+	Mon, 25 Nov 2024 19:46:27 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 2/9] ext4: make ext4_mpage_readpages() support large folios
+Date: Mon, 25 Nov 2024 19:44:12 +0800
+Message-ID: <20241125114419.903270-3-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S6
+X-Coremail-Antispam: 1UD129KBjvJXoWxXF48CF1DWF17Cw4kKw15Jwb_yoW5tFykp3
+	yakFn5Gr4kW3s3uanrAF4DZr1Sg347CF48GFWfXr1fWFy7J34Sg3Z7Xas5X3W5trs7XFs5
+	XFW3JryUJF1DXrUanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUm014x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_Jryl82xGYIkIc2
+	x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2z4x0
+	Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F4UJw
+	A2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq3wAS
+	0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7IYx2
+	IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4UM4x0
+	Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2kIc2
+	xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkEbVWU
+	JVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67AF67
+	kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUJVWUCwCI42IY
+	6xIIjxv20xvEc7CjxVAFwI0_Gr0_Cr1lIxAIcVCF04k26cxKx2IYs7xG6r1j6r1xMIIF0x
+	vEx4A2jsIE14v26r1j6r4UMIIF0xvEx4A2jsIEc7CjxVAFwI0_Gr0_Gr1UYxBIdaVFxhVj
+	vjDU0xZFpf9x0JUADGOUUUUU=
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+ext4_mpage_readpages() currently assumes that each folio is the size of
+PAGE_SIZE. Modify it to atomically calculate the number of blocks per
+folio and iterate through the blocks in each folio, which would allow
+for support of larger folios.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/readpage.c | 28 +++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/fs/ext4/readpage.c b/fs/ext4/readpage.c
+index 5d3a9dc9a32d..f329daf6e5c7 100644
+--- a/fs/ext4/readpage.c
++++ b/fs/ext4/readpage.c
+@@ -227,24 +227,30 @@ int ext4_mpage_readpages(struct inode *inode,
+ 	int length;
+ 	unsigned relative_block = 0;
+ 	struct ext4_map_blocks map;
+-	unsigned int nr_pages = rac ? readahead_count(rac) : 1;
++	unsigned int nr_pages, folio_pages;
+ 
+ 	map.m_pblk = 0;
+ 	map.m_lblk = 0;
+ 	map.m_len = 0;
+ 	map.m_flags = 0;
+ 
+-	for (; nr_pages; nr_pages--) {
++	nr_pages = rac ? readahead_count(rac) : folio_nr_pages(folio);
++	for (; nr_pages; nr_pages -= folio_pages) {
+ 		int fully_mapped = 1;
+-		unsigned first_hole = blocks_per_page;
++		unsigned int first_hole;
++		unsigned int blocks_per_folio;
+ 
+ 		if (rac)
+ 			folio = readahead_folio(rac);
++
++		folio_pages = folio_nr_pages(folio);
+ 		prefetchw(&folio->flags);
+ 
+ 		if (folio_buffers(folio))
+ 			goto confused;
+ 
++		blocks_per_folio = folio_size(folio) >> blkbits;
++		first_hole = blocks_per_folio;
+ 		block_in_file = next_block =
+ 			(sector_t)folio->index << (PAGE_SHIFT - blkbits);
+ 		last_block = block_in_file + nr_pages * blocks_per_page;
+@@ -270,7 +276,7 @@ int ext4_mpage_readpages(struct inode *inode,
+ 					map.m_flags &= ~EXT4_MAP_MAPPED;
+ 					break;
+ 				}
+-				if (page_block == blocks_per_page)
++				if (page_block == blocks_per_folio)
+ 					break;
+ 				page_block++;
+ 				block_in_file++;
+@@ -281,7 +287,7 @@ int ext4_mpage_readpages(struct inode *inode,
+ 		 * Then do more ext4_map_blocks() calls until we are
+ 		 * done with this folio.
+ 		 */
+-		while (page_block < blocks_per_page) {
++		while (page_block < blocks_per_folio) {
+ 			if (block_in_file < last_block) {
+ 				map.m_lblk = block_in_file;
+ 				map.m_len = last_block - block_in_file;
+@@ -296,13 +302,13 @@ int ext4_mpage_readpages(struct inode *inode,
+ 			}
+ 			if ((map.m_flags & EXT4_MAP_MAPPED) == 0) {
+ 				fully_mapped = 0;
+-				if (first_hole == blocks_per_page)
++				if (first_hole == blocks_per_folio)
+ 					first_hole = page_block;
+ 				page_block++;
+ 				block_in_file++;
+ 				continue;
+ 			}
+-			if (first_hole != blocks_per_page)
++			if (first_hole != blocks_per_folio)
+ 				goto confused;		/* hole -> non-hole */
+ 
+ 			/* Contiguous blocks? */
+@@ -315,13 +321,13 @@ int ext4_mpage_readpages(struct inode *inode,
+ 					/* needed? */
+ 					map.m_flags &= ~EXT4_MAP_MAPPED;
+ 					break;
+-				} else if (page_block == blocks_per_page)
++				} else if (page_block == blocks_per_folio)
+ 					break;
+ 				page_block++;
+ 				block_in_file++;
+ 			}
+ 		}
+-		if (first_hole != blocks_per_page) {
++		if (first_hole != blocks_per_folio) {
+ 			folio_zero_segment(folio, first_hole << blkbits,
+ 					  folio_size(folio));
+ 			if (first_hole == 0) {
+@@ -367,11 +373,11 @@ int ext4_mpage_readpages(struct inode *inode,
+ 
+ 		if (((map.m_flags & EXT4_MAP_BOUNDARY) &&
+ 		     (relative_block == map.m_len)) ||
+-		    (first_hole != blocks_per_page)) {
++		    (first_hole != blocks_per_folio)) {
+ 			submit_bio(bio);
+ 			bio = NULL;
+ 		} else
+-			last_block_in_bio = first_block + blocks_per_page - 1;
++			last_block_in_bio = first_block + blocks_per_folio - 1;
+ 		continue;
+ 	confused:
+ 		if (bio) {
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 2D6ED199947;
+	Mon, 25 Nov 2024 11:46:33 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535195; cv=none; b=Ofob12PAmkTcF/zI9zsTzpG8cNMQWW3z7MmaChN/B8Z3nDbUIN62OgTSbK8KlFrzWv5RS0V9mJ3jensoAtcnB1d14c+NR1U2+jJ3dQt5uWisQqCLIIpJ+9B6YkMwekxvhX7BmHNTjq2a6hAq8m2c4Z4idSTaqP5fMynZX4IiIKg=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535195; c=relaxed/simple;
+	bh=/2j/eWlrAYGxOEIvn8+oQk9bo/y0Fur0VRbGnmnV0k0=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=LhGbm/diOgEDZrXW5uB83bEC6UUpnvjj10z95z6NVKSvVFSnMkhTKFhFTa7fXCzO2nUuQGA/6jndcJZqpzV9Nab6t2Ssw0esjVe2vBqJy12HD9EsYi3yxst8qx+Vp4+8EADnDdXkPqUnEOO2n9mcTr7hFIT7iXbDFDXaaK1GXGQ=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.216])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkS84dYxz4f3kq5;
+	Mon, 25 Nov 2024 19:46:16 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id 445851A0197;
+	Mon, 25 Nov 2024 19:46:30 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S10;
+	Mon, 25 Nov 2024 19:46:30 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 6/9] ext4: correct the journal credits calculations of allocating blocks
+Date: Mon, 25 Nov 2024 19:44:16 +0800
+Message-ID: <20241125114419.903270-7-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S10
+X-Coremail-Antispam: 1UD129KBjvJXoW7Ww1DurW5Ww4rKrWrZFWDJwb_yoW8Ar1kp3
+	ZxCFW8Gr1rZw1UuFW8Ga1UXr18Wa1kGa17ZFWrAw1aqFZxJryfGrn8t3W0vFyFqFWxZF1Y
+	vF4rK34UJ3W5ZrJanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmI14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JF0E3s1l82xGYI
+	kIc2x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2
+	z4x0Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F
+	4UJwA2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq
+	3wAS0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7
+	IYx2IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4U
+	M4x0Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2
+	kIc2xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkE
+	bVWUJVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67
+	AF67kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUCVW8JwCI
+	42IY6xIIjxv20xvEc7CjxVAFwI0_Cr0_Gr1UMIIF0xvE42xK8VAvwI8IcIk0rVWUJVWUCw
+	CI42IY6I8E87Iv67AKxVWUJVW8JwCI42IY6I8E87Iv6xkF7I0E14v26r4j6r4UJbIYCTnI
+	WIevJa73UjIFyTuYvjfUriihUUUUU
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+The journal credits calculation in ext4_ext_index_trans_blocks() is
+currently inadequate. It only multiplies the depth of the extents tree
+and doesn't account for the blocks that may be required for adding the
+leaf extents themselves.
+
+After enabling large folios, we can easily run out of handle credits,
+triggering a warning in jbd2_journal_dirty_metadata() on filesystems
+with a 1KB block size. This occurs because we may need more extents when
+iterating through each folio. Therefore, we should modify ext4_ext_index
+trans_blocks() to include a count of the leaf extents as well.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/extents.c | 5 +++--
+ fs/ext4/inode.c   | 2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+index 34e25eee6521..1dbcf0cb8003 100644
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -2405,9 +2405,10 @@ int ext4_ext_index_trans_blocks(struct inode *inode, int extents)
+ 	depth = ext_depth(inode);
+ 
+ 	if (extents <= 1)
+-		index = depth * 2;
++		index = depth * 2 + extents;
+ 	else
+-		index = depth * 3;
++		index = depth * 3 +
++			DIV_ROUND_UP(extents, ext4_ext_space_block(inode, 0));
+ 
+ 	return index;
+ }
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index e7b485b0f81b..0ef41e264ee8 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -5687,7 +5687,7 @@ static int ext4_meta_trans_blocks(struct inode *inode, int lblocks,
+ 	 * Now let's see how many group bitmaps and group descriptors need
+ 	 * to account
+ 	 */
+-	groups = idxblocks + pextents;
++	groups = idxblocks;
+ 	gdpblocks = groups;
+ 	if (groups > ngroups)
+ 		groups = ngroups;
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout12.his.huawei.com (dggsgout12.his.huawei.com [45.249.212.56])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 365A5139D0A;
+	Mon, 25 Nov 2024 11:46:31 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.56
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535194; cv=none; b=FpDl3wDTp0Nf5x9FePLiAWDcf8Q9szTc+9+6B+U8A95gavXFJoCSkCBknBmGtKR/PYtZvBuBkWTR7l+TKoOXHwh+ARa/TzFBrX6KD6IXO9LoEeOe267FQd/Xkf6+lFNudqZrPecHuJJ50OJpXaR4ShZNTVUkRfPxT29tS9Lqqyg=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535194; c=relaxed/simple;
+	bh=ysUIq4AFjuAMNW87ZJ0vR2E2hvagnixUgv1o3FXCP0o=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=EibCMfmQkTuJRyMBWmTT49xfLJJq8KyKauf9quVyUkkyJ503NjwMerX3oBSmLIpcBiiDcVL2jwjN5rxubnq/sdEhshLQvsIhldJ1t4CXgrk663FORZjFLuLFmks79zJPNjkfuzb8t5aX8lYQ2WYmaQfju7PkLBPdM3FNA5MLj5E=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.56
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.235])
+	by dggsgout12.his.huawei.com (SkyGuard) with ESMTP id 4XxkS16kwpz4f3jrc;
+	Mon, 25 Nov 2024 19:46:09 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id 9FC3C1A058E;
+	Mon, 25 Nov 2024 19:46:28 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S7;
+	Mon, 25 Nov 2024 19:46:28 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 3/9] ext4: make regular file's buffered write path support large folios
+Date: Mon, 25 Nov 2024 19:44:13 +0800
+Message-ID: <20241125114419.903270-4-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S7
+X-Coremail-Antispam: 1UD129KBjvJXoWxCFy8ur13ZF48XFyUZFykAFb_yoWrWFy8pr
+	W5K3Z7JrWxZw129FWkXFsxXr1Y934xJ3yUCFyfWw13uF98G3ZxKa1Fkas8tFy0qrWkXF4k
+	XFWjyry8W3WjyrUanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmY14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JrWl82xGYIkIc2
+	x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2z4x0
+	Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F4UJw
+	A2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq3wAS
+	0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7IYx2
+	IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4UM4x0
+	Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2kIc2
+	xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkEbVWU
+	JVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67AF67
+	kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUJVWUCwCI42IY
+	6xIIjxv20xvEc7CjxVAFwI0_Cr0_Gr1UMIIF0xvE42xK8VAvwI8IcIk0rVWUJVWUCwCI42
+	IY6I8E87Iv67AKxVWUJVW8JwCI42IY6I8E87Iv6xkF7I0E14v26r4j6r4UJbIYCTnIWIev
+	Ja73UjIFyTuYvjfUF3kuDUUUU
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+The current buffered write path in ext4 can only allocate and handle
+folios of PAGE_SIZE size. To support larger folios, modify
+ext4_da_write_begin() and ext4_write_begin() to allocate higher-order
+folios, and trim the write length if it exceeds the folio size.
+Additionally, in ext4_da_do_write_end(), use offset_in_folio() instead
+of PAGE_SIZE.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/inode.c | 32 ++++++++++++++++++++++----------
+ 1 file changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 54bdd4884fe6..b377e9c912b9 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -1016,7 +1016,7 @@ int ext4_block_write_begin(handle_t *handle, struct folio *folio,
+ 			   loff_t pos, unsigned len,
+ 			   get_block_t *get_block)
+ {
+-	unsigned from = pos & (PAGE_SIZE - 1);
++	unsigned int from = offset_in_folio(folio, pos);
+ 	unsigned to = from + len;
+ 	struct inode *inode = folio->mapping->host;
+ 	unsigned block_start, block_end;
+@@ -1030,8 +1030,8 @@ int ext4_block_write_begin(handle_t *handle, struct folio *folio,
+ 	bool should_journal_data = ext4_should_journal_data(inode);
+ 
+ 	BUG_ON(!folio_test_locked(folio));
+-	BUG_ON(from > PAGE_SIZE);
+-	BUG_ON(to > PAGE_SIZE);
++	BUG_ON(from > folio_size(folio));
++	BUG_ON(to > folio_size(folio));
+ 	BUG_ON(from > to);
+ 
+ 	head = folio_buffers(folio);
+@@ -1141,6 +1141,7 @@ static int ext4_write_begin(struct file *file, struct address_space *mapping,
+ 	struct folio *folio;
+ 	pgoff_t index;
+ 	unsigned from, to;
++	fgf_t fgp = FGP_WRITEBEGIN;
+ 
+ 	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+ 		return -EIO;
+@@ -1152,8 +1153,6 @@ static int ext4_write_begin(struct file *file, struct address_space *mapping,
+ 	 */
+ 	needed_blocks = ext4_writepage_trans_blocks(inode) + 1;
+ 	index = pos >> PAGE_SHIFT;
+-	from = pos & (PAGE_SIZE - 1);
+-	to = from + len;
+ 
+ 	if (ext4_test_inode_state(inode, EXT4_STATE_MAY_INLINE_DATA)) {
+ 		ret = ext4_try_to_write_inline_data(mapping, inode, pos, len,
+@@ -1172,10 +1171,18 @@ static int ext4_write_begin(struct file *file, struct address_space *mapping,
+ 	 * the folio (if needed) without using GFP_NOFS.
+ 	 */
+ retry_grab:
+-	folio = __filemap_get_folio(mapping, index, FGP_WRITEBEGIN,
+-					mapping_gfp_mask(mapping));
++	fgp |= fgf_set_order(len);
++	folio = __filemap_get_folio(mapping, index, fgp,
++				    mapping_gfp_mask(mapping));
+ 	if (IS_ERR(folio))
+ 		return PTR_ERR(folio);
++
++	if (pos + len > folio_pos(folio) + folio_size(folio))
++		len = folio_pos(folio) + folio_size(folio) - pos;
++
++	from = offset_in_folio(folio, pos);
++	to = from + len;
++
+ 	/*
+ 	 * The same as page allocation, we prealloc buffer heads before
+ 	 * starting the handle.
+@@ -2903,6 +2910,7 @@ static int ext4_da_write_begin(struct file *file, struct address_space *mapping,
+ 	struct folio *folio;
+ 	pgoff_t index;
+ 	struct inode *inode = mapping->host;
++	fgf_t fgp = FGP_WRITEBEGIN;
+ 
+ 	if (unlikely(ext4_forced_shutdown(inode->i_sb)))
+ 		return -EIO;
+@@ -2927,11 +2935,15 @@ static int ext4_da_write_begin(struct file *file, struct address_space *mapping,
+ 	}
+ 
+ retry:
+-	folio = __filemap_get_folio(mapping, index, FGP_WRITEBEGIN,
+-			mapping_gfp_mask(mapping));
++	fgp |= fgf_set_order(len);
++	folio = __filemap_get_folio(mapping, index, fgp,
++				    mapping_gfp_mask(mapping));
+ 	if (IS_ERR(folio))
+ 		return PTR_ERR(folio);
+ 
++	if (pos + len > folio_pos(folio) + folio_size(folio))
++		len = folio_pos(folio) + folio_size(folio) - pos;
++
+ 	ret = ext4_block_write_begin(NULL, folio, pos, len,
+ 				     ext4_da_get_block_prep);
+ 	if (ret < 0) {
+@@ -3019,7 +3031,7 @@ static int ext4_da_do_write_end(struct address_space *mapping,
+ 		unsigned long end;
+ 
+ 		i_size_write(inode, new_i_size);
+-		end = (new_i_size - 1) & (PAGE_SIZE - 1);
++		end = offset_in_folio(folio, new_i_size - 1);
+ 		if (copied && ext4_da_should_update_i_disksize(folio, end)) {
+ 			ext4_update_i_disksize(inode, new_i_size);
+ 			disksize_changed = true;
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9CD91156997;
+	Mon, 25 Nov 2024 11:46:30 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535194; cv=none; b=t8yoJEcKQ4knOUwKiGXH7aW5EYY7Ebvx5MoWrAFjdLrkfNmULdMDPPBZf4IovmfBR9zsiWpAsWOSZpOa/jsJKMr0R008XrJdNJbx6aIg4drdWCTnbQ2Jl228O6yVN5yLi4w/6hh7aF64J1mVih8IXWG4vYF+wDQTtfBBW6zsqEo=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535194; c=relaxed/simple;
+	bh=GUFZ2JT2gMyyPyI9pwx8YESa2DS4C93QR0yz4l9nkZk=;
+	h=From:To:Cc:Subject:Date:Message-ID:MIME-Version; b=kl5h9E+qMF8qZ//o1csLYdiI84vs8CCoRXPaiuRhSfhshXi7LzJ5m4WlW5ZidOPA7xd7NMMp+4RFA/uEqAI65Ea9Rp/ivKbVXIK5IhwB7U/H5oC3r4ek8UB7rm1a9oOFiz3Eaq/0OvuQf8CjB7cxlfof2WaqMhjRrTNHT0sPv/U=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.216])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkRz2bVZz4f3n6S;
+	Mon, 25 Nov 2024 19:46:07 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id F22601A018C;
+	Mon, 25 Nov 2024 19:46:26 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S4;
+	Mon, 25 Nov 2024 19:46:24 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 0/9] ext4: enable large folio for regular files
+Date: Mon, 25 Nov 2024 19:44:10 +0800
+Message-ID: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S4
+X-Coremail-Antispam: 1UD129KBjvJXoW3Jw4fJr1DZryUWrW8XFW7XFb_yoW7CFy5pF
+	1akr4fKr43W3y3C39rCr1YvF4Yka18Gw4rZa4xt3y0vryUZF18ur1vgF40k347Zry7Cryr
+	t34UJry5WF1YkrDanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUU9Y14x267AKxVW8JVW5JwAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2ocxC64kIII0Yj41l84x0c7CEw4AK67xGY2AK02
+	1l84ACjcxK6xIIjxv20xvE14v26F1j6w1UM28EF7xvwVC0I7IYx2IY6xkF7I0E14v26r4U
+	JVWxJr1l84ACjcxK6I8E87Iv67AKxVW0oVCq3wA2z4x0Y4vEx4A2jsIEc7CjxVAFwI0_Gc
+	CE3s1le2I262IYc4CY6c8Ij28IcVAaY2xG8wAqx4xG64xvF2IEw4CE5I8CrVC2j2WlYx0E
+	2Ix0cI8IcVAFwI0_JrI_JrylYx0Ex4A2jsIE14v26r1j6r4UMcvjeVCFs4IE7xkEbVWUJV
+	W8JwACjcxG0xvY0x0EwIxGrwACjI8F5VA0II8E6IAqYI8I648v4I1lFIxGxcIEc7CjxVA2
+	Y2ka0xkIwI1lc7CjxVAaw2AFwI0_Jw0_GFyl42xK82IYc2Ij64vIr41l4I8I3I0E4IkC6x
+	0Yz7v_Jr0_Gr1lx2IqxVAqx4xG67AKxVWUJVWUGwC20s026x8GjcxK67AKxVWUGVWUWwC2
+	zVAF1VAY17CE14v26r1q6r43MIIYrxkI7VAKI48JMIIF0xvE2Ix0cI8IcVAFwI0_Jr0_JF
+	4lIxAIcVC0I7IYx2IY6xkF7I0E14v26r4j6F4UMIIF0xvE42xK8VAvwI8IcIk0rVWUJVWU
+	CwCI42IY6I8E87Iv67AKxVWUJVW8JwCI42IY6I8E87Iv6xkF7I0E14v26r4j6r4UJbIYCT
+	nIWIevJa73UjIFyTuYvjfUFg4SDUUUU
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+Hello!
+
+Since almost all of the code paths in ext4 have already been converted
+to use folios, there isn't much additional work required to support
+large folios. This series completes the remaining work and enables large
+folios for regular files on ext4, with the exception of fsverity,
+fscrypt, and data=journal mode.
+
+This series is based on 6.12, primarily modifies the block offset and
+length calculations within a single folio in the buffer write, buffer
+read, zero range, writeback, and move extents paths to support large
+folios, without further code refactoring or optimization. Please note
+that this series conflicts with the online journal data mode conversion
+on active inodes, this may requires further discussion, please refer to
+the last patch for details.
+
+Unlike my other series[1], which enables large folios by converting the
+buffered I/O path from the classic buffer_head to iomap, this large
+folio support solution requires fewer modifications and has fewer
+limitations at the moment. We can enable it by default and use it until
+ext4 switches to iomap.
+
+This series have passed kvm-xfstests in auto mode several times, every
+thing looks fine, any comments are welcome.
+
+
+About performance:
+
+I used the same test script from my IOMAP series (need to drop the mount
+opts parameter MOUNT_OPT) [2], run fio tests on the same machine with
+Intel Xeon Gold 6240 CPU with 400GB system ram, 200GB ramdisk and 4TB
+nvme ssd disk. Both compared with the base and the IOMAP + large folio
+changes.
+
+ == buffer read ==
+
+                base          iomap+large folio base+large folio
+ type     bs    IOPS  BW(M/s) IOPS  BW(M/s)     IOPS   BW(M/s)
+ ----------------------------------------------------------------
+ hole     4K  | 576k  2253  | 762k  2975(+32%) | 747k  2918(+29%)
+ hole     64K | 48.7k 3043  | 77.8k 4860(+60%) | 76.3k 4767(+57%)
+ hole     1M  | 2960  2960  | 4942  4942(+67%) | 4737  4738(+60%)
+ ramdisk  4K  | 443k  1732  | 530k  2069(+19%) | 494k  1930(+11%)
+ ramdisk  64K | 34.5k 2156  | 45.6k 2850(+32%) | 41.3k 2584(+20%)
+ ramdisk  1M  | 2093  2093  | 2841  2841(+36%) | 2585  2586(+24%)
+ nvme     4K  | 339k  1323  | 364k  1425(+8%)  | 344k  1341(+1%)
+ nvme     64K | 23.6k 1471  | 25.2k 1574(+7%)  | 25.4k 1586(+8%)
+ nvme     1M  | 2012  2012  | 2153  2153(+7%)  | 2122  2122(+5%)
+
+
+ == buffer write ==
+
+ O: Overwrite; S: Sync; W: Writeback
+
+                     base         iomap+large folio    base+large folio
+ type    O S W bs    IOPS  BW     IOPS  BW(M/s)        IOPS  BW(M/s)
+ ----------------------------------------------------------------------
+ cache   N N N 4K  | 417k  1631 | 440k  1719 (+5%)   | 423k  1655 (+2%)
+ cache   N N N 64K | 33.4k 2088 | 81.5k 5092 (+144%) | 59.1k 3690 (+77%)
+ cache   N N N 1M  | 2143  2143 | 5716  5716 (+167%) | 3901  3901 (+82%)
+ cache   Y N N 4K  | 449k  1755 | 469k  1834 (+5%)   | 452k  1767 (+1%)
+ cache   Y N N 64K | 36.6k 2290 | 82.3k 5142 (+125%) | 67.2k 4200 (+83%)
+ cache   Y N N 1M  | 2352  2352 | 5577  5577 (+137%  | 4275  4276 (+82%)
+ ramdisk N N Y 4K  | 365k  1424 | 354k  1384 (-3%)   | 372k  1449 (+2%)
+ ramdisk N N Y 64K | 31.2k 1950 | 74.2k 4640 (+138%) | 56.4k 3528 (+81%)
+ ramdisk N N Y 1M  | 1968  1968 | 5201  5201 (+164%) | 3814  3814 (+94%)
+ ramdisk N Y N 4K  | 9984  39   | 12.9k 51   (+29%)  | 9871  39   (-1%)
+ ramdisk N Y N 64K | 5936  371  | 8960  560  (+51%)  | 6320  395  (+6%)
+ ramdisk N Y N 1M  | 1050  1050 | 1835  1835 (+75%)  | 1656  1657 (+58%)
+ ramdisk Y N Y 4K  | 411k  1609 | 443k  1731 (+8%)   | 441k  1723 (+7%)
+ ramdisk Y N Y 64K | 34.1k 2134 | 77.5k 4844 (+127%) | 66.4k 4151 (+95%)
+ ramdisk Y N Y 1M  | 2248  2248 | 5372  5372 (+139%) | 4209  4210 (+87%)
+ ramdisk Y Y N 4K  | 182k  711  | 186k  730  (+3%)   | 182k  711  (0%)
+ ramdisk Y Y N 64K | 18.7k 1170 | 34.7k 2171 (+86%)  | 31.5k 1969 (+68%)
+ ramdisk Y Y N 1M  | 1229  1229 | 2269  2269 (+85%)  | 1943  1944 (+58%)
+ nvme    N N Y 4K  | 373k  1458 | 387k  1512 (+4%)   | 399k  1559 (+7%)
+ nvme    N N Y 64K | 29.2k 1827 | 70.9k 4431 (+143%) | 54.3k 3390 (+86%)
+ nvme    N N Y 1M  | 1835  1835 | 4919  4919 (+168%) | 3658  3658 (+99%)
+ nvme    N Y N 4K  | 11.7k 46   | 11.7k 46   (0%)    | 11.5k 45   (-1%)
+ nvme    N Y N 64K | 6453  403  | 8661  541  (+34%)  | 7520  470  (+17%)
+ nvme    N Y N 1M  | 649   649  | 1351  1351 (+108%) | 885   886  (+37%)
+ nvme    Y N Y 4K  | 372k  1456 | 433k  1693 (+16%)  | 419k  1637 (+12%)
+ nvme    Y N Y 64K | 33.0k 2064 | 74.7k 4669 (+126%) | 64.1k 4010 (+94%)
+ nvme    Y N Y 1M  | 2131  2131 | 5273  5273 (+147%) | 4259  4260 (+100%)
+ nvme    Y Y N 4K  | 56.7k 222  | 56.4k 220  (-1%)   | 59.4k 232  (+5%)
+ nvme    Y Y N 64K | 13.4k 840  | 19.4k 1214 (+45%)  | 18.5k 1156 (+38%)
+ nvme    Y Y N 1M  | 714   714  | 1504  1504 (+111%) | 1319  1320 (+85%)
+
+
+[1] https://lore.kernel.org/linux-ext4/20241022111059.2566137-1-yi.zhang@huaweicloud.com/
+[2] https://lore.kernel.org/linux-ext4/3c01efe6-007a-4422-ad79-0bad3af281b1@huaweicloud.com/
+
+Thanks,
+Yi.
+
+Zhang Yi (9):
+  fs: make block_read_full_folio() support large folio
+  ext4: make ext4_mpage_readpages() support large folios
+  ext4: make regular file's buffered write path support large folios
+  ext4: make __ext4_block_zero_page_range() support large folio
+  ext4/jbd2: convert jbd2_journal_blocks_per_page() to support large
+    folio
+  ext4: correct the journal credits calculations of allocating blocks
+  ext4: make the writeback path support large folios
+  ext4: make online defragmentation support large folios
+  ext4: enable large folio for regular file
+
+ fs/buffer.c           | 34 ++++++++++----------
+ fs/ext4/ext4.h        |  1 +
+ fs/ext4/ext4_jbd2.c   |  3 +-
+ fs/ext4/ext4_jbd2.h   |  4 +--
+ fs/ext4/extents.c     |  5 +--
+ fs/ext4/ialloc.c      |  3 ++
+ fs/ext4/inode.c       | 72 ++++++++++++++++++++++++++++++-------------
+ fs/ext4/move_extent.c | 11 +++----
+ fs/ext4/readpage.c    | 28 ++++++++++-------
+ fs/jbd2/journal.c     |  7 +++--
+ include/linux/jbd2.h  |  2 +-
+ 11 files changed, 105 insertions(+), 65 deletions(-)
+
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout12.his.huawei.com (dggsgout12.his.huawei.com [45.249.212.56])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 871F3194C6E;
+	Mon, 25 Nov 2024 11:46:32 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.56
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535195; cv=none; b=Vh+YkLM8wWlBo5+B8hMIPXlH3nM69JLnmEjmBJfqAFoIbsOm0tadcr0quLKZyKZ8uF007L8rZYPvtcZVJlCoO6SIRXjaYDKp4a1F04EZnkW45oCR8yRt7AUep9CDXgeMphIKyPd++mZWbQa+xGcpB57DyJGyYTCRrJvLQKwTq60=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535195; c=relaxed/simple;
+	bh=kASKKcSqYuiKAoLyO/CX+DzfHh62m7DQrJ2QwhUQGI4=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=bYC3LddJyEbb2GMCBupw1UDfrbq59eqGlfaKfmH5/8CyUzJBdQOPkiq1/w2cP/n7u5e0mabZ/EQP2GNt8KAn8yy4qbEn6QpW1KncrSlep1PibojsL97NYuzwBZr7rgSS2r7qC3u5YiZ0qfzFcJQY/lQJNxRfPOIebmUfXywLr8o=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.56
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.235])
+	by dggsgout12.his.huawei.com (SkyGuard) with ESMTP id 4XxkS23QR9z4f3jM1;
+	Mon, 25 Nov 2024 19:46:10 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id 2E0AD1A06D7;
+	Mon, 25 Nov 2024 19:46:29 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S8;
+	Mon, 25 Nov 2024 19:46:28 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 4/9] ext4: make __ext4_block_zero_page_range() support large folio
+Date: Mon, 25 Nov 2024 19:44:14 +0800
+Message-ID: <20241125114419.903270-5-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S8
+X-Coremail-Antispam: 1UD129KBjvJXoW7tFykJF45Zry7ur1UJFy5urg_yoW8WFWUpF
+	sxKF98CrZrWrWj9F4Iqrn3XryIkayqga18WFWfJw43XFyaqa4IgF1Dt3Z5Za10qrWxAFy8
+	WF4YgryfXa1UArJanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmI14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JF0E3s1l82xGYI
+	kIc2x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2
+	z4x0Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F
+	4UJwA2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq
+	3wAS0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7
+	IYx2IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4U
+	M4x0Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2
+	kIc2xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkE
+	bVWUJVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67
+	AF67kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUJVWUCwCI
+	42IY6xIIjxv20xvEc7CjxVAFwI0_Cr0_Gr1UMIIF0xvE42xK8VAvwI8IcIk0rVWUJVWUCw
+	CI42IY6I8E87Iv67AKxVWUJVW8JwCI42IY6I8E87Iv6xkF7I0E14v26r4j6r4UJbIYCTnI
+	WIevJa73UjIFyTuYvjfUriihUUUUU
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+The partial block zero range helper __ext4_block_zero_page_range()
+currently only supports folios of PAGE_SIZE in size. The calculations
+for the start block and the offset within a folio for the given range
+are incorrect. Modify the implementation to use offset_in_folio()
+instead of directly masking PAGE_SIZE - 1, which will be able to support
+for large folios.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/inode.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index b377e9c912b9..38d33569c26e 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -3659,9 +3659,7 @@ void ext4_set_aops(struct inode *inode)
+ static int __ext4_block_zero_page_range(handle_t *handle,
+ 		struct address_space *mapping, loff_t from, loff_t length)
+ {
+-	ext4_fsblk_t index = from >> PAGE_SHIFT;
+-	unsigned offset = from & (PAGE_SIZE-1);
+-	unsigned blocksize, pos;
++	unsigned int offset, blocksize, pos;
+ 	ext4_lblk_t iblock;
+ 	struct inode *inode = mapping->host;
+ 	struct buffer_head *bh;
+@@ -3676,13 +3674,14 @@ static int __ext4_block_zero_page_range(handle_t *handle,
+ 
+ 	blocksize = inode->i_sb->s_blocksize;
+ 
+-	iblock = index << (PAGE_SHIFT - inode->i_sb->s_blocksize_bits);
++	iblock = folio->index << (PAGE_SHIFT - inode->i_sb->s_blocksize_bits);
+ 
+ 	bh = folio_buffers(folio);
+ 	if (!bh)
+ 		bh = create_empty_buffers(folio, blocksize, 0);
+ 
+ 	/* Find the buffer that contains "offset" */
++	offset = offset_in_folio(folio, from);
+ 	pos = blocksize;
+ 	while (offset >= pos) {
+ 		bh = bh->b_this_page;
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout12.his.huawei.com (dggsgout12.his.huawei.com [45.249.212.56])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id F40C0199920;
+	Mon, 25 Nov 2024 11:46:32 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.56
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535195; cv=none; b=QGxw0ldcfbQOE1rnGVG3k9aZLrTx0Jq/eF/RHmU1uvDan0hIMxc0u4IAhybRS97r3Nuk6uj2yQ0zSh+Q4vvdeQTZG6CCply1UP1h9vYkrbaDQaWrxYz6z3tJHEhCvXtj8dRY2tjymJhzqsHK3IezhK+0/jSmjgQ4q6RZY/QiF8Q=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535195; c=relaxed/simple;
+	bh=k95u1rOfck9eBEYgj7sOPjTligZqXVqqiOiT22V5WD8=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=Ra07LMJcjc+TZ5qM1nYwlqEGHWJUIRR4GpoTGYvtzmv21TGgn7xoDqD51NsVAhMdpFnmaSj3z1mIiog2vW0ovIkyXkbTIw0xLhcHh/zk3QCPXTsAuzNOSPGTGVua+oNU4cQZf8ssJfOCIej3QIGwpDMcuzc9/uokYCXyPhLDv90=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.56
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.235])
+	by dggsgout12.his.huawei.com (SkyGuard) with ESMTP id 4XxkS30FB0z4f3jXJ;
+	Mon, 25 Nov 2024 19:46:11 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id B4CB21A0568;
+	Mon, 25 Nov 2024 19:46:29 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S9;
+	Mon, 25 Nov 2024 19:46:29 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 5/9] ext4/jbd2: convert jbd2_journal_blocks_per_page() to support large folio
+Date: Mon, 25 Nov 2024 19:44:15 +0800
+Message-ID: <20241125114419.903270-6-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S9
+X-Coremail-Antispam: 1UD129KBjvJXoWxZw4fJw17XFyDZrykAFyDGFg_yoWrWry3pF
+	WDCFyrCry8uFyDuFn2grsrZry29a4jkFWUWr9a9FnYqa9Fq34xtF1Dt3WayFyUtrWDGa10
+	vF45G3yDG3WUt3DanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmI14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JF0E3s1l82xGYI
+	kIc2x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2
+	z4x0Y4vE2Ix0cI8IcVAFwI0_Ar0_tr1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F
+	4UJwA2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq
+	3wAS0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7
+	IYx2IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4U
+	M4x0Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2
+	kIc2xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkE
+	bVWUJVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67
+	AF67kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUCVW8JwCI
+	42IY6xIIjxv20xvEc7CjxVAFwI0_Cr0_Gr1UMIIF0xvE42xK8VAvwI8IcIk0rVWUJVWUCw
+	CI42IY6I8E87Iv67AKxVWUJVW8JwCI42IY6I8E87Iv6xkF7I0E14v26r4j6r4UJbIYCTnI
+	WIevJa73UjIFyTuYvjfUriihUUUUU
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+jbd2_journal_blocks_per_page() returns the number of blocks in a single
+page. Rename it to jbd2_journal_blocks_per_folio() and make it returns
+the number of blocks in the largest folio, preparing for the calculation
+of journal credits blocks when allocating blocks within a large folio in
+the writeback path.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/ext4_jbd2.h  | 4 ++--
+ fs/ext4/inode.c      | 6 +++---
+ fs/jbd2/journal.c    | 7 ++++---
+ include/linux/jbd2.h | 2 +-
+ 4 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/fs/ext4/ext4_jbd2.h b/fs/ext4/ext4_jbd2.h
+index 0c77697d5e90..59df14547d26 100644
+--- a/fs/ext4/ext4_jbd2.h
++++ b/fs/ext4/ext4_jbd2.h
+@@ -403,10 +403,10 @@ static inline int ext4_journal_ensure_credits(handle_t *handle, int credits,
+ 				revoke_creds, 0);
+ }
+ 
+-static inline int ext4_journal_blocks_per_page(struct inode *inode)
++static inline int ext4_journal_blocks_per_folio(struct inode *inode)
+ {
+ 	if (EXT4_JOURNAL(inode) != NULL)
+-		return jbd2_journal_blocks_per_page(inode);
++		return jbd2_journal_blocks_per_folio(inode);
+ 	return 0;
+ }
+ 
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 38d33569c26e..e7b485b0f81b 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -2346,7 +2346,7 @@ static int mpage_map_and_submit_extent(handle_t *handle,
+  */
+ static int ext4_da_writepages_trans_blocks(struct inode *inode)
+ {
+-	int bpp = ext4_journal_blocks_per_page(inode);
++	int bpp = ext4_journal_blocks_per_folio(inode);
+ 
+ 	return ext4_meta_trans_blocks(inode,
+ 				MAX_WRITEPAGES_EXTENT_LEN + bpp - 1, bpp);
+@@ -2424,7 +2424,7 @@ static int mpage_prepare_extent_to_map(struct mpage_da_data *mpd)
+ 	ext4_lblk_t lblk;
+ 	struct buffer_head *head;
+ 	handle_t *handle = NULL;
+-	int bpp = ext4_journal_blocks_per_page(mpd->inode);
++	int bpp = ext4_journal_blocks_per_folio(mpd->inode);
+ 
+ 	if (mpd->wbc->sync_mode == WB_SYNC_ALL || mpd->wbc->tagged_writepages)
+ 		tag = PAGECACHE_TAG_TOWRITE;
+@@ -5715,7 +5715,7 @@ static int ext4_meta_trans_blocks(struct inode *inode, int lblocks,
+  */
+ int ext4_writepage_trans_blocks(struct inode *inode)
+ {
+-	int bpp = ext4_journal_blocks_per_page(inode);
++	int bpp = ext4_journal_blocks_per_folio(inode);
+ 	int ret;
+ 
+ 	ret = ext4_meta_trans_blocks(inode, bpp, bpp);
+diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
+index 97f487c3d8fc..a0b8662bc5d7 100644
+--- a/fs/jbd2/journal.c
++++ b/fs/jbd2/journal.c
+@@ -83,7 +83,7 @@ EXPORT_SYMBOL(jbd2_log_wait_commit);
+ EXPORT_SYMBOL(jbd2_journal_start_commit);
+ EXPORT_SYMBOL(jbd2_journal_force_commit_nested);
+ EXPORT_SYMBOL(jbd2_journal_wipe);
+-EXPORT_SYMBOL(jbd2_journal_blocks_per_page);
++EXPORT_SYMBOL(jbd2_journal_blocks_per_folio);
+ EXPORT_SYMBOL(jbd2_journal_invalidate_folio);
+ EXPORT_SYMBOL(jbd2_journal_try_to_free_buffers);
+ EXPORT_SYMBOL(jbd2_journal_force_commit);
+@@ -2680,9 +2680,10 @@ void jbd2_journal_ack_err(journal_t *journal)
+ 	write_unlock(&journal->j_state_lock);
+ }
+ 
+-int jbd2_journal_blocks_per_page(struct inode *inode)
++int jbd2_journal_blocks_per_folio(struct inode *inode)
+ {
+-	return 1 << (PAGE_SHIFT - inode->i_sb->s_blocksize_bits);
++	return 1 << (PAGE_SHIFT + mapping_max_folio_order(inode->i_mapping) -
++		     inode->i_sb->s_blocksize_bits);
+ }
+ 
+ /*
+diff --git a/include/linux/jbd2.h b/include/linux/jbd2.h
+index 8aef9bb6ad57..591f93ef7851 100644
+--- a/include/linux/jbd2.h
++++ b/include/linux/jbd2.h
+@@ -1740,7 +1740,7 @@ static inline int tid_geq(tid_t x, tid_t y)
+ 	return (difference >= 0);
+ }
+ 
+-extern int jbd2_journal_blocks_per_page(struct inode *inode);
++extern int jbd2_journal_blocks_per_folio(struct inode *inode);
+ extern size_t journal_tag_bytes(journal_t *journal);
+ 
+ static inline bool jbd2_journal_has_csum_v2or3_feature(journal_t *j)
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id D8BEC19CC3C;
+	Mon, 25 Nov 2024 11:46:33 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535196; cv=none; b=KZjEtd18XT4vAvQOJdrkB0+UDweCtCdl0sXjP6pNyyZ5m9+yXr/xniMLb7MfARihPQg0floPu4QhhMdQdm6fDbsFeJfPikCDMkuPuN2FxvaHHDNmPtW+j5BMFCpnxELt16yJ6QzgB/iN2KXFkDwMFmSXaGsfig6OPI2UNBczo30=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535196; c=relaxed/simple;
+	bh=l3E2kS7eB0hLq8m5j7Rz9jHUGZaSwRtqvXsOQM0KZZ4=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=lUsi6nenhPFTxrfq/8GzrLzW6rxA+M8yOBW+cMeYlxHQcd19IXrKwbTbk/kFljFXqM2LwfMTxWghFl+eGvV2qrvidgAuSnNguz3ya6FCdLkm/QSGYCwBj7/ETHlxa1hoIzN2KaA9sB13sSEFG1g8IfczxDyGvNfBYT1l1sfp3Mw=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.93.142])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkS31PVJz4f3n6H;
+	Mon, 25 Nov 2024 19:46:11 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id CA3421A018D;
+	Mon, 25 Nov 2024 19:46:30 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S11;
+	Mon, 25 Nov 2024 19:46:30 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 7/9] ext4: make the writeback path support large folios
+Date: Mon, 25 Nov 2024 19:44:17 +0800
+Message-ID: <20241125114419.903270-8-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S11
+X-Coremail-Antispam: 1UD129KBjvJXoWxJr18CrWxJF4fJF1fCw1UGFg_yoW8AFyxpr
+	W5K393CFs7Xr4akrsrtFn8Zr1xKayFgr47GFWxK39xXF15Jr1FkFyUt34vva1rJrZ7Gay8
+	Xr4kCryrWa47AFUanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmS14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JF0E3s1l82xGYI
+	kIc2x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2
+	z4x0Y4vE2Ix0cI8IcVAFwI0_tr0E3s1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F
+	4UJwA2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq
+	3wAS0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7
+	IYx2IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4U
+	M4x0Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2
+	kIc2xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkE
+	bVWUJVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67
+	AF67kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUCVW8JwCI
+	42IY6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F4UJwCI42IY6xAIw20EY4v20xvaj40_Jr0_JF
+	4lIxAIcVC2z280aVAFwI0_Jr0_Gr1lIxAIcVC2z280aVCY1x0267AKxVW8Jr0_Cr1UYxBI
+	daVFxhVjvjDU0xZFpf9x0JUWMKtUUUUU=
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+In mpage_map_and_submit_buffers(), the 'lblk' is now aligned to
+PAGE_SIZE. Convert it to be aligned to folio size. Additionally, modify
+the wbc->nr_to_write update to reduce the number of pages in a single
+folio, ensuring that the entire writeback path can support large folios.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/inode.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 0ef41e264ee8..c0179b07d753 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -1927,7 +1927,7 @@ static int mpage_submit_folio(struct mpage_da_data *mpd, struct folio *folio)
+ 		len = size & (len - 1);
+ 	err = ext4_bio_write_folio(&mpd->io_submit, folio, len);
+ 	if (!err)
+-		mpd->wbc->nr_to_write--;
++		mpd->wbc->nr_to_write -= folio_nr_pages(folio);
+ 
+ 	return err;
+ }
+@@ -2150,7 +2150,6 @@ static int mpage_map_and_submit_buffers(struct mpage_da_data *mpd)
+ 
+ 	start = mpd->map.m_lblk >> bpp_bits;
+ 	end = (mpd->map.m_lblk + mpd->map.m_len - 1) >> bpp_bits;
+-	lblk = start << bpp_bits;
+ 	pblock = mpd->map.m_pblk;
+ 
+ 	folio_batch_init(&fbatch);
+@@ -2161,6 +2160,7 @@ static int mpage_map_and_submit_buffers(struct mpage_da_data *mpd)
+ 		for (i = 0; i < nr; i++) {
+ 			struct folio *folio = fbatch.folios[i];
+ 
++			lblk = folio->index << bpp_bits;
+ 			err = mpage_process_folio(mpd, folio, &lblk, &pblock,
+ 						 &map_bh);
+ 			/*
+@@ -2382,7 +2382,7 @@ static int mpage_journal_page_buffers(handle_t *handle,
+ 	size_t len = folio_size(folio);
+ 
+ 	folio_clear_checked(folio);
+-	mpd->wbc->nr_to_write--;
++	mpd->wbc->nr_to_write -= folio_nr_pages(folio);
+ 
+ 	if (folio_pos(folio) + len > size &&
+ 	    !ext4_verity_in_progress(inode))
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 6AD0A19F115;
+	Mon, 25 Nov 2024 11:46:34 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535196; cv=none; b=ithBv8Ftos94A4Nx/Bhm88pkUYBPQqEberk2/e5Jvh3KuqU0PlVmYFd8AQXtcG0UKFnqSPC43Re4RhxoWpYyaLYVB2Qb2bInWWPk/+iJXv4G1NvTG4hEuZr5SprE4/U6LBbgkMkHuQWOo2LEUe44Sm9BnV7y8+npxfQuPWH6UtA=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535196; c=relaxed/simple;
+	bh=pGIoah6WPk88+P50bHQXwujmfYEsPCoQI8QvWd/9/eY=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=kGY1dkvA0amTyQtJyEk1BesMzNHAjmiWaorWMMxjpJX0t0vT6hHwnaE6vnTNxpAHUCqdPvM332gT0LS1E/2csc5Ltt8w8AX3qu2aT2P7Pb94OvqCywHo534yr6mmJ1iTwMh35NkHksW30hMAwRSUPr+dt841QY6JxW16dmytjc4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.235])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkS35Bm9z4f3n6V;
+	Mon, 25 Nov 2024 19:46:11 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id 59B6D1A058E;
+	Mon, 25 Nov 2024 19:46:31 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S12;
+	Mon, 25 Nov 2024 19:46:31 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH 8/9] ext4: make online defragmentation support large folios
+Date: Mon, 25 Nov 2024 19:44:18 +0800
+Message-ID: <20241125114419.903270-9-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S12
+X-Coremail-Antispam: 1UD129KBjvJXoWxGr1fAryfKrW7WF4kJr13urg_yoW5XFW5pF
+	y7Crn8KrW8Jas3Wws7JF4DZrn5Kas3Wr4UGFWfZr9xZa4jyry0gFy8ta1rAayaqrZ7Ww1F
+	vFWjyrnrX3ZrJ3DanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmS14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JF0E3s1l82xGYI
+	kIc2x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2
+	z4x0Y4vE2Ix0cI8IcVAFwI0_tr0E3s1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F
+	4UJwA2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq
+	3wAS0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7
+	IYx2IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4U
+	M4x0Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2
+	kIc2xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkE
+	bVWUJVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67
+	AF67kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUCVW8JwCI
+	42IY6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F4UJwCI42IY6xAIw20EY4v20xvaj40_Jr0_JF
+	4lIxAIcVC2z280aVAFwI0_Jr0_Gr1lIxAIcVC2z280aVCY1x0267AKxVW8Jr0_Cr1UYxBI
+	daVFxhVjvjDU0xZFpf9x0JUWMKtUUUUU=
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+move_extent_per_page() currently assumes that each folio is the size of
+PAGE_SIZE and only copies data for one page. ext4_move_extents() should
+call move_extent_per_page() for each page. To support larger folios,
+simply modify the calculations for the block start and end offsets
+within the folio based on the provided range of 'data_offset_in_page'
+and 'block_len_in_page'. This function will continue to handle PAGE_SIZE
+of data at a time and will not convert this function to manage an entire
+folio. Additionally, we use the source folio to copy data, so it doesn't
+matter if the source and dest folios are different in size.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+ fs/ext4/move_extent.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/fs/ext4/move_extent.c b/fs/ext4/move_extent.c
+index b64661ea6e0e..ed0b21b2271c 100644
+--- a/fs/ext4/move_extent.c
++++ b/fs/ext4/move_extent.c
+@@ -269,7 +269,7 @@ move_extent_per_page(struct file *o_filp, struct inode *donor_inode,
+ 	unsigned int tmp_data_size, data_size, replaced_size;
+ 	int i, err2, jblocks, retries = 0;
+ 	int replaced_count = 0;
+-	int from = data_offset_in_page << orig_inode->i_blkbits;
++	int from;
+ 	int blocks_per_page = PAGE_SIZE >> orig_inode->i_blkbits;
+ 	struct super_block *sb = orig_inode->i_sb;
+ 	struct buffer_head *bh = NULL;
+@@ -323,11 +323,6 @@ move_extent_per_page(struct file *o_filp, struct inode *donor_inode,
+ 	 * hold page's lock, if it is still the case data copy is not
+ 	 * necessary, just swap data blocks between orig and donor.
+ 	 */
+-
+-	VM_BUG_ON_FOLIO(folio_test_large(folio[0]), folio[0]);
+-	VM_BUG_ON_FOLIO(folio_test_large(folio[1]), folio[1]);
+-	VM_BUG_ON_FOLIO(folio_nr_pages(folio[0]) != folio_nr_pages(folio[1]), folio[1]);
+-
+ 	if (unwritten) {
+ 		ext4_double_down_write_data_sem(orig_inode, donor_inode);
+ 		/* If any of extents in range became initialized we have to
+@@ -360,6 +355,8 @@ move_extent_per_page(struct file *o_filp, struct inode *donor_inode,
+ 		goto unlock_folios;
+ 	}
+ data_copy:
++	from = offset_in_folio(folio[0],
++			       orig_blk_offset << orig_inode->i_blkbits);
+ 	*err = mext_page_mkuptodate(folio[0], from, from + replaced_size);
+ 	if (*err)
+ 		goto unlock_folios;
+@@ -390,7 +387,7 @@ move_extent_per_page(struct file *o_filp, struct inode *donor_inode,
+ 	if (!bh)
+ 		bh = create_empty_buffers(folio[0],
+ 				1 << orig_inode->i_blkbits, 0);
+-	for (i = 0; i < data_offset_in_page; i++)
++	for (i = 0; i < from >> orig_inode->i_blkbits; i++)
+ 		bh = bh->b_this_page;
+ 	for (i = 0; i < block_len_in_page; i++) {
+ 		*err = ext4_get_block(orig_inode, orig_blk_offset + i, bh, 0);
+-- 
+2.46.1
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from dggsgout11.his.huawei.com (dggsgout11.his.huawei.com [45.249.212.51])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 272EC1AB6FA;
+	Mon, 25 Nov 2024 11:46:34 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.51
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1732535197; cv=none; b=HFqT+inFc9IrIIy2jlD+rnG2XtMt0FTIvYQMj5Rj+fd7QqfQuw0GvbDkau1CQv9jAbeiOyahAJ81xHMHDg33wEXZaN8sZN57WpVLiHC6E02sEfJ8RsvV3r1K3fopaqzmYg2pPKhdKtJYduVWUD/ja2/Y4pK5p70ckONjPzFh9kk=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1732535197; c=relaxed/simple;
+	bh=dAiakTdG/9VWPzXgKVuwrxfKHzNh/YjUe+NPumXjyLs=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=VU1Wf3n+KEnGQ6qrKWca1gPfuI0XQICPkO6cBbSVlkixG7CRn7finsFnYUFrmuP8aEdrAQMEc3B5gpl/vRg/25ziFh9rBd3qOn80PAYTDq2p3jywek8xFqTKOJVPHcrPcdz+NAsahyNZHPBfHXSfB1D1kJ5eEZ6HfUIrqEGtzcw=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com; spf=pass smtp.mailfrom=huaweicloud.com; arc=none smtp.client-ip=45.249.212.51
+Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=huaweicloud.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huaweicloud.com
+Received: from mail.maildlp.com (unknown [172.19.163.235])
+	by dggsgout11.his.huawei.com (SkyGuard) with ESMTP id 4XxkSB1wkXz4f3kq5;
+	Mon, 25 Nov 2024 19:46:18 +0800 (CST)
+Received: from mail02.huawei.com (unknown [10.116.40.128])
+	by mail.maildlp.com (Postfix) with ESMTP id DF9621A0568;
+	Mon, 25 Nov 2024 19:46:31 +0800 (CST)
+Received: from huaweicloud.com (unknown [10.175.112.188])
+	by APP4 (Coremail) with SMTP id gCh0CgCHY4eFY0RnNicrCw--.44046S13;
+	Mon, 25 Nov 2024 19:46:31 +0800 (CST)
+From: Zhang Yi <yi.zhang@huaweicloud.com>
+To: linux-ext4@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	tytso@mit.edu,
+	willy@infradead.org,
+	adilger.kernel@dilger.ca,
+	jack@suse.cz,
+	brauner@kernel.org,
+	yi.zhang@huawei.com,
+	yi.zhang@huaweicloud.com,
+	chengzhihao1@huawei.com,
+	yukuai3@huawei.com,
+	yangerkun@huawei.com
+Subject: [PATCH RFC 9/9] ext4: enable large folio for regular file
+Date: Mon, 25 Nov 2024 19:44:19 +0800
+Message-ID: <20241125114419.903270-10-yi.zhang@huaweicloud.com>
+X-Mailer: git-send-email 2.46.1
+In-Reply-To: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+References: <20241125114419.903270-1-yi.zhang@huaweicloud.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+X-CM-TRANSID:gCh0CgCHY4eFY0RnNicrCw--.44046S13
+X-Coremail-Antispam: 1UD129KBjvJXoWxWrWUuFWrXFyrGrW5ZrWrZrb_yoWrAF18pF
+	WUGa4rGr4DZa4q9a1xtr4UZr1Yva4xGw4UGFZ3u39xX39rJ34IqF18tF1rAF45trWrWw4a
+	qF17Kr1UuanxCFDanT9S1TB71UUUUU7qnTZGkaVYY2UrUUUUjbIjqfuFe4nvWSU5nxnvy2
+	9KBjDU0xBIdaVrnRJUUUmS14x267AKxVWrJVCq3wAFc2x0x2IEx4CE42xK8VAvwI8IcIk0
+	rVWrJVCq3wAFIxvE14AKwVWUJVWUGwA2048vs2IY020E87I2jVAFwI0_JF0E3s1l82xGYI
+	kIc2x26xkF7I0E14v26ryj6s0DM28lY4IEw2IIxxk0rwA2F7IY1VAKz4vEj48ve4kI8wA2
+	z4x0Y4vE2Ix0cI8IcVAFwI0_tr0E3s1l84ACjcxK6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F
+	4UJwA2z4x0Y4vEx4A2jsIE14v26rxl6s0DM28EF7xvwVC2z280aVCY1x0267AKxVW0oVCq
+	3wAS0I0E0xvYzxvE52x082IY62kv0487Mc02F40EFcxC0VAKzVAqx4xG6I80ewAv7VC0I7
+	IYx2IY67AKxVWUGVWUXwAv7VC2z280aVAFwI0_Jr0_Gr1lOx8S6xCaFVCjc4AY6r1j6r4U
+	M4x0Y48IcxkI7VAKI48JM4x0x7Aq67IIx4CEVc8vx2IErcIFxwACI402YVCY1x02628vn2
+	kIc2xKxwCY1x0262kKe7AKxVWUtVW8ZwCF04k20xvY0x0EwIxGrwCFx2IqxVCFs4IE7xkE
+	bVWUJVW8JwC20s026c02F40E14v26r1j6r18MI8I3I0E7480Y4vE14v26r106r1rMI8E67
+	AF67kF1VAFwI0_Jw0_GFylIxkGc2Ij64vIr41lIxAIcVC0I7IYx2IY67AKxVWUCVW8JwCI
+	42IY6xIIjxv20xvEc7CjxVAFwI0_Gr1j6F4UJwCI42IY6xAIw20EY4v20xvaj40_Jr0_JF
+	4lIxAIcVC2z280aVAFwI0_Jr0_Gr1lIxAIcVC2z280aVCY1x0267AKxVW8Jr0_Cr1UYxBI
+	daVFxhVjvjDU0xZFpf9x0JUWMKtUUUUU=
+X-CM-SenderInfo: d1lo6xhdqjqx5xdzvxpfor3voofrz/
+
+From: Zhang Yi <yi.zhang@huawei.com>
+
+Besides fsverity, fscrypt, and data=journal mode, ext4 can support large
+folios for regular files. Let's enable this feature.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+---
+
+The side effect of this patch is that we will no longer be able to
+change the active inode's journal flag through
+ext4_change_inode_journal_flag(). Since we always enable large folios
+for regular files, but we cannot enable large folios for journal data
+mode because it can easily exceed journal handle credits. If we want to
+enable journal data mode online for an active inode, we must first drop
+all of the inode's page cache and disable large folios before
+conversion. However, disabling large folios is currently not permitted
+on active inodes because it may not safe, which means we will lose the
+ability to convert to online journal mode after this patch.
+
+The data journal mode is not recommended and should probably be removed
+in the future, I suppose we don't want to find a way to support this
+mode, so can we just kill the online conversion now?
+
+ fs/ext4/ext4.h      |  1 +
+ fs/ext4/ext4_jbd2.c |  3 ++-
+ fs/ext4/ialloc.c    |  3 +++
+ fs/ext4/inode.c     | 19 +++++++++++++++++++
+ 4 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
+index 44b0d418143c..48de159a9508 100644
+--- a/fs/ext4/ext4.h
++++ b/fs/ext4/ext4.h
+@@ -2983,6 +2983,7 @@ int ext4_walk_page_buffers(handle_t *handle,
+ 				     struct buffer_head *bh));
+ int do_journal_get_write_access(handle_t *handle, struct inode *inode,
+ 				struct buffer_head *bh);
++bool ext4_should_enable_large_folio(struct inode *inode);
+ #define FALL_BACK_TO_NONDELALLOC 1
+ #define CONVERT_INLINE_DATA	 2
+ 
+diff --git a/fs/ext4/ext4_jbd2.c b/fs/ext4/ext4_jbd2.c
+index da4a82456383..8fa0c9bad715 100644
+--- a/fs/ext4/ext4_jbd2.c
++++ b/fs/ext4/ext4_jbd2.c
+@@ -16,7 +16,8 @@ int ext4_inode_journal_mode(struct inode *inode)
+ 	    ext4_test_inode_flag(inode, EXT4_INODE_EA_INODE) ||
+ 	    test_opt(inode->i_sb, DATA_FLAGS) == EXT4_MOUNT_JOURNAL_DATA ||
+ 	    (ext4_test_inode_flag(inode, EXT4_INODE_JOURNAL_DATA) &&
+-	    !test_opt(inode->i_sb, DELALLOC))) {
++	    !test_opt(inode->i_sb, DELALLOC) &&
++	    !mapping_large_folio_support(inode->i_mapping))) {
+ 		/* We do not support data journalling for encrypted data */
+ 		if (S_ISREG(inode->i_mode) && IS_ENCRYPTED(inode))
+ 			return EXT4_INODE_ORDERED_DATA_MODE;  /* ordered */
+diff --git a/fs/ext4/ialloc.c b/fs/ext4/ialloc.c
+index 7f1a5f90dbbd..cef7aee5ae02 100644
+--- a/fs/ext4/ialloc.c
++++ b/fs/ext4/ialloc.c
+@@ -1333,6 +1333,9 @@ struct inode *__ext4_new_inode(struct mnt_idmap *idmap,
+ 		}
+ 	}
+ 
++	if (ext4_should_enable_large_folio(inode))
++		mapping_set_large_folios(inode->i_mapping);
++
+ 	ext4_update_inode_fsync_trans(handle, inode, 1);
+ 
+ 	err = ext4_mark_inode_dirty(handle, inode);
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index c0179b07d753..8f9a16908503 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -4702,6 +4702,22 @@ static const char *check_igot_inode(struct inode *inode, ext4_iget_flags flags)
+ 	return NULL;
+ }
+ 
++bool ext4_should_enable_large_folio(struct inode *inode)
++{
++	struct super_block *sb = inode->i_sb;
++
++	if (!S_ISREG(inode->i_mode))
++		return false;
++	if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_JOURNAL_DATA)
++		return false;
++	if (ext4_has_feature_verity(sb))
++		return false;
++	if (ext4_has_feature_encrypt(sb))
++		return false;
++
++	return true;
++}
++
+ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
+ 			  ext4_iget_flags flags, const char *function,
+ 			  unsigned int line)
+@@ -4970,6 +4986,9 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
+ 		inode->i_op = &ext4_file_inode_operations;
+ 		inode->i_fop = &ext4_file_operations;
+ 		ext4_set_aops(inode);
++
++		if (ext4_should_enable_large_folio(inode))
++			mapping_set_large_folios(inode->i_mapping);
+ 	} else if (S_ISDIR(inode->i_mode)) {
+ 		inode->i_op = &ext4_dir_inode_operations;
+ 		inode->i_fop = &ext4_dir_operations;
+-- 
+2.46.1
+
+
