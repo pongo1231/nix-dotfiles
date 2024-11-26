@@ -195,6 +195,10 @@
           patch = patch /linux/6.12/fuse-6.13-backport.patch;
         }
         {
+          name = "futex-optimizations";
+          patch = patch /linux/6.12/futex-optimizations.patch;
+        }
+        {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
