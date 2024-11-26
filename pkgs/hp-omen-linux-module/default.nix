@@ -7,10 +7,10 @@ stdenv.mkDerivation (finalAttrs: {
   version = "rebase-6.12";
 
   src = fetchFromGitHub {
-    owner = "pongo1231";
+    owner = "ranisalt";
     repo = "hp-omen-linux-module";
     rev = finalAttrs.version;
-    sha256 = "sha256-NwtObMqezlU+yJL65dxUbhdfzUEtJkytwkx7lfraEZ0=";
+    sha256 = "sha256-EfOjKSgLbOysctaR+X7DJR2SdfAcUi4R/cXhVHrEw4M=";
   };
 
   setSourceRoot = ''
