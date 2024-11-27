@@ -199,6 +199,13 @@
           patch = patch /linux/6.12/futex-optimizations.patch;
         }
         {
+          name = "modules-optimizations";
+          patch = patch /linux/6.12/modules-optimizations.patch;
+          extraConfig = ''
+            ARCH_HAS_EXECMEM_ROX y
+          '';
+        }
+        {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
