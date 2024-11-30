@@ -9,14 +9,13 @@
 }:
 {
   imports = [
-    inputs.chaotic.nixosModules.default
-
     (module /amdcpu.nix)
     (import (module /nvidia.nix) { platform = "amd"; })
     (module /power.nix)
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
     (import (module /wicked_kernel.nix) { })
+    (module /mesa_git.nix)
   ];
 
   nixpkgs.overlays = [
@@ -160,8 +159,6 @@
       };
           };
         };*/
-
-  chaotic.mesa-git.enable = true;
 
   environment = {
     systemPackages = with pkgs; [
