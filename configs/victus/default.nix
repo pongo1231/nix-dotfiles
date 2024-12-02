@@ -10,7 +10,7 @@
 {
   imports = [
     (module /amdcpu.nix)
-    (import (module /nvidia.nix) { platform = "amd"; })
+    #(import (module /nvidia.nix) { platform = "amd"; })
     (module /power.nix)
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
@@ -87,7 +87,7 @@
       (kvmfr.overrideAttrs (prevAttrs: {
         patches = (prevAttrs.patches or [ ]) ++ [ (patch /kvmfr/6.10.patch) ];
       }))
-      hp-omen-linux-module
+      #hp-omen-linux-module
       ryzen-smu
     ];
 

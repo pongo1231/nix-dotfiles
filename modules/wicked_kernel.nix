@@ -19,11 +19,11 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.12";
+              version = "6.13-rc1";
             in
             {
               inherit version;
-              modDirVersion = "6.12.1";
+              modDirVersion = "6.13.0-rc1";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "adc218676eef25575469234709c2d87185ca223a";
@@ -31,7 +31,7 @@
               };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-49t94CaLdkxrmxG9Wie+p1wk6VNhraawR0vOjoFR3bY=";
+                hash = "sha256-hRpa524OMPX8MJxX6QliFNyV9XcfDrvBvuAnFXmSbkw=";
               };
             };
         });
@@ -63,7 +63,7 @@
       [
         {
           name = "cachyos";
-          patch = patch /linux/6.12/cachyos.patch;
+          patch = patch /linux/6.13/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
@@ -105,13 +105,13 @@
             hash = "sha256-nm+IxyxbsKKueJBLbkkrY7raI64MRnwV0g5WwXQSMF0=";
           };
         }*/
-        {
+        /*{
           name = "preempt-lazy";
           patch = patch /linux/6.12/preempt-lazy.patch;
           extraConfig = ''
             PREEMPT_LAZY y
           '';
-        }
+        }*/
         /*{
           name = "lightweight-guard-pages";
           patch = patch /linux/6.12/lightweight-guard-pages.patch;
@@ -120,10 +120,10 @@
           name = "crypto-optimizations";
           patch = patch /linux/6.12/crypto-optimizations.patch;
         }*/
-        {
+        /*{
           name = "psr-fix";
           patch = patch /linux/6.12/0001-drm-amd-display-WIP-increase-vblank-off-delay.patch;
-        }
+        }*/
         /*{
           name = "buffered-uncached";
           patch = patch /linux/6.12/buffered-uncached.patch;
@@ -150,23 +150,23 @@
           name = "faster-suspend-resume";
           patch = patch /linux/6.12/PATCH-v1-0-5-Optimize-async-device-suspend-resume.patch;
         }
-        {
+        /*{
           name = "btrfs-6.13-backport-and-buffered-uncached";
           patch = patch /linux/6.12/btrfs-6.13-backport-and-buffered-uncached.patch;
-        }
+        }*/
         /*{
           name = "crc32c-optimizations";
           patch = patch /linux/6.12/crc32c-optimizations.patch;
         }*/
-        {
+        /*{
           name = "multigrain-timestamps";
           patch = patch /linux/6.12/multigrain-timestamps.patch;
-        }
+        }*/
         /*{
           name = "mm-6.13-backport";
           patch = patch /linux/6.12/mm-6.13-backport.patch;
         }*/
-        {
+        /*{
           name = "net-6.13-backport";
           patch = patch /linux/6.12/net-6.13-backport.patch;
         }
@@ -185,12 +185,12 @@
         {
           name = "mm-nonmm-6.13-backport";
           patch = patch /linux/6.12/mm-nonmm-6.13-backport.patch;
-        }
+        }*/
         /*{
           name = "ext4-6.13-backport";
           patch = patch /linux/6.12/ext4-6.13-backport.patch;
         }*/
-        {
+        /*{
           name = "fuse-6.13-backport";
           patch = patch /linux/6.12/fuse-6.13-backport.patch;
         }
@@ -204,7 +204,7 @@
           extraConfig = ''
             ARCH_HAS_EXECMEM_ROX y
           '';
-        }
+        }*/
         {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
@@ -226,4 +226,6 @@
     "w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - always"
     "w! /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
   ];
+
+  hardware.xpadneo.enable = lib.mkForce false;
 }
