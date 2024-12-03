@@ -220,33 +220,17 @@
     },
     "nixpkgs-desktop-kernel": {
       "locked": {
-        "lastModified": 1733093307,
-        "narHash": "sha256-coiaTj3BR21Oz9QQfo6uymrmhnr4Yv8hD6M3piL0Drc=",
+        "lastModified": 1733256309,
+        "narHash": "sha256-UKysa7skgG2h6y3HfZrF56ABtVIj4LkLO73c4tWOYBw=",
         "owner": "pongo1231",
         "repo": "nixpkgs",
-        "rev": "3a3b818fe26054cea25e9895a86ff3559c218510",
+        "rev": "79abb3b1378c22e903c73ff3be0731e2d35ffb6f",
         "type": "github"
       },
       "original": {
         "owner": "pongo1231",
         "repo": "nixpkgs",
-        "rev": "3a3b818fe26054cea25e9895a86ff3559c218510",
-        "type": "github"
-      }
-    },
-    "nixpkgs-jupiter-kernel": {
-      "locked": {
-        "lastModified": 1733093307,
-        "narHash": "sha256-coiaTj3BR21Oz9QQfo6uymrmhnr4Yv8hD6M3piL0Drc=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "3a3b818fe26054cea25e9895a86ff3559c218510",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "3a3b818fe26054cea25e9895a86ff3559c218510",
+        "rev": "79abb3b1378c22e903c73ff3be0731e2d35ffb6f",
         "type": "github"
       }
     },
@@ -256,8 +240,7 @@
         "jovian": "jovian_2",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel",
-        "nixpkgs-jupiter-kernel": "nixpkgs-jupiter-kernel"
+        "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel"
       }
     },
     "systems": {
