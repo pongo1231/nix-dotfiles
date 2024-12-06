@@ -24,15 +24,15 @@
             {
               inherit version;
               modDirVersion = "6.13.0-rc1";
-              src = pkgs.fetchgit {
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "b8f52214c61a5b99a54168145378e91b40d10c90";
-                hash = "sha256-fE27CnRwJO9faV/j+l6B8eUYlg1Yv3tHHxuqlhGOGqE=";
-              };
-              /*src = pkgs.fetchzip {
+                rev = "adc218676eef25575469234709c2d87185ca223a";
+                hash = "sha256-49t94CaLdkxrmxG9Wie+p1wk6VNhraawR0vOjoFR3bY=";
+              };*/
+              src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-hRpa524OMPX8MJxX6QliFNyV9XcfDrvBvuAnFXmSbkw=";
-              };*/
+              };
             };
         });
 
@@ -205,10 +205,6 @@
             ARCH_HAS_EXECMEM_ROX y
           '';
         }*/
-        {
-          name = "mglru-optimizations";
-          patch = patch /linux/6.13/mglru-optimizations.patch;
-        }
         {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
