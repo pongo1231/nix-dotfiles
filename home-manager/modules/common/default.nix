@@ -93,6 +93,7 @@
       statix
       duperemove
       compsize
+      git-extras
       inputs.nix-alien.packages.${system}.nix-alien
       inputs.nix-be.packages.${system}.nix-be
     ];
