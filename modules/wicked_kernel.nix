@@ -24,15 +24,15 @@
             {
               inherit version;
               modDirVersion = "6.13.0-rc1";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "adc218676eef25575469234709c2d87185ca223a";
-                hash = "sha256-49t94CaLdkxrmxG9Wie+p1wk6VNhraawR0vOjoFR3bY=";
-              };*/
-              src = pkgs.fetchzip {
+                rev = "b5f217084ab3ddd4bdd03cd437f8e3b7e2d1f5b6";
+                hash = "sha256-WrqzT2pz8el1pqpBL2Z8V8P0VqhROX2NefNvmkpPa08=";
+              };
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-hRpa524OMPX8MJxX6QliFNyV9XcfDrvBvuAnFXmSbkw=";
-              };
+              };*/
             };
         });
 
@@ -205,6 +205,10 @@
             ARCH_HAS_EXECMEM_ROX y
           '';
         }*/
+        {
+          name = "BORE";
+          patch = patch /linux/6.13/0001-linux6.13.y-bore5.8.10.patch;
+        }
         {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
