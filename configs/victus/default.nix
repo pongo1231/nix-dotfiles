@@ -60,12 +60,7 @@
     };
 
     kernelPackages = lib.mkForce (pkgs.linuxPackages_wicked.extend (finalAttrs: prevAttrs: {
-      kvmfr = prevAttrs.kvmfr.overrideAttrs
-        (prevAttrs': {
-          patches = [ ];
-        });
-
-      ryzen-smu = prevAttrs.ryzen-smu.overrideAttrs (prevAttrs': {
+      ryzen-smu = prevAttrs.ryzen-smu.overrideAttrs (finalAttrs': prevAttrs': {
         patches = (prevAttrs'.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
       });
 
@@ -84,8 +79,14 @@
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [
-      (kvmfr.overrideAttrs (prevAttrs: {
-        patches = (prevAttrs.patches or [ ]) ++ [ (patch /kvmfr/6.10.patch) ];
+      (kvmfr.overrideAttrs (finalAttrs: prevAttrs: {
+        src = pkgs.fetchFromGitHub {
+          owner = "gnif";
+          repo = "LookingGlass";
+          rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
+          hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
+        };
+        patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
       }))
       #hp-omen-linux-module
       ryzen-smu
