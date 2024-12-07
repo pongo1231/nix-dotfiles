@@ -15802,6 +15802,19 @@ index 38ef6d06888e..0f78364efd4f 100644
  	default 1000 if HZ_1000
  
  config SCHED_HRTICK
+diff --git a/kernel/Kconfig.preempt b/kernel/Kconfig.preempt
+index 54ea59ff8fbe..18f87e0dd137 100644
+--- a/kernel/Kconfig.preempt
++++ b/kernel/Kconfig.preempt
+@@ -88,7 +88,7 @@ endchoice
+ 
+ config PREEMPT_RT
+ 	bool "Fully Preemptible Kernel (Real-Time)"
+-	depends on EXPERT && ARCH_SUPPORTS_RT && !COMPILE_TEST
++	depends on ARCH_SUPPORTS_RT && !COMPILE_TEST
+ 	select PREEMPTION
+ 	help
+ 	  This option turns the kernel into a real-time kernel by replacing
 diff --git a/kernel/fork.c b/kernel/fork.c
 index 1450b461d196..5c99a8908881 100644
 --- a/kernel/fork.c
@@ -35459,14 +35472,14 @@ index ee335d96fc39..8b36e8e4306d 100644
  	(1<<TRANSPARENT_HUGEPAGE_USE_ZERO_PAGE_FLAG);
  
 diff --git a/mm/mm_init.c b/mm/mm_init.c
-index 24b68b425afb..4d45b1341e43 100644
+index 24b68b425afb..081ddb92db87 100644
 --- a/mm/mm_init.c
 +++ b/mm/mm_init.c
 @@ -2630,6 +2630,7 @@ static void __init mem_init_print_info(void)
  		, K(totalhigh_pages())
  #endif
  		);
-+	printk(KERN_INFO "le9 Unofficial (le9uo) working set protection 1.7 by Masahito Suzuki (forked from hakavlad's original le9 patch)");
++	printk(KERN_INFO "le9 Unofficial (le9uo) working set protection 1.8 by Masahito Suzuki (forked from hakavlad's original le9 patch)");
  }
  
  /*
@@ -35552,7 +35565,7 @@ index bd5183dfd879..3a410f53a07c 100644
  
  /*
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 76378bc257e3..46ea109eddd7 100644
+index 76378bc257e3..b443fbbbede7 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
 @@ -148,6 +148,15 @@ struct scan_control {
@@ -35637,20 +35650,8 @@ index 76378bc257e3..46ea109eddd7 100644
  		nr[lru] = scan;
  	}
  }
-@@ -3989,7 +4032,11 @@ static bool lruvec_is_reclaimable(struct lruvec *lruvec, struct scan_control *sc
- }
- 
- /* to protect the working set of the last N jiffies */
-+#ifdef CONFIG_CACHY
-+static unsigned long lru_gen_min_ttl __read_mostly = 1000;
-+#else
- static unsigned long lru_gen_min_ttl __read_mostly;
-+#endif
- 
- static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
- {
-@@ -4027,6 +4074,96 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
- 	}
+@@ -2579,6 +2622,96 @@ static bool can_age_anon_pages(struct pglist_data *pgdat,
+ 	return can_demote(pgdat->node_id, sc);
  }
  
 +int vm_workingset_protection_update_handler(const struct ctl_table *table, int write,
@@ -35743,9 +35744,21 @@ index 76378bc257e3..46ea109eddd7 100644
 +	}
 +}
 +
- /******************************************************************************
-  *                          rmap/PT walk feedback
-  ******************************************************************************/
+ #ifdef CONFIG_LRU_GEN
+ 
+ #ifdef CONFIG_LRU_GEN_ENABLED
+@@ -3989,7 +4122,11 @@ static bool lruvec_is_reclaimable(struct lruvec *lruvec, struct scan_control *sc
+ }
+ 
+ /* to protect the working set of the last N jiffies */
++#ifdef CONFIG_CACHY
++static unsigned long lru_gen_min_ttl __read_mostly = 1000;
++#else
+ static unsigned long lru_gen_min_ttl __read_mostly;
++#endif
+ 
+ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
+ {
 @@ -4532,6 +4669,12 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
  	 */
  	if (!swappiness)
@@ -38882,7 +38895,7 @@ index b412ed88ccd9..d70f8b742b21 100644
  
 diff --git a/scripts/gen-crc-consts.py b/scripts/gen-crc-consts.py
 new file mode 100755
-index 000000000000..bcda141d5ccd
+index 000000000000..bcda1d6b9db6
 --- /dev/null
 +++ b/scripts/gen-crc-consts.py
 @@ -0,0 +1,206 @@
@@ -38984,7 +38997,7 @@ index 000000000000..bcda141d5ccd
 +def gen_slicebyN_tables(variants, n):
 +    for v in variants:
 +        print('')
-+        print_header(v, 'CRC table')
++        print_header(v, f'Slice-by-{n} CRC table')
 +        print(f'static const u{v.bits} __maybe_unused {v.name}_table[{256*n}] = {{')
 +        s = ''
 +        for i in range(256 * n):
