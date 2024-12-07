@@ -41,7 +41,7 @@
     kernel = {
       sysctl = {
         # https://wiki.archlinux.org/title/Zram#Optimizing_swap_on_zram
-        "vm.swappiness" = 200;
+        "vm.swappiness" = 180;
         "vm.page-cluster" = 0;
         "vm.watermark_boost_factor" = 0;
         "vm.watermark_scale_factor" = 125;
