@@ -210,6 +210,10 @@
           patch = patch /linux/6.13/0001-linux6.13.y-bore5.8.10.patch;
         }
         {
+          name = "mglru-optimizations";
+          patch = patch /linux/6.13/mglru-optimizations.patch;
+        }
+        {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
