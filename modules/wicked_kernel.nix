@@ -19,20 +19,20 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc1";
+              version = "6.13-rc2";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc1";
-              src = pkgs.fetchgit {
+              modDirVersion = "6.13.0-rc2";
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "b5f217084ab3ddd4bdd03cd437f8e3b7e2d1f5b6";
                 hash = "sha256-WrqzT2pz8el1pqpBL2Z8V8P0VqhROX2NefNvmkpPa08=";
-              };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-hRpa524OMPX8MJxX6QliFNyV9XcfDrvBvuAnFXmSbkw=";
               };*/
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-90EPQ4rTXqyZUIpzdESXLIk91tNOl9vJ5G52Mctd9no=";
+              };
             };
         });
 
