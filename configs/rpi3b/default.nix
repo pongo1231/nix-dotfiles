@@ -15,7 +15,7 @@
       generic-extlinux-compatible.enable = true;
     };
 
-    kernelPackages = pkgs.kernel.linuxPackages_latest;
+    kernelPackages = pkgs.kernel.linuxPackages_testing;
 
     kernelParams = [ "preempt=none" ];
   };
