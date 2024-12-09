@@ -15,7 +15,7 @@ in
 
     (module /power.nix)
     (import (module /wicked_kernel.nix) { })
-    (module /mesa_git.nix)
+    #(module /mesa_git.nix)
 
     ./steam.nix
     #./tlp.nix

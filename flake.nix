@@ -19,10 +19,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    chaotic = {
+    /*chaotic = {
       url = "github:chaotic-cx/nyx";
       inputs.nixpkgs.follows = "nixpkgs";
-    };
+    };*/
   };
 
   outputs =
