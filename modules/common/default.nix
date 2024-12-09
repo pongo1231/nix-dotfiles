@@ -206,7 +206,7 @@
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
-          ExecStart = "${pkgs.bash}/bin/bash -c 'echo 1000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
+          ExecStart = "${pkgs.bash}/bin/bash -c 'echo 2000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
         };
       };
     };
