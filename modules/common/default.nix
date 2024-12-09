@@ -183,6 +183,13 @@
   systemd = {
     network.wait-online.enable = false;
 
+    oomd = {
+      enable = true;
+      enableRootSlice = true;
+      enableSystemSlice = true;
+      enableUserSlices = true;
+    };
+
     tmpfiles.rules = [
       "w! /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise"
       "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
