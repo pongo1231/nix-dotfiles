@@ -22,6 +22,8 @@
 
   system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
 
+  systemd.oomd.enable = lib.mkForce false;
+
   wsl = {
     enable = true;
     defaultUser = "pongo";
