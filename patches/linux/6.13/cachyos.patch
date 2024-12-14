@@ -3859,7 +3859,7 @@ index c0975815980c..cfd8a5591421 100644
  	// AMD Node ID and Nodes per Package info
  	u32			amd_node_id;
 diff --git a/arch/x86/include/asm/topology.h b/arch/x86/include/asm/topology.h
-index fd41103ad342..3973cb9bb2e6 100644
+index fd41103ad342..ec134b719144 100644
 --- a/arch/x86/include/asm/topology.h
 +++ b/arch/x86/include/asm/topology.h
 @@ -143,6 +143,7 @@ extern const struct cpumask *cpu_clustergroup_mask(int cpu);
@@ -3870,6 +3870,24 @@ index fd41103ad342..3973cb9bb2e6 100644
  #define topology_die_id(cpu)			(cpu_data(cpu).topo.die_id)
  #define topology_core_id(cpu)			(cpu_data(cpu).topo.core_id)
  #define topology_ppin(cpu)			(cpu_data(cpu).ppin)
+@@ -250,7 +251,7 @@ extern bool x86_topology_update;
+ #include <asm/percpu.h>
+ 
+ DECLARE_PER_CPU_READ_MOSTLY(int, sched_core_priority);
+-extern unsigned int __read_mostly sysctl_sched_itmt_enabled;
++extern bool __read_mostly sysctl_sched_itmt_enabled;
+ 
+ /* Interface to set priority of a cpu */
+ void sched_set_itmt_core_prio(int prio, int core_cpu);
+@@ -263,7 +264,7 @@ void sched_clear_itmt_support(void);
+ 
+ #else /* CONFIG_SCHED_MC_PRIO */
+ 
+-#define sysctl_sched_itmt_enabled	0
++#define sysctl_sched_itmt_enabled	false
+ static inline void sched_set_itmt_core_prio(int prio, int core_cpu)
+ {
+ }
 diff --git a/arch/x86/include/asm/vermagic.h b/arch/x86/include/asm/vermagic.h
 index 75884d2cdec3..2fdae271f47f 100644
 --- a/arch/x86/include/asm/vermagic.h
@@ -4024,40 +4042,204 @@ index 8277c64f88db..b5a5e1411469 100644
  	}
  
  	/* Package relative core ID */
-diff --git a/arch/x86/kernel/smpboot.c b/arch/x86/kernel/smpboot.c
-index b5a8f0891135..419e7ae09639 100644
---- a/arch/x86/kernel/smpboot.c
-+++ b/arch/x86/kernel/smpboot.c
-@@ -62,6 +62,8 @@
- #include <linux/mc146818rtc.h>
- #include <linux/acpi.h>
+diff --git a/arch/x86/kernel/itmt.c b/arch/x86/kernel/itmt.c
+index 51b805c727fc..9cea1fc36c18 100644
+--- a/arch/x86/kernel/itmt.c
++++ b/arch/x86/kernel/itmt.c
+@@ -19,6 +19,7 @@
+ #include <linux/sched.h>
+ #include <linux/cpumask.h>
+ #include <linux/cpuset.h>
++#include <linux/debugfs.h>
+ #include <linux/mutex.h>
+ #include <linux/sysctl.h>
+ #include <linux/nodemask.h>
+@@ -34,49 +35,38 @@ static bool __read_mostly sched_itmt_capable;
+  * of higher turbo frequency for cpus supporting Intel Turbo Boost Max
+  * Technology 3.0.
+  *
+- * It can be set via /proc/sys/kernel/sched_itmt_enabled
++ * It can be set via /sys/kernel/debug/x86/sched_itmt_enabled
+  */
+-unsigned int __read_mostly sysctl_sched_itmt_enabled;
++bool __read_mostly sysctl_sched_itmt_enabled;
  
-+#include <acpi/cppc_acpi.h>
-+
- #include <asm/acpi.h>
- #include <asm/cacheinfo.h>
- #include <asm/desc.h>
-@@ -497,10 +499,19 @@ static int x86_cluster_flags(void)
- 
- static int x86_die_flags(void)
+-static int sched_itmt_update_handler(const struct ctl_table *table, int write,
+-				     void *buffer, size_t *lenp, loff_t *ppos)
++static ssize_t sched_itmt_enabled_write(struct file *filp,
++					const char __user *ubuf,
++					size_t cnt, loff_t *ppos)
  {
--	if (cpu_feature_enabled(X86_FEATURE_HYBRID_CPU) ||
--	    cpu_feature_enabled(X86_FEATURE_AMD_HETEROGENEOUS_CORES))
-+	if (cpu_feature_enabled(X86_FEATURE_HYBRID_CPU))
- 		return x86_sched_itmt_flags();
+-	unsigned int old_sysctl;
+-	int ret;
++	ssize_t result;
++	bool orig;
  
-+	switch (boot_cpu_data.x86_vendor) {
-+	case X86_VENDOR_AMD:
-+	case X86_VENDOR_HYGON:
-+		bool prefcore = false;
-+
-+		amd_detect_prefcore(&prefcore);
-+		if (prefcore || cpu_feature_enabled(X86_FEATURE_AMD_HETEROGENEOUS_CORES))
-+			return x86_sched_itmt_flags();
-+	};
-+
+-	mutex_lock(&itmt_update_mutex);
++	guard(mutex)(&itmt_update_mutex);
+ 
+-	if (!sched_itmt_capable) {
+-		mutex_unlock(&itmt_update_mutex);
+-		return -EINVAL;
+-	}
+-
+-	old_sysctl = sysctl_sched_itmt_enabled;
+-	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
++	orig = sysctl_sched_itmt_enabled;
++	result = debugfs_write_file_bool(filp, ubuf, cnt, ppos);
+ 
+-	if (!ret && write && old_sysctl != sysctl_sched_itmt_enabled) {
++	if (sysctl_sched_itmt_enabled != orig) {
+ 		x86_topology_update = true;
+ 		rebuild_sched_domains();
+ 	}
+ 
+-	mutex_unlock(&itmt_update_mutex);
+-
+-	return ret;
++	return result;
+ }
+ 
+-static struct ctl_table itmt_kern_table[] = {
+-	{
+-		.procname	= "sched_itmt_enabled",
+-		.data		= &sysctl_sched_itmt_enabled,
+-		.maxlen		= sizeof(unsigned int),
+-		.mode		= 0644,
+-		.proc_handler	= sched_itmt_update_handler,
+-		.extra1		= SYSCTL_ZERO,
+-		.extra2		= SYSCTL_ONE,
+-	},
++static const struct file_operations dfs_sched_itmt_fops = {
++	.read =         debugfs_read_file_bool,
++	.write =        sched_itmt_enabled_write,
++	.open =         simple_open,
++	.llseek =       default_llseek,
+ };
+ 
+-static struct ctl_table_header *itmt_sysctl_header;
++static struct dentry *dfs_sched_itmt;
+ 
+ /**
+  * sched_set_itmt_support() - Indicate platform supports ITMT
+@@ -97,16 +87,18 @@ static struct ctl_table_header *itmt_sysctl_header;
+  */
+ int sched_set_itmt_support(void)
+ {
+-	mutex_lock(&itmt_update_mutex);
++	guard(mutex)(&itmt_update_mutex);
+ 
+-	if (sched_itmt_capable) {
+-		mutex_unlock(&itmt_update_mutex);
++	if (sched_itmt_capable)
+ 		return 0;
+-	}
+ 
+-	itmt_sysctl_header = register_sysctl("kernel", itmt_kern_table);
+-	if (!itmt_sysctl_header) {
+-		mutex_unlock(&itmt_update_mutex);
++	dfs_sched_itmt = debugfs_create_file_unsafe("sched_itmt_enabled",
++						    0644,
++						    arch_debugfs_dir,
++						    &sysctl_sched_itmt_enabled,
++						    &dfs_sched_itmt_fops);
++	if (IS_ERR_OR_NULL(dfs_sched_itmt)) {
++		dfs_sched_itmt = NULL;
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -117,8 +109,6 @@ int sched_set_itmt_support(void)
+ 	x86_topology_update = true;
+ 	rebuild_sched_domains();
+ 
+-	mutex_unlock(&itmt_update_mutex);
+-
  	return 0;
  }
+ 
+@@ -134,18 +124,15 @@ int sched_set_itmt_support(void)
+  */
+ void sched_clear_itmt_support(void)
+ {
+-	mutex_lock(&itmt_update_mutex);
++	guard(mutex)(&itmt_update_mutex);
+ 
+-	if (!sched_itmt_capable) {
+-		mutex_unlock(&itmt_update_mutex);
++	if (!sched_itmt_capable)
+ 		return;
+-	}
++
+ 	sched_itmt_capable = false;
+ 
+-	if (itmt_sysctl_header) {
+-		unregister_sysctl_table(itmt_sysctl_header);
+-		itmt_sysctl_header = NULL;
+-	}
++	debugfs_remove(dfs_sched_itmt);
++	dfs_sched_itmt = NULL;
+ 
+ 	if (sysctl_sched_itmt_enabled) {
+ 		/* disable sched_itmt if we are no longer ITMT capable */
+@@ -153,8 +140,6 @@ void sched_clear_itmt_support(void)
+ 		x86_topology_update = true;
+ 		rebuild_sched_domains();
+ 	}
+-
+-	mutex_unlock(&itmt_update_mutex);
+ }
+ 
+ int arch_asym_cpu_priority(int cpu)
+diff --git a/arch/x86/kernel/smpboot.c b/arch/x86/kernel/smpboot.c
+index b5a8f0891135..ef63b1c0b491 100644
+--- a/arch/x86/kernel/smpboot.c
++++ b/arch/x86/kernel/smpboot.c
+@@ -482,12 +482,6 @@ static int x86_core_flags(void)
+ 	return cpu_core_flags() | x86_sched_itmt_flags();
+ }
+ #endif
+-#ifdef CONFIG_SCHED_SMT
+-static int x86_smt_flags(void)
+-{
+-	return cpu_smt_flags();
+-}
+-#endif
+ #ifdef CONFIG_SCHED_CLUSTER
+ static int x86_cluster_flags(void)
+ {
+@@ -495,15 +489,6 @@ static int x86_cluster_flags(void)
+ }
+ #endif
+ 
+-static int x86_die_flags(void)
+-{
+-	if (cpu_feature_enabled(X86_FEATURE_HYBRID_CPU) ||
+-	    cpu_feature_enabled(X86_FEATURE_AMD_HETEROGENEOUS_CORES))
+-		return x86_sched_itmt_flags();
+-
+-	return 0;
+-}
+-
+ /*
+  * Set if a package/die has multiple NUMA nodes inside.
+  * AMD Magny-Cours, Intel Cluster-on-Die, and Intel
+@@ -519,7 +504,7 @@ static void __init build_sched_topology(void)
+ 
+ #ifdef CONFIG_SCHED_SMT
+ 	x86_topology[i++] = (struct sched_domain_topology_level){
+-		cpu_smt_mask, x86_smt_flags, SD_INIT_NAME(SMT)
++		cpu_smt_mask, cpu_smt_flags, SD_INIT_NAME(SMT)
+ 	};
+ #endif
+ #ifdef CONFIG_SCHED_CLUSTER
+@@ -539,7 +524,7 @@ static void __init build_sched_topology(void)
+ 	 */
+ 	if (!x86_has_numa_in_package) {
+ 		x86_topology[i++] = (struct sched_domain_topology_level){
+-			cpu_cpu_mask, x86_die_flags, SD_INIT_NAME(PKG)
++			cpu_cpu_mask, x86_sched_itmt_flags, SD_INIT_NAME(PKG)
+ 		};
+ 	}
  
 diff --git a/arch/x86/lib/Makefile b/arch/x86/lib/Makefile
 index 98583a9dbab3..08496e221a7d 100644
@@ -6772,7 +6954,7 @@ index a261d7300951..3a0a380c3590 100644
  			}
  		} else {
 diff --git a/drivers/cpufreq/amd-pstate.c b/drivers/cpufreq/amd-pstate.c
-index d7630bab2516..3f6208828c06 100644
+index d7630bab2516..d7b1de97727a 100644
 --- a/drivers/cpufreq/amd-pstate.c
 +++ b/drivers/cpufreq/amd-pstate.c
 @@ -22,6 +22,7 @@
@@ -6795,7 +6977,7 @@ index d7630bab2516..3f6208828c06 100644
  /*
   * AMD Energy Preference Performance (EPP)
   * The EPP is used in the CCLK DPM controller to drive
-@@ -180,120 +186,144 @@ static inline int get_mode_idx_from_str(const char *str, size_t size)
+@@ -180,120 +186,145 @@ static inline int get_mode_idx_from_str(const char *str, size_t size)
  static DEFINE_MUTEX(amd_pstate_limits_lock);
  static DEFINE_MUTEX(amd_pstate_driver_lock);
  
@@ -6967,6 +7149,7 @@ index d7630bab2516..3f6208828c06 100644
 +		return ret;
  	}
  
++	/* update both so that msr_update_perf() can effectively check */
 +	WRITE_ONCE(cpudata->epp_cached, epp);
 +	WRITE_ONCE(cpudata->cppc_req_cached, value);
 +
@@ -7016,7 +7199,7 @@ index d7630bab2516..3f6208828c06 100644
  		epp = epp_values[pref_index];
  
  	if (epp > 0 && cpudata->policy == CPUFREQ_POLICY_PERFORMANCE) {
-@@ -301,9 +331,15 @@ static int amd_pstate_set_energy_pref_index(struct amd_cpudata *cpudata,
+@@ -301,9 +332,15 @@ static int amd_pstate_set_energy_pref_index(struct amd_cpudata *cpudata,
  		return -EBUSY;
  	}
  
@@ -7034,7 +7217,7 @@ index d7630bab2516..3f6208828c06 100644
  }
  
  static inline int msr_cppc_enable(bool enable)
-@@ -374,15 +410,19 @@ static inline int amd_pstate_cppc_enable(bool enable)
+@@ -374,15 +411,19 @@ static inline int amd_pstate_cppc_enable(bool enable)
  
  static int msr_init_perf(struct amd_cpudata *cpudata)
  {
@@ -7057,7 +7240,7 @@ index d7630bab2516..3f6208828c06 100644
  	WRITE_ONCE(cpudata->nominal_perf, AMD_CPPC_NOMINAL_PERF(cap1));
  	WRITE_ONCE(cpudata->lowest_nonlinear_perf, AMD_CPPC_LOWNONLIN_PERF(cap1));
  	WRITE_ONCE(cpudata->lowest_perf, AMD_CPPC_LOWEST_PERF(cap1));
-@@ -394,13 +434,18 @@ static int msr_init_perf(struct amd_cpudata *cpudata)
+@@ -394,13 +435,18 @@ static int msr_init_perf(struct amd_cpudata *cpudata)
  static int shmem_init_perf(struct amd_cpudata *cpudata)
  {
  	struct cppc_perf_caps cppc_perf;
@@ -7078,7 +7261,7 @@ index d7630bab2516..3f6208828c06 100644
  	WRITE_ONCE(cpudata->nominal_perf, cppc_perf.nominal_perf);
  	WRITE_ONCE(cpudata->lowest_nonlinear_perf,
  		   cppc_perf.lowest_nonlinear_perf);
-@@ -433,17 +478,24 @@ static inline int amd_pstate_init_perf(struct amd_cpudata *cpudata)
+@@ -433,17 +479,23 @@ static inline int amd_pstate_init_perf(struct amd_cpudata *cpudata)
  	return static_call(amd_pstate_init_perf)(cpudata);
  }
  
@@ -7095,7 +7278,6 @@ index d7630bab2516..3f6208828c06 100644
 +
 +		if (ret)
 +			return ret;
-+		WRITE_ONCE(cpudata->epp_cached, epp);
 +	}
 +
  	perf_ctrls.max_perf = max_perf;
@@ -7148,13 +7330,13 @@ index d7630bab2516..3f6208828c06 100644
  
 -	if (value == prev)
 -		goto cpufreq_policy_put;
--
++	amd_pstate_update_perf(cpudata, min_perf, des_perf, max_perf, 0, fast_switch);
+ 
 -	WRITE_ONCE(cpudata->cppc_req_cached, value);
 -
 -	amd_pstate_update_perf(cpudata, min_perf, des_perf,
 -			       max_perf, fast_switch);
-+	amd_pstate_update_perf(cpudata, min_perf, des_perf, max_perf, 0, fast_switch);
- 
+-
 -cpufreq_policy_put:
  	cpufreq_cpu_put(policy);
  }
@@ -7635,15 +7817,34 @@ index d7630bab2516..3f6208828c06 100644
  
  		cpudata->suspended = false;
  	}
-@@ -1867,6 +1843,8 @@ static int __init amd_pstate_init(void)
+@@ -1867,12 +1843,8 @@ static int __init amd_pstate_init(void)
  		static_call_update(amd_pstate_cppc_enable, shmem_cppc_enable);
  		static_call_update(amd_pstate_init_perf, shmem_init_perf);
  		static_call_update(amd_pstate_update_perf, shmem_update_perf);
+-	}
+-
+-	ret = amd_pstate_register_driver(cppc_state);
+-	if (ret) {
+-		pr_err("failed to register with return %d\n", ret);
+-		return ret;
 +		static_call_update(amd_pstate_get_epp, shmem_get_epp);
 +		static_call_update(amd_pstate_set_epp, shmem_set_epp);
  	}
  
- 	ret = amd_pstate_register_driver(cppc_state);
+ 	if (amd_pstate_prefcore) {
+@@ -1881,6 +1853,12 @@ static int __init amd_pstate_init(void)
+ 			return ret;
+ 	}
+ 
++	ret = amd_pstate_register_driver(cppc_state);
++	if (ret) {
++		pr_err("failed to register with return %d\n", ret);
++		return ret;
++	}
++
+ 	dev_root = bus_get_dev_root(&cpu_subsys);
+ 	if (dev_root) {
+ 		ret = sysfs_create_group(&dev_root->kobj, &amd_pstate_global_attr_group);
 diff --git a/drivers/cpufreq/amd-pstate.h b/drivers/cpufreq/amd-pstate.h
 index cd573bc6b6db..9747e3be6cee 100644
 --- a/drivers/cpufreq/amd-pstate.h
@@ -17907,7 +18108,7 @@ index 2ddb827e3bea..464049c4af3f 100644
  
  	return state;
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index a59ae2e23daf..875da667d48c 100644
+index a59ae2e23daf..d745b4e4a5dc 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -73,10 +73,19 @@ unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;
@@ -17943,11 +18144,120 @@ index a59ae2e23daf..875da667d48c 100644
  
  #ifdef CONFIG_NUMA_BALANCING
  /* Restrict the NUMA promotion throughput (MB/s) for each target node. */
+@@ -9884,6 +9897,8 @@ struct sg_lb_stats {
+ 	unsigned int sum_nr_running;		/* Nr of all tasks running in the group */
+ 	unsigned int sum_h_nr_running;		/* Nr of CFS tasks running in the group */
+ 	unsigned int idle_cpus;                 /* Nr of idle CPUs         in the group */
++	unsigned int asym_prefer_cpu;		/* CPU with highest asym priority */
++	int highest_asym_prio;			/* Asym priority of asym_prefer_cpu */
+ 	unsigned int group_weight;
+ 	enum group_type group_type;
+ 	unsigned int group_asym_packing;	/* Tasks should be moved to preferred CPU */
+@@ -10216,7 +10231,7 @@ sched_group_asym(struct lb_env *env, struct sg_lb_stats *sgs, struct sched_group
+ 	    (sgs->group_weight - sgs->idle_cpus != 1))
+ 		return false;
+ 
+-	return sched_asym(env->sd, env->dst_cpu, group->asym_prefer_cpu);
++	return sched_asym(env->sd, env->dst_cpu, sgs->asym_prefer_cpu);
+ }
+ 
+ /* One group has more than one SMT CPU while the other group does not */
+@@ -10297,6 +10312,17 @@ sched_reduced_capacity(struct rq *rq, struct sched_domain *sd)
+ 	return check_cpu_capacity(rq, sd);
+ }
+ 
++static inline void
++update_sg_pick_asym_prefer(struct sg_lb_stats *sgs, int cpu)
++{
++	int asym_prio = arch_asym_cpu_priority(cpu);
++
++	if (asym_prio > sgs->highest_asym_prio) {
++		sgs->asym_prefer_cpu = cpu;
++		sgs->highest_asym_prio = asym_prio;
++	}
++}
++
+ /**
+  * update_sg_lb_stats - Update sched_group's statistics for load balancing.
+  * @env: The load balancing environment.
+@@ -10313,11 +10339,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+ 				      bool *sg_overloaded,
+ 				      bool *sg_overutilized)
+ {
+-	int i, nr_running, local_group;
++	int i, nr_running, local_group, sd_flags = env->sd->flags;
+ 
+ 	memset(sgs, 0, sizeof(*sgs));
+ 
+ 	local_group = group == sds->local;
++	sgs->highest_asym_prio = INT_MIN;
+ 
+ 	for_each_cpu_and(i, sched_group_span(group), env->cpus) {
+ 		struct rq *rq = cpu_rq(i);
+@@ -10331,16 +10358,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+ 		nr_running = rq->nr_running;
+ 		sgs->sum_nr_running += nr_running;
+ 
+-		if (nr_running > 1)
+-			*sg_overloaded = 1;
++		if (sd_flags & SD_ASYM_PACKING)
++			update_sg_pick_asym_prefer(sgs, i);
+ 
+ 		if (cpu_overutilized(i))
+ 			*sg_overutilized = 1;
+ 
+-#ifdef CONFIG_NUMA_BALANCING
+-		sgs->nr_numa_running += rq->nr_numa_running;
+-		sgs->nr_preferred_running += rq->nr_preferred_running;
+-#endif
+ 		/*
+ 		 * No need to call idle_cpu() if nr_running is not 0
+ 		 */
+@@ -10350,10 +10373,21 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+ 			continue;
+ 		}
+ 
++		/* Overload indicator is only updated at root domain */
++		if (!env->sd->parent && nr_running > 1)
++			*sg_overloaded = 1;
++
++#ifdef CONFIG_NUMA_BALANCING
++		/* Only fbq_classify_group() uses this to classify NUMA groups */
++		if (sd_flags & SD_NUMA) {
++			sgs->nr_numa_running += rq->nr_numa_running;
++			sgs->nr_preferred_running += rq->nr_preferred_running;
++		}
++#endif
+ 		if (local_group)
+ 			continue;
+ 
+-		if (env->sd->flags & SD_ASYM_CPUCAPACITY) {
++		if (sd_flags & SD_ASYM_CPUCAPACITY) {
+ 			/* Check for a misfit task on the cpu */
+ 			if (sgs->group_misfit_task_load < rq->misfit_task_load) {
+ 				sgs->group_misfit_task_load = rq->misfit_task_load;
+@@ -10448,7 +10482,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
+ 
+ 	case group_asym_packing:
+ 		/* Prefer to move from lowest priority CPU's work */
+-		return sched_asym_prefer(sds->busiest->asym_prefer_cpu, sg->asym_prefer_cpu);
++		return sched_asym_prefer(busiest->asym_prefer_cpu, sgs->asym_prefer_cpu);
+ 
+ 	case group_misfit_task:
+ 		/*
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 76f5f53a645f..e47fb50dce06 100644
+index 76f5f53a645f..948bd85b9928 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -2811,7 +2811,7 @@ extern void deactivate_task(struct rq *rq, struct task_struct *p, int flags);
+@@ -2047,7 +2047,6 @@ struct sched_group {
+ 	unsigned int		group_weight;
+ 	unsigned int		cores;
+ 	struct sched_group_capacity *sgc;
+-	int			asym_prefer_cpu;	/* CPU of highest priority in group */
+ 	int			flags;
+ 
+ 	/*
+@@ -2811,7 +2810,7 @@ extern void deactivate_task(struct rq *rq, struct task_struct *p, int flags);
  
  extern void wakeup_preempt(struct rq *rq, struct task_struct *p, int flags);
  
@@ -17956,6 +18266,39 @@ index 76f5f53a645f..e47fb50dce06 100644
  # define SCHED_NR_MIGRATE_BREAK 8
  #else
  # define SCHED_NR_MIGRATE_BREAK 32
+diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
+index 9748a4c8d668..59b8157cb114 100644
+--- a/kernel/sched/topology.c
++++ b/kernel/sched/topology.c
+@@ -1302,7 +1302,7 @@ static void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
+ 	WARN_ON(!sg);
+ 
+ 	do {
+-		int cpu, cores = 0, max_cpu = -1;
++		int cpu, cores = 0;
+ 
+ 		sg->group_weight = cpumask_weight(sched_group_span(sg));
+ 
+@@ -1314,19 +1314,6 @@ static void init_sched_groups_capacity(int cpu, struct sched_domain *sd)
+ #endif
+ 		}
+ 		sg->cores = cores;
+-
+-		if (!(sd->flags & SD_ASYM_PACKING))
+-			goto next;
+-
+-		for_each_cpu(cpu, sched_group_span(sg)) {
+-			if (max_cpu < 0)
+-				max_cpu = cpu;
+-			else if (sched_asym_prefer(cpu, max_cpu))
+-				max_cpu = cpu;
+-		}
+-		sg->asym_prefer_cpu = max_cpu;
+-
+-next:
+ 		sg = sg->next;
+ 	} while (sg != sd->groups);
+ 
 diff --git a/kernel/sched/wait.c b/kernel/sched/wait.c
 index 51e38f5f4701..c5cc616484ba 100644
 --- a/kernel/sched/wait.c
