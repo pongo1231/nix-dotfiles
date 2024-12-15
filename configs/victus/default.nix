@@ -165,6 +165,9 @@
     systemPackages = with pkgs; [
       virtiofsd
       kde-rounded-corners
+      freerdp
+      inputs.winapps.packages.${system}.winapps
+      inputs.winapps.packages.${system}.winapps-launcher
     ];
   };
 }
