@@ -10,7 +10,11 @@
     ./udev.nix
   ];
 
-  system.stateVersion = "22.05";
+  system = {
+    stateVersion = "22.05";
+
+    rebuild.enableNg = true;
+  };
 
   nix = {
     nixPath = [
