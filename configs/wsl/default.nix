@@ -26,11 +26,18 @@
 
   wsl = {
     enable = true;
+
     defaultUser = "pongo";
+
     usbip.enable = true;
+
     useWindowsDriver = true;
+
     nativeSystemd = true;
+
     startMenuLaunchers = true;
+
+    interop.register = true;
   };
 
   hardware.graphics = {
