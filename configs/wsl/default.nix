@@ -47,4 +47,6 @@
       (libedit.overrideAttrs (attrs: { postInstall = (attrs.postInstall or "") + ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2''; }))
     ];
   };
+
+  services.resolved.enable = false;
 }
