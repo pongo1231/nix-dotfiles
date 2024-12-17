@@ -19,11 +19,11 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc2";
+              version = "6.13-rc3";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc2";
+              modDirVersion = "6.13.0-rc3";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "b5f217084ab3ddd4bdd03cd437f8e3b7e2d1f5b6";
@@ -31,7 +31,7 @@
               };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-90EPQ4rTXqyZUIpzdESXLIk91tNOl9vJ5G52Mctd9no=";
+                hash = "sha256-fCZrlh4T7jh2gvk1OTvV8lyiip97qL21yL3K/y02mso=";
               };
             };
         });
@@ -205,10 +205,10 @@
             ARCH_HAS_EXECMEM_ROX y
           '';
         }*/
-        {
+        /*{
           name = "BORE";
           patch = patch /linux/6.13/0001-linux6.13.y-bore5.8.10.patch;
-        }
+        }*/
         {
           name = "mglru-optimizations";
           patch = patch /linux/6.13/mglru-optimizations.patch;

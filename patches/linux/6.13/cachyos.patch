@@ -1,5 +1,5 @@
 diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index dc663c0ca670..8b4bc3dd4194 100644
+index 3872bc6ec49d..5e8881ec6b40 100644
 --- a/Documentation/admin-guide/kernel-parameters.txt
 +++ b/Documentation/admin-guide/kernel-parameters.txt
 @@ -2256,6 +2256,9 @@
@@ -169,10 +169,10 @@ index 274cc7546efc..9c1b15cd89ab 100644
  
 diff --git a/Documentation/userspace-api/ntsync.rst b/Documentation/userspace-api/ntsync.rst
 new file mode 100644
-index 000000000000..767844637a7d
+index 000000000000..25e7c4aef968
 --- /dev/null
 +++ b/Documentation/userspace-api/ntsync.rst
-@@ -0,0 +1,398 @@
+@@ -0,0 +1,385 @@
 +===================================
 +NT synchronization primitive driver
 +===================================
@@ -248,19 +248,16 @@ index 000000000000..767844637a7d
 +structures used in ioctl calls::
 +
 +   struct ntsync_sem_args {
-+   	__u32 sem;
 +   	__u32 count;
 +   	__u32 max;
 +   };
 +
 +   struct ntsync_mutex_args {
-+   	__u32 mutex;
 +   	__u32 owner;
 +   	__u32 count;
 +   };
 +
 +   struct ntsync_event_args {
-+   	__u32 event;
 +   	__u32 signaled;
 +   	__u32 manual;
 +   };
@@ -277,7 +274,7 @@ index 000000000000..767844637a7d
 +   };
 +
 +Depending on the ioctl, members of the structure may be used as input,
-+output, or not at all. All ioctls return 0 on success.
++output, or not at all.
 +
 +The ioctls on the device file are as follows:
 +
@@ -288,14 +285,13 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``sem``
-+       - On output, contains a file descriptor to the created semaphore.
 +     * - ``count``
 +       - Initial count of the semaphore.
 +     * - ``max``
 +       - Maximum count of the semaphore.
 +
 +  Fails with ``EINVAL`` if ``count`` is greater than ``max``.
++  On success, returns a file descriptor the created semaphore.
 +
 +.. c:macro:: NTSYNC_IOC_CREATE_MUTEX
 +
@@ -304,8 +300,6 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``mutex``
-+       - On output, contains a file descriptor to the created mutex.
 +     * - ``count``
 +       - Initial recursion count of the mutex.
 +     * - ``owner``
@@ -313,6 +307,7 @@ index 000000000000..767844637a7d
 +
 +  If ``owner`` is nonzero and ``count`` is zero, or if ``owner`` is
 +  zero and ``count`` is nonzero, the function fails with ``EINVAL``.
++  On success, returns a file descriptor the created mutex.
 +
 +.. c:macro:: NTSYNC_IOC_CREATE_EVENT
 +
@@ -321,14 +316,14 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``event``
-+       - On output, contains a file descriptor to the created event.
 +     * - ``signaled``
 +       - If nonzero, the event is initially signaled, otherwise
 +         nonsignaled.
 +     * - ``manual``
 +       - If nonzero, the event is a manual-reset event, otherwise
 +         auto-reset.
++
++  On success, returns a file descriptor the created event.
 +
 +The ioctls on the individual objects are as follows:
 +
@@ -352,8 +347,6 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``mutex``
-+       - Ignored.
 +     * - ``owner``
 +       - Specifies the owner trying to release this mutex.
 +     * - ``count``
@@ -402,8 +395,6 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``sem``
-+       - Ignored.
 +     * - ``count``
 +       - On output, contains the current count of the semaphore.
 +     * - ``max``
@@ -416,8 +407,6 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``mutex``
-+       - Ignored.
 +     * - ``owner``
 +       - On output, contains the current owner of the mutex, or zero
 +         if the mutex is not currently owned.
@@ -435,8 +424,6 @@ index 000000000000..767844637a7d
 +
 +  .. list-table::
 +
-+     * - ``event``
-+       - Ignored.
 +     * - ``signaled``
 +       - On output, contains the current state of the event.
 +     * - ``manual``
@@ -572,7 +559,7 @@ index 000000000000..767844637a7d
 +  ``objs`` and in ``alert``. If this is attempted, the function fails
 +  with ``EINVAL``.
 diff --git a/MAINTAINERS b/MAINTAINERS
-index 17daa9ee9384..ce1ca6eed235 100644
+index baf0eeb9a355..62eb2c5f8b5c 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -6058,6 +6058,18 @@ S:	Maintained
@@ -594,7 +581,7 @@ index 17daa9ee9384..ce1ca6eed235 100644
  CREATIVE SB0540
  M:	Bastien Nocera <hadess@hadess.net>
  L:	linux-input@vger.kernel.org
-@@ -16711,6 +16723,15 @@ T:	git https://github.com/Paragon-Software-Group/linux-ntfs3.git
+@@ -16713,6 +16725,15 @@ T:	git https://github.com/Paragon-Software-Group/linux-ntfs3.git
  F:	Documentation/filesystems/ntfs3.rst
  F:	fs/ntfs3/
  
@@ -611,7 +598,7 @@ index 17daa9ee9384..ce1ca6eed235 100644
  M:	Finn Thain <fthain@linux-m68k.org>
  L:	linux-m68k@lists.linux-m68k.org
 diff --git a/Makefile b/Makefile
-index 64c594bd7ad0..52b8e674881e 100644
+index e5b8a8832c0c..25ea2c1194bf 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -860,11 +860,19 @@ KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
@@ -1140,7 +1127,7 @@ index 9d7bd0ae48c4..9ea75c452d06 100644
  	select ARCH_HAS_DEBUG_VIRTUAL
  	select ARCH_HAS_DEBUG_VM_PGTABLE	if !X86_PAE
 diff --git a/arch/x86/Kconfig.cpu b/arch/x86/Kconfig.cpu
-index 2a7279d80460..786fcf84d128 100644
+index 2a7279d80460..301ced02b077 100644
 --- a/arch/x86/Kconfig.cpu
 +++ b/arch/x86/Kconfig.cpu
 @@ -155,9 +155,8 @@ config MPENTIUM4
@@ -1270,7 +1257,7 @@ index 2a7279d80460..786fcf84d128 100644
 +
 +config MZEN5
 +	bool "AMD Zen 5"
-+	depends on (CC_IS_GCC && GCC_VERSION > 140000) || (CC_IS_CLANG && CLANG_VERSION >= 191000)
++	depends on (CC_IS_GCC && GCC_VERSION > 140000) || (CC_IS_CLANG && CLANG_VERSION >= 190000)
 +	help
 +	  Select this for AMD Family 19h Zen 5 processors.
 +
@@ -5847,892 +5834,6 @@ index 45d1c3e630f7..4f5ab2429a7f 100644
  obj-$(CONFIG_TARGET_CORE)	+= target/
  obj-$(CONFIG_MTD)		+= mtd/
  obj-$(CONFIG_SPI)		+= spi/
-diff --git a/drivers/android/binder.c b/drivers/android/binder.c
-index ef353ca13c35..9962c606cabd 100644
---- a/drivers/android/binder.c
-+++ b/drivers/android/binder.c
-@@ -6374,7 +6374,7 @@ static void print_binder_transaction_ilocked(struct seq_file *m,
- 		seq_printf(m, " node %d", buffer->target_node->debug_id);
- 	seq_printf(m, " size %zd:%zd offset %lx\n",
- 		   buffer->data_size, buffer->offsets_size,
--		   proc->alloc.buffer - buffer->user_data);
-+		   proc->alloc.vm_start - buffer->user_data);
- }
- 
- static void print_binder_work_ilocked(struct seq_file *m,
-diff --git a/drivers/android/binder_alloc.c b/drivers/android/binder_alloc.c
-index a738e7745865..fcfaf1b899c8 100644
---- a/drivers/android/binder_alloc.c
-+++ b/drivers/android/binder_alloc.c
-@@ -61,7 +61,7 @@ static size_t binder_alloc_buffer_size(struct binder_alloc *alloc,
- 				       struct binder_buffer *buffer)
- {
- 	if (list_is_last(&buffer->entry, &alloc->buffers))
--		return alloc->buffer + alloc->buffer_size - buffer->user_data;
-+		return alloc->vm_start + alloc->buffer_size - buffer->user_data;
- 	return binder_buffer_next(buffer)->user_data - buffer->user_data;
- }
- 
-@@ -169,32 +169,33 @@ struct binder_buffer *binder_alloc_prepare_to_free(struct binder_alloc *alloc,
- {
- 	struct binder_buffer *buffer;
- 
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	buffer = binder_alloc_prepare_to_free_locked(alloc, user_ptr);
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- 	return buffer;
- }
- 
- static inline void
--binder_set_installed_page(struct binder_lru_page *lru_page,
-+binder_set_installed_page(struct binder_alloc *alloc,
-+			  unsigned long index,
- 			  struct page *page)
- {
- 	/* Pairs with acquire in binder_get_installed_page() */
--	smp_store_release(&lru_page->page_ptr, page);
-+	smp_store_release(&alloc->pages[index], page);
- }
- 
- static inline struct page *
--binder_get_installed_page(struct binder_lru_page *lru_page)
-+binder_get_installed_page(struct binder_alloc *alloc, unsigned long index)
- {
- 	/* Pairs with release in binder_set_installed_page() */
--	return smp_load_acquire(&lru_page->page_ptr);
-+	return smp_load_acquire(&alloc->pages[index]);
- }
- 
- static void binder_lru_freelist_add(struct binder_alloc *alloc,
- 				    unsigned long start, unsigned long end)
- {
--	struct binder_lru_page *page;
- 	unsigned long page_addr;
-+	struct page *page;
- 
- 	trace_binder_update_page_range(alloc, false, start, end);
- 
-@@ -202,65 +203,159 @@ static void binder_lru_freelist_add(struct binder_alloc *alloc,
- 		size_t index;
- 		int ret;
- 
--		index = (page_addr - alloc->buffer) / PAGE_SIZE;
--		page = &alloc->pages[index];
--
--		if (!binder_get_installed_page(page))
-+		index = (page_addr - alloc->vm_start) / PAGE_SIZE;
-+		page = binder_get_installed_page(alloc, index);
-+		if (!page)
- 			continue;
- 
- 		trace_binder_free_lru_start(alloc, index);
- 
--		ret = list_lru_add_obj(&binder_freelist, &page->lru);
-+		ret = list_lru_add(&binder_freelist,
-+				   page_to_lru(page),
-+				   page_to_nid(page),
-+				   NULL);
- 		WARN_ON(!ret);
- 
- 		trace_binder_free_lru_end(alloc, index);
- 	}
- }
- 
--static int binder_install_single_page(struct binder_alloc *alloc,
--				      struct binder_lru_page *lru_page,
--				      unsigned long addr)
-+static inline
-+void binder_alloc_set_mapped(struct binder_alloc *alloc, bool state)
- {
--	struct page *page;
--	int ret = 0;
-+	/* pairs with smp_load_acquire in binder_alloc_is_mapped() */
-+	smp_store_release(&alloc->mapped, state);
-+}
- 
--	if (!mmget_not_zero(alloc->mm))
--		return -ESRCH;
-+static inline bool binder_alloc_is_mapped(struct binder_alloc *alloc)
-+{
-+	/* pairs with smp_store_release in binder_alloc_set_mapped() */
-+	return smp_load_acquire(&alloc->mapped);
-+}
-+
-+static struct page *binder_page_lookup(struct binder_alloc *alloc,
-+				       unsigned long addr)
-+{
-+	struct mm_struct *mm = alloc->mm;
-+	struct page *page;
-+	long npages = 0;
- 
- 	/*
--	 * Protected with mmap_sem in write mode as multiple tasks
--	 * might race to install the same page.
-+	 * Find an existing page in the remote mm. If missing,
-+	 * don't attempt to fault-in just propagate an error.
- 	 */
--	mmap_write_lock(alloc->mm);
--	if (binder_get_installed_page(lru_page))
--		goto out;
-+	mmap_read_lock(mm);
-+	if (binder_alloc_is_mapped(alloc))
-+		npages = get_user_pages_remote(mm, addr, 1, FOLL_NOFAULT,
-+					       &page, NULL);
-+	mmap_read_unlock(mm);
- 
--	if (!alloc->vma) {
--		pr_err("%d: %s failed, no vma\n", alloc->pid, __func__);
--		ret = -ESRCH;
--		goto out;
-+	return npages > 0 ? page : NULL;
-+}
-+
-+static int binder_page_insert(struct binder_alloc *alloc,
-+			      unsigned long addr,
-+			      struct page *page)
-+{
-+	struct mm_struct *mm = alloc->mm;
-+	struct vm_area_struct *vma;
-+	int ret = -ESRCH;
-+
-+	/* attempt per-vma lock first */
-+	vma = lock_vma_under_rcu(mm, addr);
-+	if (vma) {
-+		if (binder_alloc_is_mapped(alloc))
-+			ret = vm_insert_page(vma, addr, page);
-+		vma_end_read(vma);
-+		return ret;
- 	}
- 
-+	/* fall back to mmap_lock */
-+	mmap_read_lock(mm);
-+	vma = vma_lookup(mm, addr);
-+	if (vma && binder_alloc_is_mapped(alloc))
-+		ret = vm_insert_page(vma, addr, page);
-+	mmap_read_unlock(mm);
-+
-+	return ret;
-+}
-+
-+static struct page *binder_page_alloc(struct binder_alloc *alloc,
-+				      unsigned long index)
-+{
-+	struct binder_shrinker_mdata *mdata;
-+	struct page *page;
-+
- 	page = alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
-+	if (!page)
-+		return NULL;
-+
-+	/* allocate and install shrinker metadata under page->private */
-+	mdata = kzalloc(sizeof(*mdata), GFP_KERNEL);
-+	if (!mdata) {
-+		__free_page(page);
-+		return NULL;
-+	}
-+
-+	mdata->alloc = alloc;
-+	mdata->page_index = index;
-+	INIT_LIST_HEAD(&mdata->lru);
-+	set_page_private(page, (unsigned long)mdata);
-+
-+	return page;
-+}
-+
-+static void binder_free_page(struct page *page)
-+{
-+	kfree((struct binder_shrinker_mdata *)page_private(page));
-+	__free_page(page);
-+}
-+
-+static int binder_install_single_page(struct binder_alloc *alloc,
-+				      unsigned long index,
-+				      unsigned long addr)
-+{
-+	struct page *page;
-+	int ret;
-+
-+	if (!mmget_not_zero(alloc->mm))
-+		return -ESRCH;
-+
-+	page = binder_page_alloc(alloc, index);
- 	if (!page) {
--		pr_err("%d: failed to allocate page\n", alloc->pid);
- 		ret = -ENOMEM;
- 		goto out;
- 	}
- 
--	ret = vm_insert_page(alloc->vma, addr, page);
--	if (ret) {
-+	ret = binder_page_insert(alloc, addr, page);
-+	switch (ret) {
-+	case -EBUSY:
-+		/*
-+		 * EBUSY is ok. Someone installed the pte first but the
-+		 * alloc->pages[index] has not been updated yet. Discard
-+		 * our page and look up the one already installed.
-+		 */
-+		ret = 0;
-+		binder_free_page(page);
-+		page = binder_page_lookup(alloc, addr);
-+		if (!page) {
-+			pr_err("%d: failed to find page at offset %lx\n",
-+			       alloc->pid, addr - alloc->vm_start);
-+			ret = -ESRCH;
-+			break;
-+		}
-+		fallthrough;
-+	case 0:
-+		/* Mark page installation complete and safe to use */
-+		binder_set_installed_page(alloc, index, page);
-+		break;
-+	default:
-+		binder_free_page(page);
- 		pr_err("%d: %s failed to insert page at offset %lx with %d\n",
--		       alloc->pid, __func__, addr - alloc->buffer, ret);
--		__free_page(page);
--		ret = -ENOMEM;
--		goto out;
-+		       alloc->pid, __func__, addr - alloc->vm_start, ret);
-+		break;
- 	}
--
--	/* Mark page installation complete and safe to use */
--	binder_set_installed_page(lru_page, page);
- out:
--	mmap_write_unlock(alloc->mm);
- 	mmput_async(alloc->mm);
- 	return ret;
- }
-@@ -269,7 +364,6 @@ static int binder_install_buffer_pages(struct binder_alloc *alloc,
- 				       struct binder_buffer *buffer,
- 				       size_t size)
- {
--	struct binder_lru_page *page;
- 	unsigned long start, final;
- 	unsigned long page_addr;
- 
-@@ -280,15 +374,13 @@ static int binder_install_buffer_pages(struct binder_alloc *alloc,
- 		unsigned long index;
- 		int ret;
- 
--		index = (page_addr - alloc->buffer) / PAGE_SIZE;
--		page = &alloc->pages[index];
--
--		if (binder_get_installed_page(page))
-+		index = (page_addr - alloc->vm_start) / PAGE_SIZE;
-+		if (binder_get_installed_page(alloc, index))
- 			continue;
- 
- 		trace_binder_alloc_page_start(alloc, index);
- 
--		ret = binder_install_single_page(alloc, page, page_addr);
-+		ret = binder_install_single_page(alloc, index, page_addr);
- 		if (ret)
- 			return ret;
- 
-@@ -302,8 +394,8 @@ static int binder_install_buffer_pages(struct binder_alloc *alloc,
- static void binder_lru_freelist_del(struct binder_alloc *alloc,
- 				    unsigned long start, unsigned long end)
- {
--	struct binder_lru_page *page;
- 	unsigned long page_addr;
-+	struct page *page;
- 
- 	trace_binder_update_page_range(alloc, true, start, end);
- 
-@@ -311,13 +403,16 @@ static void binder_lru_freelist_del(struct binder_alloc *alloc,
- 		unsigned long index;
- 		bool on_lru;
- 
--		index = (page_addr - alloc->buffer) / PAGE_SIZE;
--		page = &alloc->pages[index];
-+		index = (page_addr - alloc->vm_start) / PAGE_SIZE;
-+		page = binder_get_installed_page(alloc, index);
- 
--		if (page->page_ptr) {
-+		if (page) {
- 			trace_binder_alloc_lru_start(alloc, index);
- 
--			on_lru = list_lru_del_obj(&binder_freelist, &page->lru);
-+			on_lru = list_lru_del(&binder_freelist,
-+					      page_to_lru(page),
-+					      page_to_nid(page),
-+					      NULL);
- 			WARN_ON(!on_lru);
- 
- 			trace_binder_alloc_lru_end(alloc, index);
-@@ -329,20 +424,6 @@ static void binder_lru_freelist_del(struct binder_alloc *alloc,
- 	}
- }
- 
--static inline void binder_alloc_set_vma(struct binder_alloc *alloc,
--		struct vm_area_struct *vma)
--{
--	/* pairs with smp_load_acquire in binder_alloc_get_vma() */
--	smp_store_release(&alloc->vma, vma);
--}
--
--static inline struct vm_area_struct *binder_alloc_get_vma(
--		struct binder_alloc *alloc)
--{
--	/* pairs with smp_store_release in binder_alloc_set_vma() */
--	return smp_load_acquire(&alloc->vma);
--}
--
- static void debug_no_space_locked(struct binder_alloc *alloc)
- {
- 	size_t largest_alloc_size = 0;
-@@ -576,7 +657,7 @@ struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc,
- 	int ret;
- 
- 	/* Check binder_alloc is fully initialized */
--	if (!binder_alloc_get_vma(alloc)) {
-+	if (!binder_alloc_is_mapped(alloc)) {
- 		binder_alloc_debug(BINDER_DEBUG_USER_ERROR,
- 				   "%d: binder_alloc_buf, no vma\n",
- 				   alloc->pid);
-@@ -597,10 +678,10 @@ struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc,
- 	if (!next)
- 		return ERR_PTR(-ENOMEM);
- 
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	buffer = binder_alloc_new_buf_locked(alloc, next, size, is_async);
- 	if (IS_ERR(buffer)) {
--		spin_unlock(&alloc->lock);
-+		mutex_unlock(&alloc->mutex);
- 		goto out;
- 	}
- 
-@@ -608,7 +689,7 @@ struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc,
- 	buffer->offsets_size = offsets_size;
- 	buffer->extra_buffers_size = extra_buffers_size;
- 	buffer->pid = current->tgid;
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- 
- 	ret = binder_install_buffer_pages(alloc, buffer, size);
- 	if (ret) {
-@@ -674,8 +755,8 @@ static void binder_free_buf_locked(struct binder_alloc *alloc,
- 	BUG_ON(buffer->free);
- 	BUG_ON(size > buffer_size);
- 	BUG_ON(buffer->transaction != NULL);
--	BUG_ON(buffer->user_data < alloc->buffer);
--	BUG_ON(buffer->user_data > alloc->buffer + alloc->buffer_size);
-+	BUG_ON(buffer->user_data < alloc->vm_start);
-+	BUG_ON(buffer->user_data > alloc->vm_start + alloc->buffer_size);
- 
- 	if (buffer->async_transaction) {
- 		alloc->free_async_space += buffer_size;
-@@ -734,14 +815,13 @@ static struct page *binder_alloc_get_page(struct binder_alloc *alloc,
- 					  pgoff_t *pgoffp)
- {
- 	binder_size_t buffer_space_offset = buffer_offset +
--		(buffer->user_data - alloc->buffer);
-+		(buffer->user_data - alloc->vm_start);
- 	pgoff_t pgoff = buffer_space_offset & ~PAGE_MASK;
- 	size_t index = buffer_space_offset >> PAGE_SHIFT;
--	struct binder_lru_page *lru_page;
- 
--	lru_page = &alloc->pages[index];
- 	*pgoffp = pgoff;
--	return lru_page->page_ptr;
-+
-+	return alloc->pages[index];
- }
- 
- /**
-@@ -785,17 +865,17 @@ void binder_alloc_free_buf(struct binder_alloc *alloc,
- 	 * We could eliminate the call to binder_alloc_clear_buf()
- 	 * from binder_alloc_deferred_release() by moving this to
- 	 * binder_free_buf_locked(). However, that could
--	 * increase contention for the alloc->lock if clear_on_free
--	 * is used frequently for large buffers. This lock is not
-+	 * increase contention for the alloc mutex if clear_on_free
-+	 * is used frequently for large buffers. The mutex is not
- 	 * needed for correctness here.
- 	 */
- 	if (buffer->clear_on_free) {
- 		binder_alloc_clear_buf(alloc, buffer);
- 		buffer->clear_on_free = false;
- 	}
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	binder_free_buf_locked(alloc, buffer);
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- }
- 
- /**
-@@ -816,7 +896,7 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
- {
- 	struct binder_buffer *buffer;
- 	const char *failure_string;
--	int ret, i;
-+	int ret;
- 
- 	if (unlikely(vma->vm_mm != alloc->mm)) {
- 		ret = -EINVAL;
-@@ -834,22 +914,17 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
- 				   SZ_4M);
- 	mutex_unlock(&binder_alloc_mmap_lock);
- 
--	alloc->buffer = vma->vm_start;
-+	alloc->vm_start = vma->vm_start;
- 
- 	alloc->pages = kvcalloc(alloc->buffer_size / PAGE_SIZE,
- 				sizeof(alloc->pages[0]),
- 				GFP_KERNEL);
--	if (alloc->pages == NULL) {
-+	if (!alloc->pages) {
- 		ret = -ENOMEM;
- 		failure_string = "alloc page array";
- 		goto err_alloc_pages_failed;
- 	}
- 
--	for (i = 0; i < alloc->buffer_size / PAGE_SIZE; i++) {
--		alloc->pages[i].alloc = alloc;
--		INIT_LIST_HEAD(&alloc->pages[i].lru);
--	}
--
- 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
- 	if (!buffer) {
- 		ret = -ENOMEM;
-@@ -857,14 +932,14 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
- 		goto err_alloc_buf_struct_failed;
- 	}
- 
--	buffer->user_data = alloc->buffer;
-+	buffer->user_data = alloc->vm_start;
- 	list_add(&buffer->entry, &alloc->buffers);
- 	buffer->free = 1;
- 	binder_insert_free_buffer(alloc, buffer);
- 	alloc->free_async_space = alloc->buffer_size / 2;
- 
- 	/* Signal binder_alloc is fully initialized */
--	binder_alloc_set_vma(alloc, vma);
-+	binder_alloc_set_mapped(alloc, true);
- 
- 	return 0;
- 
-@@ -872,7 +947,7 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
- 	kvfree(alloc->pages);
- 	alloc->pages = NULL;
- err_alloc_pages_failed:
--	alloc->buffer = 0;
-+	alloc->vm_start = 0;
- 	mutex_lock(&binder_alloc_mmap_lock);
- 	alloc->buffer_size = 0;
- err_already_mapped:
-@@ -893,8 +968,8 @@ void binder_alloc_deferred_release(struct binder_alloc *alloc)
- 	struct binder_buffer *buffer;
- 
- 	buffers = 0;
--	spin_lock(&alloc->lock);
--	BUG_ON(alloc->vma);
-+	mutex_lock(&alloc->mutex);
-+	BUG_ON(alloc->mapped);
- 
- 	while ((n = rb_first(&alloc->allocated_buffers))) {
- 		buffer = rb_entry(n, struct binder_buffer, rb_node);
-@@ -925,22 +1000,26 @@ void binder_alloc_deferred_release(struct binder_alloc *alloc)
- 		int i;
- 
- 		for (i = 0; i < alloc->buffer_size / PAGE_SIZE; i++) {
-+			struct page *page;
- 			bool on_lru;
- 
--			if (!alloc->pages[i].page_ptr)
-+			page = binder_get_installed_page(alloc, i);
-+			if (!page)
- 				continue;
- 
--			on_lru = list_lru_del_obj(&binder_freelist,
--						  &alloc->pages[i].lru);
-+			on_lru = list_lru_del(&binder_freelist,
-+					      page_to_lru(page),
-+					      page_to_nid(page),
-+					      NULL);
- 			binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC,
- 				     "%s: %d: page %d %s\n",
- 				     __func__, alloc->pid, i,
- 				     on_lru ? "on lru" : "active");
--			__free_page(alloc->pages[i].page_ptr);
-+			binder_free_page(page);
- 			page_count++;
- 		}
- 	}
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- 	kvfree(alloc->pages);
- 	if (alloc->mm)
- 		mmdrop(alloc->mm);
-@@ -964,17 +1043,17 @@ void binder_alloc_print_allocated(struct seq_file *m,
- 	struct binder_buffer *buffer;
- 	struct rb_node *n;
- 
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	for (n = rb_first(&alloc->allocated_buffers); n; n = rb_next(n)) {
- 		buffer = rb_entry(n, struct binder_buffer, rb_node);
- 		seq_printf(m, "  buffer %d: %lx size %zd:%zd:%zd %s\n",
- 			   buffer->debug_id,
--			   buffer->user_data - alloc->buffer,
-+			   buffer->user_data - alloc->vm_start,
- 			   buffer->data_size, buffer->offsets_size,
- 			   buffer->extra_buffers_size,
- 			   buffer->transaction ? "active" : "delivered");
- 	}
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- }
- 
- /**
-@@ -985,29 +1064,29 @@ void binder_alloc_print_allocated(struct seq_file *m,
- void binder_alloc_print_pages(struct seq_file *m,
- 			      struct binder_alloc *alloc)
- {
--	struct binder_lru_page *page;
-+	struct page *page;
- 	int i;
- 	int active = 0;
- 	int lru = 0;
- 	int free = 0;
- 
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	/*
- 	 * Make sure the binder_alloc is fully initialized, otherwise we might
- 	 * read inconsistent state.
- 	 */
--	if (binder_alloc_get_vma(alloc) != NULL) {
-+	if (binder_alloc_is_mapped(alloc)) {
- 		for (i = 0; i < alloc->buffer_size / PAGE_SIZE; i++) {
--			page = &alloc->pages[i];
--			if (!page->page_ptr)
-+			page = binder_get_installed_page(alloc, i);
-+			if (!page)
- 				free++;
--			else if (list_empty(&page->lru))
-+			else if (list_empty(page_to_lru(page)))
- 				active++;
- 			else
- 				lru++;
- 		}
- 	}
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- 	seq_printf(m, "  pages: %d:%d:%d\n", active, lru, free);
- 	seq_printf(m, "  pages high watermark: %zu\n", alloc->pages_high);
- }
-@@ -1023,10 +1102,10 @@ int binder_alloc_get_allocated_count(struct binder_alloc *alloc)
- 	struct rb_node *n;
- 	int count = 0;
- 
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	for (n = rb_first(&alloc->allocated_buffers); n != NULL; n = rb_next(n))
- 		count++;
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- 	return count;
- }
- 
-@@ -1036,12 +1115,12 @@ int binder_alloc_get_allocated_count(struct binder_alloc *alloc)
-  * @alloc: binder_alloc for this proc
-  *
-  * Called from binder_vma_close() when releasing address space.
-- * Clears alloc->vma to prevent new incoming transactions from
-+ * Clears alloc->mapped to prevent new incoming transactions from
-  * allocating more buffers.
-  */
- void binder_alloc_vma_close(struct binder_alloc *alloc)
- {
--	binder_alloc_set_vma(alloc, NULL);
-+	binder_alloc_set_mapped(alloc, false);
- }
- 
- /**
-@@ -1058,39 +1137,50 @@ enum lru_status binder_alloc_free_page(struct list_head *item,
- 				       void *cb_arg)
- 	__must_hold(&lru->lock)
- {
--	struct binder_lru_page *page = container_of(item, typeof(*page), lru);
--	struct binder_alloc *alloc = page->alloc;
-+	struct binder_shrinker_mdata *mdata = container_of(item, typeof(*mdata), lru);
-+	struct binder_alloc *alloc = mdata->alloc;
- 	struct mm_struct *mm = alloc->mm;
- 	struct vm_area_struct *vma;
- 	struct page *page_to_free;
- 	unsigned long page_addr;
-+	int mm_locked = 0;
- 	size_t index;
- 
- 	if (!mmget_not_zero(mm))
- 		goto err_mmget;
--	if (!mmap_read_trylock(mm))
--		goto err_mmap_read_lock_failed;
--	if (!spin_trylock(&alloc->lock))
--		goto err_get_alloc_lock_failed;
--	if (!page->page_ptr)
--		goto err_page_already_freed;
--
--	index = page - alloc->pages;
--	page_addr = alloc->buffer + index * PAGE_SIZE;
--
--	vma = vma_lookup(mm, page_addr);
--	if (vma && vma != binder_alloc_get_vma(alloc))
-+
-+	index = mdata->page_index;
-+	page_addr = alloc->vm_start + index * PAGE_SIZE;
-+
-+	/* attempt per-vma lock first */
-+	vma = lock_vma_under_rcu(mm, page_addr);
-+	if (!vma) {
-+		/* fall back to mmap_lock */
-+		if (!mmap_read_trylock(mm))
-+			goto err_mmap_read_lock_failed;
-+		mm_locked = 1;
-+		vma = vma_lookup(mm, page_addr);
-+	}
-+
-+	if (!mutex_trylock(&alloc->mutex))
-+		goto err_get_alloc_mutex_failed;
-+
-+	/*
-+	 * Since a binder_alloc can only be mapped once, we ensure
-+	 * the vma corresponds to this mapping by checking whether
-+	 * the binder_alloc is still mapped.
-+	 */
-+	if (vma && !binder_alloc_is_mapped(alloc))
- 		goto err_invalid_vma;
- 
- 	trace_binder_unmap_kernel_start(alloc, index);
- 
--	page_to_free = page->page_ptr;
--	page->page_ptr = NULL;
-+	page_to_free = alloc->pages[index];
-+	binder_set_installed_page(alloc, index, NULL);
- 
- 	trace_binder_unmap_kernel_end(alloc, index);
- 
- 	list_lru_isolate(lru, item);
--	spin_unlock(&alloc->lock);
- 	spin_unlock(&lru->lock);
- 
- 	if (vma) {
-@@ -1101,17 +1191,23 @@ enum lru_status binder_alloc_free_page(struct list_head *item,
- 		trace_binder_unmap_user_end(alloc, index);
- 	}
- 
--	mmap_read_unlock(mm);
-+	mutex_unlock(&alloc->mutex);
-+	if (mm_locked)
-+		mmap_read_unlock(mm);
-+	else
-+		vma_end_read(vma);
- 	mmput_async(mm);
--	__free_page(page_to_free);
-+	binder_free_page(page_to_free);
- 
- 	return LRU_REMOVED_RETRY;
- 
- err_invalid_vma:
--err_page_already_freed:
--	spin_unlock(&alloc->lock);
--err_get_alloc_lock_failed:
--	mmap_read_unlock(mm);
-+	mutex_unlock(&alloc->mutex);
-+err_get_alloc_mutex_failed:
-+	if (mm_locked)
-+		mmap_read_unlock(mm);
-+	else
-+		vma_end_read(vma);
- err_mmap_read_lock_failed:
- 	mmput_async(mm);
- err_mmget:
-@@ -1145,7 +1241,7 @@ void binder_alloc_init(struct binder_alloc *alloc)
- 	alloc->pid = current->group_leader->pid;
- 	alloc->mm = current->mm;
- 	mmgrab(alloc->mm);
--	spin_lock_init(&alloc->lock);
-+	mutex_init(&alloc->mutex);
- 	INIT_LIST_HEAD(&alloc->buffers);
- }
- 
-diff --git a/drivers/android/binder_alloc.h b/drivers/android/binder_alloc.h
-index c02c8ebcb466..feecd7414241 100644
---- a/drivers/android/binder_alloc.h
-+++ b/drivers/android/binder_alloc.h
-@@ -9,7 +9,7 @@
- #include <linux/rbtree.h>
- #include <linux/list.h>
- #include <linux/mm.h>
--#include <linux/spinlock.h>
-+#include <linux/rtmutex.h>
- #include <linux/vmalloc.h>
- #include <linux/slab.h>
- #include <linux/list_lru.h>
-@@ -59,34 +59,43 @@ struct binder_buffer {
- };
- 
- /**
-- * struct binder_lru_page - page object used for binder shrinker
-- * @page_ptr: pointer to physical page in mmap'd space
-- * @lru:      entry in binder_freelist
-- * @alloc:    binder_alloc for a proc
-+ * struct binder_shrinker_mdata - binder metadata used to reclaim pages
-+ * @lru:         LRU entry in binder_freelist
-+ * @alloc:       binder_alloc owning the page to reclaim
-+ * @page_index:  offset in @alloc->pages[] into the page to reclaim
-  */
--struct binder_lru_page {
-+struct binder_shrinker_mdata {
- 	struct list_head lru;
--	struct page *page_ptr;
- 	struct binder_alloc *alloc;
-+	unsigned long page_index;
- };
- 
-+static inline struct list_head *page_to_lru(struct page *p)
-+{
-+	struct binder_shrinker_mdata *mdata;
-+
-+	mdata = (struct binder_shrinker_mdata *)page_private(p);
-+
-+	return &mdata->lru;
-+}
-+
- /**
-  * struct binder_alloc - per-binder proc state for binder allocator
-- * @lock:               protects binder_alloc fields
-- * @vma:                vm_area_struct passed to mmap_handler
-- *                      (invariant after mmap)
-+ * @mutex:              protects binder_alloc fields
-  * @mm:                 copy of task->mm (invariant after open)
-- * @buffer:             base of per-proc address space mapped via mmap
-+ * @vm_start:           base of per-proc address space mapped via mmap
-  * @buffers:            list of all buffers for this proc
-  * @free_buffers:       rb tree of buffers available for allocation
-  *                      sorted by size
-  * @allocated_buffers:  rb tree of allocated buffers sorted by address
-  * @free_async_space:   VA space available for async buffers. This is
-  *                      initialized at mmap time to 1/2 the full VA space
-- * @pages:              array of binder_lru_page
-+ * @pages:              array of struct page *
-  * @buffer_size:        size of address space specified via mmap
-  * @pid:                pid for associated binder_proc (invariant after init)
-  * @pages_high:         high watermark of offset in @pages
-+ * @mapped:             whether the vm area is mapped, each binder instance is
-+ *                      allowed a single mapping throughout its lifetime
-  * @oneway_spam_detected: %true if oneway spam detection fired, clear that
-  * flag once the async buffer has returned to a healthy state
-  *
-@@ -96,18 +105,18 @@ struct binder_lru_page {
-  * struct binder_buffer objects used to track the user buffers
-  */
- struct binder_alloc {
--	spinlock_t lock;
--	struct vm_area_struct *vma;
-+	struct mutex mutex;
- 	struct mm_struct *mm;
--	unsigned long buffer;
-+	unsigned long vm_start;
- 	struct list_head buffers;
- 	struct rb_root free_buffers;
- 	struct rb_root allocated_buffers;
- 	size_t free_async_space;
--	struct binder_lru_page *pages;
-+	struct page **pages;
- 	size_t buffer_size;
- 	int pid;
- 	size_t pages_high;
-+	bool mapped;
- 	bool oneway_spam_detected;
- };
- 
-@@ -153,9 +162,9 @@ binder_alloc_get_free_async_space(struct binder_alloc *alloc)
- {
- 	size_t free_async_space;
- 
--	spin_lock(&alloc->lock);
-+	mutex_lock(&alloc->mutex);
- 	free_async_space = alloc->free_async_space;
--	spin_unlock(&alloc->lock);
-+	mutex_unlock(&alloc->mutex);
- 	return free_async_space;
- }
- 
-diff --git a/drivers/android/binder_alloc_selftest.c b/drivers/android/binder_alloc_selftest.c
-index 81442fe20a69..c88735c54848 100644
---- a/drivers/android/binder_alloc_selftest.c
-+++ b/drivers/android/binder_alloc_selftest.c
-@@ -104,11 +104,11 @@ static bool check_buffer_pages_allocated(struct binder_alloc *alloc,
- 	end = PAGE_ALIGN(buffer->user_data + size);
- 	page_addr = buffer->user_data;
- 	for (; page_addr < end; page_addr += PAGE_SIZE) {
--		page_index = (page_addr - alloc->buffer) / PAGE_SIZE;
--		if (!alloc->pages[page_index].page_ptr ||
--		    !list_empty(&alloc->pages[page_index].lru)) {
-+		page_index = (page_addr - alloc->vm_start) / PAGE_SIZE;
-+		if (!alloc->pages[page_index] ||
-+		    !list_empty(page_to_lru(alloc->pages[page_index]))) {
- 			pr_err("expect alloc but is %s at page index %d\n",
--			       alloc->pages[page_index].page_ptr ?
-+			       alloc->pages[page_index] ?
- 			       "lru" : "free", page_index);
- 			return false;
- 		}
-@@ -148,10 +148,10 @@ static void binder_selftest_free_buf(struct binder_alloc *alloc,
- 		 * if binder shrinker ran during binder_alloc_free_buf
- 		 * calls above.
- 		 */
--		if (list_empty(&alloc->pages[i].lru)) {
-+		if (list_empty(page_to_lru(alloc->pages[i]))) {
- 			pr_err_size_seq(sizes, seq);
- 			pr_err("expect lru but is %s at page index %d\n",
--			       alloc->pages[i].page_ptr ? "alloc" : "free", i);
-+			       alloc->pages[i] ? "alloc" : "free", i);
- 			binder_selftest_failures++;
- 		}
- 	}
-@@ -168,9 +168,9 @@ static void binder_selftest_free_page(struct binder_alloc *alloc)
- 	}
- 
- 	for (i = 0; i < (alloc->buffer_size / PAGE_SIZE); i++) {
--		if (alloc->pages[i].page_ptr) {
-+		if (alloc->pages[i]) {
- 			pr_err("expect free but is %s at page index %d\n",
--			       list_empty(&alloc->pages[i].lru) ?
-+			       list_empty(page_to_lru(alloc->pages[i])) ?
- 			       "alloc" : "lru", i);
- 			binder_selftest_failures++;
- 		}
-@@ -291,7 +291,7 @@ void binder_selftest_alloc(struct binder_alloc *alloc)
- 	if (!binder_selftest_run)
- 		return;
- 	mutex_lock(&binder_selftest_lock);
--	if (!binder_selftest_run || !alloc->vma)
-+	if (!binder_selftest_run || !alloc->mapped)
- 		goto done;
- 	pr_info("STARTED\n");
- 	binder_selftest_alloc_offset(alloc, end_offset, 0);
-diff --git a/drivers/android/binder_trace.h b/drivers/android/binder_trace.h
-index fe38c6fc65d0..16de1b9e72f7 100644
---- a/drivers/android/binder_trace.h
-+++ b/drivers/android/binder_trace.h
-@@ -328,7 +328,7 @@ TRACE_EVENT(binder_update_page_range,
- 	TP_fast_assign(
- 		__entry->proc = alloc->pid;
- 		__entry->allocate = allocate;
--		__entry->offset = start - alloc->buffer;
-+		__entry->offset = start - alloc->vm_start;
- 		__entry->size = end - start;
- 	),
- 	TP_printk("proc=%d allocate=%d offset=%zu size=%zu",
 diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
 index 8d27c567be1c..479477438de0 100644
 --- a/drivers/ata/ahci.c
@@ -8042,10 +7143,10 @@ index e8ae7681bf0a..8a0d873983f3 100644
  }
  
 diff --git a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
-index 5eae14fe79f1..1b152b26d4c8 100644
+index 21bd635bcdfc..6f4032038fc7 100644
 --- a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
 +++ b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
-@@ -2799,7 +2799,10 @@ int smu_get_power_limit(void *handle,
+@@ -2809,7 +2809,10 @@ int smu_get_power_limit(void *handle,
  			*limit = smu->max_power_limit;
  			break;
  		case SMU_PPT_LIMIT_MIN:
@@ -8057,7 +7158,7 @@ index 5eae14fe79f1..1b152b26d4c8 100644
  			break;
  		default:
  			return -EINVAL;
-@@ -2823,7 +2826,14 @@ static int smu_set_power_limit(void *handle, uint32_t limit)
+@@ -2833,7 +2836,14 @@ static int smu_set_power_limit(void *handle, uint32_t limit)
  		if (smu->ppt_funcs->set_power_limit)
  			return smu->ppt_funcs->set_power_limit(smu, limit_type, limit);
  
@@ -12032,7 +11133,7 @@ index 09cbe3f0ab1e..fb772bfe27c3 100644
  	  This module provides kernel support for emulation of Windows NT
  	  synchronization primitives. It is not a hardware driver.
 diff --git a/drivers/misc/ntsync.c b/drivers/misc/ntsync.c
-index 4954553b7baa..3fac06270549 100644
+index 4954553b7baa..457ff28b789f 100644
 --- a/drivers/misc/ntsync.c
 +++ b/drivers/misc/ntsync.c
 @@ -6,11 +6,17 @@
@@ -12076,7 +11177,7 @@ index 4954553b7baa..3fac06270549 100644
  
  	enum ntsync_type type;
  
-@@ -46,13 +57,335 @@ struct ntsync_obj {
+@@ -46,22 +57,344 @@ struct ntsync_obj {
  			__u32 count;
  			__u32 max;
  		} sem;
@@ -12412,7 +11513,9 @@ index 4954553b7baa..3fac06270549 100644
  /*
   * Actually change the semaphore state, returning -EOVERFLOW if it is made
   * invalid.
-@@ -61,7 +394,7 @@ static int post_sem_state(struct ntsync_obj *sem, __u32 count)
+  */
+-static int post_sem_state(struct ntsync_obj *sem, __u32 count)
++static int release_sem_state(struct ntsync_obj *sem, __u32 count)
  {
  	__u32 sum;
  
@@ -12421,9 +11524,12 @@ index 4954553b7baa..3fac06270549 100644
  
  	if (check_add_overflow(sem->u.sem.count, count, &sum) ||
  	    sum > sem->u.sem.max)
-@@ -73,9 +406,11 @@ static int post_sem_state(struct ntsync_obj *sem, __u32 count)
+@@ -71,11 +404,13 @@ static int post_sem_state(struct ntsync_obj *sem, __u32 count)
+ 	return 0;
+ }
  
- static int ntsync_sem_post(struct ntsync_obj *sem, void __user *argp)
+-static int ntsync_sem_post(struct ntsync_obj *sem, void __user *argp)
++static int ntsync_sem_release(struct ntsync_obj *sem, void __user *argp)
  {
 +	struct ntsync_device *dev = sem->dev;
  	__u32 __user *user_args = argp;
@@ -12441,7 +11547,8 @@ index 4954553b7baa..3fac06270549 100644
 +	all = ntsync_lock_obj(dev, sem);
  
  	prev_count = sem->u.sem.count;
- 	ret = post_sem_state(sem, args);
+-	ret = post_sem_state(sem, args);
++	ret = release_sem_state(sem, args);
 +	if (!ret) {
 +		if (all)
 +			try_wake_all_obj(dev, sem);
@@ -12453,7 +11560,7 @@ index 4954553b7baa..3fac06270549 100644
  
  	if (!ret && put_user(prev_count, user_args))
  		ret = -EFAULT;
-@@ -97,6 +437,226 @@ static int ntsync_sem_post(struct ntsync_obj *sem, void __user *argp)
+@@ -97,6 +437,220 @@ static int ntsync_sem_post(struct ntsync_obj *sem, void __user *argp)
  	return ret;
  }
  
@@ -12613,8 +11720,6 @@ index 4954553b7baa..3fac06270549 100644
 +	if (sem->type != NTSYNC_TYPE_SEM)
 +		return -EINVAL;
 +
-+	args.sem = 0;
-+
 +	all = ntsync_lock_obj(dev, sem);
 +
 +	args.count = sem->u.sem.count;
@@ -12637,8 +11742,6 @@ index 4954553b7baa..3fac06270549 100644
 +
 +	if (mutex->type != NTSYNC_TYPE_MUTEX)
 +		return -EINVAL;
-+
-+	args.mutex = 0;
 +
 +	all = ntsync_lock_obj(dev, mutex);
 +
@@ -12663,8 +11766,6 @@ index 4954553b7baa..3fac06270549 100644
 +	if (event->type != NTSYNC_TYPE_EVENT)
 +		return -EINVAL;
 +
-+	args.event = 0;
-+
 +	all = ntsync_lock_obj(dev, event);
 +
 +	args.manual = event->u.event.manual;
@@ -12680,10 +11781,14 @@ index 4954553b7baa..3fac06270549 100644
  static int ntsync_obj_release(struct inode *inode, struct file *file)
  {
  	struct ntsync_obj *obj = file->private_data;
-@@ -116,6 +676,22 @@ static long ntsync_obj_ioctl(struct file *file, unsigned int cmd,
+@@ -114,8 +668,24 @@ static long ntsync_obj_ioctl(struct file *file, unsigned int cmd,
+ 	void __user *argp = (void __user *)parm;
+ 
  	switch (cmd) {
- 	case NTSYNC_IOC_SEM_POST:
- 		return ntsync_sem_post(obj, argp);
+-	case NTSYNC_IOC_SEM_POST:
+-		return ntsync_sem_post(obj, argp);
++	case NTSYNC_IOC_SEM_RELEASE:
++		return ntsync_sem_release(obj, argp);
 +	case NTSYNC_IOC_SEM_READ:
 +		return ntsync_sem_read(obj, argp);
 +	case NTSYNC_IOC_MUTEX_UNLOCK:
@@ -12703,7 +11808,7 @@ index 4954553b7baa..3fac06270549 100644
  	default:
  		return -ENOIOCTLCMD;
  	}
-@@ -140,6 +716,9 @@ static struct ntsync_obj *ntsync_alloc_obj(struct ntsync_device *dev,
+@@ -140,6 +710,9 @@ static struct ntsync_obj *ntsync_alloc_obj(struct ntsync_device *dev,
  	obj->dev = dev;
  	get_file(dev->file);
  	spin_lock_init(&obj->lock);
@@ -12713,13 +11818,28 @@ index 4954553b7baa..3fac06270549 100644
  
  	return obj;
  }
-@@ -190,6 +769,400 @@ static int ntsync_create_sem(struct ntsync_device *dev, void __user *argp)
- 	return put_user(fd, &user_args->sem);
- }
+@@ -165,7 +738,6 @@ static int ntsync_obj_get_fd(struct ntsync_obj *obj)
  
+ static int ntsync_create_sem(struct ntsync_device *dev, void __user *argp)
+ {
+-	struct ntsync_sem_args __user *user_args = argp;
+ 	struct ntsync_sem_args args;
+ 	struct ntsync_obj *sem;
+ 	int fd;
+@@ -182,12 +754,398 @@ static int ntsync_create_sem(struct ntsync_device *dev, void __user *argp)
+ 	sem->u.sem.count = args.count;
+ 	sem->u.sem.max = args.max;
+ 	fd = ntsync_obj_get_fd(sem);
+-	if (fd < 0) {
++	if (fd < 0)
+ 		kfree(sem);
+-		return fd;
++
++	return fd;
++}
++
 +static int ntsync_create_mutex(struct ntsync_device *dev, void __user *argp)
 +{
-+	struct ntsync_mutex_args __user *user_args = argp;
 +	struct ntsync_mutex_args args;
 +	struct ntsync_obj *mutex;
 +	int fd;
@@ -12736,17 +11856,14 @@ index 4954553b7baa..3fac06270549 100644
 +	mutex->u.mutex.count = args.count;
 +	mutex->u.mutex.owner = args.owner;
 +	fd = ntsync_obj_get_fd(mutex);
-+	if (fd < 0) {
++	if (fd < 0)
 +		kfree(mutex);
-+		return fd;
-+	}
 +
-+	return put_user(fd, &user_args->mutex);
++	return fd;
 +}
 +
 +static int ntsync_create_event(struct ntsync_device *dev, void __user *argp)
 +{
-+	struct ntsync_event_args __user *user_args = argp;
 +	struct ntsync_event_args args;
 +	struct ntsync_obj *event;
 +	int fd;
@@ -12760,12 +11877,10 @@ index 4954553b7baa..3fac06270549 100644
 +	event->u.event.manual = args.manual;
 +	event->u.event.signaled = args.signaled;
 +	fd = ntsync_obj_get_fd(event);
-+	if (fd < 0) {
++	if (fd < 0)
 +		kfree(event);
-+		return fd;
-+	}
 +
-+	return put_user(fd, &user_args->event);
++	return fd;
 +}
 +
 +static struct ntsync_obj *get_obj(struct ntsync_device *dev, int fd)
@@ -12779,8 +11894,9 @@ index 4954553b7baa..3fac06270549 100644
 +	if (file->f_op != &ntsync_obj_fops) {
 +		fput(file);
 +		return NULL;
-+	}
-+
+ 	}
+ 
+-	return put_user(fd, &user_args->sem);
 +	obj = file->private_data;
 +	if (obj->dev != dev) {
 +		fput(file);
@@ -13109,12 +12225,10 @@ index 4954553b7baa..3fac06270549 100644
 +
 +	kfree(q);
 +	return ret;
-+}
-+
+ }
+ 
  static int ntsync_char_open(struct inode *inode, struct file *file)
- {
- 	struct ntsync_device *dev;
-@@ -198,6 +1171,8 @@ static int ntsync_char_open(struct inode *inode, struct file *file)
+@@ -198,6 +1156,8 @@ static int ntsync_char_open(struct inode *inode, struct file *file)
  	if (!dev)
  		return -ENOMEM;
  
@@ -13123,7 +12237,7 @@ index 4954553b7baa..3fac06270549 100644
  	file->private_data = dev;
  	dev->file = file;
  	return nonseekable_open(inode, file);
-@@ -219,8 +1194,16 @@ static long ntsync_char_ioctl(struct file *file, unsigned int cmd,
+@@ -219,8 +1179,16 @@ static long ntsync_char_ioctl(struct file *file, unsigned int cmd,
  	void __user *argp = (void __user *)parm;
  
  	switch (cmd) {
@@ -17771,21 +16885,25 @@ index 86bb2e8b17c9..9d9a3eb2ce9b 100644
  
  union tcp_cc_info {
 diff --git a/include/uapi/linux/ntsync.h b/include/uapi/linux/ntsync.h
-index dcfa38fdc93c..4a8095a3fc34 100644
+index dcfa38fdc93c..6d06793512b1 100644
 --- a/include/uapi/linux/ntsync.h
 +++ b/include/uapi/linux/ntsync.h
-@@ -16,8 +16,47 @@ struct ntsync_sem_args {
+@@ -11,13 +11,49 @@
+ #include <linux/types.h>
+ 
+ struct ntsync_sem_args {
+-	__u32 sem;
+ 	__u32 count;
  	__u32 max;
  };
  
+-#define NTSYNC_IOC_CREATE_SEM		_IOWR('N', 0x80, struct ntsync_sem_args)
 +struct ntsync_mutex_args {
-+	__u32 mutex;
 +	__u32 owner;
 +	__u32 count;
 +};
 +
 +struct ntsync_event_args {
-+	__u32 event;
 +	__u32 manual;
 +	__u32 signaled;
 +};
@@ -17805,13 +16923,14 @@ index dcfa38fdc93c..4a8095a3fc34 100644
 +
 +#define NTSYNC_MAX_WAIT_COUNT 64
 +
- #define NTSYNC_IOC_CREATE_SEM		_IOWR('N', 0x80, struct ntsync_sem_args)
++#define NTSYNC_IOC_CREATE_SEM		_IOW ('N', 0x80, struct ntsync_sem_args)
 +#define NTSYNC_IOC_WAIT_ANY		_IOWR('N', 0x82, struct ntsync_wait_args)
 +#define NTSYNC_IOC_WAIT_ALL		_IOWR('N', 0x83, struct ntsync_wait_args)
-+#define NTSYNC_IOC_CREATE_MUTEX		_IOWR('N', 0x84, struct ntsync_sem_args)
-+#define NTSYNC_IOC_CREATE_EVENT		_IOWR('N', 0x87, struct ntsync_event_args)
++#define NTSYNC_IOC_CREATE_MUTEX		_IOW ('N', 0x84, struct ntsync_mutex_args)
++#define NTSYNC_IOC_CREATE_EVENT		_IOW ('N', 0x87, struct ntsync_event_args)
  
- #define NTSYNC_IOC_SEM_POST		_IOWR('N', 0x81, __u32)
+-#define NTSYNC_IOC_SEM_POST		_IOWR('N', 0x81, __u32)
++#define NTSYNC_IOC_SEM_RELEASE		_IOWR('N', 0x81, __u32)
 +#define NTSYNC_IOC_MUTEX_UNLOCK		_IOWR('N', 0x85, struct ntsync_mutex_args)
 +#define NTSYNC_IOC_MUTEX_KILL		_IOW ('N', 0x86, __u32)
 +#define NTSYNC_IOC_EVENT_SET		_IOR ('N', 0x88, __u32)
@@ -18108,7 +17227,7 @@ index 2ddb827e3bea..464049c4af3f 100644
  
  	return state;
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index a59ae2e23daf..d745b4e4a5dc 100644
+index 3e9ca38512de..d38a4feac0c9 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
 @@ -73,10 +73,19 @@ unsigned int sysctl_sched_tunable_scaling = SCHED_TUNABLESCALING_LOG;
@@ -18144,7 +17263,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  
  #ifdef CONFIG_NUMA_BALANCING
  /* Restrict the NUMA promotion throughput (MB/s) for each target node. */
-@@ -9884,6 +9897,8 @@ struct sg_lb_stats {
+@@ -9925,6 +9938,8 @@ struct sg_lb_stats {
  	unsigned int sum_nr_running;		/* Nr of all tasks running in the group */
  	unsigned int sum_h_nr_running;		/* Nr of CFS tasks running in the group */
  	unsigned int idle_cpus;                 /* Nr of idle CPUs         in the group */
@@ -18153,7 +17272,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  	unsigned int group_weight;
  	enum group_type group_type;
  	unsigned int group_asym_packing;	/* Tasks should be moved to preferred CPU */
-@@ -10216,7 +10231,7 @@ sched_group_asym(struct lb_env *env, struct sg_lb_stats *sgs, struct sched_group
+@@ -10257,7 +10272,7 @@ sched_group_asym(struct lb_env *env, struct sg_lb_stats *sgs, struct sched_group
  	    (sgs->group_weight - sgs->idle_cpus != 1))
  		return false;
  
@@ -18162,7 +17281,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  }
  
  /* One group has more than one SMT CPU while the other group does not */
-@@ -10297,6 +10312,17 @@ sched_reduced_capacity(struct rq *rq, struct sched_domain *sd)
+@@ -10338,6 +10353,17 @@ sched_reduced_capacity(struct rq *rq, struct sched_domain *sd)
  	return check_cpu_capacity(rq, sd);
  }
  
@@ -18180,7 +17299,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  /**
   * update_sg_lb_stats - Update sched_group's statistics for load balancing.
   * @env: The load balancing environment.
-@@ -10313,11 +10339,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+@@ -10354,11 +10380,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
  				      bool *sg_overloaded,
  				      bool *sg_overutilized)
  {
@@ -18194,7 +17313,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  
  	for_each_cpu_and(i, sched_group_span(group), env->cpus) {
  		struct rq *rq = cpu_rq(i);
-@@ -10331,16 +10358,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+@@ -10372,16 +10399,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
  		nr_running = rq->nr_running;
  		sgs->sum_nr_running += nr_running;
  
@@ -18213,7 +17332,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  		/*
  		 * No need to call idle_cpu() if nr_running is not 0
  		 */
-@@ -10350,10 +10373,21 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+@@ -10391,10 +10414,21 @@ static inline void update_sg_lb_stats(struct lb_env *env,
  			continue;
  		}
  
@@ -18236,7 +17355,7 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  			/* Check for a misfit task on the cpu */
  			if (sgs->group_misfit_task_load < rq->misfit_task_load) {
  				sgs->group_misfit_task_load = rq->misfit_task_load;
-@@ -10448,7 +10482,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
+@@ -10489,7 +10523,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
  
  	case group_asym_packing:
  		/* Prefer to move from lowest priority CPU's work */
@@ -18246,10 +17365,10 @@ index a59ae2e23daf..d745b4e4a5dc 100644
  	case group_misfit_task:
  		/*
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 76f5f53a645f..948bd85b9928 100644
+index c5d67a43fe52..dee2797009e3 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -2047,7 +2047,6 @@ struct sched_group {
+@@ -2056,7 +2056,6 @@ struct sched_group {
  	unsigned int		group_weight;
  	unsigned int		cores;
  	struct sched_group_capacity *sgc;
@@ -18257,7 +17376,7 @@ index 76f5f53a645f..948bd85b9928 100644
  	int			flags;
  
  	/*
-@@ -2811,7 +2810,7 @@ extern void deactivate_task(struct rq *rq, struct task_struct *p, int flags);
+@@ -2820,7 +2819,7 @@ extern void deactivate_task(struct rq *rq, struct task_struct *p, int flags);
  
  extern void wakeup_preempt(struct rq *rq, struct task_struct *p, int flags);
  
@@ -40966,7 +40085,7 @@ index 7121d8573928..696afe8cfda8 100644
  		const struct tcp_congestion_ops *ca;
  
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5485a70b5fe5..07a7c46066e4 100644
+index 0e5b9a654254..f7da9d719b25 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -336,10 +336,9 @@ static void tcp_ecn_send_syn(struct sock *sk, struct sk_buff *skb)
@@ -41001,7 +40120,7 @@ index 5485a70b5fe5..07a7c46066e4 100644
  			/* ACK or retransmitted segment: clear ECT|CE */
  			INET_ECN_dontxmit(sk);
  		}
-@@ -1601,7 +1604,7 @@ int tcp_fragment(struct sock *sk, enum tcp_queue tcp_queue,
+@@ -1603,7 +1606,7 @@ int tcp_fragment(struct sock *sk, enum tcp_queue tcp_queue,
  {
  	struct tcp_sock *tp = tcp_sk(sk);
  	struct sk_buff *buff;
@@ -41010,7 +40129,7 @@ index 5485a70b5fe5..07a7c46066e4 100644
  	long limit;
  	int nlen;
  	u8 flags;
-@@ -1676,6 +1679,30 @@ int tcp_fragment(struct sock *sk, enum tcp_queue tcp_queue,
+@@ -1678,6 +1681,30 @@ int tcp_fragment(struct sock *sk, enum tcp_queue tcp_queue,
  
  		if (diff)
  			tcp_adjust_pcount(sk, skb, diff);
@@ -41041,7 +40160,7 @@ index 5485a70b5fe5..07a7c46066e4 100644
  	}
  
  	/* Link BUFF into the send queue. */
-@@ -2033,13 +2060,12 @@ static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now,
+@@ -2035,13 +2062,12 @@ static u32 tcp_tso_autosize(const struct sock *sk, unsigned int mss_now,
  static u32 tcp_tso_segs(struct sock *sk, unsigned int mss_now)
  {
  	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
@@ -41060,7 +40179,7 @@ index 5485a70b5fe5..07a7c46066e4 100644
  	return min_t(u32, tso_segs, sk->sk_gso_max_segs);
  }
  
-@@ -2765,6 +2791,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+@@ -2767,6 +2793,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
  			skb_set_delivery_time(skb, tp->tcp_wstamp_ns, SKB_CLOCK_MONOTONIC);
  			list_move_tail(&skb->tcp_tsorted_anchor, &tp->tsorted_sent_queue);
  			tcp_init_tso_segs(skb, mss_now);
@@ -41068,7 +40187,7 @@ index 5485a70b5fe5..07a7c46066e4 100644
  			goto repair; /* Skip network transmission */
  		}
  
-@@ -2977,6 +3004,7 @@ void tcp_send_loss_probe(struct sock *sk)
+@@ -2979,6 +3006,7 @@ void tcp_send_loss_probe(struct sock *sk)
  	if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
  		goto rearm_timer;
  
@@ -41408,27 +40527,27 @@ index ebbdb3c42e9f..b19b6bfe5cd4 100644
 +468	common	process_ksm_disable			sys_process_ksm_disable
 +469	common	process_ksm_status			sys_process_ksm_status
 diff --git a/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl b/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
-index ebae8415dfbb..16f71bc2f6f0 100644
+index d8b4ab78bef0..57aa958c1b97 100644
 --- a/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
 +++ b/tools/perf/arch/powerpc/entry/syscalls/syscall.tbl
-@@ -553,3 +553,6 @@
- 460	common	lsm_set_self_attr		sys_lsm_set_self_attr
- 461	common	lsm_list_modules		sys_lsm_list_modules
- 462	common	mseal				sys_mseal
-+463	common	process_ksm_enable		sys_process_ksm_enable
-+464	common	process_ksm_disable		sys_process_ksm_disable
-+465	common	process_ksm_status		sys_process_ksm_status
+@@ -557,3 +557,6 @@
+ 464	common	getxattrat			sys_getxattrat
+ 465	common	listxattrat			sys_listxattrat
+ 466	common	removexattrat			sys_removexattrat
++467	common	process_ksm_enable		sys_process_ksm_enable
++468	common	process_ksm_disable		sys_process_ksm_disable
++469	common	process_ksm_status		sys_process_ksm_status
 diff --git a/tools/perf/arch/s390/entry/syscalls/syscall.tbl b/tools/perf/arch/s390/entry/syscalls/syscall.tbl
-index 01071182763e..7394bad8178e 100644
+index e9115b4d8b63..2afc778f2d17 100644
 --- a/tools/perf/arch/s390/entry/syscalls/syscall.tbl
 +++ b/tools/perf/arch/s390/entry/syscalls/syscall.tbl
-@@ -465,3 +465,6 @@
- 460  common	lsm_set_self_attr	sys_lsm_set_self_attr		sys_lsm_set_self_attr
- 461  common	lsm_list_modules	sys_lsm_list_modules		sys_lsm_list_modules
- 462  common	mseal			sys_mseal			sys_mseal
-+463  common	process_ksm_enable	sys_process_ksm_enable		sys_process_ksm_enable
-+464  common	process_ksm_disable	sys_process_ksm_disable		sys_process_ksm_disable
-+465  common	process_ksm_status	sys_process_ksm_status		sys_process_ksm_status
+@@ -469,3 +469,6 @@
+ 464  common	getxattrat		sys_getxattrat			sys_getxattrat
+ 465  common	listxattrat		sys_listxattrat			sys_listxattrat
+ 466  common	removexattrat		sys_removexattrat		sys_removexattrat
++467  common	process_ksm_enable	sys_process_ksm_enable		sys_process_ksm_enable
++468  common	process_ksm_disable	sys_process_ksm_disable		sys_process_ksm_disable
++469  common	process_ksm_status	sys_process_ksm_status		sys_process_ksm_status
 diff --git a/tools/testing/selftests/Makefile b/tools/testing/selftests/Makefile
 index 2401e973c359..a8c9648e5adc 100644
 --- a/tools/testing/selftests/Makefile
@@ -41470,10 +40589,10 @@ index 000000000000..60539c826d06
 +CONFIG_WINESYNC=y
 diff --git a/tools/testing/selftests/drivers/ntsync/ntsync.c b/tools/testing/selftests/drivers/ntsync/ntsync.c
 new file mode 100644
-index 000000000000..5fa2c9a0768c
+index 000000000000..3aad311574c4
 --- /dev/null
 +++ b/tools/testing/selftests/drivers/ntsync/ntsync.c
-@@ -0,0 +1,1407 @@
+@@ -0,0 +1,1343 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Various unit tests for the "ntsync" synchronization primitive driver.
@@ -41511,9 +40630,9 @@ index 000000000000..5fa2c9a0768c
 +		EXPECT_EQ((max), __max); \
 +	})
 +
-+static int post_sem(int sem, __u32 *count)
++static int release_sem(int sem, __u32 *count)
 +{
-+	return ioctl(sem, NTSYNC_IOC_SEM_POST, count);
++	return ioctl(sem, NTSYNC_IOC_SEM_RELEASE, count);
 +}
 +
 +static int read_mutex_state(int mutex, __u32 *count, __u32 *owner)
@@ -41628,28 +40747,24 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 3;
 +	sem_args.max = 2;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(-1, ret);
++	sem = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_EQ(-1, sem);
 +	EXPECT_EQ(EINVAL, errno);
 +
 +	sem_args.count = 2;
 +	sem_args.max = 2;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
-+	sem = sem_args.sem;
++	sem = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, sem);
 +	check_sem_state(sem, 2, 2);
 +
 +	count = 0;
-+	ret = post_sem(sem, &count);
++	ret = release_sem(sem, &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(2, count);
 +	check_sem_state(sem, 2, 2);
 +
 +	count = 1;
-+	ret = post_sem(sem, &count);
++	ret = release_sem(sem, &count);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(EOVERFLOW, errno);
 +	check_sem_state(sem, 2, 2);
@@ -41669,13 +40784,13 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(ETIMEDOUT, errno);
 +
 +	count = 3;
-+	ret = post_sem(sem, &count);
++	ret = release_sem(sem, &count);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(EOVERFLOW, errno);
 +	check_sem_state(sem, 0, 2);
 +
 +	count = 2;
-+	ret = post_sem(sem, &count);
++	ret = release_sem(sem, &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
 +	check_sem_state(sem, 2, 2);
@@ -41686,13 +40801,13 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(0, ret);
 +
 +	count = 1;
-+	ret = post_sem(sem, &count);
++	ret = release_sem(sem, &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
 +	check_sem_state(sem, 1, 2);
 +
 +	count = ~0u;
-+	ret = post_sem(sem, &count);
++	ret = release_sem(sem, &count);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(EOVERFLOW, errno);
 +	check_sem_state(sem, 1, 2);
@@ -41716,23 +40831,20 @@ index 000000000000..5fa2c9a0768c
 +
 +	mutex_args.owner = 123;
 +	mutex_args.count = 0;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(-1, ret);
++	mutex = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_EQ(-1, mutex);
 +	EXPECT_EQ(EINVAL, errno);
 +
 +	mutex_args.owner = 0;
 +	mutex_args.count = 2;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(-1, ret);
++	mutex = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_EQ(-1, mutex);
 +	EXPECT_EQ(EINVAL, errno);
 +
 +	mutex_args.owner = 123;
 +	mutex_args.count = 2;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
-+	mutex = mutex_args.mutex;
++	mutex = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, mutex);
 +	check_mutex_state(mutex, 2, 123);
 +
 +	ret = unlock_mutex(mutex, 0, &count);
@@ -41833,11 +40945,8 @@ index 000000000000..5fa2c9a0768c
 +
 +	mutex_args.owner = 0;
 +	mutex_args.count = 0;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
-+	mutex = mutex_args.mutex;
++	mutex = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, mutex);
 +	check_mutex_state(mutex, 0, 0);
 +
 +	ret = wait_any(fd, 1, &mutex, 123, &index);
@@ -41849,11 +40958,8 @@ index 000000000000..5fa2c9a0768c
 +
 +	mutex_args.owner = 123;
 +	mutex_args.count = ~0u;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
-+	mutex = mutex_args.mutex;
++	mutex = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, mutex);
 +	check_mutex_state(mutex, ~0u, 123);
 +
 +	ret = wait_any(fd, 1, &mutex, 123, &index);
@@ -41876,11 +40982,8 @@ index 000000000000..5fa2c9a0768c
 +
 +	event_args.manual = 1;
 +	event_args.signaled = 0;
-+	event_args.event = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, event_args.event);
-+	event = event_args.event;
++	event = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, event);
 +	check_event_state(event, 0, 1);
 +
 +	signaled = 0xdeadbeef;
@@ -41944,11 +41047,8 @@ index 000000000000..5fa2c9a0768c
 +
 +	event_args.manual = 0;
 +	event_args.signaled = 1;
-+	event_args.event = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, event_args.event);
-+	event = event_args.event;
++	event = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, event);
 +
 +	check_event_state(event, 1, 0);
 +
@@ -42007,62 +41107,55 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 2;
 +	sem_args.max = 3;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
++	objs[0] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[0]);
 +
 +	mutex_args.owner = 0;
 +	mutex_args.count = 0;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
-+
-+	objs[0] = sem_args.sem;
-+	objs[1] = mutex_args.mutex;
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, objs[1]);
 +
 +	ret = wait_any(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 1, 3);
-+	check_mutex_state(mutex_args.mutex, 0, 0);
++	check_sem_state(objs[0], 1, 3);
++	check_mutex_state(objs[1], 0, 0);
 +
 +	ret = wait_any(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_mutex_state(mutex_args.mutex, 0, 0);
++	check_sem_state(objs[0], 0, 3);
++	check_mutex_state(objs[1], 0, 0);
 +
 +	ret = wait_any(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, index);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_mutex_state(mutex_args.mutex, 1, 123);
++	check_sem_state(objs[0], 0, 3);
++	check_mutex_state(objs[1], 1, 123);
 +
 +	count = 1;
-+	ret = post_sem(sem_args.sem, &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
 +
 +	ret = wait_any(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_mutex_state(mutex_args.mutex, 1, 123);
++	check_sem_state(objs[0], 0, 3);
++	check_mutex_state(objs[1], 1, 123);
 +
 +	ret = wait_any(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, index);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_mutex_state(mutex_args.mutex, 2, 123);
++	check_sem_state(objs[0], 0, 3);
++	check_mutex_state(objs[1], 2, 123);
 +
 +	ret = wait_any(fd, 2, objs, 456, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
 +
 +	owner = 123;
-+	ret = ioctl(mutex_args.mutex, NTSYNC_IOC_MUTEX_KILL, &owner);
++	ret = ioctl(objs[1], NTSYNC_IOC_MUTEX_KILL, &owner);
 +	EXPECT_EQ(0, ret);
 +
 +	ret = wait_any(fd, 2, objs, 456, &index);
@@ -42074,24 +41167,27 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, index);
 +
++	close(objs[1]);
++
 +	/* test waiting on the same object twice */
++
 +	count = 2;
-+	ret = post_sem(sem_args.sem, &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
 +
-+	objs[0] = objs[1] = sem_args.sem;
++	objs[1] = objs[0];
 +	ret = wait_any(fd, 2, objs, 456, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 1, 3);
++	check_sem_state(objs[0], 1, 3);
 +
 +	ret = wait_any(fd, 0, NULL, 456, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
 +
-+	for (i = 0; i < NTSYNC_MAX_WAIT_COUNT + 1; ++i)
-+		objs[i] = sem_args.sem;
++	for (i = 1; i < NTSYNC_MAX_WAIT_COUNT + 1; ++i)
++		objs[i] = objs[0];
 +
 +	ret = wait_any(fd, NTSYNC_MAX_WAIT_COUNT, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
@@ -42105,8 +41201,7 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(EINVAL, errno);
 +
-+	close(sem_args.sem);
-+	close(mutex_args.mutex);
++	close(objs[0]);
 +
 +	close(fd);
 +}
@@ -42124,88 +41219,81 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 2;
 +	sem_args.max = 3;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
++	objs[0] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[0]);
 +
 +	mutex_args.owner = 0;
 +	mutex_args.count = 0;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
-+
-+	event_args.manual = true;
-+	event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
-+
-+	objs[0] = sem_args.sem;
-+	objs[1] = mutex_args.mutex;
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, objs[1]);
 +
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 1, 3);
-+	check_mutex_state(mutex_args.mutex, 1, 123);
++	check_sem_state(objs[0], 1, 3);
++	check_mutex_state(objs[1], 1, 123);
 +
 +	ret = wait_all(fd, 2, objs, 456, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
-+	check_sem_state(sem_args.sem, 1, 3);
-+	check_mutex_state(mutex_args.mutex, 1, 123);
++	check_sem_state(objs[0], 1, 3);
++	check_mutex_state(objs[1], 1, 123);
 +
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_mutex_state(mutex_args.mutex, 2, 123);
++	check_sem_state(objs[0], 0, 3);
++	check_mutex_state(objs[1], 2, 123);
 +
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_mutex_state(mutex_args.mutex, 2, 123);
++	check_sem_state(objs[0], 0, 3);
++	check_mutex_state(objs[1], 2, 123);
 +
 +	count = 3;
-+	ret = post_sem(sem_args.sem, &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
 +
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 2, 3);
-+	check_mutex_state(mutex_args.mutex, 3, 123);
++	check_sem_state(objs[0], 2, 3);
++	check_mutex_state(objs[1], 3, 123);
 +
 +	owner = 123;
-+	ret = ioctl(mutex_args.mutex, NTSYNC_IOC_MUTEX_KILL, &owner);
++	ret = ioctl(objs[1], NTSYNC_IOC_MUTEX_KILL, &owner);
 +	EXPECT_EQ(0, ret);
 +
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(EOWNERDEAD, errno);
-+	check_sem_state(sem_args.sem, 1, 3);
-+	check_mutex_state(mutex_args.mutex, 1, 123);
++	check_sem_state(objs[0], 1, 3);
++	check_mutex_state(objs[1], 1, 123);
 +
-+	objs[0] = sem_args.sem;
-+	objs[1] = event_args.event;
++	close(objs[1]);
++
++	event_args.manual = true;
++	event_args.signaled = true;
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, objs[1]);
++
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
-+	check_sem_state(sem_args.sem, 0, 3);
-+	check_event_state(event_args.event, 1, 1);
++	check_sem_state(objs[0], 0, 3);
++	check_event_state(objs[1], 1, 1);
++
++	close(objs[1]);
 +
 +	/* test waiting on the same object twice */
-+	objs[0] = objs[1] = sem_args.sem;
++	objs[1] = objs[0];
 +	ret = wait_all(fd, 2, objs, 123, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(EINVAL, errno);
 +
-+	close(sem_args.sem);
-+	close(mutex_args.mutex);
-+	close(event_args.event);
++	close(objs[0]);
 +
 +	close(fd);
 +}
@@ -42266,20 +41354,13 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 0;
 +	sem_args.max = 3;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
++	objs[0] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[0]);
 +
 +	mutex_args.owner = 123;
 +	mutex_args.count = 1;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
-+
-+	objs[0] = sem_args.sem;
-+	objs[1] = mutex_args.mutex;
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, objs[1]);
 +
 +	/* test waking the semaphore */
 +
@@ -42298,10 +41379,10 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
 +	count = 1;
-+	ret = post_sem(sem_args.sem, &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
-+	check_sem_state(sem_args.sem, 0, 3);
++	check_sem_state(objs[0], 0, 3);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
@@ -42311,7 +41392,7 @@ index 000000000000..5fa2c9a0768c
 +	/* test waking the mutex */
 +
 +	/* first grab it again for owner 123 */
-+	ret = wait_any(fd, 1, &mutex_args.mutex, 123, &index);
++	ret = wait_any(fd, 1, &objs[1], 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
 +
@@ -42323,31 +41404,32 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = unlock_mutex(mutex_args.mutex, 123, &count);
++	ret = unlock_mutex(objs[1], 123, &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(2, count);
 +
 +	ret = pthread_tryjoin_np(thread, NULL);
 +	EXPECT_EQ(EBUSY, ret);
 +
-+	ret = unlock_mutex(mutex_args.mutex, 123, &count);
++	ret = unlock_mutex(objs[1], 123, &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, mutex_args.count);
-+	check_mutex_state(mutex_args.mutex, 1, 456);
++	check_mutex_state(objs[1], 1, 456);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, thread_args.ret);
 +	EXPECT_EQ(1, wait_args.index);
++
++	close(objs[1]);
 +
 +	/* test waking events */
 +
 +	event_args.manual = false;
 +	event_args.signaled = false;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, objs[1]);
 +
-+	objs[1] = event_args.event;
 +	wait_args.timeout = get_abs_timeout(1000);
 +	ret = pthread_create(&thread, NULL, wait_thread, &thread_args);
 +	EXPECT_EQ(0, ret);
@@ -42355,10 +41437,10 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(objs[1], NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, signaled);
-+	check_event_state(event_args.event, 0, 0);
++	check_event_state(objs[1], 0, 0);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
@@ -42372,24 +41454,23 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_PULSE, &signaled);
++	ret = ioctl(objs[1], NTSYNC_IOC_EVENT_PULSE, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, signaled);
-+	check_event_state(event_args.event, 0, 0);
++	check_event_state(objs[1], 0, 0);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, thread_args.ret);
 +	EXPECT_EQ(1, wait_args.index);
 +
-+	close(event_args.event);
++	close(objs[1]);
 +
 +	event_args.manual = true;
 +	event_args.signaled = false;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, objs[1]);
 +
-+	objs[1] = event_args.event;
 +	wait_args.timeout = get_abs_timeout(1000);
 +	ret = pthread_create(&thread, NULL, wait_thread, &thread_args);
 +	EXPECT_EQ(0, ret);
@@ -42397,17 +41478,17 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(objs[1], NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, signaled);
-+	check_event_state(event_args.event, 1, 1);
++	check_event_state(objs[1], 1, 1);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, thread_args.ret);
 +	EXPECT_EQ(1, wait_args.index);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_RESET, &signaled);
++	ret = ioctl(objs[1], NTSYNC_IOC_EVENT_RESET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, signaled);
 +
@@ -42418,31 +41499,28 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_PULSE, &signaled);
++	ret = ioctl(objs[1], NTSYNC_IOC_EVENT_PULSE, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, signaled);
-+	check_event_state(event_args.event, 0, 1);
++	check_event_state(objs[1], 0, 1);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, thread_args.ret);
 +	EXPECT_EQ(1, wait_args.index);
 +
-+	close(event_args.event);
-+
 +	/* delete an object while it's being waited on */
 +
 +	wait_args.timeout = get_abs_timeout(200);
 +	wait_args.owner = 123;
-+	objs[1] = mutex_args.mutex;
 +	ret = pthread_create(&thread, NULL, wait_thread, &thread_args);
 +	EXPECT_EQ(0, ret);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	close(sem_args.sem);
-+	close(mutex_args.mutex);
++	close(objs[0]);
++	close(objs[1]);
 +
 +	ret = wait_for_thread(thread, 200);
 +	EXPECT_EQ(0, ret);
@@ -42469,32 +41547,23 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 0;
 +	sem_args.max = 3;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
++	objs[0] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[0]);
 +
 +	mutex_args.owner = 123;
 +	mutex_args.count = 1;
-+	mutex_args.mutex = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, mutex_args.mutex);
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, objs[1]);
 +
 +	manual_event_args.manual = true;
 +	manual_event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &manual_event_args);
-+	EXPECT_EQ(0, ret);
++	objs[2] = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &manual_event_args);
++	EXPECT_LE(0, objs[2]);
 +
 +	auto_event_args.manual = false;
 +	auto_event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &auto_event_args);
-+	EXPECT_EQ(0, ret);
-+
-+	objs[0] = sem_args.sem;
-+	objs[1] = mutex_args.mutex;
-+	objs[2] = manual_event_args.event;
-+	objs[3] = auto_event_args.event;
++	objs[3] = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &auto_event_args);
++	EXPECT_EQ(0, objs[3]);
 +
 +	wait_args.timeout = get_abs_timeout(1000);
 +	wait_args.objs = (uintptr_t)objs;
@@ -42510,54 +41579,54 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
 +	count = 1;
-+	ret = post_sem(sem_args.sem, &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
 +
 +	ret = pthread_tryjoin_np(thread, NULL);
 +	EXPECT_EQ(EBUSY, ret);
 +
-+	check_sem_state(sem_args.sem, 1, 3);
++	check_sem_state(objs[0], 1, 3);
 +
-+	ret = wait_any(fd, 1, &sem_args.sem, 123, &index);
++	ret = wait_any(fd, 1, &objs[0], 123, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
 +
-+	ret = unlock_mutex(mutex_args.mutex, 123, &count);
++	ret = unlock_mutex(objs[1], 123, &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, count);
 +
 +	ret = pthread_tryjoin_np(thread, NULL);
 +	EXPECT_EQ(EBUSY, ret);
 +
-+	check_mutex_state(mutex_args.mutex, 0, 0);
++	check_mutex_state(objs[1], 0, 0);
 +
-+	ret = ioctl(manual_event_args.event, NTSYNC_IOC_EVENT_RESET, &signaled);
++	ret = ioctl(objs[2], NTSYNC_IOC_EVENT_RESET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, signaled);
 +
 +	count = 2;
-+	ret = post_sem(sem_args.sem, &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, count);
-+	check_sem_state(sem_args.sem, 2, 3);
++	check_sem_state(objs[0], 2, 3);
 +
-+	ret = ioctl(auto_event_args.event, NTSYNC_IOC_EVENT_RESET, &signaled);
++	ret = ioctl(objs[3], NTSYNC_IOC_EVENT_RESET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, signaled);
 +
-+	ret = ioctl(manual_event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(objs[2], NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, signaled);
 +
-+	ret = ioctl(auto_event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(objs[3], NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, signaled);
 +
-+	check_sem_state(sem_args.sem, 1, 3);
-+	check_mutex_state(mutex_args.mutex, 1, 456);
-+	check_event_state(manual_event_args.event, 1, 1);
-+	check_event_state(auto_event_args.event, 0, 0);
++	check_sem_state(objs[0], 1, 3);
++	check_mutex_state(objs[1], 1, 456);
++	check_event_state(objs[2], 1, 1);
++	check_event_state(objs[3], 0, 0);
 +
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(0, ret);
@@ -42573,10 +41642,10 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	close(sem_args.sem);
-+	close(mutex_args.mutex);
-+	close(manual_event_args.event);
-+	close(auto_event_args.event);
++	close(objs[0]);
++	close(objs[1]);
++	close(objs[2]);
++	close(objs[3]);
 +
 +	ret = wait_for_thread(thread, 200);
 +	EXPECT_EQ(0, ret);
@@ -42593,7 +41662,7 @@ index 000000000000..5fa2c9a0768c
 +	struct ntsync_sem_args sem_args = {0};
 +	__u32 index, count, signaled;
 +	struct wait_args thread_args;
-+	int objs[2], fd, ret;
++	int objs[2], event, fd, ret;
 +	pthread_t thread;
 +
 +	fd = open("/dev/ntsync", O_CLOEXEC | O_RDONLY);
@@ -42601,50 +41670,44 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 0;
 +	sem_args.max = 2;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
-+	objs[0] = sem_args.sem;
++	objs[0] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[0]);
 +
 +	sem_args.count = 1;
 +	sem_args.max = 2;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
-+	objs[1] = sem_args.sem;
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[1]);
 +
 +	event_args.manual = true;
 +	event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
++	event = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, event);
 +
-+	ret = wait_any_alert(fd, 0, NULL, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 0, NULL, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_RESET, &signaled);
++	ret = ioctl(event, NTSYNC_IOC_EVENT_RESET, &signaled);
 +	EXPECT_EQ(0, ret);
 +
-+	ret = wait_any_alert(fd, 0, NULL, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 0, NULL, 123, event, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(event, NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +
-+	ret = wait_any_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(1, index);
 +
-+	ret = wait_any_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(2, index);
 +
 +	/* test wakeup via alert */
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_RESET, &signaled);
++	ret = ioctl(event, NTSYNC_IOC_EVENT_RESET, &signaled);
 +	EXPECT_EQ(0, ret);
 +
 +	wait_args.timeout = get_abs_timeout(1000);
@@ -42652,7 +41715,7 @@ index 000000000000..5fa2c9a0768c
 +	wait_args.count = 2;
 +	wait_args.owner = 123;
 +	wait_args.index = 0xdeadbeef;
-+	wait_args.alert = event_args.event;
++	wait_args.alert = event;
 +	thread_args.fd = fd;
 +	thread_args.args = &wait_args;
 +	thread_args.request = NTSYNC_IOC_WAIT_ANY;
@@ -42662,7 +41725,7 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(event, NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +
 +	ret = wait_for_thread(thread, 100);
@@ -42670,32 +41733,32 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(0, thread_args.ret);
 +	EXPECT_EQ(2, wait_args.index);
 +
-+	close(event_args.event);
++	close(event);
 +
 +	/* test with an auto-reset event */
 +
 +	event_args.manual = false;
 +	event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
++	event = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, event);
 +
 +	count = 1;
-+	ret = post_sem(objs[0], &count);
++	ret = release_sem(objs[0], &count);
 +	EXPECT_EQ(0, ret);
 +
-+	ret = wait_any_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
 +
-+	ret = wait_any_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(2, index);
 +
-+	ret = wait_any_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_any_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
 +
-+	close(event_args.event);
++	close(event);
 +
 +	close(objs[0]);
 +	close(objs[1]);
@@ -42710,7 +41773,7 @@ index 000000000000..5fa2c9a0768c
 +	struct ntsync_sem_args sem_args = {0};
 +	struct wait_args thread_args;
 +	__u32 index, count, signaled;
-+	int objs[2], fd, ret;
++	int objs[2], event, fd, ret;
 +	pthread_t thread;
 +
 +	fd = open("/dev/ntsync", O_CLOEXEC | O_RDONLY);
@@ -42718,36 +41781,30 @@ index 000000000000..5fa2c9a0768c
 +
 +	sem_args.count = 2;
 +	sem_args.max = 2;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
-+	objs[0] = sem_args.sem;
++	objs[0] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[0]);
 +
 +	sem_args.count = 1;
 +	sem_args.max = 2;
-+	sem_args.sem = 0xdeadbeef;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
-+	EXPECT_EQ(0, ret);
-+	EXPECT_NE(0xdeadbeef, sem_args.sem);
-+	objs[1] = sem_args.sem;
++	objs[1] = ioctl(fd, NTSYNC_IOC_CREATE_SEM, &sem_args);
++	EXPECT_LE(0, objs[1]);
 +
 +	event_args.manual = true;
 +	event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
++	event = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, event);
 +
-+	ret = wait_all_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_all_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
 +
-+	ret = wait_all_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_all_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(2, index);
 +
 +	/* test wakeup via alert */
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_RESET, &signaled);
++	ret = ioctl(event, NTSYNC_IOC_EVENT_RESET, &signaled);
 +	EXPECT_EQ(0, ret);
 +
 +	wait_args.timeout = get_abs_timeout(1000);
@@ -42755,7 +41812,7 @@ index 000000000000..5fa2c9a0768c
 +	wait_args.count = 2;
 +	wait_args.owner = 123;
 +	wait_args.index = 0xdeadbeef;
-+	wait_args.alert = event_args.event;
++	wait_args.alert = event;
 +	thread_args.fd = fd;
 +	thread_args.args = &wait_args;
 +	thread_args.request = NTSYNC_IOC_WAIT_ALL;
@@ -42765,7 +41822,7 @@ index 000000000000..5fa2c9a0768c
 +	ret = wait_for_thread(thread, 100);
 +	EXPECT_EQ(ETIMEDOUT, ret);
 +
-+	ret = ioctl(event_args.event, NTSYNC_IOC_EVENT_SET, &signaled);
++	ret = ioctl(event, NTSYNC_IOC_EVENT_SET, &signaled);
 +	EXPECT_EQ(0, ret);
 +
 +	ret = wait_for_thread(thread, 100);
@@ -42773,32 +41830,32 @@ index 000000000000..5fa2c9a0768c
 +	EXPECT_EQ(0, thread_args.ret);
 +	EXPECT_EQ(2, wait_args.index);
 +
-+	close(event_args.event);
++	close(event);
 +
 +	/* test with an auto-reset event */
 +
 +	event_args.manual = false;
 +	event_args.signaled = true;
-+	ret = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
++	event = ioctl(fd, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, event);
 +
 +	count = 2;
-+	ret = post_sem(objs[1], &count);
++	ret = release_sem(objs[1], &count);
 +	EXPECT_EQ(0, ret);
 +
-+	ret = wait_all_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_all_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(0, index);
 +
-+	ret = wait_all_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_all_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(0, ret);
 +	EXPECT_EQ(2, index);
 +
-+	ret = wait_all_alert(fd, 2, objs, 123, event_args.event, &index);
++	ret = wait_all_alert(fd, 2, objs, 123, event, &index);
 +	EXPECT_EQ(-1, ret);
 +	EXPECT_EQ(ETIMEDOUT, errno);
 +
-+	close(event_args.event);
++	close(event);
 +
 +	close(objs[0]);
 +	close(objs[1]);
@@ -42852,15 +41909,13 @@ index 000000000000..5fa2c9a0768c
 +
 +	mutex_args.owner = 0;
 +	mutex_args.count = 0;
-+	ret = ioctl(stress_device, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
-+	EXPECT_EQ(0, ret);
-+	stress_mutex = mutex_args.mutex;
++	stress_mutex = ioctl(stress_device, NTSYNC_IOC_CREATE_MUTEX, &mutex_args);
++	EXPECT_LE(0, stress_mutex);
 +
 +	event_args.manual = 1;
 +	event_args.signaled = 0;
-+	ret = ioctl(stress_device, NTSYNC_IOC_CREATE_EVENT, &event_args);
-+	EXPECT_EQ(0, ret);
-+	stress_start_event = event_args.event;
++	stress_start_event = ioctl(stress_device, NTSYNC_IOC_CREATE_EVENT, &event_args);
++	EXPECT_LE(0, stress_start_event);
 +
 +	for (i = 0; i < STRESS_THREADS; ++i)
 +		pthread_create(&threads[i], NULL, stress_thread, NULL);
