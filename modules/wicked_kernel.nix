@@ -36,14 +36,23 @@
             };
         });
 
-        /*xpadneo = prevAttrs.xpadneo.overrideAttrs (prevAttrs: {
+        xpadneo = prevAttrs.xpadneo.overrideAttrs (finalAttrs': prevAttrs': {
           src = final.fetchFromGitHub {
             owner = "atar-axis";
             repo = "xpadneo";
-            rev = "be65dbb793b09241c4a525ce3363f797672b3301";
-            hash = "sha256-COmi4sxz6m5IPW8ruzHsw+LsepEgA5+A6Yh1642MSAM=";
+            rev = "227c101fea112e8b7309aadb736b9a1c4120b126";
+            hash = "sha256-fI6gX2p2RaJdKi8bluGjqryg0Zjv8otvDe0Fph72mMw=";
           };
-        });*/
+
+          patches = [ ];
+
+          makeFlags = [
+            "-C"
+            "${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/build"
+            "M=$(sourceRoot)"
+            "VERSION=${finalAttrs'.version}"
+          ];
+        });
       });
     })
   ];
@@ -235,5 +244,5 @@
     "w! /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
   ];
 
-  hardware.xpadneo.enable = lib.mkForce false;
+  #hardware.xpadneo.enable = lib.mkForce false;
 }
