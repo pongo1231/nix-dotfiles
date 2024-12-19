@@ -88,7 +88,7 @@
         };
         patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
       }))
-      #hp-omen-linux-module
+      hp-omen-linux-module
       ryzen-smu
     ];
 

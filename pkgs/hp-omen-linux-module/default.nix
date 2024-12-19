@@ -19,14 +19,24 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = kernel.moduleBuildDependencies;
 
-  makeFlags = kernel.makeFlags ++ [
-    "-C"
-    "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
-    "M=$(sourceRoot)"
-    "VERSION=${finalAttrs.version}"
+  makeFlags = [
+    #"TARGET=${kernel.modDirVersion}"
+    "KERNELDIR=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
+    #"-C"
+    #"${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
+    #"M=$(sourceRoot)"
+    #"VERSION=${finalAttrs.version}"
   ];
 
-  buildFlags = [ "modules" ];
-  installFlags = [ "INSTALL_MOD_PATH=${placeholder "out"}" ];
-  installTargets = [ "modules_install" ];
+  installPhase = ''
+    runHook preInstall
+
+    install hp-wmi.ko -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/platform/x86/hp/
+
+    runHook postInstall
+  '';
+
+  #buildFlags = [ "modules" ];
+  #installFlags = [ "INSTALL_MOD_PATH=${placeholder "out"}" ];
+  #installTargets = [ "modules_install" ];
 })
