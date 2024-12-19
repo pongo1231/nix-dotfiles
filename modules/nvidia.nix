@@ -19,25 +19,43 @@
         let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
           nvidiaPackages.production = (generic {
-            version = "565.57.01";
-            sha256_64bit = "sha256-buvpTlheOF6IBPWnQVLfQUiHv4GcwhvZW3Ks0PsYLHo=";
-            openSha256 = "sha256-/tM3n9huz1MTE6KKtTCBglBMBGGL/GOHi5ZSUag4zXA=";
-            settingsSha256 = "sha256-H7uEe34LdmUFcMcS6bz7sbpYhg9zPCb/5AmZZFTx1QA=";
+            version = "565.77";
+            sha256_64bit = "sha256-CnqnQsRrzzTXZpgkAtF7PbH9s7wbiTRNcM0SPByzFHw=";
+            openSha256 = "sha256-Fxo0t61KQDs71YA8u7arY+503wkAc1foaa51vi2Pl5I=";
+            settingsSha256 = "sha256-VUetj3LlOSz/LB+DDfMCN34uA4bNTTpjDrb6C6Iwukk=";
             persistencedSha256 = "";
-            #patches = [ (patch /nvidia/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch) ];
-          }).overrideAttrs (prevAttrs': {
+
+            patches = [
+              (patch /nvidia/6.13/0001-KBuild-changes.patch)
+              (patch /nvidia/6.13/0002-FROM-AOSC-Use-linux-aperture.c-for-removing-conflict.patch)
+              (patch /nvidia/6.13/0003-FROM-AOSC-TTM-fbdev-emulation-for-Linux-6.13.patch)
+            ];
+          }).overrideAttrs (finalAttrs': prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
             #builder = (patch /nvidia/builder.sh);
 
-            patches = prevAttrs'.patches ++ [
-
+            makeFlags = [
+              "IGNORE_PREEMPT_RT_PRESENCE=1"
+              "NV_BUILD_SUPPORTS_HMM=1"
+              "SYSSRC=${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/source"
+              "SYSOUT=${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/build"
             ];
 
             passthru = prevAttrs'.passthru // {
-              open = prevAttrs'.passthru.open.overrideAttrs (prevAttrs'': {
+              open = prevAttrs'.passthru.open.overrideAttrs (finalAttrs'': prevAttrs'': {
                 patches = prevAttrs''.patches ++ [
-                  #(patch /nvidia/open/0006-Fix-for-6.12.0-rc1-drm_mode_config_funcs.output_poll.patch)
-                  #(patch /nvidia/open/0007-Replace-PageSwapCache-for-6.12-kernel.patch)
+                  (patch /nvidia/6.13/0004-OPEN-Fix-MODULE_IMPORT_NS.patch)
+                  (patch /nvidia/6.13/0005-OPEN-disable-LKCA.patch)
+                ];
+
+                makeFlags = [
+                  "SYSSRC=${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/source"
+                  "SYSOUT=${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/build"
+                  "MODLIB=$(out)/lib/modules/${finalAttrs.kernel.modDirVersion}"
+                  {
+                    aarch64-linux = "TARGET_ARCH=aarch64";
+                    x86_64-linux = "TARGET_ARCH=x86_64";
+                  }.${finalAttrs.stdenv.hostPlatform.system}
                 ];
               });
 
@@ -51,15 +69,8 @@
     prime = {
       offload.enable = true;
       nvidiaBusId = "PCI:1:0:0";
-    } // lib.optionalAttrs
-      (platform == "intel")
-      {
-        intelBusId = "PCI:0:2:0";
-      } // lib.optionalAttrs
-      (platform == "amd")
-      {
-        amdgpuBusId = "PCI:5:0:0";
-      };
+    } // lib.optionalAttrs (platform == "intel") { intelBusId = "PCI:0:2:0"; }
+    // lib.optionalAttrs (platform == "amd") { amdgpuBusId = "PCI:5:0:0"; };
     powerManagement = {
       enable = true;
       finegrained = true;

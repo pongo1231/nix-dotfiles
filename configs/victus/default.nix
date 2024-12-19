@@ -10,7 +10,7 @@
 {
   imports = [
     (module /amdcpu.nix)
-    #(import (module /nvidia.nix) { platform = "amd"; })
+    (import (module /nvidia.nix) { platform = "amd"; })
     (module /power.nix)
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })

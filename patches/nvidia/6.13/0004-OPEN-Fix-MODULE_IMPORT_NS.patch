@@ -1,0 +1,75 @@
+From 2c53bdfd0b99d5c59273d26c315d73b4e3d4af36 Mon Sep 17 00:00:00 2001
+From: xtex <xtexchooser@duck.com>
+Date: Sat, 14 Dec 2024 13:28:50 +0800
+Subject: [PATCH] FROM AOSC: Convert symbol namespace to string literal
+
+This fixes build on kernel 6.13+.
+
+Follow-up: cdd30ebb1b9f ("module: Convert symbol namespace to string literal")
+Fixes: cdd30ebb1b9f ("module: Convert symbol namespace to string literal")
+Signed-off-by: xtex <xtex@aosc.io>
+---
+ kernel-open/conftest.sh          | 15 +++++++++++++++
+ kernel-open/nvidia/nv.c          |  5 +++++
+ kernel-open/nvidia/nvidia.Kbuild |  1 +
+ 3 files changed, 21 insertions(+)
+
+diff --git a/kernel-open/conftest.sh b/kernel-open/conftest.sh
+index 5a0f39e0b..90736726b 100755
+--- a/kernel-open/conftest.sh
++++ b/kernel-open/conftest.sh
+@@ -7193,6 +7193,21 @@ compile_test() {
+             compile_check_conftest "$CODE" "NV_FOLIO_TEST_SWAPCACHE_PRESENT" "" "functions"
+         ;;
+ 
++    module_import_ns_string)
++            #
++            # Determine if the MODULE_IMPORT_NS() macro accepts string literal.
++            #
++            # Changed in cdd30ebb1b9f ("module: Convert symbol namespace to string literal") in 6.13-rc2
++            #
++            CODE="
++            #include <linux/module.h>
++            MODULE_IMPORT_NS(\"DMA_BUF\");
++            void conftest_module_import_ns_string(void) {
++            }"
++
++            compile_check_conftest "$CODE" "NV_MODULE_IMPORT_NS_STRING" "" "types"
++        ;;
++
+         # When adding a new conftest entry, please use the correct format for
+         # specifying the relevant upstream Linux kernel commit.  Please
+         # avoid specifying -rc kernels, and only use SHAs that actually exist
+diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
+index 83705a051..3414098c5 100644
+--- a/kernel-open/nvidia/nv.c
++++ b/kernel-open/nvidia/nv.c
+@@ -105,6 +105,7 @@
+ #endif
+ 
+ #include "conftest/patches.h"
++#include "conftest/types.h"
+ 
+ #include "detect-self-hosted.h"
+ 
+@@ -127,7 +128,11 @@ MODULE_ALIAS_CHARDEV_MAJOR(NV_MAJOR_DEVICE_NUMBER);
+  * DMA_BUF namespace is added by commit id 16b0314aa746
+  * ("dma-buf: move dma-buf symbols into the DMA_BUF module namespace") in 5.16
+  */
++#if defined(NV_MODULE_IMPORT_NS_STRING)
++MODULE_IMPORT_NS("DMA_BUF");
++#else
+ MODULE_IMPORT_NS(DMA_BUF);
++#endif
+ #endif  // defined(MODULE_IMPORT_NS)
+ 
+ const NvBool nv_is_rm_firmware_supported_os = NV_TRUE;
+diff --git a/kernel-open/nvidia/nvidia.Kbuild b/kernel-open/nvidia/nvidia.Kbuild
+index 4262c6f35..5f5c0201a 100644
+--- a/kernel-open/nvidia/nvidia.Kbuild
++++ b/kernel-open/nvidia/nvidia.Kbuild
+@@ -276,3 +276,4 @@ NV_CONFTEST_GENERIC_COMPILE_TESTS += mdev_available
+ NV_CONFTEST_GENERIC_COMPILE_TESTS += cmd_uphy_display_port_init
+ NV_CONFTEST_GENERIC_COMPILE_TESTS += cmd_uphy_display_port_off
+ NV_CONFTEST_GENERIC_COMPILE_TESTS += memory_failure_mf_sw_simulated_defined
++NV_CONFTEST_GENERIC_COMPILE_TESTS += module_import_ns_string

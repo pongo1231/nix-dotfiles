@@ -1,0 +1,23 @@
+From 28e20fdf3278d4e6e68584b6e3a506e832ab8b6b Mon Sep 17 00:00:00 2001
+From: xtex <xtexchooser@duck.com>
+Date: Sat, 14 Dec 2024 13:47:12 +0800
+Subject: [PATCH] FROM AOSC: Disable LKCA
+
+---
+ kernel-open/nvidia/internal_crypt_lib.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/kernel-open/nvidia/internal_crypt_lib.h b/kernel-open/nvidia/internal_crypt_lib.h
+index 2eac7d5e4..7279085f6 100644
+--- a/kernel-open/nvidia/internal_crypt_lib.h
++++ b/kernel-open/nvidia/internal_crypt_lib.h
+@@ -65,7 +65,8 @@
+  * define stubs to return errors.
+  */
+ #if defined(NV_CRYPTO_PRESENT) && defined (NV_CONFIG_CRYPTO_PRESENT)
+-#define USE_LKCA 1
++// AOSC OS: 6b34562f0cfe ("crypto: akcipher - Drop sign/verify operations") breaks LKCA
++// #define USE_LKCA 1
+ #endif
+ 
+ #ifdef USE_LKCA
