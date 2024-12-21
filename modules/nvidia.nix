@@ -32,7 +32,7 @@
             ];
           }).overrideAttrs (finalAttrs': prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-            #builder = (patch /nvidia/builder.sh);
+            builder = (patch /nvidia/builder.sh);
 
             makeFlags = [
               "IGNORE_PREEMPT_RT_PRESENCE=1"
