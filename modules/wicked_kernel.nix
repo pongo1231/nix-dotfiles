@@ -223,6 +223,10 @@
           patch = patch /linux/6.13/mglru-optimizations.patch;
         }
         {
+          name = "tlb-invalidation";
+          patch = patch /linux/6.13/tlb-invalidation.patch;
+        }
+        {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
           extraConfig = ''
