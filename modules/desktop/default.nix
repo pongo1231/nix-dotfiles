@@ -85,6 +85,8 @@
     flatpak.enable = true;
 
     seatd.enable = true;
+
+    fwupd.enable = true;
   };
 
   virtualisation.waydroid.enable = true;
@@ -115,6 +117,7 @@
     vulkan-tools
     wayland-utils
     aha
+    dmidecode
   ];
 }
 
