@@ -51,12 +51,12 @@
       appimage-run
       syncthing
       audacious
-      jamesdsp
+      #jamesdsp
       qbittorrent
       weston
-      inputs.nixpkgs-stable.legacyPackages.${system}.mission-center
-      looking-glass-client
-      virt-manager
+      mission-center
+      inputs.nixpkgs-stable.legacyPackages.${system}.looking-glass-client
+      inputs.nixpkgs-stable.legacyPackages.${system}.virt-manager
     ];
   };
 }
