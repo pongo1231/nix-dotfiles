@@ -38,8 +38,11 @@
 
     git = {
       enable = true;
+
       userName = "pongo1231";
       userEmail = "pongo1999712@gmail.com";
+
+      extraConfig.pull.rebase = true;
     };
 
     nix-index-database.comma.enable = true;
