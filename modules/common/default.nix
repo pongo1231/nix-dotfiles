@@ -158,8 +158,8 @@
     };
 
     journald.extraConfig = ''
-      SystemMaxUse=1G
-      SystemMaxFileSize=50M
+      SystemMaxUse=10M
+      Storage=volatile
     '';
 
     fstrim.enable = true;
