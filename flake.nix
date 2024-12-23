@@ -3,7 +3,7 @@
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
     nixpkgs-desktop-kernel = {
-      url = "github:pongo1231/nixpkgs/39132664da29a8620672a2b69afe7444659f1351";
+      url = "github:pongo1231/nixpkgs/0e2d2f87f0f61065ee6ccb979a1213691e74dbac";
       #follows = "nixpkgs";
     };
 
@@ -12,7 +12,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    #nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/39132664da29a8620672a2b69afe7444659f1351";
+    #nixpkgs-jupiter-kernel.url = "github:nixos/nixpkgs/0e2d2f87f0f61065ee6ccb979a1213691e74dbac";
 
     nixos-wsl = {
       url = "github:nix-community/NixOS-WSL";

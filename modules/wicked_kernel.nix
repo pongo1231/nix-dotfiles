@@ -19,11 +19,11 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc3";
+              version = "6.13-rc4";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc3";
+              modDirVersion = "6.13.0-rc4";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "b5f217084ab3ddd4bdd03cd437f8e3b7e2d1f5b6";
@@ -31,7 +31,7 @@
               };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-fCZrlh4T7jh2gvk1OTvV8lyiip97qL21yL3K/y02mso=";
+                hash = "sha256-adzqZchgpCfKot+F7m3fPDQApXdEhjqDTGaOzrxBSTE=";
               };
             };
         });
@@ -225,6 +225,10 @@
         {
           name = "tlb-invalidation";
           patch = patch /linux/6.13/tlb-invalidation.patch;
+        }
+        {
+          name = "aes-gcm-amd";
+          patch = patch /linux/6.13/aes-gcm-amd.patch;
         }
         {
           name = "jupiter-mfd";
