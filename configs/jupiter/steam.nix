@@ -8,20 +8,25 @@
 
   jovian = {
     devices.steamdeck.enable = true;
+
     steamos = {
       enableVendorRadv = false;
-      enableMesaPatches = true;
+      enableMesaPatches = false;
     };
+
     steam = {
       enable = true;
       autoStart = true;
       user = "pongo";
       desktopSession = "plasma";
     };
+
     decky-loader = {
       enable = true;
       enableFHSEnvironment = true;
+
       user = "pongo";
+
       extraPackages = with pkgs; [
         curl
         unzip
@@ -34,6 +39,7 @@
         libpulseaudio
         xorg.xprop
       ];
+
       extraPythonPackages = pythonPackages: with pythonPackages; [
         click
       ];

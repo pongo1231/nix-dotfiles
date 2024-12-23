@@ -74,11 +74,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1734980780,
-        "narHash": "sha256-kWf6c+GC4LX7oNae+XCVADFM/rBT/paJFoAmXcgiQDk=",
+        "lastModified": 1734983843,
+        "narHash": "sha256-g+u4XGF7JXQTguC1pPJz5jKbPYxXZJ5OfhMuLv/2wks=",
         "owner": "pongo1231",
         "repo": "Jovian-NixOS",
-        "rev": "63cdffe31947a051f3163ef54f01e082c544993e",
+        "rev": "afbbc9ddb83e63e2636d7e373b77887c453b5803",
         "type": "github"
       },
       "original": {
@@ -163,12 +163,29 @@
         "type": "github"
       }
     },
+    "nixpkgs-stable": {
+      "locked": {
+        "lastModified": 1734875076,
+        "narHash": "sha256-Pzyb+YNG5u3zP79zoi8HXYMs15Q5dfjDgwCdUI5B0nY=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "1807c2b91223227ad5599d7067a61665c52d1295",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-24.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "jovian": "jovian",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
         "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel",
+        "nixpkgs-stable": "nixpkgs-stable",
         "winapps": "winapps"
       }
     },

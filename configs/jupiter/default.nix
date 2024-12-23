@@ -65,6 +65,19 @@ in
   hardware = {
     cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
+    graphics =
+      let
+        patchMesa = mesa: mesa.overrideAttrs (finalAttrs: prevAttrs: {
+          patches = prevAttrs.patches ++ [
+            (patch /mesa/24.3.0/gamescope-limiter.patch)
+          ];
+        });
+      in
+      {
+        package = lib.mkForce (patchMesa pkgs.mesa.drivers);
+        package32 = lib.mkForce (patchMesa pkgs.pkgsi686Linux.mesa.drivers);
+      };
+
     #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
     #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };

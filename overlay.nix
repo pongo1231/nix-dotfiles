@@ -45,4 +45,11 @@
       hash = "sha256-uPCnI52PjxZPPzoMqS3ayF+5lqvQqb8WmeP1BxAC2ZE=";
     };
   });
+
+  decky-loader = inputs.nixpkgs-stable.legacyPackages.${system}.callPackage "${inputs.jovian}/pkgs/decky-loader" { };
+  /*decky-loader = prev.decky-loader.overridePythonAttrs (prevAttrs: {
+    dependencies = (builtins.filter (x: x != inputs.nixpkgs.legacyPackages.${system}.python3Packages.watchdog) prevAttrs.dependencies) ++ [
+      inputs.nixpkgs-stable.legacyPackages.${system}.python3Packages.watchdog
+    ];
+  });*/
 })
