@@ -43,6 +43,8 @@
       userEmail = "pongo1999712@gmail.com";
 
       extraConfig.pull.rebase = true;
+
+      difftastic.enable = true;
     };
 
     nix-index-database.comma.enable = true;
