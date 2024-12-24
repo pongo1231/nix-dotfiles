@@ -214,10 +214,10 @@
             ARCH_HAS_EXECMEM_ROX y
           '';
         }*/
-        /*{
+        {
           name = "BORE";
-          patch = patch /linux/6.13/0001-linux6.13.y-bore5.8.10.patch;
-        }*/
+          patch = patch /linux/6.13/0001-linux6.13.0-rc4-bore5.7.14.patch;
+        }
         {
           name = "mglru-optimizations";
           patch = patch /linux/6.13/mglru-optimizations.patch;
@@ -229,6 +229,10 @@
         {
           name = "aes-gcm-amd";
           patch = patch /linux/6.13/aes-gcm-amd.patch;
+        }
+        {
+          name = "uncached-buffered-io-optimizations";
+          patch = patch /linux/6.13/uncached-buffered-io-optimizations.patch;
         }
         {
           name = "jupiter-mfd";

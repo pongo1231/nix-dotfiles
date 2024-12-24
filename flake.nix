@@ -5,8 +5,8 @@
     nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
     nixpkgs-desktop-kernel = {
-      url = "github:pongo1231/nixpkgs/0e2d2f87f0f61065ee6ccb979a1213691e74dbac";
-      #follows = "nixpkgs";
+      #url = "github:pongo1231/nixpkgs/0e2d2f87f0f61065ee6ccb979a1213691e74dbac";
+      follows = "nixpkgs";
     };
 
     jovian = {

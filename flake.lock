@@ -147,22 +147,6 @@
         "type": "github"
       }
     },
-    "nixpkgs-desktop-kernel": {
-      "locked": {
-        "lastModified": 1734962423,
-        "narHash": "sha256-ktdIsDWuLwLR5tP7NGJsr5Myq7nb4jyO2g/S0Ti94ZU=",
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "0e2d2f87f0f61065ee6ccb979a1213691e74dbac",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "0e2d2f87f0f61065ee6ccb979a1213691e74dbac",
-        "type": "github"
-      }
-    },
     "nixpkgs-stable": {
       "locked": {
         "lastModified": 1734875076,
@@ -184,7 +168,9 @@
         "jovian": "jovian",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-desktop-kernel": "nixpkgs-desktop-kernel",
+        "nixpkgs-desktop-kernel": [
+          "nixpkgs"
+        ],
         "nixpkgs-stable": "nixpkgs-stable",
         "winapps": "winapps"
       }
