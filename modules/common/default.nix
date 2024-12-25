@@ -82,6 +82,7 @@
       "cgroup_no_v1=all"
       "mitigations=off"
       "nosoftlockup"
+      "split_lock_detect=off"
     ];
 
     extraModprobeConfig = ''
