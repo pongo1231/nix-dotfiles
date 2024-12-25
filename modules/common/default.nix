@@ -86,6 +86,7 @@
 
     extraModprobeConfig = ''
       options snd_hda_intel power_save=1
+      options kvm_amd avic=1 force_avic=1 nested=0
     '';
   };
 
