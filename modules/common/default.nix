@@ -167,6 +167,8 @@
     #zfs.trim.enable = true;
 
     envfs.enable = true;
+
+    irqbalance.enable = true;
   };
 
   security.rtkit.enable = true;
