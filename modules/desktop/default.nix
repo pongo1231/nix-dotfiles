@@ -13,12 +13,12 @@
     kernelParams = [
       #"preempt=full"
       #"nohz_full=0-N"
-      #"threadirqs"
-      #"rcu_nocbs=0-N"
+      "threadirqs"
+      "rcu_nocbs=0-N"
       #"irqaffinity=0"
-      #"rcutree.enable_rcu_lazy=1"
-      #"rcutree.nohz_full_patience_delay=1000"
-      #"rcutree.use_softirq=0"
+      "rcutree.enable_rcu_lazy=1"
+      "rcutree.nohz_full_patience_delay=1000"
+      "rcutree.use_softirq=0"
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [ ];
