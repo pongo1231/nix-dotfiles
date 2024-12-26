@@ -66,6 +66,8 @@
         # Those should be defaults usually
         "vm.compact_unevictable_allowed" = 1;
         "vm.compaction_proactiveness" = 20;
+
+        "kernel.split_lock_mitigate" = 0;
       };
     };
     initrd.systemd.enable = true;
