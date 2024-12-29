@@ -47,7 +47,7 @@
       };
 
       "tf.gopong.dev" = {
-        enableACME = true;
+        rejectSSL = true;
         extraConfig = ''
           autoindex on;
         '';
