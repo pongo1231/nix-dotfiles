@@ -24,15 +24,15 @@
             {
               inherit version;
               modDirVersion = "6.13.0-rc4";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "b5f217084ab3ddd4bdd03cd437f8e3b7e2d1f5b6";
-                hash = "sha256-WrqzT2pz8el1pqpBL2Z8V8P0VqhROX2NefNvmkpPa08=";
-              };*/
-              src = pkgs.fetchzip {
+                rev = "059dd502b263d8a4e2a84809cf1068d6a3905e6f";
+                hash = "sha256-8s0nj3g58v9SoMgAz3LHqImiljlgWeQ9e8fBUnDg2Us=";
+              };
+              /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "sha256-adzqZchgpCfKot+F7m3fPDQApXdEhjqDTGaOzrxBSTE=";
-              };
+              };*/
             };
         });
 
@@ -237,6 +237,10 @@
         {
           name = "binder-optimizations";
           patch = patch /linux/6.13/binder-optimizations.patch;
+        }
+        {
+          name = "xhci-improvements";
+          patch = patch /linux/6.13/xhci-improvements.patch;
         }
         {
           name = "jupiter-mfd";
