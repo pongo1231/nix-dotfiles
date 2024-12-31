@@ -19,20 +19,20 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc4";
+              version = "6.13-rc5";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc4";
-              src = pkgs.fetchgit {
+              modDirVersion = "6.13.0-rc5";
+              /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "059dd502b263d8a4e2a84809cf1068d6a3905e6f";
                 hash = "sha256-8s0nj3g58v9SoMgAz3LHqImiljlgWeQ9e8fBUnDg2Us=";
-              };
-              /*src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-adzqZchgpCfKot+F7m3fPDQApXdEhjqDTGaOzrxBSTE=";
               };*/
+              src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "sha256-OQdEQ1LQ6+K2Ba2RJtvgsCpRO0o2kyOxYwB/38bTKgs=";
+              };
             };
         });
 
@@ -226,10 +226,10 @@
           name = "tlb-invalidation";
           patch = patch /linux/6.13/tlb-invalidation.patch;
         }
-        {
+        /*{
           name = "aes-gcm-amd";
           patch = patch /linux/6.13/aes-gcm-amd.patch;
-        }
+        }*/
         {
           name = "uncached-buffered-io-optimizations";
           patch = patch /linux/6.13/uncached-buffered-io-optimizations.patch;
@@ -242,6 +242,10 @@
           name = "xhci-improvements";
           patch = patch /linux/6.13/xhci-improvements.patch;
         }
+        /*{
+          name = "drm-deadline";
+          patch = patch /linux/6.13/drm-deadline.patch;
+        }*/
         {
           name = "jupiter-mfd";
           patch = patch /linux/6.12/jupiter-mfd.patch;
