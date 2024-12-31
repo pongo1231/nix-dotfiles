@@ -44,7 +44,7 @@
 
       extraConfig.pull.rebase = true;
 
-      difftastic.enable = true;
+      #difftastic.enable = true;
     };
 
     nix-index-database.comma.enable = true;
