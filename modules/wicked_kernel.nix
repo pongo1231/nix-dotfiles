@@ -216,7 +216,7 @@
         }*/
         {
           name = "BORE";
-          patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.3.patch;
+          patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.5.patch;
         }
         {
           name = "mglru-optimizations";
