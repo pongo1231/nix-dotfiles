@@ -161,7 +161,10 @@
 
     openssh = {
       enable = true;
-      settings.X11Forwarding = true;
+      settings = {
+        X11Forwarding = true;
+        GatewayPorts = "yes";
+      };
     };
 
     journald.extraConfig = ''
