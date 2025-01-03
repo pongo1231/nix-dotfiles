@@ -6870,7 +6870,7 @@ index a261d7300951e..3a0a380c3590c 100644
  			}
  		} else {
 diff --git a/drivers/cpufreq/amd-pstate.c b/drivers/cpufreq/amd-pstate.c
-index 66e5dfc711c0c..d7b1de97727a1 100644
+index 66e5dfc711c0c..2330903a8b457 100644
 --- a/drivers/cpufreq/amd-pstate.c
 +++ b/drivers/cpufreq/amd-pstate.c
 @@ -22,6 +22,7 @@
@@ -7273,6 +7273,15 @@ index 66e5dfc711c0c..d7b1de97727a1 100644
  	ret = rdmsrl_on_cpu(cpudata->cpu, MSR_K7_HWCR, &boost_val);
  	if (ret) {
  		pr_err_once("failed to read initial CPU boost state!\n");
+@@ -802,7 +815,7 @@ static void amd_pstate_init_prefcore(struct amd_cpudata *cpudata)
+ 	 * sched_set_itmt_support(true) has been called and it is valid to
+ 	 * update them at any time after it has been called.
+ 	 */
+-	sched_set_itmt_core_prio((int)READ_ONCE(cpudata->highest_perf), cpudata->cpu);
++	sched_set_itmt_core_prio((int)READ_ONCE(cpudata->prefcore_ranking), cpudata->cpu);
+ 
+ 	schedule_work(&sched_prefcore_work);
+ }
 @@ -823,7 +836,8 @@ static void amd_pstate_update_limits(unsigned int cpu)
  	if (!amd_pstate_prefcore)
  		return;
