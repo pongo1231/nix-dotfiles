@@ -100,6 +100,7 @@
       compsize
       git-extras
       nix-output-monitor
+      reptyr
       inputs.nix-alien.packages.${system}.nix-alien
       inputs.nix-be.packages.${system}.nix-be
     ];
