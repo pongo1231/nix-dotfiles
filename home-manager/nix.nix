@@ -6,12 +6,14 @@
 }:
 {
   nix = {
-    package = lib.mkDefault pkgs.lix;
+    package = lib.mkDefault pkgs.nixVersions.latest;
+
     extraOptions = ''
       experimental-features = ca-derivations nix-command flakes
       keep-outputs = true
       keep-derivations = true
     '';
+
     settings = {
       auto-optimise-store = true;
       trusted-users = [ "root" "@wheel" ];
@@ -26,6 +28,7 @@
         "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
       ];
     };
+
     registry = lib.mapAttrs' (name: flake: { inherit name; value.flake = flake; }) inputs;
   };
 }
