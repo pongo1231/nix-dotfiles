@@ -54,7 +54,7 @@
     // {
     "distrobox/distrobox.conf".text = ''
       container_image_default="docker.io/library/archlinux"
-      non_interactive="1"
+      #non_interactive="1"
     '';
   };
 
