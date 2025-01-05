@@ -18,6 +18,7 @@
                 (patch /qemu/qemu_higher_gui_refresh_rate.patch)
               ];*/
           });
+
         verbatimConfig = ''
           cgroup_device_acl = [
             "/dev/null", "/dev/full", "/dev/zero",
@@ -26,11 +27,15 @@
             "/dev/kvmfr0"
           ]
         '';
+
         ovmf = {
           enable = true;
           packages = [ pkgs.OVMFFull.fd ];
         };
+
         swtpm.enable = true;
+
+        vhostUserPackages = [ pkgs.virtiofsd ];
       };
     };
 
