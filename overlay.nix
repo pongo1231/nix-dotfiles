@@ -57,6 +57,6 @@
   ksm-preload64 = final.callPackage (pkg /ksm-preload) { suffix = "64"; };
   ksm-preload32 = final.pkgsi686Linux.callPackage (pkg /ksm-preload) { suffix = "32"; };
   ksm-preload = final.writeShellScriptBin "ksm-wrapper" ''
-    exec ${final.ksm-preload64}/bin/ksm-wrapper64 ${final.ksm-preload32}/bin/ksm-wrapper32 "$@"
+    exec env LD_PRELOAD=$LD_PRELOAD:${final.ksm-preload64}/bin/ksm-wrapper64:${final.ksm-preload32}/bin/ksm-wrapper32 "$@"
   '';
 })
