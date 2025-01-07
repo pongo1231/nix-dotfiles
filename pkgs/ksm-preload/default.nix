@@ -15,4 +15,8 @@ stdenv.mkDerivation (finalAttrs: {
   };
 
   nativeBuildInputs = [ cmake ];
+
+  patchPhase = ''
+    substituteInPlace ksm-wrapper --replace-fail "readonly KSM_PATH=\$(cd \$(dirname \$0) ; pwd)" "readonly KSM_PATH=$out/share/ksm_preload"
+  '';
 })
