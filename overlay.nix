@@ -54,6 +54,9 @@
     ];
   });*/
 
-  ksm-preload = final.callPackage (pkg /ksm-preload) { };
-  ksm-preload32 = final.pkgsi686Linux.callPackage (pkg /ksm-preload) { is32Bit = true; };
+  ksm-preload64 = final.callPackage (pkg /ksm-preload) { suffix = "64"; };
+  ksm-preload32 = final.pkgsi686Linux.callPackage (pkg /ksm-preload) { suffix = "32"; };
+  ksm-preload = final.writeShellScriptBin "ksm-wrapper" ''
+    exec ${final.ksm-preload64}/bin/ksm-wrapper64 ${final.ksm-preload32}/bin/ksm-wrapper32 "$@" |& grep -v "ERROR: ld.so: object.*ignored."
+  '';
 })
