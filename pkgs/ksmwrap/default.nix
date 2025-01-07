@@ -4,8 +4,8 @@
 , is32Bit ? false
 }:
 multiStdenv.mkDerivation (finalAttrs: {
-  pname = "ksm_preload${suffix}";
-  version = "main";
+  pname = "ksm_wrap${suffix}";
+  version = "1.0";
 
   src = ./.;
 
@@ -15,7 +15,7 @@ multiStdenv.mkDerivation (finalAttrs: {
 
   installPhase = ''
     mkdir -p $out/bin/
-    mv a.out $out/bin/ksm-wrapper${suffix}
+    mv a.out $out/bin/ksmwrap${suffix}
   '';
 })
 

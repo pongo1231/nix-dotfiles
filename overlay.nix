@@ -54,9 +54,9 @@
     ];
   });*/
 
-  ksm-preload64 = final.callPackage (pkg /ksm-preload) { suffix = "64"; };
-  ksm-preload32 = final.callPackage (pkg /ksm-preload) { suffix = "32"; is32Bit = true; };
-  ksm-preload = final.writeShellScriptBin "ksm-wrapper" ''
-    exec env LD_PRELOAD=$LD_PRELOAD:${final.ksm-preload64}/bin/ksm-wrapper64:${final.ksm-preload32}/bin/ksm-wrapper32 "$@"
+  ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
+  ksmwrap32 = final.callPackage (pkg /ksmwrap) { suffix = "32"; is32Bit = true; };
+  ksmwrap = final.writeShellScriptBin "ksmwrap" ''
+    exec env LD_PRELOAD=$LD_PRELOAD:${final.ksmwrap64}/bin/ksmwrap64:${final.ksmwrap32}/bin/ksmwrap32 "$@"
   '';
 })

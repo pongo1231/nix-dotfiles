@@ -260,7 +260,7 @@
       ddcutil
       #snapper
       distrobox
-      ksm-preload
+      ksmwrap
     ];
   };
 }
