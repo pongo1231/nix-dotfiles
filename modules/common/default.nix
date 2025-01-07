@@ -211,6 +211,8 @@
       "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
       "w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
       "w! /sys/kernel/mm/transparent_hugepage/khugepaged/defrag - - - - 1"
+
+      "w! /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
     ];
 
     services = {
