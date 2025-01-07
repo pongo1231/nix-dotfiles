@@ -1,4 +1,5 @@
 { inputs
+, pkg
 , system
 }:
 (final: prev: {
@@ -10,11 +11,11 @@
     };
   };
 
-  nbfc-linux = final.callPackage ./pkgs/nbfc-linux { };
+  nbfc-linux = final.callPackage (pkg /nbfc-linux) { };
 
-  extest = final.pkgsi686Linux.callPackage ./pkgs/extest { };
+  extest = final.pkgsi686Linux.callPackage (pkg /extest) { };
 
-  #mesa-radv-jupiter = final.callPackage ./pkgs/mesa-radv-jupiter { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
+  #mesa-radv-jupiter = final.callPackage (pkg /mesa-radv-jupiter) { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
 
   steamPackages = prev.steamPackages.overrideScope (finalScope: prevScope: {
     steam = prevScope.steam.overrideAttrs (finalAttrs: prevAttrs: {
@@ -28,8 +29,8 @@
 
   openvswitch = prev.openvswitch.override { kernel = null; };
 
-  virtiofsd = final.callPackage ./pkgs/qemu_7/virtiofsd.nix {
-    qemu = final.callPackage ./pkgs/qemu_7 {
+  virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
+    qemu = final.callPackage (pkg /qemu_7) {
       inherit (final.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
       inherit (final.darwin.stubs) rez setfile;
       inherit (final.darwin) sigtool;
@@ -52,4 +53,6 @@
       inputs.nixpkgs-stable.legacyPackages.${system}.python3Packages.watchdog
     ];
   });*/
+
+  ksm-preload = final.callPackage (pkg /ksm-preload) { };
 })

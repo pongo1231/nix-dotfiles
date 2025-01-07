@@ -258,6 +258,7 @@
       ddcutil
       #snapper
       distrobox
+      ksm-preload
     ];
   };
 }

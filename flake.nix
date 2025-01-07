@@ -36,20 +36,23 @@
     inputs: {
       nixosConfigurations =
         let
-          commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
-            inputs.nixpkgs.lib.nixosSystem
-              {
-                specialArgs = {
-                  inherit inputs;
+          specialArgs = {
                   module = file: modules/${file};
                   patch = file: patches/${file};
                   pkg = file: pkgs/${file};
+          };
+          
+          commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
+            inputs.nixpkgs.lib.nixosSystem
+              {
+                specialArgs = specialArgs // {
+                  inherit inputs;
                 };
 
                 modules = [
                   (_: {
                     nixpkgs.overlays = [
-                      (import ./overlay.nix { inherit inputs system; })
+                      (import ./overlay.nix { inherit inputs system; inherit (specialArgs) pkg; })
                     ];
 
                     nixpkgs = {
