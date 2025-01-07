@@ -1,21 +1,20 @@
 { lib
-, multiStdenv
+, stdenv
 , suffix ? ""
-, is32Bit ? false
 }:
-multiStdenv.mkDerivation (finalAttrs: {
+stdenv.mkDerivation (finalAttrs: {
   pname = "ksm_wrap${suffix}";
   version = "1.0";
 
   src = ./.;
 
   buildPhase = ''
-    ${multiStdenv.cc}/bin/gcc main.c -shared ${lib.optionalString is32Bit "-m32"}
+    ${stdenv.cc}/bin/gcc main.c -shared
   '';
 
   installPhase = ''
     mkdir -p $out/bin/
-    mv a.out $out/bin/ksmwrap${suffix}
+    mv a.out $out/bin/ksmwrap${suffix}.so
   '';
 })
 

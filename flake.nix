@@ -52,11 +52,15 @@
                 modules = [
                   (_: {
                     nixpkgs.overlays = [
-                      (import ./overlay.nix { inherit inputs system; inherit (specialArgs) pkg; })
+                      (import ./overlay.nix {
+                        inherit inputs system;
+                        inherit (specialArgs) pkg;
+                        inherit (inputs.nixpkgs) lib;
+                      })
                     ];
 
                     nixpkgs = {
-                      hostPlatform.system = system;
+                      hostPlatform. system = system;
                       #buildPlatform.system = "x86_64-linux";
 
                       config.allowUnfree = true;
