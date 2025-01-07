@@ -29,13 +29,13 @@
 
   openvswitch = prev.openvswitch.override { kernel = null; };
 
-  virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
+  /*virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
     qemu = final.callPackage (pkg /qemu_7) {
       inherit (final.darwin.apple_sdk.frameworks) CoreServices Cocoa Hypervisor vmnet;
       inherit (final.darwin.stubs) rez setfile;
       inherit (final.darwin) sigtool;
     };
-  };
+  };*/
 
   distrobox = prev.distrobox.overrideAttrs (finalAttrs: prevAttrs: {
     version = "git";
