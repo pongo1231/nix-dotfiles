@@ -216,7 +216,7 @@
     services = {
       "user@".serviceConfig = {
         Delegate = "cpu cpuset io memory pids";
-        MemoryKSM = true;
+        #MemoryKSM = true;
       };
 
       "mglru-tweaks" = {
