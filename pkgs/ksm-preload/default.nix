@@ -4,15 +4,18 @@
 , fetchFromGitHub
 , suffix ? ""
 }:
+let
+  version = "3a83341da5f75f3df1ec29487377d3c7b9344bd4";
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "ksm_preload${suffix}";
-  version = "0.11";
+  version = builtins.substring 0 6 version;
 
   src = fetchFromGitHub {
-    owner = "unbrice";
-    repo = finalAttrs.pname;
-    rev = "v${finalAttrs.version}";
-    sha256 = "sha256-Bc6ChHF9EtDb5c0pYBtyy3O4fkIfkKh9Bm5pX/skfqE=";
+    owner = "pongo1231";
+    repo = "ksm_preload";
+    rev = version;
+    sha256 = "sha256-779H5LZqDeRYs97aX8hb8BcTxAxztCagpD5EQYN0yxQ=";
   };
 
   nativeBuildInputs = [ cmake ];
