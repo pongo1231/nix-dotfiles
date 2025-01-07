@@ -214,7 +214,10 @@
     ];
 
     services = {
-      "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+      "user@".serviceConfig = {
+        Delegate = "cpu cpuset io memory pids";
+        MemoryKSM = true;
+      };
 
       "mglru-tweaks" = {
         enable = true;

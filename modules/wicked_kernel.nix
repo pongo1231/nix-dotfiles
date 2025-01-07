@@ -8,7 +8,7 @@
 }:
 {
   imports = [
-    (pkg /uksmd)
+    #(pkg /uksmd)
   ];
 
   nixpkgs.overlays = [
