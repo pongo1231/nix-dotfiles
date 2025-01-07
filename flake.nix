@@ -37,11 +37,11 @@
       nixosConfigurations =
         let
           specialArgs = {
-                  module = file: modules/${file};
-                  patch = file: patches/${file};
-                  pkg = file: pkgs/${file};
+            module = file: modules/${file};
+            patch = file: patches/${file};
+            pkg = file: pkgs/${file};
           };
-          
+
           commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
             inputs.nixpkgs.lib.nixosSystem
               {
