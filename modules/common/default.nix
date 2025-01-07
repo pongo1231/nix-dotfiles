@@ -261,6 +261,7 @@
       #snapper
       distrobox
       ksm-preload
+      ksm-preload32
     ];
   };
 }

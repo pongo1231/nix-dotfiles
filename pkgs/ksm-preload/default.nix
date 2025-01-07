@@ -2,6 +2,7 @@
 , stdenv
 , cmake
 , fetchFromGitHub
+, is32Bit ? false
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "ksm_preload";
@@ -18,5 +19,9 @@ stdenv.mkDerivation (finalAttrs: {
 
   patchPhase = ''
     substituteInPlace ksm-wrapper --replace-fail "readonly KSM_PATH=\$(cd \$(dirname \$0) ; pwd)" "readonly KSM_PATH=$out/share/ksm_preload"
+  '';
+
+  postInstall = lib.optionals is32Bit ''
+    mv $out/bin/ksm-wrapper $out/bin/ksm-wrapper32
   '';
 })

@@ -55,4 +55,5 @@
   });*/
 
   ksm-preload = final.callPackage (pkg /ksm-preload) { };
+  ksm-preload32 = final.pkgsi686Linux.callPackage (pkg /ksm-preload) { is32Bit = true; };
 })
