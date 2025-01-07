@@ -58,6 +58,6 @@
   ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
   ksmwrap32 = final.pkgsi686Linux.callPackage (pkg /ksmwrap) { suffix = "32"; };
   ksmwrap = final.writeShellScriptBin "ksmwrap" ''
-    exec env LD_PRELOAD=$LD_PRELOAD:${final.ksmwrap64}/bin/ksmwrap64.so${lib.optionalString (system == "x86_64-linux") "${final.ksmwrap32}/bin/ksmwrap32"} "$@"
+    exec env LD_PRELOAD=$LD_PRELOAD:${final.ksmwrap64}/bin/ksmwrap64.so${lib.optionalString (system == "x86_64-linux") ":${final.ksmwrap32}/bin/ksmwrap32.so"} "$@"
   '';
 })
