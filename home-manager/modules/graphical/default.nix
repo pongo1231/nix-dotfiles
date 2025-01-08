@@ -54,7 +54,6 @@
       #jamesdsp
       qbittorrent
       weston
-      mission-center
       inputs.nixpkgs-stable.legacyPackages.${system}.looking-glass-client
       inputs.nixpkgs-stable.legacyPackages.${system}.virt-manager
     ];
