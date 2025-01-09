@@ -261,6 +261,7 @@
       #snapper
       distrobox
       ksmwrap
+      udp-reverse-tunnel
     ];
   };
 }

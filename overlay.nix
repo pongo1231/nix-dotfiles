@@ -60,4 +60,6 @@
   ksmwrap = final.writeShellScriptBin "ksmwrap" ''
     exec env LD_PRELOAD=$LD_PRELOAD:${final.ksmwrap64}/bin/ksmwrap64.so${lib.optionalString (system == "x86_64-linux") ":${final.ksmwrap32}/bin/ksmwrap32.so"} "$@"
   '';
+
+  udp-reverse-tunnel = final.callPackage (pkg /udp-reverse-tunnel) { };
 })
