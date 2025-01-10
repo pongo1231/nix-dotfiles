@@ -262,6 +262,7 @@
       distrobox
       ksmwrap
       udp-reverse-tunnel
+      sshfs
     ];
   };
 }

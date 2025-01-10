@@ -105,7 +105,6 @@
     ark
     kcalc
     ocs-url
-    sshfs
     krfb # for the "Virtual Display" button in kde connect to work
     maliit-keyboard
     kdePackages.qtstyleplugin-kvantum
