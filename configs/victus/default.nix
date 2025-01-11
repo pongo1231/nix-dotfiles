@@ -13,7 +13,7 @@
     (import (module /nvidia.nix) { platform = "amd"; })
     (module /power.nix)
     (module /libvirt.nix)
-    #(import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
+    (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
     (import (module /wicked_kernel.nix) { })
     #(module /mesa_git.nix)
   ];
