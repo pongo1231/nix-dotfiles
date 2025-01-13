@@ -71,7 +71,7 @@ installPhase() {
         rm -f $i/lib/lib{glx,nvidia-wfb}.so.* # handled separately
         rm -f $i/lib/libnvidia-gtk* # built from source
         rm -f $i/lib/libnvidia-wayland-client* # built from source
-        rm $i/lib/libEGL.so.*
+        rm $i/lib/libEGL.so.* $i/lib/libGLX.so.*
         if [ "$useGLVND" = "1" ]; then
             # Pre-built libglvnd
             rm $i/lib/lib{GL,GLX,EGL,GLESv1_CM,GLESv2,OpenGL,GLdispatch}.so.*
