@@ -221,7 +221,7 @@
         #MemoryKSM = true;
       };
 
-      "mglru-tweaks" = {
+      /*"mglru-tweaks" = {
         enable = true;
         wantedBy = [ "multi-user.target" ];
         serviceConfig = {
@@ -229,7 +229,7 @@
           RemainAfterExit = true;
           ExecStart = "${pkgs.bash}/bin/bash -c 'echo 2000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
         };
-      };
+      };*/
     };
   };
 
