@@ -1,64 +1,64 @@
 From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-oa1-f73.google.com (mail-oa1-f73.google.com [209.85.160.73])
+Received: from mail-pj1-f73.google.com (mail-pj1-f73.google.com [209.85.216.73])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id A15DC126BF9
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:26 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.160.73
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 0926BEDE
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:35:44 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.73
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609729; cv=none; b=UjlleK1odnNlTxgLUMd6bKKM4BERC7bPU7dWChSJpVsHezzWvPcGn7rr5KjwPeYviQkOqHi8fEwLGEtbRgl1s9HFZnxiYBoiIcSyyNWCgnfjygRuADOYjb8CX8PvE4a2TliixVy9bBL2qERwWGwrCHT1mn5nIfmbQwfvormIqJI=
+	t=1735619746; cv=none; b=NMEx/HKb+h+y/qLf2OQSCYFKayGac6NYNMgtAttbBtfHrSe333cMZ5RjxI7UN15Npy2eE2LTN/4fLxYob1tgLCZZfmvK2NsriwiODTbCE3spMLCttPZVjC6BEkk7oq9s57EVe1U3pKplJUsQfqS1RkA67jccIBmVNpYlvXLRk3s=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609729; c=relaxed/simple;
-	bh=ECRWQS6SuMTTjmQ63I+FkeCk7oNweT/Trrfr2wUpofs=;
-	h=Date:Mime-Version:Message-ID:Subject:From:To:Cc:Content-Type; b=UlQCboLKqvcV6s5UuzZ581A0JAqZs3ePR+irKZvZrElrEYzR/2Hur3mU7pi3HGBkl7f+Wu9U9PFnnDO9/o1dVtitBlH7qyjGC6oTGtO3T6SpVEb7lFaOpbeHuH2UrFScZVsR9JXGaDf6W+ukW90BcHMH6uJ/PhEtg4ozh4ksKVE=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=1NgAXDcJ; arc=none smtp.client-ip=209.85.160.73
+	s=arc-20240116; t=1735619746; c=relaxed/simple;
+	bh=kdG0cpNC8PG4G+56GMHBiH2O1yA4xIemO2+QepgIczM=;
+	h=Date:Mime-Version:Message-ID:Subject:From:To:Cc:Content-Type; b=ttFYBpJKkBGD/q/LOQwBYb+WJDkAl8LRpjlzdVYNVfOuSHivLOMK32UeKZw+71K9cm0q7d30dTUhMuZiZPKPpGwPTkhT9tz30Ea+kYUG+4keguHz513BxsEwzk1s/t+s3Al+l575NSEtNrBdqOhRrO+JVjBM56mI86KmMUf/NuU=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=vbt03PUo; arc=none smtp.client-ip=209.85.216.73
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="1NgAXDcJ"
-Received: by mail-oa1-f73.google.com with SMTP id 586e51a60fabf-29e525890e4so2990439fac.3
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:26 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="vbt03PUo"
+Received: by mail-pj1-f73.google.com with SMTP id 98e67ed59e1d1-2ef91d5c863so13415823a91.2
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:35:44 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609725; x=1734214525; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619744; x=1736224544; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:mime-version:date:from:to:cc:subject
          :date:message-id:reply-to;
-        bh=iYMLMKsYjKvyEkJr7+KniMm5yM50yZLPEaf04bZG/TI=;
-        b=1NgAXDcJJaQKNHPnbe7laMNtSIMRrbjHiVeukywSwpQTeZI8i0d/Ad9dAiS4ISa6uq
-         o3kOmB/cS8rTyTxL26bYQHYQGVxLe76za0GL8ny0M326O4J9Jjo16tXRqvEbisfTa+HX
-         k9MIwlPHOf5ZB/gknCF+WDCytbaK7lS1NJwnbzppKicOFdIPsa4qwrrY/X7TKOcg+1Im
-         qQMR+1RErYbZ5AByZMFB67ppZ1kdGrDZe07Nq8Wj6Lncyh5swAlE6hEXPwqEtVkZdcOb
-         5P6p3wW8gMpYwhgjS17HxJ7Y//9BZddxDqvWu4RHmyBxBQP4QRtS2XDVBM2vBUQ2an8C
-         uggw==
+        bh=ecuY/Hw7C4K7W6o4BvA/hjrdWJOX8V8p6rJ1OHpdMAE=;
+        b=vbt03PUoybKCNYRkJU730/56tt4qks+3p9ELGQfV0SJqzRe8Z/InUC3edthVzPEiB6
+         m1wmIuIr4d8Ml1WDrRQurtQ/3eNPlnpzEjyGcoBZhHQY4rNISmC60hnUeihdhCBDF8FS
+         Z5sWgEVyWYEqf9i+XSIcA4koKSmvFRUfrxNLrElJaMHsEXBhSaw15WwZQzP5iNE7Jx8/
+         cQhnhOEAsTnEqMKjeP+lhB5aGme59AOcPGr+wxAQ6XjRuQPOjfd5k6g1ur6800onb0cy
+         zbkJfUfq/4VyRqMhDAfVQa9LOixjv+MvYzwO6SOyAZodmahvyT6mHsDqAQ2orjiei9Vp
+         XXMw==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609725; x=1734214525;
+        d=1e100.net; s=20230601; t=1735619744; x=1736224544;
         h=cc:to:from:subject:message-id:mime-version:date:x-gm-message-state
          :from:to:cc:subject:date:message-id:reply-to;
-        bh=iYMLMKsYjKvyEkJr7+KniMm5yM50yZLPEaf04bZG/TI=;
-        b=SK55g0UVC/mTg2opjPruu8LhlqD732QR67TTugxkymHVLGfRFzrsDPcx4AT8y0C4tV
-         Miexi+8ZwG55RkrE/kKcueK/n/+OZNm5up+18A8VII8YMAoHpu7YNLmA47GEfI3U/Cwq
-         fRYF0QBC08elnQUUvmp+BGp+EFQENdMWChfbcZLOot3mnx84iD3qNdSC8PYinL0FLUBm
-         Iau4pl5mBSJZ3vqUrv+DHDe4NknAwtiNQPNOG31H5XbT89OXK3LksYHmt6/LBbUpKWXn
-         2bP6xN3wolHnjjAZekrRzTS4LVbxpCHNXB/o9mU5sxFO076XxmH6upCc5ujFHzpJdza9
-         rPRA==
-X-Forwarded-Encrypted: i=1; AJvYcCVGXi68+X1rgMqOuMvZ5wBy19rXoxUgZ9E3C39bvQSKtgI9an5Wc7gK0O1mx9yl5z4SYruqet5lhRJlMS0=@vger.kernel.org
-X-Gm-Message-State: AOJu0Yw1Gfe0uP/PNjnyvNAnDEsw7K4lrhUCoSB66Lkoas01ZwyWWlSn
-	xkmQ5hstihlj3PPUMv/wGFuopBxn7jg3BJoItllQ2wzAojJ/pcirsrFsj5ddND3NVjgrytADl5v
-	SFg==
-X-Google-Smtp-Source: AGHT+IGkmSZBHwFVqtrTFBOi3OdNPxu1qwCT2x7Nl6fMyRUN+dhlfJDvko1xurBMQvNmKLZtB9t2kbRHEBE=
-X-Received: from oabpq6.prod.google.com ([2002:a05:6870:9c86:b0:295:f44d:8dfa])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a05:6870:be89:b0:29e:6c6a:e7e7
- with SMTP id 586e51a60fabf-29f733478a9mr7584044fac.21.1733609725715; Sat, 07
- Dec 2024 14:15:25 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:16 -0700
+        bh=ecuY/Hw7C4K7W6o4BvA/hjrdWJOX8V8p6rJ1OHpdMAE=;
+        b=VUxYcmBPnjZFCYKzffFI0K8jafzit9Ov1p3Hk+F/QXpaybVojoNP4qAfSlVp2nLIdS
+         Z7r1iXCuXoCg/9esKbNrkBF9+jVIoXlrwfaviM8aDAHVnn90tGIUR+/qemyORSq/nVG9
+         F2s0De3xu6L6IsmiG0ByJl3nCqd5Lk8gs1/wTT1ZHkVEvlsLLxvvqRTVdpor42vs7IFp
+         +mit2+q+NIbYuCA88ca6kPodHEPyuK0vJl+rbeKmL32zm3epX0l1qn9fJfiWOg6a16+s
+         fphhQzRWbL2DiqEBoqJmtMkjO7fPA8iT7WVAugoTjvBLQMTLcQsVp8UG0pDnh1NGPHR1
+         ZvWg==
+X-Forwarded-Encrypted: i=1; AJvYcCUaEAMN6MOu1v8916w0RS9mwkxWlmOd1q/DjUpgADKdsQhl1Fq90b4E6KsNzGTgSImxkVnQEmq9tLa3sy0=@vger.kernel.org
+X-Gm-Message-State: AOJu0Yy6QnosI4sdeJgbYUUQNthLi42eN+ILmMShWAJWvQ9HCQVVMICL
+	5Led7vLivKcmvR9w+lDwXIPiSHA+JBNHMtkK9U+S8XpUfj0g3LE5FB3mlp4DQMp0Fz6m5cN2CHX
+	kPQ==
+X-Google-Smtp-Source: AGHT+IE+6c7bwL1/eEGrUc5ZmNW2IaaxbIL0TH8SHChKNZBSg0mMqDqiMho/5ammNjRKDuD1jtg3aF5Chmo=
+X-Received: from pjbsc9.prod.google.com ([2002:a17:90b:5109:b0:2e0:aba3:662a])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:90a:e18f:b0:2ee:aa28:79aa
+ with SMTP id 98e67ed59e1d1-2f452dfcd7fmr52855174a91.6.1735619744314; Mon, 30
+ Dec 2024 20:35:44 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:31 -0700
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-1-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 0/6] mm/mglru: performance optimizations
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-1-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 0/7] mm/mglru: performance optimizations
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -71,97 +71,100 @@ mailing list [1][2]. They are now properly organized and have gone
 through various benchmarks on client and server devices, including
 Android, FIO, memcached, multiple VMs and MongoDB.
 
-In addition to the warning [3] fixed in v2, this version fixes another
-warning [4] reported by syzbot.
+In addition to the syzbot regressions fixed in v2 [3] and v3 [4], this
+version fixes two more regressions: one reported by Oliver Sang [5]
+and the other by Barry Song.
 
 [1] https://lore.kernel.org/CAOUHufahuWcKf5f1Sg3emnqX+cODuR=2TQo7T4Gr-QYLujn4RA@mail.gmail.com/
 [2] https://lore.kernel.org/CAOUHufawNerxqLm7L9Yywp3HJFiYVrYO26ePUb1jH-qxNGWzyA@mail.gmail.com/
 [3] https://lore.kernel.org/67294349.050a0220.701a.0010.GAE@google.com/
 [4] https://lore.kernel.org/67549eca.050a0220.2477f.001b.GAE@google.com/
+[5] https://lore.kernel.org/202412231601.f1eb8f84-lkp@intel.com/
 
-Yu Zhao (6):
+Yu Zhao (7):
   mm/mglru: clean up workingset
   mm/mglru: optimize deactivation
   mm/mglru: rework aging feedback
   mm/mglru: rework type selection
   mm/mglru: rework refault detection
   mm/mglru: rework workingset protection
+  mm/mglru: fix PTE-mapped large folios
 
- include/linux/mm_inline.h |  94 +++++----
- include/linux/mmzone.h    |  88 +++++---
- mm/swap.c                 |  70 +++++--
- mm/vmscan.c               | 426 +++++++++++++++++---------------------
- mm/workingset.c           |  67 +++---
- 5 files changed, 375 insertions(+), 370 deletions(-)
+ include/linux/mm_inline.h |  88 ++++---
+ include/linux/mmzone.h    |  99 +++++---
+ mm/swap.c                 |  70 ++++--
+ mm/vmscan.c               | 515 +++++++++++++++++++-------------------
+ mm/workingset.c           |  67 +++--
+ 5 files changed, 445 insertions(+), 394 deletions(-)
 
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
 
 From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-pf1-f201.google.com (mail-pf1-f201.google.com [209.85.210.201])
+Received: from mail-pj1-f74.google.com (mail-pj1-f74.google.com [209.85.216.74])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 1F91312C7FD
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:28 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.210.201
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id B03A215667B
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:35:47 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.74
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609730; cv=none; b=ltCtCAPggGxNH341TK4VkDwbRe4QoTSpdUL+VL9zpCoqfFEfY5S3lbmCXvxVdGdLHdfpNnY6LarxEA7FMeDqFN8iy0CvpdznsIMmm0n1cuRNE/dyssgiSGENpipk4I3MZyyCbi1DvqO5dg+oqCDQ/euQrCnVGlJLWjBTptaymrk=
+	t=1735619749; cv=none; b=rS9gKuhaz//ekMHoenGFA9WZPTyT89IxxcFxjOvQ1DyWExaVhrvjsSHntLrygjVp4KO4MSLeZYAvRYJNC+Z4YiY76XARBZP1hmdd790ZXV3W55CszAmQuUBBhbIBet7UR7QEMyXGs5EWze8YaFWdJY/XYpwZiAQ+7SJcxyZD4Tg=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609730; c=relaxed/simple;
-	bh=XiSEz2JJBtdIoxT7K/+uOXzsYf9JPp/DAxpitCZzgn0=;
+	s=arc-20240116; t=1735619749; c=relaxed/simple;
+	bh=RWveGCVh3Wwamff71MYhhhcXA2Seyh0CDZrRZOu7WKU=;
 	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
-	 To:Cc:Content-Type; b=S8AoEjjUks1C+Hpxk5++rE2xIILHboiWu9oNAqbzX/2NGCogcqw1wJdK6kuYjL/Qft/R8YhtQJkLGFw1Pf2ifR9jfRmZG/no4JAPg/bBqUeURUjYspo5ju786Ft4pa+Ej6kmy7x1aCe50f/9tNK75mAWLdH5b4FjXToJGuQuf+0=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=uSz5IAzE; arc=none smtp.client-ip=209.85.210.201
+	 To:Cc:Content-Type; b=CJalck19qqH3bKKDimOeFBGYriQBeMPhzko6g69rwX0fidaSfCqDCh17a06FSS299OwRN8bayi+hD9K6XIvnIkGxs0ffoKbv7cA1B1t6Q3qN6LcYOTLXivnQra5sCR6nItJqGci4M9F2XTkvGOZbz18/yh5tLhHVzQz16QdNT2Q=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=eZKkb/yO; arc=none smtp.client-ip=209.85.216.74
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="uSz5IAzE"
-Received: by mail-pf1-f201.google.com with SMTP id d2e1a72fcca58-725c882576aso997996b3a.3
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:28 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="eZKkb/yO"
+Received: by mail-pj1-f74.google.com with SMTP id 98e67ed59e1d1-2ef9e4c5343so20994018a91.0
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:35:47 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609728; x=1734214528; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619747; x=1736224547; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:from:to:cc:subject:date:message-id:reply-to;
-        bh=gY9A2hZ07C4gph5EkXou5eK7gRFH6gXGFcx+0iC/Exo=;
-        b=uSz5IAzEznrig9BV96zxV8VSib00AsQCg3i7pEPjsuYwqnTKoYv78G71/0j51x1UHp
-         KmIk+LyS03wN/nbBq51scnpXiPjwd0J03xdt/phCKz5m6c9EkrAHNwejZucM+12KrY/o
-         2qM4yEQs9P9zilXoxw9G1xNxcrbgA/FFEZYPNLXreDOvU5tXLTR4QRZ+8xyLxoInVL21
-         sVlNXy4anM/2pBctx4FrshX610IeSxDqyrV5V+CSHCf/+UngpoiEsWOKKg3fS7/QSdq0
-         9hMn8rECUHSLm3uo3i6Gbk0SxM8FQ6+sPbnmwgLDiIRTimxUIuISIrni7D5yjJ5y2kX7
-         1ysQ==
+        bh=Xw2CHOQueA9zkMREwjqXXK1goFWTBSTiadQe8+3ME3M=;
+        b=eZKkb/yOn6rf9G7nOKpmxbgziGt0QQkwECcnZ36D0nXD/B2aKh1/IU08S/H2yRh6YA
+         RMxsw6eHqAOMW2oxiryQAgLiBwCSTP1xjGduOxI6KiIYlLF2650bkKdlNwFc6+vh2bHQ
+         AU/St+Amo6UnRn4URUr6MAprYBwH5cCprXpPNKPoP/FG7nKWbTdEq1/oBGQzyVEC6OzV
+         onOys8rqeKQDYZ+wuYosNqT9MSh8ERrbaheS/jTa39X+su75Gj4mULTAlbw4uvj5pfx3
+         wqYm7uYZdKJnhbHJ99vXFvujvVT5Ngib9JUmTMg0Pzxyq/87R4SR2PROhmlVjdMM01CX
+         DPWw==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609728; x=1734214528;
+        d=1e100.net; s=20230601; t=1735619747; x=1736224547;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=gY9A2hZ07C4gph5EkXou5eK7gRFH6gXGFcx+0iC/Exo=;
-        b=FWnTscjIo+iIAHFywcJ7wJqabpaJmexzJRihfgeC52R2lJ5kQaD5+RAChLQMSzNupu
-         KcNy37zdHofdcl+DSdeRtssIFw5cONzou8Q6FmcY9jjBmURUwNf5U3vddMoIrrGQqfbr
-         J0f1xezWbuFbfoiiFCWXknwHYnYDoNeimYUJXHpxC9GsyrkFdzhCpFqKzb90HaJzuSGf
-         yJHGlVRSApPW87fyRIAIaeNp3OdlcoQreeuLGEVk0Pa8xZ8CreRb2867iyPcmRSphtbu
-         LlvBw6WOrT8xdtpGjYIFqaHuRdR2ttqXpO1cYJHQkHS78IM3trKuUUq+Dpx0Bxc6u4gL
-         2txw==
-X-Forwarded-Encrypted: i=1; AJvYcCUfylgRYtSLDRARDt0Er2N1jyZ0n6sqd+3hs1LvuiXQXo4K4EqSBbQ7nN4CYm1OuSWIpRYXJph4Wk3QfTU=@vger.kernel.org
-X-Gm-Message-State: AOJu0Ywz0KEwEMDP4rZTGcwoq47+A+G43Z+oOPH/Fqv+7UpwitHXMDd9
-	N9uAUg7c/hqCZPvgkVSOk8gZy5mY5p7NddGaGTSPYl+Vq8o9Tz1PX5ylVfrM/3TMyhYX3uDaJKY
-	7EQ==
-X-Google-Smtp-Source: AGHT+IHCXiEm/R2rY0sBQTBrLZxsmJB5U1ibMxl9sF0XXm74TaiiQnoh1RCoPUcB5Jt5hjXX9XZSsqYn8nU=
-X-Received: from pfwz36.prod.google.com ([2002:a05:6a00:1da4:b0:724:f614:656f])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a05:6a00:1911:b0:724:f6a2:7b77
- with SMTP id d2e1a72fcca58-725b81a3eb6mr12675093b3a.17.1733609728505; Sat, 07
- Dec 2024 14:15:28 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:17 -0700
-In-Reply-To: <20241207221522.2250311-1-yuzhao@google.com>
+        bh=Xw2CHOQueA9zkMREwjqXXK1goFWTBSTiadQe8+3ME3M=;
+        b=gfTqO6illo4P5NxDeZhRXbNYNFbvwgkPqKgy0UXQ23yrP5mRC2gen9vo1JNuKi9TWM
+         Avwd0o3MRA+NlLDQWK2kcBi5NmuPdfJzpKNQFTi23Vn1+PMgShWSQP3Xp0uwApQ0uMNI
+         VxVc9+YltgtOBcg+qRX4EGCZOJaF3BAjsPJ4H1JJp8VA849RMH5bzBHHM0DgcvXe6V27
+         XM5KdsrTtU+UWIsPoxrouoVQu9pbg4iU0gqiHmKxgBYng4dY5WccvrWXUNwWrryaDhOp
+         3tZTzM0hPIeR6QKT7gx4iZR/wzfH51enuJJyIadfbVuILJ8hKm8iO3n0mu1hsO1st28f
+         2Slg==
+X-Forwarded-Encrypted: i=1; AJvYcCXXxfhy8RsRBskm8BcH9TT46jJNTNT8jDbYcCsiY3DAJowg5KIlDUGUNF3TUYQjBFUS0HYrf1vEyFox/DA=@vger.kernel.org
+X-Gm-Message-State: AOJu0YxV+nqL9GJIBJhqgr7P91LZ/kJbrn2dfN91uRoTkRJoMrY48oCX
+	C/cKA1iNRb4tsX5zRqTv1Z9gdnnTpJA6eQMrzZ9ZdL4h3nz/fLPB+Ko4b0M/qP4M2MAABIIVEur
+	2ug==
+X-Google-Smtp-Source: AGHT+IFqFvRA79cO3VpI5IoQ9FD/iueUtKICiJreOXklTdeZ0vkOif4CjJ0SLo91oWp/vZ2d3gnF2M2cOO0=
+X-Received: from pjbpw17.prod.google.com ([2002:a17:90b:2791:b0:2ef:94c6:5048])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:90b:524b:b0:2ee:9d49:3ae6
+ with SMTP id 98e67ed59e1d1-2f452e1d12fmr56370216a91.10.1735619747003; Mon, 30
+ Dec 2024 20:35:47 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:32 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-References: <20241207221522.2250311-1-yuzhao@google.com>
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-2-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 1/6] mm/mglru: clean up workingset
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-2-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 1/7] mm/mglru: clean up workingset
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -245,73 +248,73 @@ index a4705e196545..ad181d1b8cf1 100644
  	memcg = folio_memcg(folio);
  	pgdat = folio_pgdat(folio);
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
 
 From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-pf1-f202.google.com (mail-pf1-f202.google.com [209.85.210.202])
+Received: from mail-pl1-f201.google.com (mail-pl1-f201.google.com [209.85.214.201])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id DEA7A1922C0
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:31 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.210.202
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 6BC61175D29
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:35:50 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.214.201
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609733; cv=none; b=GeUiQPHdEEOnnYkmkZEp7rUwhmCVHKCwpVrsHXmEV2mvQvrXaEih1O2lb/kJXoqPrd0Rr0H9RdLSBsy4moonO3Xi34lD74UJJrGeBfFeNPfyT2laBS/aBIvDi65tVFgzNqbifWj7wROQQP6lb6uVc4e/PFdj50Z8aBReQkDyCsU=
+	t=1735619752; cv=none; b=YzVAQxY3m3ekW5tt+NxrerCMUOtLss3tvTgvcXG5KUJPAIZbr0FuN+Xqk5U1MXVU151AAJKWjOpoUID3v8S7ALUGMNSH0OyfDRoR4oKS80sb0SOD95mYMATGtUPoU5aiV/K85iEfQ5jf3EWQuyy4Z4u27IZ8X6cQN63FwRM5l4k=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609733; c=relaxed/simple;
-	bh=vXP0qU9PAGACWPwiNw1lO5Aef0HXGX3T4TbaUosNZ7w=;
+	s=arc-20240116; t=1735619752; c=relaxed/simple;
+	bh=ZQi1mfxZn3uWJVcrBZifiX93S0ay564vYZ3QXBoREyg=;
 	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
-	 To:Cc:Content-Type; b=fjdhUc8TccPOs7+td6GoQThwkao06CpQeuRKLvQ7qD3enuG7P4L0ICTMwcTbyGBol7Vel/SEGNdVm2jN6rnPQiFX6YyKKFLcYl/bin5A84a8RRJCHPsXUK0adJ10fzrmA9EO+5HlyPXPnDxIXD5UrhuYJUce3yF+kVH5PivgcAw=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=mEK6QgPD; arc=none smtp.client-ip=209.85.210.202
+	 To:Cc:Content-Type; b=C/3EvlWJ+pdFkmf/5tFGGXfFVjawDZ7ov8V0yutHTTVUDg4bHH7IwEZ4SDBr23PxggPNA+7/BuUf7z4bBNA0AqnjE2kvr1qj6KJLnrsj5xbtRAJN+zsMLeaPUzKjs8ns8wsYKSYD0o0farv6tayMNvpGcjPH7DxYcAeZIWr8O7M=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=1sjiLERE; arc=none smtp.client-ip=209.85.214.201
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="mEK6QgPD"
-Received: by mail-pf1-f202.google.com with SMTP id d2e1a72fcca58-725c36cdc5cso1444383b3a.0
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:31 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="1sjiLERE"
+Received: by mail-pl1-f201.google.com with SMTP id d9443c01a7336-216387ddda8so125575445ad.3
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:35:50 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609731; x=1734214531; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619750; x=1736224550; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:from:to:cc:subject:date:message-id:reply-to;
-        bh=CCT5euYl/qJQPeGGazPVJuZRHShIdP4mKhuDso53GD0=;
-        b=mEK6QgPDv7VfHh2Fd83PBlfig5t6fJQrG6VxF2KvCum1Q09CmN5FBcC1VbsqEx/Z3n
-         MneGykg1Tzk8t3Amj7R3HIUF3u5u0hEjpMX0v8Wec6LelSzrWzeZURfReqIDdqGHndFg
-         5TkbinCvgQOu8unC4sPj9vS4D3eaxyEXTTon6lUnIAzTzuFKN5KvRHcZpzt1bIYoD0Qg
-         wJjKo92NYBHU+nW5WHvNAfw4LxclhP57K8KnTAW8HtVNSvu3Trtu0+BZvVvcVlnbmWnk
-         Uplk9ec2h7APyB6gIuUiKMoqs6lDj5nwa7DULVLYKUh8X9k6AV4TxImtvn4Jt66p5Uf3
-         ZGHw==
+        bh=n2jVLy+uRLHye3kRN9bJLrDt1hriY6TngJrphV7c4w0=;
+        b=1sjiLEREU/E1Huiy948BGjX97kSMxdpVeHtNy/bSvFwVsojNYp3Bw4ruR4eH6rtNP2
+         U8gKLoEI+tlvOxlYMdAMisPWQQbb81csdTYfvhvdtj6urTC42/l9Cs9qESGBUGyG39Tl
+         M0fEaC8p7cgdYi7rmsRbVH1YmyE0H13foJ9CA45LVNQor7H1LBhgYhiJNUW6RJbMTOt0
+         47hMBdI6jYpWihqPRAvuNN559Gzu66kVTdtik52EBwDkvssP3sTrBsRxvDschM3YSzeK
+         9B/FgV573LILUaafsdlzga8srdah+rTdIM+juw2wq9JJ7NAQQkfzF4wVg0i9VCZvUlOk
+         h25g==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609731; x=1734214531;
+        d=1e100.net; s=20230601; t=1735619750; x=1736224550;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=CCT5euYl/qJQPeGGazPVJuZRHShIdP4mKhuDso53GD0=;
-        b=k+UKJFZj+cbiy1DA7Y+4kf2iv7putKv2NOEW5kleRVfvfJn+3IkoHh+u0PFSNvODkV
-         vSEAHswGYrZvVYY6P1duYlapAPyRRg69IxUoKl3MKnCg8vSGDoyfJWINNpre+wPX+mWB
-         L84rLuTpsHQSKGRx+fQKHPQj78j+4KtbRkC4C/hemzC16Wn3y8bG1nzU6ydlj5UVlGKX
-         xpcG8e25KsICTASDsPkcDvwewfxDsRSGZy9fyXepdoovkqVWJwkME+5uuldzwLXtwOle
-         351N+HeesoX+dAE1kOoe3DXLJJuP6U9NQt5l3qcjSbI8XH7v5iwkvl2D3IvXyU3v+6aK
-         l1fA==
-X-Forwarded-Encrypted: i=1; AJvYcCVrH7SeodctE7AjZFGCUuDMoAFfJLjoszMgSaEMV3WR/MuIbgYsRM6FuoQH28UnbetWrFZcIvOrfaaxrNk=@vger.kernel.org
-X-Gm-Message-State: AOJu0YxWNjaFNQnA0mvZgh+zhPnxWFZBlpd/e7o3HPmHq/WO+O1/hEQJ
-	O/bkI9dYF0CeJizjiDeBZbslaoYfeoHlg0OShEDTsTPLMgSOVzCzjrapCNNdOX72GLZq1fBIvgJ
-	k2A==
-X-Google-Smtp-Source: AGHT+IEX0/0XlihpBl2av7TPcnGj//5IebmVqNnUYSl/vdQwzILN65v6v1O4wV+Mrra4vxLhPsMYzWB6m58=
-X-Received: from pfbbe12.prod.google.com ([2002:a05:6a00:1f0c:b0:724:ec9d:6e1a])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a05:6a00:2381:b0:71e:573f:5673
- with SMTP id d2e1a72fcca58-725b8144a42mr8420603b3a.15.1733609731167; Sat, 07
- Dec 2024 14:15:31 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:18 -0700
-In-Reply-To: <20241207221522.2250311-1-yuzhao@google.com>
+        bh=n2jVLy+uRLHye3kRN9bJLrDt1hriY6TngJrphV7c4w0=;
+        b=mOwgODB5uve0jfEiJ0/fu2HSUq5E3laLRaXbddl+SH/2gLGg/1C7IygIaYYpQPrwPN
+         S89XvCYxjmoBLrojrbqjcBU6cAlUg6XQsWes8qqERtd/K6/9IDeKTj2RVmnQWNuWBEuO
+         0DsIqi8FpNalvyQt17heQZ7rdCZLReLK+txJyEYESd7Zvg1NUnzzVHuwMvUarnPS8RS5
+         ocCBpPPBv9FCuiLdPU88WTFHTrE4ulyaNnWDIV7tukFo7bQA0mr/d3DlQ0nHOA08ZrFR
+         vavvSRe/ftL7sU6kKr1pEs/NNf89Rx62OnbtvnyBLftKpIWldBW4q4STcsPyBKj6Am/T
+         aMfg==
+X-Forwarded-Encrypted: i=1; AJvYcCWcFKrw+z4UskRIjgSyLhj5AKA+j5905ZM4/46BRGes9Bswv7/LmRTkLkgUamIBddB25Q4NQ1lmwT6iPDM=@vger.kernel.org
+X-Gm-Message-State: AOJu0Yx5oZMbYY6E4exx7qJTmsp26K75QqK2pz369Dbgbe21TQ20Irfu
+	f26eVjHZaoJKDYu28eWse9edjPTb4FMJluVNtNPte8RY5K9mgWqtN1U2geZd2svNWwHjMjXzQqD
+	1sw==
+X-Google-Smtp-Source: AGHT+IEyFV9cXf/CY6ZxXUeDDPF7xVQGYuDgmn8dUSrnoiU1eyKeiE9Z7M5a9yhOQj+r6LPmuJijye0+/+0=
+X-Received: from pgtq9.prod.google.com ([2002:a65:6849:0:b0:845:b983:9e34])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:902:ebc6:b0:216:501e:e321
+ with SMTP id d9443c01a7336-219e6f2700cmr576287415ad.56.1735619749657; Mon, 30
+ Dec 2024 20:35:49 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:33 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-References: <20241207221522.2250311-1-yuzhao@google.com>
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-3-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 2/6] mm/mglru: optimize deactivation
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-3-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 2/7] mm/mglru: optimize deactivation
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -355,14 +358,14 @@ Closes: https://lore.kernel.org/CAOUHufawNerxqLm7L9Yywp3HJFiYVrYO26ePUb1jH-qxNGW
 Signed-off-by: Yu Zhao <yuzhao@google.com>
 Tested-by: Kalesh Singh <kaleshsingh@google.com>
 ---
- mm/swap.c | 49 +++++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 41 insertions(+), 8 deletions(-)
+ mm/swap.c | 48 +++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 41 insertions(+), 7 deletions(-)
 
 diff --git a/mm/swap.c b/mm/swap.c
-index 3a01acfd5a89..756b6c5b9af7 100644
+index 3a01acfd5a89..649ef7f2b74b 100644
 --- a/mm/swap.c
 +++ b/mm/swap.c
-@@ -379,11 +379,12 @@ static void __lru_cache_activate_folio(struct folio *folio)
+@@ -379,7 +379,8 @@ static void __lru_cache_activate_folio(struct folio *folio)
  }
  
  #ifdef CONFIG_LRU_GEN
@@ -372,12 +375,7 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  {
  	unsigned long new_flags, old_flags = READ_ONCE(folio->flags);
  
--	if (folio_test_unevictable(folio))
-+	if (!folio_test_lru(folio) || folio_test_unevictable(folio))
- 		return;
- 
- 	if (!folio_test_referenced(folio)) {
-@@ -406,10 +407,33 @@ static void folio_inc_refs(struct folio *folio)
+@@ -406,10 +407,34 @@ static void folio_inc_refs(struct folio *folio)
  		new_flags |= old_flags & ~LRU_REFS_MASK;
  	} while (!try_cmpxchg(&folio->flags, &old_flags, new_flags));
  }
@@ -387,16 +385,17 @@ index 3a01acfd5a89..756b6c5b9af7 100644
 +static bool lru_gen_clear_refs(struct folio *folio)
  {
 +	struct lru_gen_folio *lrugen;
++	int gen = folio_lru_gen(folio);
 +	int type = folio_is_file_lru(folio);
 +
-+	if (!folio_test_lru(folio) || folio_test_unevictable(folio))
++	if (gen < 0)
 +		return true;
 +
 +	set_mask_bits(&folio->flags, LRU_REFS_MASK | LRU_REFS_FLAGS, 0);
 +
 +	lrugen = &folio_lruvec(folio)->lrugen;
 +	/* whether can do without shuffling under the LRU lock */
-+	return folio_lru_gen(folio) == lru_gen_from_seq(READ_ONCE(lrugen->min_seq[type]));
++	return gen == lru_gen_from_seq(READ_ONCE(lrugen->min_seq[type]));
  }
 +
 +#else /* !CONFIG_LRU_GEN */
@@ -413,7 +412,7 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  #endif /* CONFIG_LRU_GEN */
  
  /**
-@@ -428,7 +452,7 @@ static void folio_inc_refs(struct folio *folio)
+@@ -428,7 +453,7 @@ static void folio_inc_refs(struct folio *folio)
  void folio_mark_accessed(struct folio *folio)
  {
  	if (lru_gen_enabled()) {
@@ -422,7 +421,7 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  		return;
  	}
  
-@@ -524,7 +548,7 @@ void folio_add_lru_vma(struct folio *folio, struct vm_area_struct *vma)
+@@ -524,7 +549,7 @@ void folio_add_lru_vma(struct folio *folio, struct vm_area_struct *vma)
   */
  static void lru_deactivate_file(struct lruvec *lruvec, struct folio *folio)
  {
@@ -431,7 +430,7 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  	long nr_pages = folio_nr_pages(folio);
  
  	if (folio_test_unevictable(folio))
-@@ -589,7 +613,10 @@ static void lru_lazyfree(struct lruvec *lruvec, struct folio *folio)
+@@ -589,7 +614,10 @@ static void lru_lazyfree(struct lruvec *lruvec, struct folio *folio)
  
  	lruvec_del_folio(lruvec, folio);
  	folio_clear_active(folio);
@@ -443,7 +442,7 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  	/*
  	 * Lazyfree folios are clean anonymous folios.  They have
  	 * the swapbacked flag cleared, to distinguish them from normal
-@@ -657,6 +684,9 @@ void deactivate_file_folio(struct folio *folio)
+@@ -657,6 +685,9 @@ void deactivate_file_folio(struct folio *folio)
  	if (folio_test_unevictable(folio))
  		return;
  
@@ -453,7 +452,7 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  	folio_batch_add_and_move(folio, lru_deactivate_file, true);
  }
  
-@@ -670,7 +700,10 @@ void deactivate_file_folio(struct folio *folio)
+@@ -670,7 +701,10 @@ void deactivate_file_folio(struct folio *folio)
   */
  void folio_deactivate(struct folio *folio)
  {
@@ -466,73 +465,73 @@ index 3a01acfd5a89..756b6c5b9af7 100644
  
  	folio_batch_add_and_move(folio, lru_deactivate, true);
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
 
 From mboxrd@z Thu Jan  1 00:00:00 1970
 Received: from mail-pj1-f74.google.com (mail-pj1-f74.google.com [209.85.216.74])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 432BA194A73
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:37 +0000 (UTC)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id CDDBE15EFA1
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:35:55 +0000 (UTC)
 Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.74
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609738; cv=none; b=maYGvHWizZI3XjpIgOsLuyiv0c7XQncPwOlQBNPNAgD+h+NYtod2vix2s+ugSyxO+Av2lDqNDixo8tlpc5tFsRIlzuDs6GhnqQwzybnGLqose2zl/IKcsud44mh5VZ5xAejx7ZvDItRJNrGYhbSB0k+m5zpJxcpE9ZRR+PDTK84=
+	t=1735619757; cv=none; b=Ih5Zft/0OQZSFmUNKfA//sx7qtJM1XPfnrIbihtkizwBd9NhLcJXptfHGcUzqIIfnCWUKKEAWw+gVjGGHc/fZJ7WCHp9BXuDXkFifhYyIM68yPoelk+QkTlm8V0uvAzu9JT+Yod5CLe1Hn0l5A2i8w1Hlumhtzx/Wlf/2QQCDEI=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609738; c=relaxed/simple;
-	bh=KClDlWCi6SSa0R6rJOBLi/JB8ZGv/AnKAuzivugP4Fg=;
+	s=arc-20240116; t=1735619757; c=relaxed/simple;
+	bh=q1WnSZgXmLYzutr+EunR5Q1Z3UubbeTqmVf960GbNbY=;
 	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
-	 To:Cc:Content-Type; b=rTgVYhV4XxjW5/h5IWjew5orQG3gx0QKWAq6rwffp9Nyvo1KvXP2yvj3iLHZDHbHMvbgS2P/eT7VdhMPSK33akqlQOsGXLY47tXE7BOyN4wdEPs86tY+qkM9o87uuM98NIOeZIdIL5vj/PZwW7+NDlZs0iAkEI8WwOvkUEZmFJY=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=3LyzBBpY; arc=none smtp.client-ip=209.85.216.74
+	 To:Cc:Content-Type; b=a5PwxkSMkKxWgU9qPihf2Ja0t0tGMCc56ftmbQFyEKen0TauCzyQ4M2TyjMDEQJc+EBsWF7pHvzW1pzpHtqdf/w/k36qivjRpLV44ix8gsDpbtzRFE1LCeVRGssV1xANgGcGIM11KGSMymClua4GZXjEC8P4fhDN0CMar7XiF/g=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=vHVzVgMG; arc=none smtp.client-ip=209.85.216.74
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="3LyzBBpY"
-Received: by mail-pj1-f74.google.com with SMTP id 98e67ed59e1d1-2ee9f66cb12so3439908a91.1
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:37 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="vHVzVgMG"
+Received: by mail-pj1-f74.google.com with SMTP id 98e67ed59e1d1-2ef79d9c692so20669045a91.0
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:35:55 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609736; x=1734214536; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619755; x=1736224555; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:from:to:cc:subject:date:message-id:reply-to;
-        bh=h1mvjlX5nT1rLjjtVWZn8iR4hG3sSfAtSE80GuqS3ww=;
-        b=3LyzBBpYh8ez/MIT2WVAO/cCoQYlsnjdTOB2EExLPNcjkeMtlchf27xPKeQlXBtQps
-         5bPmWFIR7U9Mw8mRyTrZQlZl3kchXrTRPgiFcd5u9AntYYfdSWrORUHiAtCZrhWIF0t9
-         rvw7dHk72bl4oLdkjLi3eIONAbvyLjME0XvimonvR1m24XXO+2rbqN3B7vPuhnRR3qPO
-         UCryGp0E2UMrYgBY+PaUxoWTLekEDLxjPH8dMjhvD2c/j1mq+iTjdekRffEUbo5WroA7
-         Xfok79eXdrtS5qdGQEggeYktCqpf149l8u85EuJAZ38UBhaZgziueANiYajbcwKrIQEz
-         eIEg==
+        bh=lq6dqRxgSDV3CyACy0+VqeWU26YT+ayL2zVnCSsSGnY=;
+        b=vHVzVgMGSbY0RpOhzx+S09mSI4V1wJWg0LLsEPnf9R4qvH5ODvu1LDwp/5I9H+sgTa
+         zUZs6ZcPuFL4qeb/mMtjPeTvoTsTq75XsYbvUDLb5fCYvnZv1x1iSlyD8bYASQQvVZrC
+         a9pch3Gv8TNPaClqXJ2SvS8Sa1nVsQC0C42F6ll3vxJ/nGlM+k0bv//O9TRoY06WlzOV
+         DtLlwVhD5l75D/COE+frz4lG6LAWgGHDELRh2EUdu7CmUttHScoE9sH2kcXpbYlW1o3Z
+         FNrURFAYy6y0url5tL45Pjl5q4ig27sI/so9uo3HR2XvhewANAYYSLmEhR277EVHUFua
+         r2Jg==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609736; x=1734214536;
+        d=1e100.net; s=20230601; t=1735619755; x=1736224555;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=h1mvjlX5nT1rLjjtVWZn8iR4hG3sSfAtSE80GuqS3ww=;
-        b=ai8slAbtxDgelDgDBcKA4NYzRbfL6UgcFuuTuaIqHfCue9ujGnF2KsseFj5o6ZhGLJ
-         kwpT8xpRVDCdntxPP5DVgIevWeRMMsOhsjGMTwjwfp7pXbUyffgVQ1dWB9ygPuUX0Pjs
-         6l1uGtYy9jvNgG6/Tqlj7y3rCBND+6Ls5H08gL9ETtgSkwuM7soKR+GqU3IFmTuxlg08
-         mZX0r+xft/0nVIdsCvRlfvz9FP55dNGsZpEavf78+IB/0ZK+FKHMOB7xrK/sM21A8/O9
-         6bA8SWx6EIDYUoav3yfVWHXzUVRwesBJ09O/nkXolL76a9Ngi1MXwh8DHppefPac2jne
-         c69Q==
-X-Forwarded-Encrypted: i=1; AJvYcCV7soqKXq79NYq03xVxL+l5gcazAw8h2zQv+VdwhMpXGckLwIi5ozCyrQqfUXK8L/ArCUnr0FNQpe4fbp8=@vger.kernel.org
-X-Gm-Message-State: AOJu0YyJCeiM/wsMHlcTrJhAuvBAR7BNArQuKNSJPXSPP2GYRG01nOgV
-	THCMXR2BEDZIssVo56KFvtDcXRhugLTDQzjOXE4tdACEc2TWtzDYqKS8BJ2GmxVWpJz9F4vhyMk
-	ESQ==
-X-Google-Smtp-Source: AGHT+IE1cK9olUWYZZEb01UAnSqV/H0pU5jqrRIyuw+rrX9BP0rn/osA43XuWh8gcnpTcn+qx/sjV1NZo0M=
-X-Received: from pjm5.prod.google.com ([2002:a17:90b:2fc5:b0:2ea:448a:8cd1])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:90b:558f:b0:2ee:4b8f:a5b1
- with SMTP id 98e67ed59e1d1-2ef6aadb4cbmr13013029a91.24.1733609736695; Sat, 07
- Dec 2024 14:15:36 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:20 -0700
-In-Reply-To: <20241207221522.2250311-1-yuzhao@google.com>
+        bh=lq6dqRxgSDV3CyACy0+VqeWU26YT+ayL2zVnCSsSGnY=;
+        b=CkxMzv/l6WJ1wTrMzrjjYyMVr+oEDoF1wpmY2vIpN87IpVCqDVY9awL5HdQF1saRxS
+         R6g8esSNkAcHa4ANyGosSb14IqRI37gmfRXTDSzrf7GBgamwe2Mme7hJQZF2rjxLFDkZ
+         hf2O54erJuH8L4HIjqutsVeOcCQwXpOi6IRPpfLqDUIliyxXzieb0AfEg55zP0bspg/e
+         ZvISttuDy0DBEIYxYgU7pJwpFu/GbiccnS5dOFFEIAcKQX1vMIMvY7sfH+RcK8YXZd38
+         HCTSUs54/AVavB/5HsieZL9ckn2shU/0A9zGsfMnEzAsr1JjBb5cve4YyrwwmFEVtrdP
+         AdTQ==
+X-Forwarded-Encrypted: i=1; AJvYcCX5EeCQdUfvf1mPdIl3p6b43uXCVY9CcS9rDGdiyMYB2fjenFWn4x6eXvgVPvuvfhmK5+grYUrAtxdFx1c=@vger.kernel.org
+X-Gm-Message-State: AOJu0YycZou/mFfQMFNApn/bZZqJEGXNzvxwA6LW0AokcKMXWCkL84rY
+	yHzswE27H5fOIa3W/XYUfgURr+aj1C2RhhpiDHjA5ScTnqPKWiG9M9bZBdSI/FZ6hdiTm2d2t8j
+	AaQ==
+X-Google-Smtp-Source: AGHT+IHeZyv9yGkkGSeakHyyxsc/LoAVc3WVdX/rKDrbygxdcMqZjnwE7jl/rLSwE6a6nOYHrpf3ke3Jfww=
+X-Received: from pfd7.prod.google.com ([2002:a05:6a00:a807:b0:727:2d74:d385])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a05:6a00:430d:b0:725:db34:6a8c
+ with SMTP id d2e1a72fcca58-72abddbd4f7mr55420073b3a.13.1735619755260; Mon, 30
+ Dec 2024 20:35:55 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:35 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-References: <20241207221522.2250311-1-yuzhao@google.com>
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-5-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 4/6] mm/mglru: rework type selection
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-5-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 4/7] mm/mglru: rework type selection
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -543,8 +542,8 @@ Content-Type: text/plain; charset="UTF-8"
 With anon and file min_seq being able to move independently, rework
 type selection so that it is based on the total refaults from all
 tiers of each type. Also allow a type to be selected until that type
-reaches MIN_NR_GENS, and therefore abs_diff(min_seq[0],min_seq[1]) now
-can be 2 (MAX_NR_GENS-MIN_NR_GENS) instead of 1.
+reaches MIN_NR_GENS, regardless of whether that type has a larger
+min_seq or not, to accommodate extreme swappiness.
 
 Since some tiers of a selected type can have higher refaults than the
 first tier of the other type, use a less larger gain factor 2:3
@@ -562,65 +561,10 @@ Tested-by: Kalesh Singh <kaleshsingh@google.com>
  1 file changed, 26 insertions(+), 56 deletions(-)
 
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 00a5aff3db42..02b01ae2bdbb 100644
+index f767e3d34e73..a33221298fd0 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -3083,9 +3095,8 @@ static void read_ctrl_pos(struct lruvec *lruvec, int type, int tier, int gain,
- 	pos->refaulted = lrugen->avg_refaulted[type][tier] +
- 			 atomic_long_read(&lrugen->refaulted[hist][type][tier]);
- 	pos->total = lrugen->avg_total[type][tier] +
-+		     lrugen->protected[hist][type][tier] +
- 		     atomic_long_read(&lrugen->evicted[hist][type][tier]);
--	if (tier)
--		pos->total += lrugen->protected[hist][type][tier - 1];
- 	pos->gain = gain;
- }
- 
-@@ -4529,7 +4527,6 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
- {
- 	int i;
- 	int type;
--	int scanned;
- 	int tier = -1;
- 	DEFINE_MIN_SEQ(lruvec);
- 
-@@ -4554,21 +4551,23 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
- 	else
- 		type = get_type_to_scan(lruvec, swappiness, &tier);
- 
--	for (i = !swappiness; i < ANON_AND_FILE; i++) {
-+	for_each_evictable_type(i, swappiness) {
-+		int scanned;
-+
- 		if (tier < 0)
- 			tier = get_tier_idx(lruvec, type);
- 
-+		*type_scanned = type;
-+
- 		scanned = scan_folios(lruvec, sc, type, tier, list);
- 		if (scanned)
--			break;
-+			return scanned;
- 
- 		type = !type;
- 		tier = -1;
- 	}
- 
--	*type_scanned = type;
--
--	return scanned;
-+	return 0;
- }
- 
- static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swappiness)
--- 
-2.47.0.338.g60cca15819-goog
-
-diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 00a5aff3db42..02b01ae2bdbb 100644
---- a/mm/vmscan.c
-+++ b/mm/vmscan.c
-@@ -3089,15 +3089,20 @@ struct ctrl_pos {
+@@ -3093,15 +3093,20 @@ struct ctrl_pos {
  static void read_ctrl_pos(struct lruvec *lruvec, int type, int tier, int gain,
  			  struct ctrl_pos *pos)
  {
@@ -646,7 +590,7 @@ index 00a5aff3db42..02b01ae2bdbb 100644
  }
  
  static void reset_ctrl_pos(struct lruvec *lruvec, int type, bool carryover)
-@@ -4480,13 +4485,13 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
+@@ -4501,13 +4506,13 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
  	struct ctrl_pos sp, pv;
  
  	/*
@@ -663,12 +607,12 @@ index 00a5aff3db42..02b01ae2bdbb 100644
  		if (!positive_ctrl_err(&sp, &pv))
  			break;
  	}
-@@ -4494,74 +4499,41 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
+@@ -4515,68 +4520,34 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
  	return tier - 1;
  }
  
 -static int get_type_to_scan(struct lruvec *lruvec, int swappiness, int *tier_idx)
-+static int get_type_to_scan(struct lruvec *lruvec, int swappiness, struct scan_control *sc)
++static int get_type_to_scan(struct lruvec *lruvec, int swappiness)
  {
 -	int type, tier;
  	struct ctrl_pos sp, pv;
@@ -676,13 +620,6 @@ index 00a5aff3db42..02b01ae2bdbb 100644
  
 +	if (!swappiness)
 +		return LRU_GEN_FILE;
-+
-+	if (sc->clean_below_min)
-+		return LRU_GEN_ANON;
-+	if (sc->anon_below_min)
-+		return LRU_GEN_FILE;
-+	if (sc->clean_below_low)
-+		return LRU_GEN_ANON;
 +
 +	if (swappiness == MAX_SWAPPINESS)
 +		return LRU_GEN_ANON;
@@ -731,12 +668,6 @@ index 00a5aff3db42..02b01ae2bdbb 100644
 -	 */
 -	if (!swappiness)
 -		type = LRU_GEN_FILE;
--	else if (sc->clean_below_min)
--		type = LRU_GEN_ANON;
--	else if (sc->anon_below_min)
--		type = LRU_GEN_FILE;
--	else if (sc->clean_below_low)
--		type = LRU_GEN_ANON;
 -	else if (min_seq[LRU_GEN_ANON] < min_seq[LRU_GEN_FILE])
 -		type = LRU_GEN_ANON;
 -	else if (swappiness == 1)
@@ -747,7 +678,7 @@ index 00a5aff3db42..02b01ae2bdbb 100644
 -		type = LRU_GEN_FILE;
 -	else
 -		type = get_type_to_scan(lruvec, swappiness, &tier);
-+	int type = get_type_to_scan(lruvec, swappiness, sc);
++	int type = get_type_to_scan(lruvec, swappiness);
  
  	for_each_evictable_type(i, swappiness) {
  		int scanned;
@@ -758,7 +689,7 @@ index 00a5aff3db42..02b01ae2bdbb 100644
  
  		*type_scanned = type;
  
-@@ -4564,7 +4535,6 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
+@@ -4585,7 +4556,6 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
  			return scanned;
  
  		type = !type;
@@ -767,73 +698,73 @@ index 00a5aff3db42..02b01ae2bdbb 100644
  
  	return 0;
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
 
 From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-pg1-f201.google.com (mail-pg1-f201.google.com [209.85.215.201])
+Received: from mail-pj1-f74.google.com (mail-pj1-f74.google.com [209.85.216.74])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 8F9CD193435
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:34 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.215.201
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 56579154433
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:35:53 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.74
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609736; cv=none; b=RkxWBKDw67tHyeF940iVsvvyyh2tJmTKIX9d3jrtRkQEZ7jTBqydjVc9YF3AsF9XR4CBb9BZUK3BmHHeltLa+cn6KLr5EeavFFPO5L8C0w2ovNZ7i4YPK3ew9PNcEwlMp6GUgM4Wa0ZjmBlCVau63XFv5lq+gnIEi3exdAE3ivY=
+	t=1735619755; cv=none; b=X1dEp/6SUHE49FXDsAh1+kOzSAzl0QoERyz7lw1TU2XRPJ5dWW/5NJ10p5ZJ7FGZH4wEMthiQxAxpfmgBry2+9PEirchqGi1TAMCKXIwR1pffAJCkh6SdmdRIei4I8Wo3XOeehaxvR3qeQNMt1L3eriKhbxTbPidTuDC/HjijsU=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609736; c=relaxed/simple;
-	bh=SdBdoFZBzDFJ4xCZGlyHPtZBQmr1hom1R/GUYtzyBBc=;
+	s=arc-20240116; t=1735619755; c=relaxed/simple;
+	bh=JmurZNY3bKU74FjFIUf7Yt0rZJUtuY0d03M13taVH4M=;
 	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
-	 To:Cc:Content-Type; b=Pv+hvPJDuzrhd5ahWC6P3WItPXhUPOw7p5n9C3iwgTUxqfSvh04wNXhezbVPPUCcilNlSBjKR1MAVckahf1IC6mnNFKY0ldFabkUiSLVVlmPvq2nbE124mXlp/Usjae0tyu7uOOAL+9eEXxivya8cYSEn7bycxU8UVmRFOgMxIY=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=h0ee1oLH; arc=none smtp.client-ip=209.85.215.201
+	 To:Cc:Content-Type; b=nWhdI1qvE+6G4TR56Lyn4EX5jXyYra7FDqiEM3Muk8OmYsdclIA5gHzOWRyEOIDtUjB/n31a55btKZJC2d5n+bx/4QbWcNfsKAFflpru///B89BK9YfC2jbLzLDU3CH2C6NI8Y0PYVQi+KTU/9n+G2+I0VPlqSsy2Kr/5o8chuk=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=c4C/YmFc; arc=none smtp.client-ip=209.85.216.74
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="h0ee1oLH"
-Received: by mail-pg1-f201.google.com with SMTP id 41be03b00d2f7-7fd1d9a70f3so1837630a12.2
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:34 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="c4C/YmFc"
+Received: by mail-pj1-f74.google.com with SMTP id 98e67ed59e1d1-2ee8ced572eso13429627a91.0
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:35:53 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609734; x=1734214534; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619752; x=1736224552; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:from:to:cc:subject:date:message-id:reply-to;
-        bh=x/WXMwNfw0sDUCuQfYx8lzIKxCIUKsshP78UrWZEISs=;
-        b=h0ee1oLHo9dLa5/uzSNvXU+AYiuwb6WuS3fOtGml/Hp+9Ut+G2fwEN6GG5cO6p0UGd
-         I8qKoe6jXJRBVZQdbZ898Yr6C8zTJw8SnsBhIIKx/c8bXnv0nIDrH6rFGouo1iJVXjq4
-         PzsPbBFcY8LVyQrOdf/Id1Lt5gDICxtiOYpOK32OgYZj2Jq7Ge1bRwkvwavnge27lYuP
-         bEW+Q4HtSAH2LEV+8Mdho55IOkGl8wVWovYuCJbGDZIHkiO6jWKGkYKCI5J116larWic
-         NiPoSSCZzmkXwQPWVpYSLTldQrm0deh5PavbsCsMYGY7gp36RoWXk4GZUEG9TuNIslX/
-         RhwA==
+        bh=sDhUReo2deRGp+tnJMIYJBVB2YFMdmBRAUrx9f/kOiA=;
+        b=c4C/YmFcXpBRzret4u7Q2V8GzZ8FgS87cxDjwdvlWOsxA+QVZlOzKuesRSQjsp0XvG
+         YL507BK5V6X9fG22Udp4qy4TL5s4NPTsmRppaXmuDr5EOn59W3ibnNeRTiSdHnXa5yXd
+         YXwgEBDhiLx3qe5bSUddPrLKpkCU66d+/siFxXT4NjZFUWSPHR4igBDSf3ion0vZOPiC
+         ps2c2bo6cO5GGvA7DeHjfB8OpD7bAm4JaBNM47gxz9Bfqy/eF+Jb0s3QSCv1B4BqXSL/
+         Mhu+Z8gliFEqJY+3kQ6s4o41wU+iTIkqhjbl6BZDYQGIRqhjlFU4oTPEMJLR+BibwC1E
+         dMXQ==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609734; x=1734214534;
+        d=1e100.net; s=20230601; t=1735619752; x=1736224552;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=x/WXMwNfw0sDUCuQfYx8lzIKxCIUKsshP78UrWZEISs=;
-        b=cvoH8+rSOnSsvbW6+UM95TY3ULxPu+RQVtNx0T2pK8vEZtzbIZRvuhkhBlRbXLwvUd
-         +he5kAGIMcQswGwMI/Nz29M+A8BjzaHQof/aGmJXmTnzIlX2mL4yRzY4vjRqI31/f9oL
-         PpVByOoNBjZlPQowf9mX5OSqWkLh4sE3xFNVfxckUCOFkPlC+bGu7mwsw3/A7psgTIKO
-         1mpJLuZBzRF2vRoPlAwKlkKp+d/NTxfbp6aHMoiJMOR3/1WQQ48+n1X1j0P9VI9j1vxJ
-         RKlVJpYsffd2UqCssMDmqbah9nD0pyKWtDOCVkEwF3OZicG+1to9tAgJfZwCQyPSk+QG
-         v9OA==
-X-Forwarded-Encrypted: i=1; AJvYcCUIHY1ByfgwL4uTKTddT6cfIE/WZk9PnSrY26XmDQNGIuPlrfpO3tgyfmgOnplPhP2+vYo1RSx/GFR/JLs=@vger.kernel.org
-X-Gm-Message-State: AOJu0YySIyE4lKidIIEuiTW+BSeiKS33Jlfot+lkIbFAPDZKRYTWJydU
-	WaTUhZ32UTyRW3DuUG+crpSrtJ5Wqx5xDfoJTSnbnpBzByeSGsHzhH0U+PvMqoucoq3R1eLITAv
-	E4g==
-X-Google-Smtp-Source: AGHT+IHUcmdXko/vEWEcYvOS+i3+2ODHT93QS00ngr4ZFLZJtDjyIBl6DFu+/mYipa85hT4Fnkiy+FUdlgI=
-X-Received: from pjh6.prod.google.com ([2002:a17:90b:3f86:b0:2ee:2761:b67a])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:90a:d88e:b0:2ee:b66d:6576
- with SMTP id 98e67ed59e1d1-2ef6ab10612mr12423648a91.30.1733609733903; Sat, 07
- Dec 2024 14:15:33 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:19 -0700
-In-Reply-To: <20241207221522.2250311-1-yuzhao@google.com>
+        bh=sDhUReo2deRGp+tnJMIYJBVB2YFMdmBRAUrx9f/kOiA=;
+        b=aTATpTAClEDCGNhj+r0+ypNi/cQPjigwhcv4K7ncJkm9ByCQyboN/9Y2Hx/sbjbe1r
+         Wy1bvWi/rM/DS9YtkdWj+cr/hoekNZNw0/dJJy7Yjxr2b3hAV4QBVLJaWtVZeHj1o7zf
+         ERrH8D7AGODxfCSzYLzOctN9FkpORPByyv8SJzfYlamNdD78FohmKJEH12Jb2QAq3fCv
+         2GKd0BItE/0odz8P7xuKnVEqwnb2pIyLxeI2dRC8sl4qoyeChkTCUlMrGz19dVNA5l5m
+         HU568pWJWnVx4PTCz6r2BO/L7IwDcOiDfBGhDtL+ZgqOqsPstpMjNMShHYfy69e0fT3o
+         nM3g==
+X-Forwarded-Encrypted: i=1; AJvYcCU9JzwLWYbrrcP3A5zzAJtNmpSh/oMZmHpqHFQh43cqltGQ/VTnd4WL0twCubvpEpYddLTXlOTHDuASp30=@vger.kernel.org
+X-Gm-Message-State: AOJu0Yw8b4p+Kd0vgiSageAREK8D/r146O1Ho0ZV868Azv4bIiZatEX4
+	NaBckEyw82jvmue2aFMR5GJMuFFgC6L9854pTrJ7zHjC9ZelDn2yW9LiTOxOgygRCUDZ7x8ZgEq
+	0lA==
+X-Google-Smtp-Source: AGHT+IG6nxstyXgWqSu+L2n9Zxz+hgGy42XY3ZsLF+ONO7heKN9bb4QBB98vkqXP6rvyE1kIrVxQ7Qx/GdU=
+X-Received: from pfxa12.prod.google.com ([2002:a05:6a00:1d0c:b0:725:d350:a304])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a05:6a00:8d8d:b0:725:e37d:cd36
+ with SMTP id d2e1a72fcca58-72abdd3c476mr58090892b3a.2.1735619752645; Mon, 30
+ Dec 2024 20:35:52 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:34 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-References: <20241207221522.2250311-1-yuzhao@google.com>
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-4-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 3/6] mm/mglru: rework aging feedback
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-4-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 3/7] mm/mglru: rework aging feedback
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -869,15 +800,33 @@ Reported-by: David Stevens <stevensd@chromium.org>
 Signed-off-by: Yu Zhao <yuzhao@google.com>
 Tested-by: Kalesh Singh <kaleshsingh@google.com>
 ---
- include/linux/mmzone.h |   6 +-
- mm/vmscan.c            | 217 +++++++++++++++++------------------------
- 2 files changed, 91 insertions(+), 132 deletions(-)
+ include/linux/mmzone.h |  17 ++--
+ mm/vmscan.c            | 200 ++++++++++++++++++-----------------------
+ 2 files changed, 96 insertions(+), 121 deletions(-)
 
 diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index b36124145a16..b998ccc5c341 100644
+index b36124145a16..8245ecb0400b 100644
 --- a/include/linux/mmzone.h
 +++ b/include/linux/mmzone.h
-@@ -446,8 +446,8 @@ struct lru_gen_folio {
+@@ -421,12 +421,11 @@ enum {
+ /*
+  * The youngest generation number is stored in max_seq for both anon and file
+  * types as they are aged on an equal footing. The oldest generation numbers are
+- * stored in min_seq[] separately for anon and file types as clean file pages
+- * can be evicted regardless of swap constraints.
+- *
+- * Normally anon and file min_seq are in sync. But if swapping is constrained,
+- * e.g., out of swap space, file min_seq is allowed to advance and leave anon
+- * min_seq behind.
++ * stored in min_seq[] separately for anon and file types so that they can be
++ * incremented independently. Ideally min_seq[] are kept in sync when both anon
++ * and file types are evictable. However, to adapt to situations like extreme
++ * swappiness, they are allowed to be out of sync by at most
++ * MAX_NR_GENS-MIN_NR_GENS-1.
+  *
+  * The number of pages in each generation is eventually consistent and therefore
+  * can be transiently negative when reset_batch_size() is pending.
+@@ -446,8 +445,8 @@ struct lru_gen_folio {
  	unsigned long avg_refaulted[ANON_AND_FILE][MAX_NR_TIERS];
  	/* the exponential moving average of evicted+protected */
  	unsigned long avg_total[ANON_AND_FILE][MAX_NR_TIERS];
@@ -888,7 +837,7 @@ index b36124145a16..b998ccc5c341 100644
  	/* can be modified without holding the LRU lock */
  	atomic_long_t evicted[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS];
  	atomic_long_t refaulted[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS];
-@@ -498,7 +498,7 @@ struct lru_gen_mm_walk {
+@@ -498,7 +497,7 @@ struct lru_gen_mm_walk {
  	int mm_stats[NR_MM_STATS];
  	/* total batched items */
  	int batched;
@@ -898,10 +847,10 @@ index b36124145a16..b998ccc5c341 100644
  };
  
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 2a8db048d581..00a5aff3db42 100644
+index f236db86de8a..f767e3d34e73 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -2623,11 +2623,17 @@ static bool should_clear_pmd_young(void)
+@@ -2627,11 +2627,17 @@ static bool should_clear_pmd_young(void)
  		READ_ONCE((lruvec)->lrugen.min_seq[LRU_GEN_FILE]),	\
  	}
  
@@ -919,7 +868,7 @@ index 2a8db048d581..00a5aff3db42 100644
  #define get_memcg_gen(seq)	((seq) % MEMCG_NR_GENS)
  #define get_memcg_bin(bin)	((bin) % MEMCG_NR_BINS)
  
-@@ -2673,10 +2679,16 @@ static int get_nr_gens(struct lruvec *lruvec, int type)
+@@ -2677,10 +2683,16 @@ static int get_nr_gens(struct lruvec *lruvec, int type)
  
  static bool __maybe_unused seq_is_valid(struct lruvec *lruvec)
  {
@@ -940,7 +889,18 @@ index 2a8db048d581..00a5aff3db42 100644
  }
  
  /******************************************************************************
-@@ -3112,17 +3123,15 @@ static void reset_ctrl_pos(struct lruvec *lruvec, int type, bool carryover)
+@@ -3087,9 +3099,8 @@ static void read_ctrl_pos(struct lruvec *lruvec, int type, int tier, int gain,
+ 	pos->refaulted = lrugen->avg_refaulted[type][tier] +
+ 			 atomic_long_read(&lrugen->refaulted[hist][type][tier]);
+ 	pos->total = lrugen->avg_total[type][tier] +
++		     lrugen->protected[hist][type][tier] +
+ 		     atomic_long_read(&lrugen->evicted[hist][type][tier]);
+-	if (tier)
+-		pos->total += lrugen->protected[hist][type][tier - 1];
+ 	pos->gain = gain;
+ }
+ 
+@@ -3116,17 +3127,15 @@ static void reset_ctrl_pos(struct lruvec *lruvec, int type, bool carryover)
  			WRITE_ONCE(lrugen->avg_refaulted[type][tier], sum / 2);
  
  			sum = lrugen->avg_total[type][tier] +
@@ -960,7 +920,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		}
  	}
  }
-@@ -3257,7 +3266,7 @@ static int should_skip_vma(unsigned long start, unsigned long end, struct mm_wal
+@@ -3261,7 +3270,7 @@ static int should_skip_vma(unsigned long start, unsigned long end, struct mm_wal
  		return true;
  
  	if (vma_is_anonymous(vma))
@@ -969,7 +929,7 @@ index 2a8db048d581..00a5aff3db42 100644
  
  	if (WARN_ON_ONCE(!vma->vm_file || !vma->vm_file->f_mapping))
  		return true;
-@@ -3267,7 +3276,10 @@ static int should_skip_vma(unsigned long start, unsigned long end, struct mm_wal
+@@ -3271,7 +3280,10 @@ static int should_skip_vma(unsigned long start, unsigned long end, struct mm_wal
  		return true;
  
  	if (shmem_mapping(mapping))
@@ -981,7 +941,7 @@ index 2a8db048d581..00a5aff3db42 100644
  
  	/* to exclude special mappings like dax, etc. */
  	return !mapping->a_ops->read_folio;
-@@ -3355,7 +3367,7 @@ static unsigned long get_pmd_pfn(pmd_t pmd, struct vm_area_struct *vma, unsigned
+@@ -3359,7 +3371,7 @@ static unsigned long get_pmd_pfn(pmd_t pmd, struct vm_area_struct *vma, unsigned
  }
  
  static struct folio *get_pfn_folio(unsigned long pfn, struct mem_cgroup *memcg,
@@ -990,7 +950,7 @@ index 2a8db048d581..00a5aff3db42 100644
  {
  	struct folio *folio;
  
-@@ -3366,10 +3378,6 @@ static struct folio *get_pfn_folio(unsigned long pfn, struct mem_cgroup *memcg,
+@@ -3370,10 +3382,6 @@ static struct folio *get_pfn_folio(unsigned long pfn, struct mem_cgroup *memcg,
  	if (folio_memcg(folio) != memcg)
  		return NULL;
  
@@ -1001,7 +961,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	return folio;
  }
  
-@@ -3425,7 +3433,7 @@ static bool walk_pte_range(pmd_t *pmd, unsigned long start, unsigned long end,
+@@ -3429,7 +3437,7 @@ static bool walk_pte_range(pmd_t *pmd, unsigned long start, unsigned long end,
  		if (pfn == -1)
  			continue;
  
@@ -1010,7 +970,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		if (!folio)
  			continue;
  
-@@ -3510,7 +3518,7 @@ static void walk_pmd_range_locked(pud_t *pud, unsigned long addr, struct vm_area
+@@ -3514,7 +3522,7 @@ static void walk_pmd_range_locked(pud_t *pud, unsigned long addr, struct vm_area
  		if (pfn == -1)
  			goto next;
  
@@ -1019,7 +979,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		if (!folio)
  			goto next;
  
-@@ -3722,22 +3730,26 @@ static void clear_mm_walk(void)
+@@ -3726,22 +3734,26 @@ static void clear_mm_walk(void)
  		kfree(walk);
  }
  
@@ -1049,7 +1009,7 @@ index 2a8db048d581..00a5aff3db42 100644
  
  			VM_WARN_ON_ONCE_FOLIO(folio_test_unevictable(folio), folio);
  			VM_WARN_ON_ONCE_FOLIO(folio_test_active(folio), folio);
-@@ -3747,6 +3759,9 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, bool can_swap)
+@@ -3751,6 +3763,9 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, bool can_swap)
  			new_gen = folio_inc_gen(lruvec, folio, false);
  			list_move_tail(&folio->lru, &lrugen->folios[new_gen][type][zone]);
  
@@ -1059,7 +1019,7 @@ index 2a8db048d581..00a5aff3db42 100644
  			if (!--remaining)
  				return false;
  		}
-@@ -3758,51 +3773,37 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, bool can_swap)
+@@ -3762,7 +3777,7 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, bool can_swap)
  	return true;
  }
  
@@ -1068,52 +1028,39 @@ index 2a8db048d581..00a5aff3db42 100644
  {
  	int gen, type, zone;
  	bool success = false;
- 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
--	DEFINE_MIN_SEQ(lruvec);
- 
+@@ -3772,7 +3787,7 @@ static bool try_to_inc_min_seq(struct lruvec *lruvec, bool can_swap)
  	VM_WARN_ON_ONCE(!seq_is_valid(lruvec));
  
--	/* find the oldest populated generation */
+ 	/* find the oldest populated generation */
 -	for (type = !can_swap; type < ANON_AND_FILE; type++) {
--		while (min_seq[type] + MIN_NR_GENS <= lrugen->max_seq) {
--			gen = lru_gen_from_seq(min_seq[type]);
 +	for_each_evictable_type(type, swappiness) {
-+		unsigned long seq;
-+
-+		for (seq = lrugen->min_seq[type]; seq + MIN_NR_GENS <= lrugen->max_seq; seq++) {
-+			gen = lru_gen_from_seq(seq);
+ 		while (min_seq[type] + MIN_NR_GENS <= lrugen->max_seq) {
+ 			gen = lru_gen_from_seq(min_seq[type]);
  
- 			for (zone = 0; zone < MAX_NR_ZONES; zone++) {
- 				if (!list_empty(&lrugen->folios[gen][type][zone]))
- 					goto next;
- 			}
--
--			min_seq[type]++;
- 		}
- next:
--		;
--	}
--
--	/* see the comment on lru_gen_folio */
+@@ -3788,13 +3803,17 @@ static bool try_to_inc_min_seq(struct lruvec *lruvec, bool can_swap)
+ 	}
+ 
+ 	/* see the comment on lru_gen_folio */
 -	if (can_swap) {
 -		min_seq[LRU_GEN_ANON] = min(min_seq[LRU_GEN_ANON], min_seq[LRU_GEN_FILE]);
 -		min_seq[LRU_GEN_FILE] = max(min_seq[LRU_GEN_ANON], lrugen->min_seq[LRU_GEN_FILE]);
--	}
--
--	for (type = !can_swap; type < ANON_AND_FILE; type++) {
--		if (min_seq[type] == lrugen->min_seq[type])
--			continue;
--
--		reset_ctrl_pos(lruvec, type, true);
--		WRITE_ONCE(lrugen->min_seq[type], min_seq[type]);
--		success = true;
-+		if (seq != lrugen->min_seq[type]) {
-+			reset_ctrl_pos(lruvec, type, true);
-+			WRITE_ONCE(lrugen->min_seq[type], seq);
-+			success = true;
-+		}
++	if (swappiness && swappiness != MAX_SWAPPINESS) {
++		unsigned long seq = lrugen->max_seq - MIN_NR_GENS;
++
++		if (min_seq[LRU_GEN_ANON] > seq && min_seq[LRU_GEN_FILE] < seq)
++			min_seq[LRU_GEN_ANON] = seq;
++		else if (min_seq[LRU_GEN_FILE] > seq && min_seq[LRU_GEN_ANON] < seq)
++			min_seq[LRU_GEN_FILE] = seq;
  	}
  
+-	for (type = !can_swap; type < ANON_AND_FILE; type++) {
+-		if (min_seq[type] == lrugen->min_seq[type])
++	for_each_evictable_type(type, swappiness) {
++		if (min_seq[type] <= lrugen->min_seq[type])
+ 			continue;
+ 
+ 		reset_ctrl_pos(lruvec, type, true);
+@@ -3805,8 +3824,7 @@ static bool try_to_inc_min_seq(struct lruvec *lruvec, bool can_swap)
  	return success;
  }
  
@@ -1123,7 +1070,7 @@ index 2a8db048d581..00a5aff3db42 100644
  {
  	bool success;
  	int prev, next;
-@@ -3820,13 +3821,11 @@ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+@@ -3824,13 +3842,11 @@ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq,
  	if (!success)
  		goto unlock;
  
@@ -1139,7 +1086,7 @@ index 2a8db048d581..00a5aff3db42 100644
  			continue;
  
  		spin_unlock_irq(&lruvec->lru_lock);
-@@ -3870,7 +3869,7 @@ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+@@ -3874,7 +3890,7 @@ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq,
  }
  
  static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
@@ -1148,7 +1095,7 @@ index 2a8db048d581..00a5aff3db42 100644
  {
  	bool success;
  	struct lru_gen_mm_walk *walk;
-@@ -3881,7 +3880,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+@@ -3885,7 +3901,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
  	VM_WARN_ON_ONCE(seq > READ_ONCE(lrugen->max_seq));
  
  	if (!mm_state)
@@ -1157,7 +1104,7 @@ index 2a8db048d581..00a5aff3db42 100644
  
  	/* see the comment in iterate_mm_list() */
  	if (seq <= READ_ONCE(mm_state->seq))
-@@ -3906,7 +3905,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+@@ -3910,7 +3926,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
  
  	walk->lruvec = lruvec;
  	walk->seq = seq;
@@ -1166,7 +1113,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	walk->force_scan = force_scan;
  
  	do {
-@@ -3916,7 +3915,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+@@ -3920,7 +3936,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
  	} while (mm);
  done:
  	if (success) {
@@ -1175,7 +1122,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		WARN_ON_ONCE(!success);
  	}
  
-@@ -3957,13 +3956,13 @@ static bool lruvec_is_sizable(struct lruvec *lruvec, struct scan_control *sc)
+@@ -3961,13 +3977,13 @@ static bool lruvec_is_sizable(struct lruvec *lruvec, struct scan_control *sc)
  {
  	int gen, type, zone;
  	unsigned long total = 0;
@@ -1191,7 +1138,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		unsigned long seq;
  
  		for (seq = min_seq[type]; seq <= max_seq; seq++) {
-@@ -3983,6 +3982,7 @@ static bool lruvec_is_reclaimable(struct lruvec *lruvec, struct scan_control *sc
+@@ -3987,6 +4003,7 @@ static bool lruvec_is_reclaimable(struct lruvec *lruvec, struct scan_control *sc
  {
  	int gen;
  	unsigned long birth;
@@ -1199,7 +1146,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	struct mem_cgroup *memcg = lruvec_memcg(lruvec);
  	DEFINE_MIN_SEQ(lruvec);
  
-@@ -3992,8 +3992,7 @@ static bool lruvec_is_reclaimable(struct lruvec *lruvec, struct scan_control *sc
+@@ -3996,8 +4013,7 @@ static bool lruvec_is_reclaimable(struct lruvec *lruvec, struct scan_control *sc
  	if (!lruvec_is_sizable(lruvec, sc))
  		return false;
  
@@ -1209,7 +1156,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	birth = READ_ONCE(lruvec->lrugen.timestamps[gen]);
  
  	return time_is_before_jiffies(birth + min_ttl);
-@@ -4060,7 +4059,6 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
+@@ -4064,7 +4080,6 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
  	unsigned long addr = pvmw->address;
  	struct vm_area_struct *vma = pvmw->vma;
  	struct folio *folio = pfn_folio(pvmw->pfn);
@@ -1217,7 +1164,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	struct mem_cgroup *memcg = folio_memcg(folio);
  	struct pglist_data *pgdat = folio_pgdat(folio);
  	struct lruvec *lruvec = mem_cgroup_lruvec(memcg, pgdat);
-@@ -4113,7 +4111,7 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
+@@ -4117,7 +4132,7 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
  		if (pfn == -1)
  			continue;
  
@@ -1226,7 +1173,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		if (!folio)
  			continue;
  
-@@ -4329,8 +4327,8 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
+@@ -4333,8 +4348,8 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
  		gen = folio_inc_gen(lruvec, folio, false);
  		list_move_tail(&folio->lru, &lrugen->folios[gen][type][zone]);
  
@@ -1237,7 +1184,44 @@ index 2a8db048d581..00a5aff3db42 100644
  		return true;
  	}
  
-@@ -4584,6 +4583,7 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
+@@ -4533,7 +4548,6 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
+ {
+ 	int i;
+ 	int type;
+-	int scanned;
+ 	int tier = -1;
+ 	DEFINE_MIN_SEQ(lruvec);
+ 
+@@ -4558,21 +4572,23 @@ static int isolate_folios(struct lruvec *lruvec, struct scan_control *sc, int sw
+ 	else
+ 		type = get_type_to_scan(lruvec, swappiness, &tier);
+ 
+-	for (i = !swappiness; i < ANON_AND_FILE; i++) {
++	for_each_evictable_type(i, swappiness) {
++		int scanned;
++
+ 		if (tier < 0)
+ 			tier = get_tier_idx(lruvec, type);
+ 
++		*type_scanned = type;
++
+ 		scanned = scan_folios(lruvec, sc, type, tier, list);
+ 		if (scanned)
+-			break;
++			return scanned;
+ 
+ 		type = !type;
+ 		tier = -1;
+ 	}
+ 
+-	*type_scanned = type;
+-
+-	return scanned;
++	return 0;
+ }
+ 
+ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swappiness)
+@@ -4588,6 +4604,7 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
  	struct reclaim_stat stat;
  	struct lru_gen_mm_walk *walk;
  	bool skip_retry = false;
@@ -1245,7 +1229,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	struct mem_cgroup *memcg = lruvec_memcg(lruvec);
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
  
-@@ -4593,7 +4593,7 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
+@@ -4597,7 +4614,7 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
  
  	scanned += try_to_inc_min_seq(lruvec, swappiness);
  
@@ -1254,7 +1238,7 @@ index 2a8db048d581..00a5aff3db42 100644
  		scanned = 0;
  
  	spin_unlock_irq(&lruvec->lru_lock);
-@@ -4665,63 +4665,32 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
+@@ -4669,63 +4686,32 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
  }
  
  static bool should_run_aging(struct lruvec *lruvec, unsigned long max_seq,
@@ -1327,7 +1311,7 @@ index 2a8db048d581..00a5aff3db42 100644
  }
  
  /*
-@@ -4729,7 +4698,7 @@ static bool should_run_aging(struct lruvec *lruvec, unsigned long max_seq,
+@@ -4733,7 +4719,7 @@ static bool should_run_aging(struct lruvec *lruvec, unsigned long max_seq,
   * 1. Defer try_to_inc_max_seq() to workqueues to reduce latency for memcg
   *    reclaim.
   */
@@ -1336,7 +1320,7 @@ index 2a8db048d581..00a5aff3db42 100644
  {
  	bool success;
  	unsigned long nr_to_scan;
-@@ -4739,7 +4708,7 @@ static long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *sc, bool
+@@ -4743,7 +4729,7 @@ static long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *sc, bool
  	if (mem_cgroup_below_min(sc->target_mem_cgroup, memcg))
  		return -1;
  
@@ -1345,7 +1329,7 @@ index 2a8db048d581..00a5aff3db42 100644
  
  	/* try to scrape all its memory if this memcg was deleted */
  	if (nr_to_scan && !mem_cgroup_online(memcg))
-@@ -4750,7 +4719,7 @@ static long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *sc, bool
+@@ -4754,7 +4740,7 @@ static long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *sc, bool
  		return nr_to_scan >> sc->priority;
  
  	/* stop scanning this lruvec as it's low on cold folios */
@@ -1354,7 +1338,7 @@ index 2a8db048d581..00a5aff3db42 100644
  }
  
  static bool should_abort_scan(struct lruvec *lruvec, struct scan_control *sc)
-@@ -5294,8 +5263,7 @@ static void lru_gen_seq_show_full(struct seq_file *m, struct lruvec *lruvec,
+@@ -5298,8 +5284,7 @@ static void lru_gen_seq_show_full(struct seq_file *m, struct lruvec *lruvec,
  				s = "rep";
  				n[0] = atomic_long_read(&lrugen->refaulted[hist][type][tier]);
  				n[1] = atomic_long_read(&lrugen->evicted[hist][type][tier]);
@@ -1364,7 +1348,7 @@ index 2a8db048d581..00a5aff3db42 100644
  			}
  
  			for (i = 0; i < 3; i++)
-@@ -5350,7 +5318,7 @@ static int lru_gen_seq_show(struct seq_file *m, void *v)
+@@ -5354,7 +5339,7 @@ static int lru_gen_seq_show(struct seq_file *m, void *v)
  	seq_printf(m, " node %5d\n", nid);
  
  	if (!full)
@@ -1373,7 +1357,7 @@ index 2a8db048d581..00a5aff3db42 100644
  	else if (max_seq >= MAX_NR_GENS)
  		seq = max_seq - MAX_NR_GENS + 1;
  	else
-@@ -5390,23 +5358,14 @@ static const struct seq_operations lru_gen_seq_ops = {
+@@ -5394,23 +5379,14 @@ static const struct seq_operations lru_gen_seq_ops = {
  };
  
  static int run_aging(struct lruvec *lruvec, unsigned long seq,
@@ -1399,7 +1383,7 @@ index 2a8db048d581..00a5aff3db42 100644
  }
  
  static int run_eviction(struct lruvec *lruvec, unsigned long seq, struct scan_control *sc,
-@@ -5422,7 +5381,7 @@ static int run_eviction(struct lruvec *lruvec, unsigned long seq, struct scan_co
+@@ -5426,7 +5402,7 @@ static int run_eviction(struct lruvec *lruvec, unsigned long seq, struct scan_co
  	while (!signal_pending(current)) {
  		DEFINE_MIN_SEQ(lruvec);
  
@@ -1409,73 +1393,73 @@ index 2a8db048d581..00a5aff3db42 100644
  
  		if (sc->nr_reclaimed >= nr_to_reclaim)
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
 
 From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-pj1-f74.google.com (mail-pj1-f74.google.com [209.85.216.74])
+Received: from mail-pl1-f201.google.com (mail-pl1-f201.google.com [209.85.214.201])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 17EDB19539F
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:39 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.74
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id DDCB1188010
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:35:58 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.214.201
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609741; cv=none; b=NYfM7ez4I+59CiMHQMQ8GYY+iSPReK/kYZsA0twPUuMtDDzeFdmgzKClFzDSST2EMl6pqOFdQ6p7THXSqKLxaQwK4AQiMNadkrlCXD1y7JSkR3fHrfkIMTIxo6qd70K+W1ulIfiOSoHO+9Zg1ssP5mi5CGTn5f5dlaAMAhKrm84=
+	t=1735619760; cv=none; b=QjeUWKORCc9ZSuy78lXPnaB+GEv+NKVDLopVCIthQPDkb8Kms/t7jbfummrEwqMWnhFI6lFL2IZmD29j4tuGOX1SirjfdqB9Ox+mZgmBX2vLwgWHpC5JZZfARe/KsZCr/iqCajoPW5IqOc+hSu92GU3Me8EYpaqiymzgjD1K7VI=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609741; c=relaxed/simple;
-	bh=7eooM8lictiogeSqDWNnopPiMIbG0zFPlbWX1bsoFTE=;
+	s=arc-20240116; t=1735619760; c=relaxed/simple;
+	bh=uTp7bD44RNzwMxHC/uNni/sVAGSpZwMMVsfwcGnYVDQ=;
 	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
-	 To:Cc:Content-Type; b=qztlQ3/qTbwf2b+PYzav0ofeT2LBRxVWO51vfTd5aAJ8c6Z/xCWT1dD/REMLknMh92IO2pzv+jdupS14s56Gldzc42xl85M7cmRrmBTY9FNa4CiWcgpmG6ueS5DWdc8R3XIntFyWstzwd5CjMaQo4YUNSyvEFJXR7UJP3pE5pWA=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=Sc82Jjhz; arc=none smtp.client-ip=209.85.216.74
+	 To:Cc:Content-Type; b=RSDVEuyk7M0eR0IUtfpZQ8uon3Dc01fy1U/ZENoglkPta13J6grprDycbkH8qIrMGQgSxKRlOeP98CJM5UjbQz0xS/RRGszCL1Q7lE5AC3qFSd0W+a9GSfk7cpjjBGKaFfvhtyS8X4iVzw+mkJynlrQlhHJdvP4J11//uPxzVQI=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=09PoE1fx; arc=none smtp.client-ip=209.85.214.201
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="Sc82Jjhz"
-Received: by mail-pj1-f74.google.com with SMTP id 98e67ed59e1d1-2ef79403c5eso2033974a91.0
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:39 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="09PoE1fx"
+Received: by mail-pl1-f201.google.com with SMTP id d9443c01a7336-2161d185f04so96103355ad.3
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:35:58 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609739; x=1734214539; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619758; x=1736224558; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:from:to:cc:subject:date:message-id:reply-to;
-        bh=KW2cgcwHB51Y5IYZaisd+Bp0HxAyG3VEQ4AUms4DlWs=;
-        b=Sc82Jjhzwf42VIpjTq25RTYjSwkXnlstTVLZ1431JTsgTyq3sR6YDdVyU4T39YT6+5
-         fK1TgrLrw38Vjl+3s/vtojjahZdNXVzgteeFRE0iIZN2nWKGhGz8e4fnrhvsewqBAhPP
-         WwbWmwuzf5pvR4m6EWDYtLq33D9yWFWm9hJUgJUYOx1+jOY9TUI6BEJci08PdqYNvy+P
-         LUS8+tLo0yEi5jNPwZge6XkD8YBYMiTrFecpiJWadFUCkXUHJyqkbT9/8ebDsFwkWKy/
-         2w9/BHc3RPvHlCYk+czOMgkp6mD22/9PsnvGDI+LpsA4VdQ96SrXdmFVDGoJ3wVhQekE
-         ajYQ==
+        bh=o6XRtkbexDya+FE96V37S0c0XRTdkGfwnwLQlfXry/0=;
+        b=09PoE1fxn/CkucqrPFzJ9Qsl19mQEdHbls4J0xjwWhpmmNgOFs3i4KRR9C2ZCNFqZf
+         tdtVs2Lun+uVMdtjwGVjXCNJII1DTcwtObFdsGcclfN13a3a2iKMidTE8uYGyaza4uqi
+         WlezcbEwfNcDjHWZvR6aQ2KzDi2OsYwtaEP1d+V26VWhRtrSXLm/6vm/aLQKHCg5L8dG
+         Q7zDhJTiTpvfQR5b60Hy+QnQ7PBeLmWBX6Gi9S2SftSE89jfhnjZ2b2WmIbNzGLJsEDN
+         SQOc9ko0BZpHwONLhFt4J75YNT2t0R9fcYuOEM2+nQpeP1AuCwDVNkuExMoEImNBs9bk
+         59ZA==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609739; x=1734214539;
+        d=1e100.net; s=20230601; t=1735619758; x=1736224558;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=KW2cgcwHB51Y5IYZaisd+Bp0HxAyG3VEQ4AUms4DlWs=;
-        b=GGQfOXzc5iNsLIw2vcyQTVailxAIsr3UIQ9Em97L7/Cyas928lm1bM/rbK7DtofYle
-         +PDoXqIDbaTflRHAS9BVVcpL0u9epL+IIMQOBje2VZcTsN/g3dFpQEV8cfIUTDBG1I3y
-         w08KuDQN2J5ijnuZEJBIBBTNhaW+SKK3MxwMc9g5BwXHNxzOmfGuTtU0mc7ifoNqOP9g
-         KjCyWJGgVPWqplvn/MZLtjgQJDE0F/wLm8zpsIxhHLjF05YbokoO5XJuIUXawX1FJogD
-         kOAt9EE+/WGJ5JIjTfUFtr2Uow81Qab0CEtV2/umUC846Tf0s2SIuNheDPcnW5W3zVQF
-         Td5g==
-X-Forwarded-Encrypted: i=1; AJvYcCXcZiqUVBn6kwPcFi45K2Y1pq47Mp7aBVOvQ3ksqzimcThfRdquAFh6JqvM90cZJ3T2r/BlQ5xe9JfrWyw=@vger.kernel.org
-X-Gm-Message-State: AOJu0YyaWZLw7WOUKhaZJioUC6/9KpVCAAUnqiURSGhOF903A3R7U5JJ
-	BfEJ//84bL22rHvnOoYShV7sEZsvD9//WHrDMsCuDeGYX7QRNsjpZ5CifNIX/gc5CPsHnPYXd9+
-	r8w==
-X-Google-Smtp-Source: AGHT+IGLJjHyW+Ykmm2+aL9lWknHp1gQ6xAIWeFiqeIX5Kn/EtyOEYWZv/R88rJ8RijCnornkXxmr9Is4Ew=
-X-Received: from pjboi8.prod.google.com ([2002:a17:90b:3a08:b0:2ea:4a74:ac2])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:90b:2d05:b0:2ee:7c02:8f08
- with SMTP id 98e67ed59e1d1-2ef6ab29d43mr12407603a91.37.1733609739414; Sat, 07
- Dec 2024 14:15:39 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:21 -0700
-In-Reply-To: <20241207221522.2250311-1-yuzhao@google.com>
+        bh=o6XRtkbexDya+FE96V37S0c0XRTdkGfwnwLQlfXry/0=;
+        b=kk0NbKAOCGaWvPRPR7ehBIJ8zC3fMfWchmSYeUX/MufkSBLzeK+46ijPq8OIMr1pPF
+         gb/EF3eLGyanAsXj+IrTw2n1ateqzTO15WKpY7ld5E2JW2k99mBqjUe9BjAqWaQN7C5h
+         AbX/K6aNupzjAuxpBwhXaRSekadbEPQeQ+9Xiv1YbQqotg6kmfuVGij99xvQtWy0sywN
+         g41DQXHDxJqcumE8kEMoQEsE+J5I/Qxoc82udb9zVhKkM3sc6ij8roRdGtRo/kgaT5KU
+         lNj7PhSoOYcmPBx53g5YPX6mlXfIknZwprPcpu4YzH0ISDcwTe9MG9t4ABi8LOET+JEK
+         MO8Q==
+X-Forwarded-Encrypted: i=1; AJvYcCW1GDMPTkRcnKycm69bLbjRpJ07/5Hzx1YoBsTFHA47Bk56ZgwXUEj3Cjh2Ic7EcStlpxDD3GT8LIBIEgQ=@vger.kernel.org
+X-Gm-Message-State: AOJu0YyprlPIibxY/wpwY5k02c+5VUm4MHPvrtVWsJOXUmiZ15PBx2gi
+	a8rbC9mgSVh+rmGFUQzy4dOo9KB8WvQNAjGv8qHUCjvbOltFZwKHVuTP0psiyfGX3Pdg+uHLbIo
+	AsQ==
+X-Google-Smtp-Source: AGHT+IFGxXIKapCxHqzF+SSkn6gmP8awPE8NmQhmaf+NKsYjxZAWuTACPo/hzKbtWVqcyzBxJYfvlIdIpEw=
+X-Received: from plmm9.prod.google.com ([2002:a17:902:c449:b0:215:6f59:ff5f])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:902:d502:b0:216:4348:149d
+ with SMTP id d9443c01a7336-219e6f25d60mr601318685ad.53.1735619758185; Mon, 30
+ Dec 2024 20:35:58 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:36 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-References: <20241207221522.2250311-1-yuzhao@google.com>
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-6-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 5/6] mm/mglru: rework refault detection
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-6-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 5/7] mm/mglru: rework refault detection
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -1565,73 +1549,372 @@ index ad181d1b8cf1..2c310c29f51e 100644
  		return recent;
  	}
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
 
 From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-pj1-f74.google.com (mail-pj1-f74.google.com [209.85.216.74])
+Received: from mail-pl1-f201.google.com (mail-pl1-f201.google.com [209.85.214.201])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
 	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id D74AB198A37
-	for <linux-kernel@vger.kernel.org>; Sat,  7 Dec 2024 22:15:42 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.216.74
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 3A0C7189915
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:36:04 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.214.201
 ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1733609745; cv=none; b=P3zzp8Q5dUng9MmH6l1z0H7XTfBvTCLvFLJ3iXq4pW77RkIl2eMnPHBISZnuxMaPZllEKU1QR+1H8eNVRNlg0QLXJhDv86aRUTT5A9KycXenKejF0mSQmQnIcZMik6BehSPCad/GnDmk6s0Opy6/K3gZS1aeXyTCMfSzHlP4eBw=
+	t=1735619765; cv=none; b=ajls8xbZBswdPJEXfe4p9LU1GZMDh1z9fo7khE2LshdExTwiCspXBbVJRPOl+JKW5ga71nPq8opnDj+m4hyXvvptAuAWnv+//n8lPZRAxzxvQPtYKrlqEZOVL8xEZnZY6PPK7439R9FSdFFQ6d1cFAwMsd8GKfyS6h+TvyV3b3c=
 ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1733609745; c=relaxed/simple;
-	bh=q8O0gHs4jCVMQKbWOMIqPjolVQWpQ3HTNz6X2eFWrqw=;
+	s=arc-20240116; t=1735619765; c=relaxed/simple;
+	bh=pozeMboL+q+r1YKjg311oeCCqbNAn6Alpdz2xWCa2hY=;
 	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
-	 To:Cc:Content-Type; b=Yzw+pyR7KCBIPpGP06I0K0bllcdcsRyLMoUE73uCxKEZ47XpMDRLCfYyuEv4Hd9K7GDsJ9FMLyBF7QAT2UxDcfJgof6xaxLmCvMotLlrYexqPD/LjovSmtnaKc/hBVYfQqJEPGhZ4v6bCAbYZHlaH63MTCAdehaMvIsygJ+3pk8=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=yo2kpgi2; arc=none smtp.client-ip=209.85.216.74
+	 To:Cc:Content-Type; b=eWnXn5VfXBiA/AKIsPhu2tQRiJzSRslHTGBctVIfCe9A7gUWE2ZFJrBhnR+agv51lbS0kwNNC/KaGw/C6aA0wLewANxjGNCUG9U9yKV2Q8UstWpJRmr1wq/wmCCRlEMNuOZRW0WyGQeR2EZD1dcnnSbJhjCoDYOuv4/dXAUx/PM=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=034O1oXy; arc=none smtp.client-ip=209.85.214.201
 Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
 Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
 Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="yo2kpgi2"
-Received: by mail-pj1-f74.google.com with SMTP id 98e67ed59e1d1-2ee5668e09bso3430304a91.3
-        for <linux-kernel@vger.kernel.org>; Sat, 07 Dec 2024 14:15:42 -0800 (PST)
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="034O1oXy"
+Received: by mail-pl1-f201.google.com with SMTP id d9443c01a7336-2162259a5dcso235599515ad.3
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:36:04 -0800 (PST)
 DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=google.com; s=20230601; t=1733609742; x=1734214542; darn=vger.kernel.org;
+        d=google.com; s=20230601; t=1735619764; x=1736224564; darn=vger.kernel.org;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:from:to:cc:subject:date:message-id:reply-to;
-        bh=zdSP+7bjwkvzpRB2PSh99IE+m8RuCZsNUL2DdE4uQBQ=;
-        b=yo2kpgi2yj/33rFqO3Poj35AtpBhuVAEmn0C5DPpz+XB2uP9M5qhChtMKWeyEx2s60
-         iJ5IIe2GIBXfQ0G4lQv/+95cB7ujxvGBRKScxk/FyzPCSFxGh0MXpNOZcLLaYCdSCzj6
-         XZVKrUfg4+P41TRhcol8FJjruCnIRMzitQVz2NCnqZHGlhHcgSPo91jNL+Z/kG6G5tEz
-         zV0pQnifhrwDPwXgxv/v2Y9dzVy0rIeZHC2jhL3ipHol/Owe41QG81aWg7D6uPSmalYF
-         XMse4ROVu00sYPxkF9pKs7WVDwwnYk4qWFpycfD0nYcc2prw/r9ZRg8Ds9htPne9VlFY
-         R2Wg==
+        bh=uSnhijC2SU9G2JpiGLLPy0X8NVAvldR4ppcAmuCmJd8=;
+        b=034O1oXySHX/oM0yS6jiNXtNWXwGw/hmyUdzsYxeI3g5bzG7ejhGR6bxHgt+fPpsu5
+         Ep+hea1m8wuRaNjG+zlNo8UThg+vSFqqivFSSewvpldknFbFtvJhNeE2sTtgOgjQ6Kx6
+         d7vzXZYgSgE2rj7alrSKrq7WXdO8SBsHFFjv9hA1I04nRnJZ/JWHUu4oopU24iS1Xstb
+         /qGErRlOuXMgGAO1g26CDV0p61asaumdTvlPD7ipIoEPbeKzbZHeX6jfJpPSywXmNRSv
+         DpqE5UmJ3vxUiGhFHrdM1GhQlx3GWDmiwYKXAmk/y4iae5ORNCtSeIxerNJdTJ0VkuOC
+         cl4w==
 X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1733609742; x=1734214542;
+        d=1e100.net; s=20230601; t=1735619764; x=1736224564;
         h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
          :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=zdSP+7bjwkvzpRB2PSh99IE+m8RuCZsNUL2DdE4uQBQ=;
-        b=P3hVTGG9A6TLAwyqADNsb/esv1q3bkq0NDHOHq+TuvduWix7eDiwOYKSIAv7CLYyIo
-         mVrksHNneLwO/Rj/OWmPIlSX4cUCRMh8PPrDEGYC/A060CunAa1+fDje5vuwhsjiH4Hz
-         xLaQaGgxTz1POeYUlyj0hxxveMhQNRdlSPYiw4m42UWskCF2GI6ZdcEV/I/t+ZsfnKGs
-         q/U1i4hzSFyzicfftP6v5bQ458uq9cOqaaQOSA8iSx0UEai1uAB1geJWnLTdjYnJBNfi
-         ENQPa+XJW3v4acjLKAM/BkEsESE609lRZA2b7GvxbWki//gENSHfbiZfUK/5ffURrKys
-         vt3A==
-X-Forwarded-Encrypted: i=1; AJvYcCXuw6jPY25tym0vrDroMhjv2jr8O45qmgN1eqvqKPPswpMh569DAxbULE8aGhULe1BzT+FnpLc26cI1ZPc=@vger.kernel.org
-X-Gm-Message-State: AOJu0Yzoil/PB+vWkM23vczakOQVhCWbgvWhkZttM5it2HoFAQA4pByB
-	LFSYDrPecNN4LDTzpSKrFQtjFgMB5fR6iphobyETtJix40nbh1JEaHtL3Ip2va0oT3rzYVVDXqd
-	ruA==
-X-Google-Smtp-Source: AGHT+IERU9qwPmX8l6nSHeE+rRW5qB+apC/LbFjVMpXOGf/YBbeh8mwrqP/BiewL8r/X9v+x5VJGbczUnJc=
-X-Received: from pjbnr18.prod.google.com ([2002:a17:90b:2412:b0:2ef:6d06:31e4])
- (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:90b:2b47:b0:2ee:dd79:e03c
- with SMTP id 98e67ed59e1d1-2ef6a6baf62mr12546047a91.20.1733609742190; Sat, 07
- Dec 2024 14:15:42 -0800 (PST)
-Date: Sat,  7 Dec 2024 15:15:22 -0700
-In-Reply-To: <20241207221522.2250311-1-yuzhao@google.com>
+        bh=uSnhijC2SU9G2JpiGLLPy0X8NVAvldR4ppcAmuCmJd8=;
+        b=vz8Xr7WkwS0eOtmT6oUL8K80ED3yaxLT7odwVRBsQG+kJPmk1CApKHRUEa07fqcxBH
+         NjJsIO1Z/TVHbJQ0L45peEKe0OY3JEIfYektCchMGCpcPS16YC6qUMiWjZkiguamTqBL
+         /Dv+AiVKHR0ucH5c3MWxJpNQwREbIvrJA5ohhy41BqE7l+WkXQ8w98HMiOdagH75hAWO
+         SIPvvaqkRdyhZhqCTDKwniwJNWAcXIlWjbZlPh0kfuIBTkfIGkaK94vT6SHVGxE6ybhS
+         O4lM7pT7hxw3yVwN6aKV1ioWY0m977rkzhmPdSNk6+l3O2o2x78jIzU2O9h/4YhSoRoA
+         85Vw==
+X-Forwarded-Encrypted: i=1; AJvYcCWD3lLX6WAvQiU2CjYWJC7F4e/pED8E7awX5HCuIi4s02Gzc0NnrrSfYWJ5we6UmU/GnxZloCrvuIasTKU=@vger.kernel.org
+X-Gm-Message-State: AOJu0YxEoK9y1rFRdKYL07KH39bqdwNDZGehhyq/Zlw4WUk/OcmPmRfG
+	RaXr5LC9ZosP8OcFbvFibxZ+XhaRLGYRnw7IJoGGyq9PGyyqfsS3UvaN6UoPD+5TxziYXzUxMm3
+	oLA==
+X-Google-Smtp-Source: AGHT+IG+LWeqA7gxlbhJ4Aa6fTniLxLak1adrDfoZ2HZ8A15k6jPqKUZa911/S4AQd/cYmc6w8UN3NHudRE=
+X-Received: from pgbda9.prod.google.com ([2002:a05:6a02:2389:b0:7fd:577a:6d1e])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a17:902:ef4e:b0:216:7761:cc36
+ with SMTP id d9443c01a7336-219e6f14bbamr619775545ad.43.1735619763742; Mon, 30
+ Dec 2024 20:36:03 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:38 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
 Precedence: bulk
 X-Mailing-List: linux-kernel@vger.kernel.org
 List-Id: <linux-kernel.vger.kernel.org>
 List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
 List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
 Mime-Version: 1.0
-References: <20241207221522.2250311-1-yuzhao@google.com>
-X-Mailer: git-send-email 2.47.0.338.g60cca15819-goog
-Message-ID: <20241207221522.2250311-7-yuzhao@google.com>
-Subject: [PATCH mm-unstable v3 6/6] mm/mglru: rework workingset protection
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-8-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 7/7] mm/mglru: fix PTE-mapped large folios
+From: Yu Zhao <yuzhao@google.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
+	Yu Zhao <yuzhao@google.com>, Barry Song <v-songbaohua@oppo.com>, 
+	Kalesh Singh <kaleshsingh@google.com>
+Content-Type: text/plain; charset="UTF-8"
+
+Count the accessed bits from PTEs mapping the same large folio as one
+access rather than multiple accesses.
+
+The last patch changed how folios accessed through page tables are
+promoted: rather than getting promoted after the accessed bit is
+cleared for the first time, a folio only gets promoted thereafter.
+Counting the accessed bits from the same large folio as multiple
+accesses can cause that folio to be promoted prematurely, which in
+turn can cause overprotection of single-use large folios.
+
+This patch reduced the sys time of the kernel compilation by 95% CI
+[2, 5]% on Altra M128-30 with 3GB DRAM, 12GB zram, 16KB THPs and -j32.
+
+Reported-by: Barry Song <v-songbaohua@oppo.com>
+Signed-off-by: Yu Zhao <yuzhao@google.com>
+Tested-by: Kalesh Singh <kaleshsingh@google.com>
+---
+ mm/vmscan.c | 110 ++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 72 insertions(+), 38 deletions(-)
+
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 74bc85fc7cdf..a099876fa029 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -3431,29 +3431,55 @@ static bool suitable_to_scan(int total, int young)
+ 	return young * n >= total;
+ }
+ 
++static void walk_update_folio(struct lru_gen_mm_walk *walk, struct folio *folio,
++			      int new_gen, bool dirty)
++{
++	int old_gen;
++
++	if (!folio)
++		return;
++
++	if (dirty && !folio_test_dirty(folio) &&
++	    !(folio_test_anon(folio) && folio_test_swapbacked(folio) &&
++	      !folio_test_swapcache(folio)))
++		folio_mark_dirty(folio);
++
++	if (walk) {
++		old_gen = folio_update_gen(folio, new_gen);
++		if (old_gen >= 0 && old_gen != new_gen)
++			update_batch_size(walk, folio, old_gen, new_gen);
++	} else if (lru_gen_set_refs(folio)) {
++		old_gen = folio_lru_gen(folio);
++		if (old_gen >= 0 && old_gen != new_gen)
++			folio_activate(folio);
++	}
++}
++
+ static bool walk_pte_range(pmd_t *pmd, unsigned long start, unsigned long end,
+ 			   struct mm_walk *args)
+ {
+ 	int i;
++	bool dirty;
+ 	pte_t *pte;
+ 	spinlock_t *ptl;
+ 	unsigned long addr;
+ 	int total = 0;
+ 	int young = 0;
++	struct folio *last = NULL;
+ 	struct lru_gen_mm_walk *walk = args->private;
+ 	struct mem_cgroup *memcg = lruvec_memcg(walk->lruvec);
+ 	struct pglist_data *pgdat = lruvec_pgdat(walk->lruvec);
+ 	DEFINE_MAX_SEQ(walk->lruvec);
+-	int old_gen, new_gen = lru_gen_from_seq(max_seq);
++	int gen = lru_gen_from_seq(max_seq);
+ 	pmd_t pmdval;
+ 
+-	pte = pte_offset_map_rw_nolock(args->mm, pmd, start & PMD_MASK, &pmdval,
+-				       &ptl);
++	pte = pte_offset_map_rw_nolock(args->mm, pmd, start & PMD_MASK, &pmdval, &ptl);
+ 	if (!pte)
+ 		return false;
++
+ 	if (!spin_trylock(ptl)) {
+ 		pte_unmap(pte);
+-		return false;
++		return true;
+ 	}
+ 
+ 	if (unlikely(!pmd_same(pmdval, pmdp_get_lockless(pmd)))) {
+@@ -3482,19 +3508,23 @@ static bool walk_pte_range(pmd_t *pmd, unsigned long start, unsigned long end,
+ 		if (!ptep_clear_young_notify(args->vma, addr, pte + i))
+ 			continue;
+ 
++		if (last != folio) {
++			walk_update_folio(walk, last, gen, dirty);
++
++			last = folio;
++			dirty = false;
++		}
++
++		if (pte_dirty(ptent))
++			dirty = true;
++
+ 		young++;
+ 		walk->mm_stats[MM_LEAF_YOUNG]++;
+-
+-		if (pte_dirty(ptent) && !folio_test_dirty(folio) &&
+-		    !(folio_test_anon(folio) && folio_test_swapbacked(folio) &&
+-		      !folio_test_swapcache(folio)))
+-			folio_mark_dirty(folio);
+-
+-		old_gen = folio_update_gen(folio, new_gen);
+-		if (old_gen >= 0 && old_gen != new_gen)
+-			update_batch_size(walk, folio, old_gen, new_gen);
+ 	}
+ 
++	walk_update_folio(walk, last, gen, dirty);
++	last = NULL;
++
+ 	if (i < PTRS_PER_PTE && get_next_vma(PMD_MASK, PAGE_SIZE, args, &start, &end))
+ 		goto restart;
+ 
+@@ -3508,13 +3538,15 @@ static void walk_pmd_range_locked(pud_t *pud, unsigned long addr, struct vm_area
+ 				  struct mm_walk *args, unsigned long *bitmap, unsigned long *first)
+ {
+ 	int i;
++	bool dirty;
+ 	pmd_t *pmd;
+ 	spinlock_t *ptl;
++	struct folio *last = NULL;
+ 	struct lru_gen_mm_walk *walk = args->private;
+ 	struct mem_cgroup *memcg = lruvec_memcg(walk->lruvec);
+ 	struct pglist_data *pgdat = lruvec_pgdat(walk->lruvec);
+ 	DEFINE_MAX_SEQ(walk->lruvec);
+-	int old_gen, new_gen = lru_gen_from_seq(max_seq);
++	int gen = lru_gen_from_seq(max_seq);
+ 
+ 	VM_WARN_ON_ONCE(pud_leaf(*pud));
+ 
+@@ -3567,20 +3599,23 @@ static void walk_pmd_range_locked(pud_t *pud, unsigned long addr, struct vm_area
+ 		if (!pmdp_clear_young_notify(vma, addr, pmd + i))
+ 			goto next;
+ 
++		if (last != folio) {
++			walk_update_folio(walk, last, gen, dirty);
++
++			last = folio;
++			dirty = false;
++		}
++
++		if (pmd_dirty(pmd[i]))
++			dirty = true;
++
+ 		walk->mm_stats[MM_LEAF_YOUNG]++;
+-
+-		if (pmd_dirty(pmd[i]) && !folio_test_dirty(folio) &&
+-		    !(folio_test_anon(folio) && folio_test_swapbacked(folio) &&
+-		      !folio_test_swapcache(folio)))
+-			folio_mark_dirty(folio);
+-
+-		old_gen = folio_update_gen(folio, new_gen);
+-		if (old_gen >= 0 && old_gen != new_gen)
+-			update_batch_size(walk, folio, old_gen, new_gen);
+ next:
+ 		i = i > MIN_LRU_BATCH ? 0 : find_next_bit(bitmap, MIN_LRU_BATCH, i) + 1;
+ 	} while (i <= MIN_LRU_BATCH);
+ 
++	walk_update_folio(walk, last, gen, dirty);
++
+ 	arch_leave_lazy_mmu_mode();
+ 	spin_unlock(ptl);
+ done:
+@@ -4115,9 +4150,11 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
+ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
+ {
+ 	int i;
++	bool dirty;
+ 	unsigned long start;
+ 	unsigned long end;
+ 	struct lru_gen_mm_walk *walk;
++	struct folio *last = NULL;
+ 	int young = 1;
+ 	pte_t *pte = pvmw->pte;
+ 	unsigned long addr = pvmw->address;
+@@ -4128,7 +4165,7 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
+ 	struct lruvec *lruvec = mem_cgroup_lruvec(memcg, pgdat);
+ 	struct lru_gen_mm_state *mm_state = get_mm_state(lruvec);
+ 	DEFINE_MAX_SEQ(lruvec);
+-	int old_gen, new_gen = lru_gen_from_seq(max_seq);
++	int gen = lru_gen_from_seq(max_seq);
+ 
+ 	lockdep_assert_held(pvmw->ptl);
+ 	VM_WARN_ON_ONCE_FOLIO(folio_test_lru(folio), folio);
+@@ -4182,24 +4219,21 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
+ 		if (!ptep_clear_young_notify(vma, addr, pte + i))
+ 			continue;
+ 
+-		young++;
++		if (last != folio) {
++			walk_update_folio(walk, last, gen, dirty);
+ 
+-		if (pte_dirty(ptent) && !folio_test_dirty(folio) &&
+-		    !(folio_test_anon(folio) && folio_test_swapbacked(folio) &&
+-		      !folio_test_swapcache(folio)))
+-			folio_mark_dirty(folio);
+-
+-		if (walk) {
+-			old_gen = folio_update_gen(folio, new_gen);
+-			if (old_gen >= 0 && old_gen != new_gen)
+-				update_batch_size(walk, folio, old_gen, new_gen);
+-		} else if (lru_gen_set_refs(folio)) {
+-			old_gen = folio_lru_gen(folio);
+-			if (old_gen >= 0 && old_gen != new_gen)
+-				folio_activate(folio);
++			last = folio;
++			dirty = false;
+ 		}
++
++		if (pte_dirty(ptent))
++			dirty = true;
++
++		young++;
+ 	}
+ 
++	walk_update_folio(walk, last, gen, dirty);
++
+ 	arch_leave_lazy_mmu_mode();
+ 
+ 	/* feedback from rmap walkers to page table walkers */
+-- 
+2.47.1.613.gc27f4b7a9f-goog
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-pl1-f202.google.com (mail-pl1-f202.google.com [209.85.214.202])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9F93F188A3A
+	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 04:36:01 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.214.202
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1735619764; cv=none; b=n3SFqnklg811nlo65r/qX3G9+UTs5VJ38334RovdVkZh1CK/jxXnrlJxTEeelbT7F04oStgQeOL9w0llTB5o2irfgUdt8qc/UTUYnsII8SULmUiTPrHdkOAiz/WaHN6/9zGTkyPfnTunrE7qbrAxaG0zVwDvbGEEUQ9ljY45tk8=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1735619764; c=relaxed/simple;
+	bh=gvDpAs5xvwSCyb39pIZs5CQO7usLnZ5mV5aHRcUGnTo=;
+	h=Date:In-Reply-To:Mime-Version:References:Message-ID:Subject:From:
+	 To:Cc:Content-Type; b=G/IbumZtWYPsd3k/iTSViH2pa5z/WASrgl0jHHfbgLM1bywju68nbUE5U0KPP/EylcdkX1riiry4bFMCWhfxWQjNgmGlqCrlztnXLQQHJ7bnve3/ZQNykp1H0Mg65C3dVGqWQdUiq/p97fVccArQMzJJhHpj6Bw8HmJIUmuyTVY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com; dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b=MRhkRoYr; arc=none smtp.client-ip=209.85.214.202
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=reject dis=none) header.from=google.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=flex--yuzhao.bounces.google.com
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=google.com header.i=@google.com header.b="MRhkRoYr"
+Received: by mail-pl1-f202.google.com with SMTP id d9443c01a7336-2165433e229so132387965ad.1
+        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 20:36:01 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=google.com; s=20230601; t=1735619761; x=1736224561; darn=vger.kernel.org;
+        h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
+         :date:from:to:cc:subject:date:message-id:reply-to;
+        bh=HKwjES3e0jLy2VuhFIOMlzL3YWtlXtEvY7LLG+FXeWU=;
+        b=MRhkRoYrBTNcaAdeop9bvfcDdkF9d9LThp72RrbSB80BdJ9x4np6f7ADEYytnS7lj0
+         P1rSCU55CXznn8wurwVeP9PzMo+wuk2ys0L+RsT1OnK+V/XiwkY7c5Zs3Hejt5a21m7K
+         XGVZjPhJ1k4pWlxdDPMBNTkkXQAlq3QxXU9R1BX1/0GKNDmmWRKqre501WdxEPfVpx2C
+         PHW5GJSPKUc9GARbk4PDOMnT09NLIrjqLbZW87Qrlrgx9wL/GFQ8/jSCAuCWt6kZ3q8w
+         B/UOtIliT73kgCNOCu9bZfoDQYrDsmtxgcdm6OKsk+XJCQ9E7Hn51vyftXU+WjftZWtO
+         y1dQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1735619761; x=1736224561;
+        h=cc:to:from:subject:message-id:references:mime-version:in-reply-to
+         :date:x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
+        bh=HKwjES3e0jLy2VuhFIOMlzL3YWtlXtEvY7LLG+FXeWU=;
+        b=QfKPZQbIJQYSvuqfcI1CvDyA5SyYiR5ct2eiXmR/q8PVFUo5GMDeXLPT73By9fjCUy
+         SlhcKbwNBn3Sajd++OQFbJzBDEse8RW2pbWWdF7OCoAzPuLZzmwD9JV+Z5r4sazN8z6n
+         YKL/3tYLFhgn0hnZFApG8Y61nnFXe2fnjTOELoOZxlIdZxZnaxLz8JtgVRobnGoaFqIY
+         sRCSZZ/3QXV/pFGnGB6xA2DTI4GZLTUCi6texn654l1mTOozREqBYUKeJ3yFR3eSCcOc
+         f2tagvqK/2GeMkIsJC9ziwKlCdgQkDXy2NeB7JqEqer6eHWAfWdxg7xVQZLD/3eYGlLk
+         +SBQ==
+X-Forwarded-Encrypted: i=1; AJvYcCU+H+pjmaMM3y701tO1tz/uHdJemKwg5EIbkU0/5ahwNm+x88i1l4KeMRKYKchSzxnPWbojIv1MBASfQEc=@vger.kernel.org
+X-Gm-Message-State: AOJu0YwFTDVWmOfyx3aItu15DcebAaDkZ+71jcaG+5z45A3tPIeEa+MF
+	NkvHt1L566CRo+epKIiA+dO8niuow+S/b6nAPAqpItpeTU/bA1XFLuY8rmoNcYRxA4KmVmZV7TU
+	bxg==
+X-Google-Smtp-Source: AGHT+IHWy99TyDT8NaxCGIoVaFrDEtF9zWOWP/0IUrjxMV7CP85GkRQziNTadZKOeAd6kPsRyTnxbmlSQC4=
+X-Received: from pgjs19.prod.google.com ([2002:a63:f053:0:b0:800:502a:791c])
+ (user=yuzhao job=prod-delivery.src-stubby-dispatcher) by 2002:a05:6a21:78a5:b0:1e1:a0b6:9882
+ with SMTP id adf61e73a8af0-1e5e046331fmr54638220637.17.1735619760939; Mon, 30
+ Dec 2024 20:36:00 -0800 (PST)
+Date: Mon, 30 Dec 2024 21:35:37 -0700
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+Mime-Version: 1.0
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: git-send-email 2.47.1.613.gc27f4b7a9f-goog
+Message-ID: <20241231043538.4075764-7-yuzhao@google.com>
+Subject: [PATCH mm-unstable v4 6/7] mm/mglru: rework workingset protection
 From: Yu Zhao <yuzhao@google.com>
 To: Andrew Morton <akpm@linux-foundation.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, 
@@ -1668,7 +1951,7 @@ remains until this folio is either reclaimed, or "deactivated" by
 lru_gen_clear_refs(). It can be set again if lru_gen_test_recent()
 returns true upon a refault.
 
-When adding folios to the LRU lists, lru_gen_distance() distributes
+When adding folios to the LRU lists, lru_gen_folio_seq() distributes
 them as follows:
 +---------------------------------+---------------------------------+
 |    Accessed thru page tables    | Accessed thru file descriptors  |
@@ -1699,15 +1982,15 @@ Closes: https://lore.kernel.org/CAOUHufahuWcKf5f1Sg3emnqX+cODuR=2TQo7T4Gr-QYLujn
 Signed-off-by: Yu Zhao <yuzhao@google.com>
 Tested-by: Kalesh Singh <kaleshsingh@google.com>
 ---
- include/linux/mm_inline.h |  94 ++++++++++++------------
+ include/linux/mm_inline.h |  88 +++++++++++------------
  include/linux/mmzone.h    |  82 +++++++++++++--------
- mm/swap.c                 |  23 +++---
- mm/vmscan.c               | 145 ++++++++++++++++++++++----------------
+ mm/swap.c                 |  24 +++----
+ mm/vmscan.c               | 147 ++++++++++++++++++++++----------------
  mm/workingset.c           |  29 ++++----
- 5 files changed, 208 insertions(+), 165 deletions(-)
+ 5 files changed, 204 insertions(+), 166 deletions(-)
 
 diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
-index 34e5097182a0..3fcf5fa797fe 100644
+index 34e5097182a0..f9157a0c42a5 100644
 --- a/include/linux/mm_inline.h
 +++ b/include/linux/mm_inline.h
 @@ -133,31 +133,25 @@ static inline int lru_hist_from_seq(unsigned long seq)
@@ -1750,55 +2033,52 @@ index 34e5097182a0..3fcf5fa797fe 100644
  }
  
  static inline int folio_lru_gen(struct folio *folio)
-@@ -223,11 +217,46 @@ static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *foli
+@@ -223,11 +217,43 @@ static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *foli
  	VM_WARN_ON_ONCE(lru_gen_is_active(lruvec, old_gen) && !lru_gen_is_active(lruvec, new_gen));
  }
  
-+static inline int lru_gen_distance(struct folio *folio, bool reclaiming)
++static inline unsigned long lru_gen_folio_seq(struct lruvec *lruvec, struct folio *folio,
++					      bool reclaiming)
 +{
++	int gen;
++	int type = folio_is_file_lru(folio);
++	struct lru_gen_folio *lrugen = &lruvec->lrugen;
++
 +	/*
-+	 * Distance until eviction (larger values provide stronger protection):
-+	 * +-------------------------------------+-------------------------------------+
-+	 * | Accessed through page tables and    | Accessed through file descriptors   |
-+	 * | promoted by folio_update_gen()      | and protected by folio_inc_gen()    |
-+	 * +-------------------------------------+-------------------------------------+
-+	 * | PG_active (only set while isolated) |                                     |
-+	 * +------------------+------------------+------------------+------------------+
-+	 * |  PG_workingset   |  PG_referenced   |  PG_workingset   |  LRU_REFS_FLAGS  |
-+	 * +-------------------------------------+-------------------------------------+
-+	 * |        3         |        2         |        1         |        0         |
-+	 * +-------------------------------------+-------------------------------------+
-+	 * |<----------- MIN_NR_GENS ----------->|                                     |
-+	 * |<------------------------------ MAX_NR_GENS ------------------------------>|
++	 * +-----------------------------------+-----------------------------------+
++	 * | Accessed through page tables and  | Accessed through file descriptors |
++	 * | promoted by folio_update_gen()    | and protected by folio_inc_gen()  |
++	 * +-----------------------------------+-----------------------------------+
++	 * | PG_active (set while isolated)    |                                   |
++	 * +-----------------+-----------------+-----------------+-----------------+
++	 * |  PG_workingset  |  PG_referenced  |  PG_workingset  |  LRU_REFS_FLAGS |
++	 * +-----------------------------------+-----------------------------------+
++	 * |<---------- MIN_NR_GENS ---------->|                                   |
++	 * |<---------------------------- MAX_NR_GENS ---------------------------->|
 +	 */
-+	if (reclaiming)
-+		return 0;
-+
 +	if (folio_test_active(folio))
-+		return MIN_NR_GENS + folio_test_workingset(folio);
++		gen = MIN_NR_GENS - folio_test_workingset(folio);
++	else if (reclaiming)
++		gen = MAX_NR_GENS;
++	else if ((!folio_is_file_lru(folio) && !folio_test_swapcache(folio)) ||
++		 (folio_test_reclaim(folio) &&
++		  (folio_test_dirty(folio) || folio_test_writeback(folio))))
++		gen = MIN_NR_GENS;
++	else
++		gen = MAX_NR_GENS - folio_test_workingset(folio);
 +
-+	if (folio_test_workingset(folio))
-+		return MIN_NR_GENS - 1;
-+
-+	if (!folio_is_file_lru(folio) && !folio_test_swapcache(folio))
-+		return MIN_NR_GENS - 1;
-+
-+	if (folio_test_reclaim(folio) && (folio_test_dirty(folio) || folio_test_writeback(folio)))
-+		return MIN_NR_GENS - 1;
-+
-+	return 0;
++	return max(READ_ONCE(lrugen->max_seq) - gen + 1, READ_ONCE(lrugen->min_seq[type]));
 +}
 +
  static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio, bool reclaiming)
  {
-+	int dist;
  	unsigned long seq;
  	unsigned long flags;
 -	unsigned long mask;
  	int gen = folio_lru_gen(folio);
  	int type = folio_is_file_lru(folio);
  	int zone = folio_zonenum(folio);
-@@ -237,40 +266,17 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+@@ -237,40 +263,12 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
  
  	if (folio_test_unevictable(folio) || !lrugen->enabled)
  		return false;
@@ -1822,14 +2102,10 @@ index 34e5097182a0..3fcf5fa797fe 100644
 -		seq = lrugen->max_seq - 1;
 -	else if (reclaiming || lrugen->min_seq[type] + MIN_NR_GENS >= lrugen->max_seq)
 -		seq = lrugen->min_seq[type];
-+
-+	dist = lru_gen_distance(folio, reclaiming);
-+	if (dist < MIN_NR_GENS)
-+		seq = lrugen->min_seq[type] + dist;
- 	else
+-	else
 -		seq = lrugen->min_seq[type] + 1;
-+		seq = lrugen->max_seq + dist - MIN_NR_GENS - 1;
  
++	seq = lru_gen_folio_seq(lruvec, folio, reclaiming);
  	gen = lru_gen_from_seq(seq);
  	flags = (gen + 1UL) << LRU_GEN_PGOFF;
  	/* see the comment on MIN_NR_GENS about PG_active */
@@ -1846,7 +2122,7 @@ index 34e5097182a0..3fcf5fa797fe 100644
  	lru_gen_update_size(lruvec, folio, -1, gen);
  	/* for folio_rotate_reclaimable() */
 diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index b998ccc5c341..c7ad4d6e1618 100644
+index 8245ecb0400b..9540b41894da 100644
 --- a/include/linux/mmzone.h
 +++ b/include/linux/mmzone.h
 @@ -332,66 +332,88 @@ enum lruvec_flags {
@@ -1977,11 +2253,11 @@ index b998ccc5c341..c7ad4d6e1618 100644
  #define MAX_LRU_BATCH		(MIN_LRU_BATCH * 64)
  
 diff --git a/mm/swap.c b/mm/swap.c
-index 756b6c5b9af7..062c8565b899 100644
+index 649ef7f2b74b..746a5ceba42c 100644
 --- a/mm/swap.c
 +++ b/mm/swap.c
-@@ -387,24 +387,19 @@ static void lru_gen_inc_refs(struct folio *folio)
- 	if (!folio_test_lru(folio) || folio_test_unevictable(folio))
+@@ -387,24 +387,20 @@ static void lru_gen_inc_refs(struct folio *folio)
+ 	if (folio_test_unevictable(folio))
  		return;
  
 +	/* see the comment on LRU_REFS_FLAGS */
@@ -2002,7 +2278,8 @@ index 756b6c5b9af7..062c8565b899 100644
 -		if (new_flags == LRU_REFS_MASK)
 -			break;
 +		if ((old_flags & LRU_REFS_MASK) == LRU_REFS_MASK) {
-+			folio_set_workingset(folio);
++			if (!folio_test_workingset(folio))
++				folio_set_workingset(folio);
 +			return;
 +		}
  
@@ -2012,8 +2289,8 @@ index 756b6c5b9af7..062c8565b899 100644
  	} while (!try_cmpxchg(&folio->flags, &old_flags, new_flags));
  }
  
-@@ -416,7 +411,7 @@ static bool lru_gen_clear_refs(struct folio *folio)
- 	if (!folio_test_lru(folio) || folio_test_unevictable(folio))
+@@ -417,7 +413,7 @@ static bool lru_gen_clear_refs(struct folio *folio)
+ 	if (gen < 0)
  		return true;
  
 -	set_mask_bits(&folio->flags, LRU_REFS_MASK | LRU_REFS_FLAGS, 0);
@@ -2021,17 +2298,17 @@ index 756b6c5b9af7..062c8565b899 100644
  
  	lrugen = &folio_lruvec(folio)->lrugen;
  	/* whether can do without shuffling under the LRU lock */
-@@ -498,7 +493,7 @@ void folio_add_lru(struct folio *folio)
+@@ -499,7 +495,7 @@ void folio_add_lru(struct folio *folio)
  			folio_test_unevictable(folio), folio);
  	VM_BUG_ON_FOLIO(folio_test_lru(folio), folio);
  
 -	/* see the comment in lru_gen_add_folio() */
-+	/* see the comment in lru_gen_distance() */
++	/* see the comment in lru_gen_folio_seq() */
  	if (lru_gen_enabled() && !folio_test_unevictable(folio) &&
  	    lru_gen_in_fault() && !(current->flags & PF_MEMALLOC))
  		folio_set_active(folio);
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 02b01ae2bdbb..5e03a61c894f 100644
+index a33221298fd0..74bc85fc7cdf 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
 @@ -862,6 +862,31 @@ enum folio_references {
@@ -2099,10 +2376,10 @@ index 02b01ae2bdbb..5e03a61c894f 100644
 -		    folio_mapped(folio) && folio_test_referenced(folio))
 -			goto keep_locked;
 -
-		if (folio_is_file_lru(folio) ? sc->clean_below_min :
-				(sc->anon_below_min && !sc->clean_below_min))
-			goto keep_locked;
-@@ -3163,16 +3191,19 @@ static int folio_update_gen(struct folio *folio, int gen)
+ 		/*
+ 		 * The number of dirty pages determines if a node is marked
+ 		 * reclaim_congested. kswapd will stall and start writing
+@@ -3167,16 +3195,19 @@ static int folio_update_gen(struct folio *folio, int gen)
  
  	VM_WARN_ON_ONCE(gen >= MAX_NR_GENS);
  
@@ -2129,7 +2406,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  	} while (!try_cmpxchg(&folio->flags, &old_flags, new_flags));
  
  	return ((old_flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
-@@ -3196,7 +3227,7 @@ static int folio_inc_gen(struct lruvec *lruvec, struct folio *folio, bool reclai
+@@ -3200,7 +3231,7 @@ static int folio_inc_gen(struct lruvec *lruvec, struct folio *folio, bool reclai
  
  		new_gen = (old_gen + 1) % MAX_NR_GENS;
  
@@ -2138,7 +2415,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  		new_flags |= (new_gen + 1UL) << LRU_GEN_PGOFF;
  		/* for folio_end_writeback() */
  		if (reclaiming)
-@@ -3374,9 +3405,11 @@ static unsigned long get_pmd_pfn(pmd_t pmd, struct vm_area_struct *vma, unsigned
+@@ -3378,9 +3409,11 @@ static unsigned long get_pmd_pfn(pmd_t pmd, struct vm_area_struct *vma, unsigned
  static struct folio *get_pfn_folio(unsigned long pfn, struct mem_cgroup *memcg,
  				   struct pglist_data *pgdat)
  {
@@ -2152,7 +2429,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  	if (folio_nid(folio) != pgdat->node_id)
  		return NULL;
  
-@@ -3753,8 +3786,7 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
+@@ -3757,8 +3790,7 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
  		while (!list_empty(head)) {
  			struct folio *folio = lru_to_folio(head);
  			int refs = folio_lru_refs(folio);
@@ -2162,7 +2439,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  
  			VM_WARN_ON_ONCE_FOLIO(folio_test_unevictable(folio), folio);
  			VM_WARN_ON_ONCE_FOLIO(folio_test_active(folio), folio);
-@@ -3764,8 +3796,14 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
+@@ -3768,8 +3800,14 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
  			new_gen = folio_inc_gen(lruvec, folio, false);
  			list_move_tail(&folio->lru, &lrugen->folios[new_gen][type][zone]);
  
@@ -2179,7 +2456,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  
  			if (!--remaining)
  				return false;
-@@ -4134,16 +4172,10 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
+@@ -4155,16 +4193,10 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw)
  			old_gen = folio_update_gen(folio, new_gen);
  			if (old_gen >= 0 && old_gen != new_gen)
  				update_batch_size(walk, folio, old_gen, new_gen);
@@ -2200,7 +2477,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  		}
  	}
  
-@@ -4304,7 +4336,8 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
+@@ -4325,7 +4357,8 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
  	int zone = folio_zonenum(folio);
  	int delta = folio_nr_pages(folio);
  	int refs = folio_lru_refs(folio);
@@ -2210,7 +2487,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  	struct lru_gen_folio *lrugen = &lruvec->lrugen;
  
  	VM_WARN_ON_ONCE_FOLIO(gen >= MAX_NR_GENS, folio);
-@@ -4326,14 +4359,17 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
+@@ -4347,14 +4380,17 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
  	}
  
  	/* protected */
@@ -2234,7 +2511,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  		return true;
  	}
  
-@@ -4353,8 +4389,7 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
+@@ -4374,8 +4410,7 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
  	}
  
  	/* waiting for writeback */
@@ -2244,7 +2521,7 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  		gen = folio_inc_gen(lruvec, folio, true);
  		list_move(&folio->lru, &lrugen->folios[gen][type][zone]);
  		return true;
-@@ -4383,13 +4418,12 @@ static bool isolate_folio(struct lruvec *lruvec, struct folio *folio, struct sca
+@@ -4404,13 +4439,12 @@ static bool isolate_folio(struct lruvec *lruvec, struct folio *folio, struct sca
  		return false;
  	}
  
@@ -2260,7 +2537,15 @@ index 02b01ae2bdbb..5e03a61c894f 100644
  
  	success = lru_gen_del_folio(lruvec, folio, true);
  	VM_WARN_ON_ONCE_FOLIO(!success, folio);
-@@ -4585,25 +4619,16 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
+@@ -4600,31 +4634,24 @@ static int evict_folios(struct lruvec *lruvec, struct scan_control *sc, int swap
+ 			type ? LRU_INACTIVE_FILE : LRU_INACTIVE_ANON);
+ 
+ 	list_for_each_entry_safe_reverse(folio, next, &list, lru) {
++		DEFINE_MIN_SEQ(lruvec);
++
+ 		if (!folio_evictable(folio)) {
+ 			list_del(&folio->lru);
+ 			folio_putback_lru(folio);
  			continue;
  		}
  
@@ -2290,13 +2575,13 @@ index 02b01ae2bdbb..5e03a61c894f 100644
 +		}
 +
 +		/* don't add rejected folios to the oldest generation */
-+		if (!lru_gen_distance(folio, false))
++		if (lru_gen_folio_seq(lruvec, folio, false) == min_seq[type])
 +			set_mask_bits(&folio->flags, LRU_REFS_FLAGS, BIT(PG_active));
  	}
  
  	spin_lock_irq(&lruvec->lru_lock);
 diff --git a/mm/workingset.c b/mm/workingset.c
-index 2c310c29f51e..3662c0def77a 100644
+index 2c310c29f51e..4841ae8af411 100644
 --- a/mm/workingset.c
 +++ b/mm/workingset.c
 @@ -239,7 +239,8 @@ static void *lru_gen_eviction(struct folio *folio)
@@ -2340,7 +2625,7 @@ index 2c310c29f51e..3662c0def77a 100644
 -	 */
 -	if (lru_gen_in_fault() || refs >= BIT(LRU_REFS_WIDTH) - 1) {
 -		set_mask_bits(&folio->flags, 0, LRU_REFS_MASK | BIT(PG_workingset));
-+	/* see folio_add_lru() where folio_set_active() happens */
++	/* see folio_add_lru() where folio_set_active() will be called */
 +	if (lru_gen_in_fault())
 +		mod_lruvec_state(lruvec, WORKINGSET_ACTIVATE_BASE + type, delta);
 +
@@ -2354,6 +2639,817 @@ index 2c310c29f51e..3662c0def77a 100644
  	rcu_read_unlock();
  }
 -- 
-2.47.0.338.g60cca15819-goog
+2.47.1.613.gc27f4b7a9f-goog
 
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-1.web.codeaurora.org [10.30.226.201])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id E319FA41
+	for <linux-kernel@vger.kernel.org>; Fri,  3 Jan 2025 00:03:15 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=10.30.226.201
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1735862596; cv=none; b=uuiOGIuH28rHQSJwJE41xT05itXsWWVuV/+hpOyHKWNgM8qN/ix701eq0KaihBUZT5m4tH8qDTH/ykK4OGGAUHNR3bJcFvCgWsMzmmOe4uWgKH/CoU5Yb/y24K/jqWQAmyGMegklE3CPqjIiQJExT1I8HTYUEmoYIOnBrXjjlr8=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1735862596; c=relaxed/simple;
+	bh=x2VLfrE/gbkv7m3PYXpURmHeJ/YhZy+N3+C71KyABj8=;
+	h=Date:From:To:Cc:Subject:Message-Id:In-Reply-To:References:
+	 Mime-Version:Content-Type; b=s5162pUl+m6dzRprdJ3doYeXkpwRn+Fnw4KJyUtFjvdEQ0akfFA3VK54Qu7RjZ1PZzYoBHJ+kUIQQ2LybuNxBE2N11TCXlIVwvi390TT4K6a+OfJ03oppO/tARex+5/lIOeROy6S7Oqey5glFtrjRZ73cv0Bk08pAyx2LdpLyU4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (1024-bit key) header.d=linux-foundation.org header.i=@linux-foundation.org header.b=gXCLTx3m; arc=none smtp.client-ip=10.30.226.201
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (1024-bit key) header.d=linux-foundation.org header.i=@linux-foundation.org header.b="gXCLTx3m"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 4B2B0C4CED0;
+	Fri,  3 Jan 2025 00:03:15 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=linux-foundation.org;
+	s=korg; t=1735862595;
+	bh=x2VLfrE/gbkv7m3PYXpURmHeJ/YhZy+N3+C71KyABj8=;
+	h=Date:From:To:Cc:Subject:In-Reply-To:References:From;
+	b=gXCLTx3m9wWC4pEOirv/8kcE19aR+39+GCZ1vyxigmMgvXl/p/kG9J/kqo/2teLh9
+	 95HNc0oAlTgtmO2YeiE9kx7i1Injgpz7qbWfhNTwkVw9GOY3W7SUFPwzsqht4N1dza
+	 SUh3xcmo185XXJyTn0BX7vbnqwQXk3SUFDgcus9Y=
+Date: Thu, 2 Jan 2025 16:03:14 -0800
+From: Andrew Morton <akpm@linux-foundation.org>
+To: Yu Zhao <yuzhao@google.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Chen Ridong
+ <chenridong@huawei.com>
+Subject: Re: [PATCH mm-unstable v4 0/7] mm/mglru: performance optimizations
+Message-Id: <20250102160314.20813f37b0bf748c3a06e877@linux-foundation.org>
+In-Reply-To: <20241231043538.4075764-1-yuzhao@google.com>
+References: <20241231043538.4075764-1-yuzhao@google.com>
+X-Mailer: Sylpheed 3.7.0 (GTK+ 2.24.33; x86_64-pc-linux-gnu)
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+
+On Mon, 30 Dec 2024 21:35:31 -0700 Yu Zhao <yuzhao@google.com> wrote:
+
+> This series improves performance for some previously reported test
+> cases. Most of the code changes gathered here has been floating on the
+> mailing list [1][2]. They are now properly organized and have gone
+> through various benchmarks on client and server devices, including
+> Android, FIO, memcached, multiple VMs and MongoDB.
+
+This series has significant conflicts with the patch "mm: vmscan: retry
+folios written back while isolated for traditional LRU".  It appears
+that "mm: vmscan: retry folios written back while isolated for
+traditional LRU" is due for an update and that more discussion is
+needed, so I shall drop this version of "mm: vmscan: retry folios
+written back while isolated for traditional LRU" from mm-unstable.
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from szxga04-in.huawei.com (szxga04-in.huawei.com [45.249.212.190])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 5CB1E846D
+	for <linux-kernel@vger.kernel.org>; Sat,  4 Jan 2025 00:59:13 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=45.249.212.190
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1735952357; cv=none; b=r9DbmbMq5xoF0zKV8Bqye7/pO46T3AWG62kyn3PL52WnMGqtbrkCnMrMDfu+XhDG5L+9Fmf82+sDUEAXM5CKr2NgB4jRGRojsmHBwyZ19snOPvqmW/BOJWhbAp3zVkMW4jXoUX3B2QCoWSvv8uR6al+7qxbr7h/WRA36BeIbZpY=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1735952357; c=relaxed/simple;
+	bh=eakcWjcno7a8teq3+SeBdAJflC6NuWwHe+muNWecE/c=;
+	h=Message-ID:Date:MIME-Version:Subject:To:CC:References:From:
+	 In-Reply-To:Content-Type; b=WYsn0oGRmlK6bCYfX8UUGcDEGjPJMioLLE8u/y9Lz+Vv1IxW2UXnKfw1hptfxCGh6kk/Egl+S2RGx97A9tB+Fx03SZ6culD/Fhxv/Eir3mjNPoMcIYung4BqmPjY0kVeTHXr1rtimxcwdQYnm93aICdEy3zjs8T9qZAnIQsDBGY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=huawei.com; spf=pass smtp.mailfrom=huawei.com; arc=none smtp.client-ip=45.249.212.190
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=huawei.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=huawei.com
+Received: from mail.maildlp.com (unknown [172.19.163.44])
+	by szxga04-in.huawei.com (SkyGuard) with ESMTP id 4YQ27f3tdlz2DjnC;
+	Sat,  4 Jan 2025 08:56:14 +0800 (CST)
+Received: from kwepemd100013.china.huawei.com (unknown [7.221.188.163])
+	by mail.maildlp.com (Postfix) with ESMTPS id 5728314011D;
+	Sat,  4 Jan 2025 08:59:10 +0800 (CST)
+Received: from [10.67.109.79] (10.67.109.79) by kwepemd100013.china.huawei.com
+ (7.221.188.163) with Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.2.1258.34; Sat, 4 Jan
+ 2025 08:59:09 +0800
+Message-ID: <07cafef3-464e-4311-b147-e80761ada7c1@huawei.com>
+Date: Sat, 4 Jan 2025 08:59:08 +0800
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+User-Agent: Mozilla Thunderbird
+Subject: Re: [PATCH mm-unstable v4 0/7] mm/mglru: performance optimizations
+To: Andrew Morton <akpm@linux-foundation.org>, Yu Zhao <yuzhao@google.com>
+CC: <linux-mm@kvack.org>, <linux-kernel@vger.kernel.org>
+References: <20241231043538.4075764-1-yuzhao@google.com>
+ <20250102160314.20813f37b0bf748c3a06e877@linux-foundation.org>
+Content-Language: en-US
+From: chenridong <chenridong@huawei.com>
+In-Reply-To: <20250102160314.20813f37b0bf748c3a06e877@linux-foundation.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+X-ClientProxiedBy: dggems705-chm.china.huawei.com (10.3.19.182) To
+ kwepemd100013.china.huawei.com (7.221.188.163)
+
+
+
+On 2025/1/3 8:03, Andrew Morton wrote:
+> On Mon, 30 Dec 2024 21:35:31 -0700 Yu Zhao <yuzhao@google.com> wrote:
+> 
+>> This series improves performance for some previously reported test
+>> cases. Most of the code changes gathered here has been floating on the
+>> mailing list [1][2]. They are now properly organized and have gone
+>> through various benchmarks on client and server devices, including
+>> Android, FIO, memcached, multiple VMs and MongoDB.
+> 
+> This series has significant conflicts with the patch "mm: vmscan: retry
+> folios written back while isolated for traditional LRU".  It appears
+> that "mm: vmscan: retry folios written back while isolated for
+> traditional LRU" is due for an update and that more discussion is
+> needed, so I shall drop this version of "mm: vmscan: retry folios
+> written back while isolated for traditional LRU" from mm-unstable.
+
+Hi, Andrew and Yu, does this mean I should resend a new version that
+fixes the conflict and updates the message?
+
+Best regards,
+Ridong
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-1.web.codeaurora.org [10.30.226.201])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 217E2101DE
+	for <linux-kernel@vger.kernel.org>; Sat,  4 Jan 2025 02:21:39 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=10.30.226.201
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1735957300; cv=none; b=oRvB/wJmTjpRHr8d/Crz0GyoNbPRM1drx4aVrEdVdAT992IDlEhv0Tf0lTWQEgJtumT3Lgh0EWvZA8ncqSmzl5z184v6h1HRjK6JGblmKrbqcxsD1pJPibKOKEkMU0L+DSancVzNml8uou9+UBmfb7XSBFGpiYPB+4474U1hxJM=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1735957300; c=relaxed/simple;
+	bh=+WidSE4sACDv8sNvnNxU0lXAC9Rc3RMdZY+llIHbTqI=;
+	h=Date:From:To:Cc:Subject:Message-Id:In-Reply-To:References:
+	 Mime-Version:Content-Type; b=JkYGihSh37ORIcf2QzYM7unGfsLTa9WK/+4OOBoPYwE5l+6Z6cq10PJ52+q4VKmki+oSpwMOGYDQ7yzd4nFqzuj2crH4flGRPfq56VbYv9Wgm+KVTJ5/cnBICB1DP9b2gnHzH+/+YxPbss2P0iVh2TCkAojmS+WPvje3y4mTzUs=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (1024-bit key) header.d=linux-foundation.org header.i=@linux-foundation.org header.b=rA+Em1CC; arc=none smtp.client-ip=10.30.226.201
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (1024-bit key) header.d=linux-foundation.org header.i=@linux-foundation.org header.b="rA+Em1CC"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 4CB08C4CED6;
+	Sat,  4 Jan 2025 02:21:39 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=linux-foundation.org;
+	s=korg; t=1735957299;
+	bh=+WidSE4sACDv8sNvnNxU0lXAC9Rc3RMdZY+llIHbTqI=;
+	h=Date:From:To:Cc:Subject:In-Reply-To:References:From;
+	b=rA+Em1CC3oS1GdOax086aZa5jkgH0fe7DjElO5dXUi6PkOas3FLSmjka3975fI9T4
+	 SLyVyJUob/yTp7kZMhw6CEsj6s42eFR9LozfgwKxigriM7WavRDxaLey0rFcCzV2Ck
+	 5w7+i5StrzVLIMedi4wuDetHWTDGNG5SFpGW6Njs=
+Date: Fri, 3 Jan 2025 18:21:38 -0800
+From: Andrew Morton <akpm@linux-foundation.org>
+To: chenridong <chenridong@huawei.com>
+Cc: Yu Zhao <yuzhao@google.com>, <linux-mm@kvack.org>,
+ <linux-kernel@vger.kernel.org>
+Subject: Re: [PATCH mm-unstable v4 0/7] mm/mglru: performance optimizations
+Message-Id: <20250103182138.10b27a51129974c2237eca04@linux-foundation.org>
+In-Reply-To: <07cafef3-464e-4311-b147-e80761ada7c1@huawei.com>
+References: <20241231043538.4075764-1-yuzhao@google.com>
+	<20250102160314.20813f37b0bf748c3a06e877@linux-foundation.org>
+	<07cafef3-464e-4311-b147-e80761ada7c1@huawei.com>
+X-Mailer: Sylpheed 3.8.0beta1 (GTK+ 2.24.33; x86_64-pc-linux-gnu)
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+
+On Sat, 4 Jan 2025 08:59:08 +0800 chenridong <chenridong@huawei.com> wrote:
+
+> 
+> 
+> On 2025/1/3 8:03, Andrew Morton wrote:
+> > On Mon, 30 Dec 2024 21:35:31 -0700 Yu Zhao <yuzhao@google.com> wrote:
+> > 
+> >> This series improves performance for some previously reported test
+> >> cases. Most of the code changes gathered here has been floating on the
+> >> mailing list [1][2]. They are now properly organized and have gone
+> >> through various benchmarks on client and server devices, including
+> >> Android, FIO, memcached, multiple VMs and MongoDB.
+> > 
+> > This series has significant conflicts with the patch "mm: vmscan: retry
+> > folios written back while isolated for traditional LRU".  It appears
+> > that "mm: vmscan: retry folios written back while isolated for
+> > traditional LRU" is due for an update and that more discussion is
+> > needed, so I shall drop this version of "mm: vmscan: retry folios
+> > written back while isolated for traditional LRU" from mm-unstable.
+> 
+> Hi, Andrew and Yu, does this mean I should resend a new version that
+> fixes the conflict and updates the message?
+
+Yes please.  Against
+https://git.kernel.org/pub/scm/linux/kernel/git/akpm/mm.git/'s
+mm-unstable branch would be ideal.
+
+Please already double-check that all review comments have been
+addressed in an appropriate fashion.
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-lj1-f177.google.com (mail-lj1-f177.google.com [209.85.208.177])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 793971F6684
+	for <linux-kernel@vger.kernel.org>; Tue,  7 Jan 2025 17:15:17 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.208.177
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1736270121; cv=none; b=XWRAIIzxuky7tidLRofbqJu+7Oz8XjYjLugzHO8tL7diGvEcomtIfmS7GVVFkUqlsxkEmEhM2kl+gbV/1zHa+fsG73KZ31O7s/pmyDbfGNRGY9BCv8mzQ1hKjNRU1khwWl+7N0N5EnfacLnMbm2V2/v51nX9FsM8YtFSIy0dwnU=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1736270121; c=relaxed/simple;
+	bh=147vsxp3qOrXfegCP2tzRYNNundL5ks6J4Ic8wkNxTs=;
+	h=MIME-Version:References:In-Reply-To:From:Date:Message-ID:Subject:
+	 To:Cc:Content-Type; b=cNlSzceVkUomF/HaDWrcNsIDqx83ceW8L7xulBhks6y5DIP8BSVZeX/Z9gzUbHAhQkbABwbNDdZv/r7/ZHBhWBzvIHy1Zs7BLWJKKTDZA3lyZPbURyzS9s4lJ4gDdJjJYybmFH6UhxuQeAhKPaMYAmtS0Rn8G/W/CMR42p1nZDY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b=ZLpW/sGd; arc=none smtp.client-ip=209.85.208.177
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b="ZLpW/sGd"
+Received: by mail-lj1-f177.google.com with SMTP id 38308e7fff4ca-3047818ac17so139758311fa.3
+        for <linux-kernel@vger.kernel.org>; Tue, 07 Jan 2025 09:15:16 -0800 (PST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=gmail.com; s=20230601; t=1736270115; x=1736874915; darn=vger.kernel.org;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :in-reply-to:references:mime-version:from:to:cc:subject:date
+         :message-id:reply-to;
+        bh=ti9d00Wa4MHgQqINPHBNCG3aZcGVxJ6ymwybx1pUHX0=;
+        b=ZLpW/sGd5HkSpDLxffhh6/0ARxqS/Sq2bZnoCXWHCS/FR9+3N4sI27E7T3i98qeENI
+         5Hp1M4ua+t+YlVOKhJ8FkH4HoTXYf6pB3s0D60PDMq84P46DQ93Htefi/aJ1EpI2whFK
+         WmsMYqul/ME7zrUZHCupZuD7juJME8XYcDSNg5mHWp8VtzSmhixFg4Y9CqIUpglSUTja
+         E+jE9nomxiuxHBIhajECZuyA8NsrRJIbnhQZEf6pGxDOkPSjtxDQ6qp/Z24ICQW+ay/h
+         1L5lXrZr6IMRHF6dk7wdF10yo091bbCUw+cXCAfgUMf+7Y+RQiEb6xVZNKJp+0P4PGq5
+         /mCw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1736270115; x=1736874915;
+        h=content-transfer-encoding:cc:to:subject:message-id:date:from
+         :in-reply-to:references:mime-version:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=ti9d00Wa4MHgQqINPHBNCG3aZcGVxJ6ymwybx1pUHX0=;
+        b=HeXlbn0LcLhNACTvSO3h85fjPz5GTSgZj0+qEa2LsI+5yg81MIFXglKKoH2p/+Linj
+         l5ttS2vb/tffJysnn2xmrH81lxsCwS+4pkrwk2zvC50JCOrT6fuu1GQOFcoHzkmyhr5E
+         7Dy/nLf1rRZiKdODc6LiksFG/bKoKpB2DtW+ryiemN6daRjjp8jgkvEXaDFHB6aKPpY9
+         eppF7Fjyrkg/n4sn9+ECSwyl0k8PNnJacuzdeEvaXktapKX4Us7Q66T2g6j15Wpsm7wa
+         5pcLvHjBYOJ8x2CzSdOfzZWY1b7d8U2ZcqcynhfrYUHlOCn1HHkGbhR6J0nyJ9cs+VFR
+         epBg==
+X-Forwarded-Encrypted: i=1; AJvYcCVmStvKPyd3Tp0tA7JTY+zCrmp70roqfquAKJvWGklTvbRvUh2PdJispyCAMgfzMVepYBD6xjheit4VDCk=@vger.kernel.org
+X-Gm-Message-State: AOJu0Ywr0c55FZ0Pa4xO87myUg5G1VUuZUcIccoAqYc3e12lQUnRhuvg
+	6u40vZJLRH+MxNFrGCRuJ9i4J9181si5rVuh2EW78vOFk/1tUELdqV8DE11SAQBb6UMLD6C+S9+
+	T3dDOBzeYjUrBMGZlMp2gHlkwoc0=
+X-Gm-Gg: ASbGncuBur/+Y/22Yc0xFrPA4heQfLVjsNtd5/1AvX5EV83+x5jqvgFTwsCCKtJU2jc
+	1f0O0klRuacU9FiEQlz4Hq1/7ITQh/qVlX+LwxA==
+X-Google-Smtp-Source: AGHT+IG44Mzs2lLYz9QWkFCaKB1PB5e7dERe2cGnRwWhc7qXPfH1Raxd0FlHeM2KDfnywwJVbY/DY/Si8YSwa201PNQ=
+X-Received: by 2002:a05:651c:1548:b0:302:40ec:9f92 with SMTP id
+ 38308e7fff4ca-304685c3fb4mr200590111fa.32.1736270114587; Tue, 07 Jan 2025
+ 09:15:14 -0800 (PST)
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+List-Id: <linux-kernel.vger.kernel.org>
+List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+References: <20241231043538.4075764-1-yuzhao@google.com> <20241231043538.4075764-4-yuzhao@google.com>
+In-Reply-To: <20241231043538.4075764-4-yuzhao@google.com>
+From: Kairui Song <ryncsn@gmail.com>
+Date: Wed, 8 Jan 2025 01:14:58 +0800
+X-Gm-Features: AbW1kvaK-A-gia-t1phe7n7b7aRfJhK8_x7fqqPXojlpfMgTqjxl8A4mF5DlCc0
+Message-ID: <CAMgjq7D5b8d8o+imkLyOwOj0dZyYOA2ZaoY9_XF13Nf0OgYjbQ@mail.gmail.com>
+Subject: Re: [PATCH mm-unstable v4 3/7] mm/mglru: rework aging feedback
+To: Yu Zhao <yuzhao@google.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org, 
+	linux-kernel@vger.kernel.org, David Stevens <stevensd@chromium.org>, 
+	Kalesh Singh <kaleshsingh@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Dec 31, 2024 at 12:36=E2=80=AFPM Yu Zhao <yuzhao@google.com> wrote:
+
+Hi Yu,
+
+>
+> The aging feedback is based on both the number of generations and the
+> distribution of folios in each generation. The number of generations
+> is currently the distance between max_seq and anon min_seq. This is
+> because anon min_seq is not allowed to move past file min_seq. The
+> rationale for that is that file is always evictable whereas anon is
+> not. However, for use cases where anon is a lot cheaper than file:
+> 1. Anon in the second oldest generation can be a better choice than
+>    file in the oldest generation.
+> 2. A large amount of file in the oldest generation can skew the
+>    distribution, making should_run_aging() return false negative.
+>
+> Allow anon and file min_seq to move independently, and use solely the
+> number of generations as the feedback for aging. Specifically, when
+> both anon and file are evictable, anon min_seq can now be greater than
+> file min_seq, and therefore the number of generations becomes the
+> distance between max_seq and min(min_seq[0],min_seq[1]). And
+> should_run_aging() returns true if and only if the number of
+> generations is less than MAX_NR_GENS.
+>
+> As the first step to the final optimization, this change by itself
+> should not have userspace-visiable effects beyond performance. The
+> next twos patch will take advantage of this change; the last patch in
+> this series will better distribute folios across MAX_NR_GENS.
+>
+> Reported-by: David Stevens <stevensd@chromium.org>
+> Signed-off-by: Yu Zhao <yuzhao@google.com>
+> Tested-by: Kalesh Singh <kaleshsingh@google.com>
+> ---
+>  include/linux/mmzone.h |  17 ++--
+>  mm/vmscan.c            | 200 ++++++++++++++++++-----------------------
+>  2 files changed, 96 insertions(+), 121 deletions(-)
+>
+> diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+> index b36124145a16..8245ecb0400b 100644
+> --- a/include/linux/mmzone.h
+> +++ b/include/linux/mmzone.h
+> @@ -421,12 +421,11 @@ enum {
+>  /*
+>   * The youngest generation number is stored in max_seq for both anon and=
+ file
+>   * types as they are aged on an equal footing. The oldest generation num=
+bers are
+> - * stored in min_seq[] separately for anon and file types as clean file =
+pages
+> - * can be evicted regardless of swap constraints.
+> - *
+> - * Normally anon and file min_seq are in sync. But if swapping is constr=
+ained,
+> - * e.g., out of swap space, file min_seq is allowed to advance and leave=
+ anon
+> - * min_seq behind.
+> + * stored in min_seq[] separately for anon and file types so that they c=
+an be
+> + * incremented independently. Ideally min_seq[] are kept in sync when bo=
+th anon
+> + * and file types are evictable. However, to adapt to situations like ex=
+treme
+> + * swappiness, they are allowed to be out of sync by at most
+> + * MAX_NR_GENS-MIN_NR_GENS-1.
+>   *
+>   * The number of pages in each generation is eventually consistent and t=
+herefore
+>   * can be transiently negative when reset_batch_size() is pending.
+> @@ -446,8 +445,8 @@ struct lru_gen_folio {
+>         unsigned long avg_refaulted[ANON_AND_FILE][MAX_NR_TIERS];
+>         /* the exponential moving average of evicted+protected */
+>         unsigned long avg_total[ANON_AND_FILE][MAX_NR_TIERS];
+> -       /* the first tier doesn't need protection, hence the minus one */
+> -       unsigned long protected[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS=
+ - 1];
+> +       /* can only be modified under the LRU lock */
+> +       unsigned long protected[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS=
+];
+>         /* can be modified without holding the LRU lock */
+>         atomic_long_t evicted[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS];
+>         atomic_long_t refaulted[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS=
+];
+> @@ -498,7 +497,7 @@ struct lru_gen_mm_walk {
+>         int mm_stats[NR_MM_STATS];
+>         /* total batched items */
+>         int batched;
+> -       bool can_swap;
+> +       int swappiness;
+>         bool force_scan;
+>  };
+>
+> diff --git a/mm/vmscan.c b/mm/vmscan.c
+> index f236db86de8a..f767e3d34e73 100644
+> --- a/mm/vmscan.c
+> +++ b/mm/vmscan.c
+> @@ -2627,11 +2627,17 @@ static bool should_clear_pmd_young(void)
+>                 READ_ONCE((lruvec)->lrugen.min_seq[LRU_GEN_FILE]),      \
+>         }
+>
+> +#define evictable_min_seq(min_seq, swappiness)                         \
+> +       min((min_seq)[!(swappiness)], (min_seq)[(swappiness) !=3D MAX_SWA=
+PPINESS])
+> +
+>  #define for_each_gen_type_zone(gen, type, zone)                         =
+       \
+>         for ((gen) =3D 0; (gen) < MAX_NR_GENS; (gen)++)                  =
+ \
+>                 for ((type) =3D 0; (type) < ANON_AND_FILE; (type)++)     =
+ \
+>                         for ((zone) =3D 0; (zone) < MAX_NR_ZONES; (zone)+=
++)
+>
+> +#define for_each_evictable_type(type, swappiness)                      \
+> +       for ((type) =3D !(swappiness); (type) <=3D ((swappiness) !=3D MAX=
+_SWAPPINESS); (type)++)
+> +
+>  #define get_memcg_gen(seq)     ((seq) % MEMCG_NR_GENS)
+>  #define get_memcg_bin(bin)     ((bin) % MEMCG_NR_BINS)
+>
+> @@ -2677,10 +2683,16 @@ static int get_nr_gens(struct lruvec *lruvec, int=
+ type)
+>
+>  static bool __maybe_unused seq_is_valid(struct lruvec *lruvec)
+>  {
+> -       /* see the comment on lru_gen_folio */
+> -       return get_nr_gens(lruvec, LRU_GEN_FILE) >=3D MIN_NR_GENS &&
+> -              get_nr_gens(lruvec, LRU_GEN_FILE) <=3D get_nr_gens(lruvec,=
+ LRU_GEN_ANON) &&
+> -              get_nr_gens(lruvec, LRU_GEN_ANON) <=3D MAX_NR_GENS;
+> +       int type;
+> +
+> +       for (type =3D 0; type < ANON_AND_FILE; type++) {
+> +               int n =3D get_nr_gens(lruvec, type);
+> +
+> +               if (n < MIN_NR_GENS || n > MAX_NR_GENS)
+> +                       return false;
+> +       }
+> +
+> +       return true;
+>  }
+>
+>  /***********************************************************************=
+*******
+> @@ -3087,9 +3099,8 @@ static void read_ctrl_pos(struct lruvec *lruvec, in=
+t type, int tier, int gain,
+>         pos->refaulted =3D lrugen->avg_refaulted[type][tier] +
+>                          atomic_long_read(&lrugen->refaulted[hist][type][=
+tier]);
+>         pos->total =3D lrugen->avg_total[type][tier] +
+> +                    lrugen->protected[hist][type][tier] +
+>                      atomic_long_read(&lrugen->evicted[hist][type][tier])=
+;
+> -       if (tier)
+> -               pos->total +=3D lrugen->protected[hist][type][tier - 1];
+>         pos->gain =3D gain;
+>  }
+>
+> @@ -3116,17 +3127,15 @@ static void reset_ctrl_pos(struct lruvec *lruvec,=
+ int type, bool carryover)
+>                         WRITE_ONCE(lrugen->avg_refaulted[type][tier], sum=
+ / 2);
+>
+>                         sum =3D lrugen->avg_total[type][tier] +
+> +                             lrugen->protected[hist][type][tier] +
+>                               atomic_long_read(&lrugen->evicted[hist][typ=
+e][tier]);
+> -                       if (tier)
+> -                               sum +=3D lrugen->protected[hist][type][ti=
+er - 1];
+>                         WRITE_ONCE(lrugen->avg_total[type][tier], sum / 2=
+);
+>                 }
+>
+>                 if (clear) {
+>                         atomic_long_set(&lrugen->refaulted[hist][type][ti=
+er], 0);
+>                         atomic_long_set(&lrugen->evicted[hist][type][tier=
+], 0);
+> -                       if (tier)
+> -                               WRITE_ONCE(lrugen->protected[hist][type][=
+tier - 1], 0);
+> +                       WRITE_ONCE(lrugen->protected[hist][type][tier], 0=
+);
+>                 }
+>         }
+>  }
+> @@ -3261,7 +3270,7 @@ static int should_skip_vma(unsigned long start, uns=
+igned long end, struct mm_wal
+>                 return true;
+>
+>         if (vma_is_anonymous(vma))
+> -               return !walk->can_swap;
+> +               return !walk->swappiness;
+>
+>         if (WARN_ON_ONCE(!vma->vm_file || !vma->vm_file->f_mapping))
+>                 return true;
+> @@ -3271,7 +3280,10 @@ static int should_skip_vma(unsigned long start, un=
+signed long end, struct mm_wal
+>                 return true;
+>
+>         if (shmem_mapping(mapping))
+> -               return !walk->can_swap;
+> +               return !walk->swappiness;
+> +
+> +       if (walk->swappiness =3D=3D MAX_SWAPPINESS)
+> +               return true;
+>
+>         /* to exclude special mappings like dax, etc. */
+>         return !mapping->a_ops->read_folio;
+> @@ -3359,7 +3371,7 @@ static unsigned long get_pmd_pfn(pmd_t pmd, struct =
+vm_area_struct *vma, unsigned
+>  }
+>
+>  static struct folio *get_pfn_folio(unsigned long pfn, struct mem_cgroup =
+*memcg,
+> -                                  struct pglist_data *pgdat, bool can_sw=
+ap)
+> +                                  struct pglist_data *pgdat)
+>  {
+>         struct folio *folio;
+>
+> @@ -3370,10 +3382,6 @@ static struct folio *get_pfn_folio(unsigned long p=
+fn, struct mem_cgroup *memcg,
+>         if (folio_memcg(folio) !=3D memcg)
+>                 return NULL;
+>
+> -       /* file VMAs can contain anon pages from COW */
+> -       if (!folio_is_file_lru(folio) && !can_swap)
+> -               return NULL;
+> -
+>         return folio;
+>  }
+>
+> @@ -3429,7 +3437,7 @@ static bool walk_pte_range(pmd_t *pmd, unsigned lon=
+g start, unsigned long end,
+>                 if (pfn =3D=3D -1)
+>                         continue;
+>
+> -               folio =3D get_pfn_folio(pfn, memcg, pgdat, walk->can_swap=
+);
+> +               folio =3D get_pfn_folio(pfn, memcg, pgdat);
+>                 if (!folio)
+>                         continue;
+>
+> @@ -3514,7 +3522,7 @@ static void walk_pmd_range_locked(pud_t *pud, unsig=
+ned long addr, struct vm_area
+>                 if (pfn =3D=3D -1)
+>                         goto next;
+>
+> -               folio =3D get_pfn_folio(pfn, memcg, pgdat, walk->can_swap=
+);
+> +               folio =3D get_pfn_folio(pfn, memcg, pgdat);
+>                 if (!folio)
+>                         goto next;
+>
+> @@ -3726,22 +3734,26 @@ static void clear_mm_walk(void)
+>                 kfree(walk);
+>  }
+>
+> -static bool inc_min_seq(struct lruvec *lruvec, int type, bool can_swap)
+> +static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
+>  {
+>         int zone;
+>         int remaining =3D MAX_LRU_BATCH;
+>         struct lru_gen_folio *lrugen =3D &lruvec->lrugen;
+> +       int hist =3D lru_hist_from_seq(lrugen->min_seq[type]);
+>         int new_gen, old_gen =3D lru_gen_from_seq(lrugen->min_seq[type]);
+>
+> -       if (type =3D=3D LRU_GEN_ANON && !can_swap)
+> +       if (type ? swappiness =3D=3D MAX_SWAPPINESS : !swappiness)
+>                 goto done;
+>
+> -       /* prevent cold/hot inversion if force_scan is true */
+> +       /* prevent cold/hot inversion if the type is evictable */
+>         for (zone =3D 0; zone < MAX_NR_ZONES; zone++) {
+>                 struct list_head *head =3D &lrugen->folios[old_gen][type]=
+[zone];
+>
+>                 while (!list_empty(head)) {
+>                         struct folio *folio =3D lru_to_folio(head);
+> +                       int refs =3D folio_lru_refs(folio);
+> +                       int tier =3D lru_tier_from_refs(refs);
+> +                       int delta =3D folio_nr_pages(folio);
+>
+>                         VM_WARN_ON_ONCE_FOLIO(folio_test_unevictable(foli=
+o), folio);
+>                         VM_WARN_ON_ONCE_FOLIO(folio_test_active(folio), f=
+olio);
+> @@ -3751,6 +3763,9 @@ static bool inc_min_seq(struct lruvec *lruvec, int =
+type, bool can_swap)
+>                         new_gen =3D folio_inc_gen(lruvec, folio, false);
+>                         list_move_tail(&folio->lru, &lrugen->folios[new_g=
+en][type][zone]);
+>
+> +                       WRITE_ONCE(lrugen->protected[hist][type][tier],
+> +                                  lrugen->protected[hist][type][tier] + =
+delta);
+> +
+>                         if (!--remaining)
+>                                 return false;
+>                 }
+> @@ -3762,7 +3777,7 @@ static bool inc_min_seq(struct lruvec *lruvec, int =
+type, bool can_swap)
+>         return true;
+>  }
+>
+> -static bool try_to_inc_min_seq(struct lruvec *lruvec, bool can_swap)
+> +static bool try_to_inc_min_seq(struct lruvec *lruvec, int swappiness)
+>  {
+>         int gen, type, zone;
+>         bool success =3D false;
+> @@ -3772,7 +3787,7 @@ static bool try_to_inc_min_seq(struct lruvec *lruve=
+c, bool can_swap)
+>         VM_WARN_ON_ONCE(!seq_is_valid(lruvec));
+>
+>         /* find the oldest populated generation */
+> -       for (type =3D !can_swap; type < ANON_AND_FILE; type++) {
+> +       for_each_evictable_type(type, swappiness) {
+>                 while (min_seq[type] + MIN_NR_GENS <=3D lrugen->max_seq) =
+{
+>                         gen =3D lru_gen_from_seq(min_seq[type]);
+>
+> @@ -3788,13 +3803,17 @@ static bool try_to_inc_min_seq(struct lruvec *lru=
+vec, bool can_swap)
+>         }
+>
+>         /* see the comment on lru_gen_folio */
+> -       if (can_swap) {
+> -               min_seq[LRU_GEN_ANON] =3D min(min_seq[LRU_GEN_ANON], min_=
+seq[LRU_GEN_FILE]);
+> -               min_seq[LRU_GEN_FILE] =3D max(min_seq[LRU_GEN_ANON], lrug=
+en->min_seq[LRU_GEN_FILE]);
+> +       if (swappiness && swappiness !=3D MAX_SWAPPINESS) {
+> +               unsigned long seq =3D lrugen->max_seq - MIN_NR_GENS;
+> +
+> +               if (min_seq[LRU_GEN_ANON] > seq && min_seq[LRU_GEN_FILE] =
+< seq)
+> +                       min_seq[LRU_GEN_ANON] =3D seq;
+> +               else if (min_seq[LRU_GEN_FILE] > seq && min_seq[LRU_GEN_A=
+NON] < seq)
+> +                       min_seq[LRU_GEN_FILE] =3D seq;
+>         }
+>
+> -       for (type =3D !can_swap; type < ANON_AND_FILE; type++) {
+> -               if (min_seq[type] =3D=3D lrugen->min_seq[type])
+> +       for_each_evictable_type(type, swappiness) {
+> +               if (min_seq[type] <=3D lrugen->min_seq[type])
+>                         continue;
+>
+>                 reset_ctrl_pos(lruvec, type, true);
+> @@ -3805,8 +3824,7 @@ static bool try_to_inc_min_seq(struct lruvec *lruve=
+c, bool can_swap)
+>         return success;
+>  }
+>
+> -static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+> -                       bool can_swap, bool force_scan)
+> +static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq, int sw=
+appiness)
+>  {
+>         bool success;
+>         int prev, next;
+> @@ -3824,13 +3842,11 @@ static bool inc_max_seq(struct lruvec *lruvec, un=
+signed long seq,
+>         if (!success)
+>                 goto unlock;
+>
+> -       for (type =3D ANON_AND_FILE - 1; type >=3D 0; type--) {
+> +       for (type =3D 0; type < ANON_AND_FILE; type++) {
+>                 if (get_nr_gens(lruvec, type) !=3D MAX_NR_GENS)
+>                         continue;
+>
+> -               VM_WARN_ON_ONCE(!force_scan && (type =3D=3D LRU_GEN_FILE =
+|| can_swap));
+> -
+> -               if (inc_min_seq(lruvec, type, can_swap))
+> +               if (inc_min_seq(lruvec, type, swappiness))
+>                         continue;
+>
+>                 spin_unlock_irq(&lruvec->lru_lock);
+> @@ -3874,7 +3890,7 @@ static bool inc_max_seq(struct lruvec *lruvec, unsi=
+gned long seq,
+>  }
+>
+>  static bool try_to_inc_max_seq(struct lruvec *lruvec, unsigned long seq,
+> -                              bool can_swap, bool force_scan)
+> +                              int swappiness, bool force_scan)
+>  {
+>         bool success;
+>         struct lru_gen_mm_walk *walk;
+> @@ -3885,7 +3901,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruve=
+c, unsigned long seq,
+>         VM_WARN_ON_ONCE(seq > READ_ONCE(lrugen->max_seq));
+>
+>         if (!mm_state)
+> -               return inc_max_seq(lruvec, seq, can_swap, force_scan);
+> +               return inc_max_seq(lruvec, seq, swappiness);
+>
+>         /* see the comment in iterate_mm_list() */
+>         if (seq <=3D READ_ONCE(mm_state->seq))
+> @@ -3910,7 +3926,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruve=
+c, unsigned long seq,
+>
+>         walk->lruvec =3D lruvec;
+>         walk->seq =3D seq;
+> -       walk->can_swap =3D can_swap;
+> +       walk->swappiness =3D swappiness;
+>         walk->force_scan =3D force_scan;
+>
+>         do {
+> @@ -3920,7 +3936,7 @@ static bool try_to_inc_max_seq(struct lruvec *lruve=
+c, unsigned long seq,
+>         } while (mm);
+>  done:
+>         if (success) {
+> -               success =3D inc_max_seq(lruvec, seq, can_swap, force_scan=
+);
+> +               success =3D inc_max_seq(lruvec, seq, swappiness);
+>                 WARN_ON_ONCE(!success);
+>         }
+>
+> @@ -3961,13 +3977,13 @@ static bool lruvec_is_sizable(struct lruvec *lruv=
+ec, struct scan_control *sc)
+>  {
+>         int gen, type, zone;
+>         unsigned long total =3D 0;
+> -       bool can_swap =3D get_swappiness(lruvec, sc);
+> +       int swappiness =3D get_swappiness(lruvec, sc);
+>         struct lru_gen_folio *lrugen =3D &lruvec->lrugen;
+>         struct mem_cgroup *memcg =3D lruvec_memcg(lruvec);
+>         DEFINE_MAX_SEQ(lruvec);
+>         DEFINE_MIN_SEQ(lruvec);
+>
+> -       for (type =3D !can_swap; type < ANON_AND_FILE; type++) {
+> +       for_each_evictable_type(type, swappiness) {
+>                 unsigned long seq;
+>
+>                 for (seq =3D min_seq[type]; seq <=3D max_seq; seq++) {
+> @@ -3987,6 +4003,7 @@ static bool lruvec_is_reclaimable(struct lruvec *lr=
+uvec, struct scan_control *sc
+>  {
+>         int gen;
+>         unsigned long birth;
+> +       int swappiness =3D get_swappiness(lruvec, sc);
+>         struct mem_cgroup *memcg =3D lruvec_memcg(lruvec);
+>         DEFINE_MIN_SEQ(lruvec);
+>
+> @@ -3996,8 +4013,7 @@ static bool lruvec_is_reclaimable(struct lruvec *lr=
+uvec, struct scan_control *sc
+>         if (!lruvec_is_sizable(lruvec, sc))
+>                 return false;
+>
+> -       /* see the comment on lru_gen_folio */
+> -       gen =3D lru_gen_from_seq(min_seq[LRU_GEN_FILE]);
+> +       gen =3D lru_gen_from_seq(evictable_min_seq(min_seq, swappiness));
+>         birth =3D READ_ONCE(lruvec->lrugen.timestamps[gen]);
+>
+>         return time_is_before_jiffies(birth + min_ttl);
+> @@ -4064,7 +4080,6 @@ bool lru_gen_look_around(struct page_vma_mapped_wal=
+k *pvmw)
+>         unsigned long addr =3D pvmw->address;
+>         struct vm_area_struct *vma =3D pvmw->vma;
+>         struct folio *folio =3D pfn_folio(pvmw->pfn);
+> -       bool can_swap =3D !folio_is_file_lru(folio);
+>         struct mem_cgroup *memcg =3D folio_memcg(folio);
+>         struct pglist_data *pgdat =3D folio_pgdat(folio);
+>         struct lruvec *lruvec =3D mem_cgroup_lruvec(memcg, pgdat);
+> @@ -4117,7 +4132,7 @@ bool lru_gen_look_around(struct page_vma_mapped_wal=
+k *pvmw)
+>                 if (pfn =3D=3D -1)
+>                         continue;
+>
+> -               folio =3D get_pfn_folio(pfn, memcg, pgdat, can_swap);
+> +               folio =3D get_pfn_folio(pfn, memcg, pgdat);
+>                 if (!folio)
+>                         continue;
+>
+> @@ -4333,8 +4348,8 @@ static bool sort_folio(struct lruvec *lruvec, struc=
+t folio *folio, struct scan_c
+>                 gen =3D folio_inc_gen(lruvec, folio, false);
+>                 list_move_tail(&folio->lru, &lrugen->folios[gen][type][zo=
+ne]);
+>
+> -               WRITE_ONCE(lrugen->protected[hist][type][tier - 1],
+> -                          lrugen->protected[hist][type][tier - 1] + delt=
+a);
+> +               WRITE_ONCE(lrugen->protected[hist][type][tier],
+> +                          lrugen->protected[hist][type][tier] + delta);
+>                 return true;
+>         }
+>
+> @@ -4533,7 +4548,6 @@ static int isolate_folios(struct lruvec *lruvec, st=
+ruct scan_control *sc, int sw
+>  {
+>         int i;
+>         int type;
+> -       int scanned;
+>         int tier =3D -1;
+>         DEFINE_MIN_SEQ(lruvec);
+>
+> @@ -4558,21 +4572,23 @@ static int isolate_folios(struct lruvec *lruvec, =
+struct scan_control *sc, int sw
+>         else
+>                 type =3D get_type_to_scan(lruvec, swappiness, &tier);
+>
+> -       for (i =3D !swappiness; i < ANON_AND_FILE; i++) {
+> +       for_each_evictable_type(i, swappiness) {
+
+Thanks for working on solving the reported issues, but one concern
+about this for_each_evictable_type  macro and its usage here.
+
+It basically forbids eviction of file pages with "swappiness =3D=3D 200"
+even for global pressure, this is a quite a change.
+
+For both active / inactive or MGLRU, max swappiness used to make
+kernel try reclaim anon as much as possible, but still fall back to
+file eviction. Forbidding file eviction may cause unsolvable OOM,
+unlike anon pages, killing process won't necessarily release file
+pages, so the system could hung easily.
+
+For existing systems with swappiness =3D=3D 200 which were running fine
+before, may also hit OOM very quickly.
 

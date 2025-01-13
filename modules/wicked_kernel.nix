@@ -19,11 +19,11 @@
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc5";
+              version = "6.13-rc7";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc5";
+              modDirVersion = "6.13.0-rc7";
               /*src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
                 rev = "059dd502b263d8a4e2a84809cf1068d6a3905e6f";
@@ -31,7 +31,7 @@
               };*/
               src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-OQdEQ1LQ6+K2Ba2RJtvgsCpRO0o2kyOxYwB/38bTKgs=";
+                hash = "sha256-QARyMteJ8iR0lKF3DG7SExgtDBDvvF3xbfPeGUFbiYk=";
               };
             };
         });
@@ -75,6 +75,13 @@
           patch = patch /linux/6.13/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
+          '';
+        }
+        {
+          name = "HAS_EXECMEM_ROX";
+          patch = null;
+          extraConfig = ''
+            HAS_EXECMEM_ROX y
           '';
         }
         /*{
@@ -141,10 +148,10 @@
           name = "context-switch-optimizations";
           patch = patch /linux/6.12/context-switch-optimizations.patch;
         }*/
-        {
+        /*{
           name = "kcore-optimizations";
           patch = patch /linux/6.12/kcore-optimizations.patch;
-        }
+        }*/
         /*{
           name = "amd-color-management";
           patch = pkgs.fetchpatch {
@@ -155,10 +162,10 @@
             AMD_PRIVATE_COLOR y
           '';
         }*/
-        {
+        /*{
           name = "faster-suspend-resume";
           patch = patch /linux/6.12/PATCH-v1-0-5-Optimize-async-device-suspend-resume.patch;
-        }
+        }*/
         /*{
           name = "btrfs-6.13-backport-and-buffered-uncached";
           patch = patch /linux/6.12/btrfs-6.13-backport-and-buffered-uncached.patch;
@@ -219,36 +226,48 @@
           patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.5.patch;
         }
         {
+          name = "mm-unstable";
+          patch = patch /linux/6.13/mm-unstable.patch;
+          extraConfig = ''
+            PT_RECLAIM y
+          '';
+        }
+        /*{
           name = "mglru-optimizations";
           patch = patch /linux/6.13/mglru-optimizations.patch;
-        }
-        {
+        }*/
+        /*{
           name = "tlb-invalidation";
           patch = patch /linux/6.13/tlb-invalidation.patch;
-        }
+        }*/
         /*{
           name = "aes-gcm-amd";
           patch = patch /linux/6.13/aes-gcm-amd.patch;
         }*/
-        {
+        /*{
           name = "uncached-buffered-io-optimizations";
           patch = patch /linux/6.13/uncached-buffered-io-optimizations.patch;
-        }
+        }*/
         {
           name = "binder-optimizations";
           patch = patch /linux/6.13/binder-optimizations.patch;
         }
-        {
+        /*{
           name = "xhci-improvements";
           patch = patch /linux/6.13/xhci-improvements.patch;
-        }
+        }*/
         /*{
           name = "drm-deadline";
           patch = patch /linux/6.13/drm-deadline.patch;
         }*/
+        /*{
+          name = "crypto";
+          patch = patch /linux/6.13/crypto.patch;
+        }*/
         {
           name = "jupiter-mfd";
-          patch = patch /linux/6.12/jupiter-mfd.patch;
+          #patch = patch /linux/6.12/jupiter-mfd.patch;
+          patch = null;
           extraConfig = ''
             LEDS_STEAMDECK m
             EXTCON_STEAMDECK m

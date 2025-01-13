@@ -1,556 +1,12 @@
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 8D9471B0410
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:24 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581986; cv=none; b=TKQUYbxpxQNiCIdnt3oNHDGfOORLLA8uwpF+oPDa0K7AqZqy6C338g4idzRLllEbelNBh2UmzBP+JgYpYshqoi+2Inics5LJ8Q1d02/jW9xCyxrxnxvuRLmay8se6QJxSHwhMfm3kJRi17+WPAeKHHkmantr2Lz/57ujq2a271s=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581986; c=relaxed/simple;
-	bh=BKRe6dtVSgt5+YzVA3WqKrrgv4sMToY9ovJrornn6YI=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=O6wUS0iOuqiUXQ+xKlOTU2SZvo9LTf3xuWqLToj3myL6/lLpUtS+AhaUf1Aiz8n8nvNx+lptnk4hK0kiSA2+0tCv7UrqddwyJWgGgYQZ7RJNLeVNlN53yjOuEpNRvAauVqWa9KsPE88rMdiNjbYvzh1Z3IYGIaP1Dc4/02GO+AI=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzd-000000008Lf-2LNx;
-	Mon, 30 Dec 2024 12:55:53 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 05/12] x86/mm: add INVLPGB support code
-Date: Mon, 30 Dec 2024 12:53:06 -0500
-Message-ID: <20241230175550.4046587-6-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-Add invlpgb.h with the helper functions and definitions needed to use
-broadcast TLB invalidation on AMD EPYC 3 and newer CPUs.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/include/asm/invlpgb.h  | 93 +++++++++++++++++++++++++++++++++
- arch/x86/include/asm/tlbflush.h |  1 +
- 2 files changed, 94 insertions(+)
- create mode 100644 arch/x86/include/asm/invlpgb.h
-
-diff --git a/arch/x86/include/asm/invlpgb.h b/arch/x86/include/asm/invlpgb.h
-new file mode 100644
-index 000000000000..862775897a54
---- /dev/null
-+++ b/arch/x86/include/asm/invlpgb.h
-@@ -0,0 +1,93 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+#ifndef _ASM_X86_INVLPGB
-+#define _ASM_X86_INVLPGB
-+
-+#include <vdso/bits.h>
-+
-+/*
-+ * INVLPGB does broadcast TLB invalidation across all the CPUs in the system.
-+ *
-+ * The INVLPGB instruction is weakly ordered, and a batch of invalidations can
-+ * be done in a parallel fashion.
-+ *
-+ * TLBSYNC is used to ensure that pending INVLPGB invalidations initiated from
-+ * this CPU have completed.
-+ */
-+static inline void __invlpgb(unsigned long asid, unsigned long pcid, unsigned long addr,
-+			    int extra_count, bool pmd_stride, unsigned long flags)
-+{
-+	u64 rax = addr | flags;
-+	u32 ecx = (pmd_stride << 31) | extra_count;
-+	u32 edx = (pcid << 16) | asid;
-+
-+	asm volatile("invlpgb" : : "a" (rax), "c" (ecx), "d" (edx));
-+}
-+
-+/*
-+ * INVLPGB can be targeted by virtual address, PCID, ASID, or any combination
-+ * of the three. For example:
-+ * - INVLPGB_VA | INVLPGB_INCLUDE_GLOBAL: invalidate all TLB entries at the address
-+ * - INVLPGB_PCID:              	  invalidate all TLB entries matching the PCID
-+ *
-+ * The first can be used to invalidate (kernel) mappings at a particular
-+ * address across all processes.
-+ *
-+ * The latter invalidates all TLB entries matching a PCID.
-+ */
-+#define INVLPGB_VA			BIT(0)
-+#define INVLPGB_PCID			BIT(1)
-+#define INVLPGB_ASID			BIT(2)
-+#define INVLPGB_INCLUDE_GLOBAL		BIT(3)
-+#define INVLPGB_FINAL_ONLY		BIT(4)
-+#define INVLPGB_INCLUDE_NESTED		BIT(5)
-+
-+/* Flush all mappings for a given pcid and addr, not including globals. */
-+static inline void invlpgb_flush_user(unsigned long pcid,
-+				      unsigned long addr)
-+{
-+	__invlpgb(0, pcid, addr, 0, 0, INVLPGB_PCID | INVLPGB_VA);
-+}
-+
-+static inline void invlpgb_flush_user_nr(unsigned long pcid, unsigned long addr,
-+					 int nr, bool pmd_stride)
-+{
-+	__invlpgb(0, pcid, addr, nr - 1, pmd_stride, INVLPGB_PCID | INVLPGB_VA);
-+}
-+
-+/* Flush all mappings for a given ASID, not including globals. */
-+static inline void invlpgb_flush_single_asid(unsigned long asid)
-+{
-+	__invlpgb(asid, 0, 0, 0, 0, INVLPGB_ASID);
-+}
-+
-+/* Flush all mappings for a given PCID, not including globals. */
-+static inline void invlpgb_flush_single_pcid(unsigned long pcid)
-+{
-+	__invlpgb(0, pcid, 0, 0, 0, INVLPGB_PCID);
-+}
-+
-+/* Flush all mappings, including globals, for all PCIDs. */
-+static inline void invlpgb_flush_all(void)
-+{
-+	__invlpgb(0, 0, 0, 0, 0, INVLPGB_INCLUDE_GLOBAL);
-+}
-+
-+/* Flush addr, including globals, for all PCIDs. */
-+static inline void invlpgb_flush_addr(unsigned long addr, int nr)
-+{
-+	__invlpgb(0, 0, addr, nr - 1, 0, INVLPGB_INCLUDE_GLOBAL);
-+}
-+
-+/* Flush all mappings for all PCIDs except globals. */
-+static inline void invlpgb_flush_all_nonglobals(void)
-+{
-+	__invlpgb(0, 0, 0, 0, 0, 0);
-+}
-+
-+/* Wait for INVLPGB originated by this CPU to complete. */
-+static inline void tlbsync(void)
-+{
-+	asm volatile("tlbsync");
-+}
-+
-+#endif /* _ASM_X86_INVLPGB */
-diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 7d1468a3967b..20074f17fbcd 100644
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -10,6 +10,7 @@
- #include <asm/cpufeature.h>
- #include <asm/special_insns.h>
- #include <asm/smp.h>
-+#include <asm/invlpgb.h>
- #include <asm/invpcid.h>
- #include <asm/pti.h>
- #include <asm/processor-flags.h>
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 934BFEDE
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:05:37 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581938; cv=none; b=gbS95QQufZ330JFF20+oMx+sCzPkmUdlHAe15WehTB/COTWXfKAu+EWWCzyAsf3GWnjUihPhxN3VJRjA1xoyl53+Izf41tMcuSBQOlorRdEb3HNsS4EEUCCSbhhGLrstJ0r+hsKXLAJG/r0m0HbkwYhWhPFdCHVaV7dkJJJVi08=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581938; c=relaxed/simple;
-	bh=vwKSnlxhFquP3Wei5VphmF0p+mur2FAnfyMlc3Znmow=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=fEYB5zo8+5lfkzmsR0lWm80MWIGrcwGsRflJRkecXMvMjp8aCVNvTx7ScvJTDbMvOj4Uo4FezAUnJoXtSj+UAiqbYTKKysMrN674bI1ItWbWXdb2sy12/Z7uSM8XyY5dPfnq2MO4gjxuZDdorRS4uR0JU3NWEv0eDTCUgUh5hfc=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJze-000000008Lf-1jF1;
-	Mon, 30 Dec 2024 12:55:54 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 08/12] x86/mm: use broadcast TLB flushing for page reclaim TLB flushing
-Date: Mon, 30 Dec 2024 12:53:09 -0500
-Message-ID: <20241230175550.4046587-9-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-In the page reclaim code, we only track the CPU(s) where the TLB needs
-to be flushed, rather than all the individual mappings that may be getting
-invalidated.
-
-Use broadcast TLB flushing when that is available.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/mm/tlb.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-index 266d5174fc7b..64f1679c37e1 100644
---- a/arch/x86/mm/tlb.c
-+++ b/arch/x86/mm/tlb.c
-@@ -1310,8 +1310,16 @@ EXPORT_SYMBOL_GPL(__flush_tlb_all);
- void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
- {
- 	struct flush_tlb_info *info;
-+	int cpu;
-+
-+	if (cpu_feature_enabled(X86_FEATURE_INVLPGB)) {
-+		guard(preempt)();
-+		invlpgb_flush_all_nonglobals();
-+		tlbsync();
-+		return;
-+	}
- 
--	int cpu = get_cpu();
-+	cpu = get_cpu();
- 
- 	info = get_flush_tlb_info(NULL, 0, TLB_FLUSH_ALL, 0, false,
- 				  TLB_GENERATION_INVALID);
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 06FC41B0427
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:05:39 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581941; cv=none; b=GA0ZtqoY/eHIq1jLwwK1wlMQL3ZNQ7pJmlIckhXBsHPu2e4vicfp98SiYaqWWbewDOUJl1SfDHgxER44NOU0AWc1BIf9IMB+umq2HCv349vcyGd2sXXyeddgef6WT/lZpG3e4Xnx2qIbpX9iFlIZBeLcecgEUDeyPcT7Qofh740=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581941; c=relaxed/simple;
-	bh=UTUbLNhwSKotjeAqet+8hPX3oQbWrFlGGAfDGYkfJ3k=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=RCCva6GW6vUKaCHlpi8Whv4JGFOsEF/PCL+KWoETdZB515N36Ks9lgHMO1ern5BfuQ4VnNWhwFIUZALnXp6CdofBXtoGvlAw87/NjUnhGVDqzI2q2NeECEQlt7+QVtqslRiAceR1cp1gU8MygIzSzWMB9X0yg+Xymxgm7Q1RPOU=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzd-000000008Lf-3fUp;
-	Mon, 30 Dec 2024 12:55:53 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 06/12] x86/mm: use INVLPGB for kernel TLB flushes
-Date: Mon, 30 Dec 2024 12:53:07 -0500
-Message-ID: <20241230175550.4046587-7-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-Use broadcast TLB invalidation for kernel addresses when available.
-
-This stops us from having to send IPIs for kernel TLB flushes.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/mm/tlb.c | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
-
-diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-index 6cf881a942bb..29207dc5b807 100644
---- a/arch/x86/mm/tlb.c
-+++ b/arch/x86/mm/tlb.c
-@@ -1077,6 +1077,32 @@ void flush_tlb_all(void)
- 	on_each_cpu(do_flush_tlb_all, NULL, 1);
- }
- 
-+static void broadcast_kernel_range_flush(unsigned long start, unsigned long end)
-+{
-+	unsigned long addr;
-+	unsigned long maxnr = invlpgb_count_max;
-+	unsigned long threshold = tlb_single_page_flush_ceiling * maxnr;
-+
-+	/*
-+	 * TLBSYNC only waits for flushes originating on the same CPU.
-+	 * Disabling migration allows us to wait on all flushes.
-+	 */
-+	guard(preempt)();
-+
-+	if (end == TLB_FLUSH_ALL ||
-+	    (end - start) > threshold << PAGE_SHIFT) {
-+		invlpgb_flush_all();
-+	} else {
-+		unsigned long nr;
-+		for (addr = start; addr < end; addr += nr << PAGE_SHIFT) {
-+			nr = min((end - addr) >> PAGE_SHIFT, maxnr);
-+			invlpgb_flush_addr(addr, nr);
-+		}
-+	}
-+
-+	tlbsync();
-+}
-+
- static void do_kernel_range_flush(void *info)
- {
- 	struct flush_tlb_info *f = info;
-@@ -1089,6 +1115,11 @@ static void do_kernel_range_flush(void *info)
- 
- void flush_tlb_kernel_range(unsigned long start, unsigned long end)
- {
-+	if (cpu_feature_enabled(X86_FEATURE_INVLPGB)) {
-+		broadcast_kernel_range_flush(start, end);
-+		return;
-+	}
-+
- 	/* Balance as user space task's flush, a bit conservative */
- 	if (end == TLB_FLUSH_ALL ||
- 	    (end - start) > tlb_single_page_flush_ceiling << PAGE_SHIFT) {
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 78A7584FAD
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:05:42 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581944; cv=none; b=qcp2CRIVKZ0S6O3Z8I9RYi2BoJIG7hrwJKywOg+UwNG1ZtD+ZjE12UrP4uGmsjHH8up3avn4kxOfvEryqv2aQYOJgLtzYYHWIiT1W1VMNIzIMl5gt4VbzlPDdvulWY7A7FstULHfS/GNP6pyDR9NbOhGT13i9T7nrdkSzqhYUFE=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581944; c=relaxed/simple;
-	bh=JcUJpjUjKvOPZnatAuhHXyFRxyGK2hiNApeectzzoWU=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=sJzXFcctFUoMDHlQKwCcck7SPbTRSyZf5zD2uosaapl1QolAntqwPstAqEC4LkYbyTqJXWJGsFqKoN+ggExSXMdd8w1u/MM9DGHA7Gbzart2rPQfOWRxGOtPMyZABMpCCMZWHuYpZr/OZlCG8IRoA/fF2/NjdKR12DZPhMBLNWI=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzd-000000008Lf-0g30;
-	Mon, 30 Dec 2024 12:55:53 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 04/12] x86/mm: get INVLPGB count max from CPUID
-Date: Mon, 30 Dec 2024 12:53:05 -0500
-Message-ID: <20241230175550.4046587-5-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-The CPU advertises the maximum number of pages that can be shot down
-with one INVLPGB instruction in the CPUID data.
-
-Save that information for later use.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/include/asm/tlbflush.h | 1 +
- arch/x86/kernel/cpu/amd.c       | 8 ++++++++
- arch/x86/kernel/setup.c         | 4 ++++
- 3 files changed, 13 insertions(+)
-
-diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 02fc2aa06e9e..7d1468a3967b 100644
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -182,6 +182,7 @@ static inline void cr4_init_shadow(void)
- 
- extern unsigned long mmu_cr4_features;
- extern u32 *trampoline_cr4_features;
-+extern u16 invlpgb_count_max;
- 
- extern void initialize_tlbstate_and_flush(void);
- 
-diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index 79d2e17f6582..226b8fc64bfc 100644
---- a/arch/x86/kernel/cpu/amd.c
-+++ b/arch/x86/kernel/cpu/amd.c
-@@ -1135,6 +1135,14 @@ static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
- 		tlb_lli_2m[ENTRIES] = eax & mask;
- 
- 	tlb_lli_4m[ENTRIES] = tlb_lli_2m[ENTRIES] >> 1;
-+
-+	if (c->extended_cpuid_level < 0x80000008)
-+		return;
-+
-+	cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
-+
-+	/* Max number of pages INVLPGB can invalidate in one shot */
-+	invlpgb_count_max = (edx & 0xffff) + 1;
- }
- 
- static const struct cpu_dev amd_cpu_dev = {
-diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
-index f1fea506e20f..6c4d08f8f7b1 100644
---- a/arch/x86/kernel/setup.c
-+++ b/arch/x86/kernel/setup.c
-@@ -138,6 +138,10 @@ __visible unsigned long mmu_cr4_features __ro_after_init;
- __visible unsigned long mmu_cr4_features __ro_after_init = X86_CR4_PAE;
- #endif
- 
-+#ifdef CONFIG_CPU_SUP_AMD
-+u16 invlpgb_count_max __ro_after_init;
-+#endif
-+
- #ifdef CONFIG_IMA
- static phys_addr_t ima_kexec_buffer_phys;
- static size_t ima_kexec_buffer_size;
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 308201B0410
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:05:50 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581951; cv=none; b=mvJfHy/N6Xxb+JPeu3Vi4YAe2S00et1uldg23uOk0HSO/2fg1AAE1+FDidkTG7SNFhRSg2vamyrzRIZjzKj6tso5hVTWvvQIynvqKazaYnqvxYkKC0GfH1Ey0GWUqzdYVGc+vfrQG1gp4KY3wFejINKHS09dq3HJQEoRz6Tg9DE=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581951; c=relaxed/simple;
-	bh=Vv4Z1ZRY6+k3aLydrtKeVw81ziiZpxv/agdj8eMijPo=;
-	h=From:To:Cc:Subject:Date:Message-ID:MIME-Version; b=GLFIu2NZ/LVmkQGdOQGCUf3X8pKRU++uDLDiU6AbvOTZoXWrCkddcmwah06xqlISes1r/TOmR104cla/k2D7u0gaxdF9nyixbvDtHgggxzUsfuRqjHb+ELuGP0FpflMwHZ8QaexuY8O5el7EyB/4kTr4YCgJfVE6dCrum4I2jgo=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzc-000000008Lf-179i;
-	Mon, 30 Dec 2024 12:55:52 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org
-Subject: [PATCH v3 00/12] AMD broadcast TLB invalidation
-Date: Mon, 30 Dec 2024 12:53:01 -0500
-Message-ID: <20241230175550.4046587-1-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-Subject: [RFC PATCH 00/10] AMD broadcast TLB invalidation
+* [RFC PATCH v4 00/10] AMD broadcast TLB invalidation
+@ 2025-01-12 15:53 Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 01/12] x86/mm: make MMU_GATHER_RCU_TABLE_FREE unconditional Rik van Riel
+                   ` (11 more replies)
+  0 siblings, 12 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh
 
 Add support for broadcast TLB invalidation using AMD's INVLPGB instruction.
 
@@ -582,6 +38,20 @@ simply moved to the LRU lock.
 Fixing both at the same time about doubles the
 number of iterations per second from this case.
 
+Some numbers closer to real world performance
+can be found at Phoronix, thanks to Michael:
+
+https://www.phoronix.com/news/AMD-INVLPGB-Linux-Benefits
+
+There was a large amount of feedback and debate around v3
+of the series. I have tried to incorporate everybody's
+feedback, but please let me know if I missed a spot.
+
+v4:
+ - Use only bitmaps to track free global ASIDs (Nadav)
+ - Improved AMD initialization (Borislav & Tom)
+ - Various naming and documentation improvements (Peter, Nadav, Tom, Dave)
+ - Fixes for subtle race conditions (Jann)
 v3:
  - Remove paravirt tlb_remove_table call (thank you Qi Zheng)
  - More suggested cleanups and changelog fixes by Peter and Nadav
@@ -592,793 +62,19 @@ v2:
  - Some updates to comments and changelogs based on questions.
 
 
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id BCA691B415C
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:05:52 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581954; cv=none; b=fEDzRhxgc67xHUiHrDVi9d6J1Cv28JVc/1W1FU8goIl1bTha7jRyUDf0H71JMaWMFnwtdesUmGpdMK+iQhR6Lt1ByuwRO5OxcK0MR3jxJui5gcxrVIHYPO3zFPDz2ccrBGYHiyRdx8ANS0R6zLX7nMK0XvnYp/ZUPH4b58I+ZT4=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581954; c=relaxed/simple;
-	bh=FT0ac0zrYfeb4u2EYVt6+KU+oAfxwM9JTToymuxvJak=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=RSs5J53XJmRvt2lJaxS4SwAPfJd6NMvqKxtMxz8qilWwAmq9LHB90qz8OathogfLj1MulHIZs+a9v8yI345KCbJwsJxTX4UON2sKGkRrLhQM5fcGlg2XxRoYRpQFI66JuSczXGMAcnpotGMlnKE3QGhm9mUCyisBM4DBRgwMsJE=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzf-000000008Lf-2gRa;
-	Mon, 30 Dec 2024 12:55:55 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 12/12] x86/mm: only invalidate final translations with INVLPGB
-Date: Mon, 30 Dec 2024 12:53:13 -0500
-Message-ID: <20241230175550.4046587-13-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
 
-Use the INVLPGB_FINAL_ONLY flag when invalidating mappings with INVPLGB.
-This way only leaf mappings get removed from the TLB, leaving intermediate
-translations cached.
+^ permalink raw reply	[flat|nested] 14+ messages in thread
 
-On the (rare) occasions where we free page tables we do a full flush,
-ensuring intermediate translations get flushed from the TLB.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/include/asm/invlpgb.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/arch/x86/include/asm/invlpgb.h b/arch/x86/include/asm/invlpgb.h
-index 862775897a54..2669ebfffe81 100644
---- a/arch/x86/include/asm/invlpgb.h
-+++ b/arch/x86/include/asm/invlpgb.h
-@@ -51,7 +51,7 @@ static inline void invlpgb_flush_user(unsigned long pcid,
- static inline void invlpgb_flush_user_nr(unsigned long pcid, unsigned long addr,
- 					 int nr, bool pmd_stride)
- {
--	__invlpgb(0, pcid, addr, nr - 1, pmd_stride, INVLPGB_PCID | INVLPGB_VA);
-+	__invlpgb(0, pcid, addr, nr - 1, pmd_stride, INVLPGB_PCID | INVLPGB_VA | INVLPGB_FINAL_ONLY);
- }
- 
- /* Flush all mappings for a given ASID, not including globals. */
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 2AD751B0439
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:01 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581962; cv=none; b=jI2uGUwbGt9hQJOJPbR2uM/ewzszoewSeJYbP4f/9fj8/lxYVSOubf3bNbJibE5tWOJOFsko+BBxKu7o5+c5bzGGOlLSbk5ZunxESHJqpjmlVy1M6E50XEO1PlZAQRDdktc3mNq4v8flg3/Gg3ZSwpdD19RDhoXJ2TZfRSNqDkA=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581962; c=relaxed/simple;
-	bh=g89Wy/gS6smdXFDHZyp9wPGQ5kue/U/GYy4yWFinses=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=B50gCL7B9AOtnfxNOVd1c8LjzSHDEnBCjCzf1kqHUmQcMGPmx6GM5nQw8mppAZJead9IrVWVAGlpsKu3cree6CBmU8zz8elZVpjA4nqCLV/O2gWGr4UCGkfQDeiltRctb4NMx4fVclHcYxf7sCsMUOixjCWBDlca4MNUrT/SDpw=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJze-000000008Lf-0aOp;
-	Mon, 30 Dec 2024 12:55:54 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 07/12] x86/tlb: use INVLPGB in flush_tlb_all
-Date: Mon, 30 Dec 2024 12:53:08 -0500
-Message-ID: <20241230175550.4046587-8-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-The flush_tlb_all() function is not used a whole lot, but we might
-as well use broadcast TLB flushing there, too.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/mm/tlb.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-index 29207dc5b807..266d5174fc7b 100644
---- a/arch/x86/mm/tlb.c
-+++ b/arch/x86/mm/tlb.c
-@@ -1074,6 +1074,12 @@ static void do_flush_tlb_all(void *info)
- void flush_tlb_all(void)
- {
- 	count_vm_tlb_event(NR_TLB_REMOTE_FLUSH);
-+	if (cpu_feature_enabled(X86_FEATURE_INVLPGB)) {
-+		guard(preempt)();
-+		invlpgb_flush_all();
-+		tlbsync();
-+		return;
-+	}
- 	on_each_cpu(do_flush_tlb_all, NULL, 1);
- }
- 
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id AD7271B043C
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:03 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581965; cv=none; b=oyYbRiVMUPF2y+1jguPQnplMhJXy4rx759qfCLjbBK/5gMSBS+M9yGbA24GL9yN9QvRW1D/SydAGoEpiGqc2cfBS40oXcR9HzH3WpHJNcTVFShM6yxTPLCcAqAog/XEjJ2R1gu4E6Rkbi1u8hs0qKCprGyTmL57f8aZg860Gbsw=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581965; c=relaxed/simple;
-	bh=Ym2pRY3EsbjRkmG93x5O6rdSgCDJAwIoRigqgkuCGQA=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=HuamcGFblmNcf8UC9vUYZmG6M/Vtc3HC5uuajtzBFIT85aklKTrTKUMEnZM8qeEJf4ucLrjNkDFgURmwhgSgO6UBUjS+iCqVQyA7f+EZVldyxMmaRs2IiQU5UNp34aVHqHMcv0lCGQcZwFOHtVvDT80J4T7pn0UWHRrKfnu7rf0=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJze-000000008Lf-3Hji;
-	Mon, 30 Dec 2024 12:55:54 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 09/12] x86/mm: enable broadcast TLB invalidation for multi-threaded processes
-Date: Mon, 30 Dec 2024 12:53:10 -0500
-Message-ID: <20241230175550.4046587-10-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
-
-Use broadcast TLB invalidation, using the INVPLGB instruction, on AMD EPYC 3
-and newer CPUs.
-
-In order to not exhaust PCID space, and keep TLB flushes local for single
-threaded processes, we only hand out broadcast ASIDs to processes active on
-3 or more CPUs, and gradually increase the threshold as broadcast ASID space
-is depleted.
-
-Signed-off-by: Rik van Riel <riel@surriel.com>
----
- arch/x86/include/asm/mmu.h         |   6 +
- arch/x86/include/asm/mmu_context.h |  12 ++
- arch/x86/include/asm/tlbflush.h    |  17 ++
- arch/x86/mm/tlb.c                  | 310 ++++++++++++++++++++++++++++-
- 4 files changed, 336 insertions(+), 9 deletions(-)
-
-diff --git a/arch/x86/include/asm/mmu.h b/arch/x86/include/asm/mmu.h
-index 3b496cdcb74b..a8e8dfa5a520 100644
---- a/arch/x86/include/asm/mmu.h
-+++ b/arch/x86/include/asm/mmu.h
-@@ -48,6 +48,12 @@ typedef struct {
- 	unsigned long flags;
- #endif
- 
-+#ifdef CONFIG_CPU_SUP_AMD
-+	struct list_head broadcast_asid_list;
-+	u16 broadcast_asid;
-+	bool asid_transition;
-+#endif
-+
- #ifdef CONFIG_ADDRESS_MASKING
- 	/* Active LAM mode:  X86_CR3_LAM_U48 or X86_CR3_LAM_U57 or 0 (disabled) */
- 	unsigned long lam_cr3_mask;
-diff --git a/arch/x86/include/asm/mmu_context.h b/arch/x86/include/asm/mmu_context.h
-index 795fdd53bd0a..0dc446c427d2 100644
---- a/arch/x86/include/asm/mmu_context.h
-+++ b/arch/x86/include/asm/mmu_context.h
-@@ -139,6 +139,8 @@ static inline void mm_reset_untag_mask(struct mm_struct *mm)
- #define enter_lazy_tlb enter_lazy_tlb
- extern void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk);
- 
-+extern void destroy_context_free_broadcast_asid(struct mm_struct *mm);
-+
- /*
-  * Init a new mm.  Used on mm copies, like at fork()
-  * and on mm's that are brand-new, like at execve().
-@@ -161,6 +163,13 @@ static inline int init_new_context(struct task_struct *tsk,
- 		mm->context.execute_only_pkey = -1;
- 	}
- #endif
-+
-+#ifdef CONFIG_CPU_SUP_AMD
-+	INIT_LIST_HEAD(&mm->context.broadcast_asid_list);
-+	mm->context.broadcast_asid = 0;
-+	mm->context.asid_transition = false;
-+#endif
-+
- 	mm_reset_untag_mask(mm);
- 	init_new_context_ldt(mm);
- 	return 0;
-@@ -170,6 +179,9 @@ static inline int init_new_context(struct task_struct *tsk,
- static inline void destroy_context(struct mm_struct *mm)
- {
- 	destroy_context_ldt(mm);
-+#ifdef CONFIG_CPU_SUP_AMD
-+	destroy_context_free_broadcast_asid(mm);
-+#endif
- }
- 
- extern void switch_mm(struct mm_struct *prev, struct mm_struct *next,
-diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 20074f17fbcd..5e9956af98d1 100644
---- a/arch/x86/include/asm/tlbflush.h
-+++ b/arch/x86/include/asm/tlbflush.h
-@@ -65,6 +65,23 @@ static inline void cr4_clear_bits(unsigned long mask)
-  */
- #define TLB_NR_DYN_ASIDS	6
- 
-+#ifdef CONFIG_CPU_SUP_AMD
-+#define is_dyn_asid(asid) (asid) < TLB_NR_DYN_ASIDS
-+#define is_broadcast_asid(asid) (asid) >= TLB_NR_DYN_ASIDS
-+#define in_asid_transition(info) (info->mm && info->mm->context.asid_transition)
-+#define mm_broadcast_asid(mm) (mm->context.broadcast_asid)
-+#else
-+#define is_dyn_asid(asid) true
-+#define is_broadcast_asid(asid) false
-+#define in_asid_transition(info) false
-+#define mm_broadcast_asid(mm) 0
-+
-+inline bool needs_broadcast_asid_reload(struct mm_struct *next, u16 prev_asid)
-+{
-+	return false;
-+}
-+#endif
-+
- struct tlb_context {
- 	u64 ctx_id;
- 	u64 tlb_gen;
-diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-index 64f1679c37e1..eb83391385ce 100644
---- a/arch/x86/mm/tlb.c
-+++ b/arch/x86/mm/tlb.c
-@@ -74,13 +74,15 @@
-  * use different names for each of them:
-  *
-  * ASID  - [0, TLB_NR_DYN_ASIDS-1]
-- *         the canonical identifier for an mm
-+ *         the canonical identifier for an mm, dynamically allocated on each CPU
-+ *         [TLB_NR_DYN_ASIDS, MAX_ASID_AVAILABLE-1]
-+ *         the canonical, global identifier for an mm, identical across all CPUs
-  *
-- * kPCID - [1, TLB_NR_DYN_ASIDS]
-+ * kPCID - [1, MAX_ASID_AVAILABLE]
-  *         the value we write into the PCID part of CR3; corresponds to the
-  *         ASID+1, because PCID 0 is special.
-  *
-- * uPCID - [2048 + 1, 2048 + TLB_NR_DYN_ASIDS]
-+ * uPCID - [2048 + 1, 2048 + MAX_ASID_AVAILABLE]
-  *         for KPTI each mm has two address spaces and thus needs two
-  *         PCID values, but we can still do with a single ASID denomination
-  *         for each mm. Corresponds to kPCID + 2048.
-@@ -225,6 +227,18 @@ static void choose_new_asid(struct mm_struct *next, u64 next_tlb_gen,
- 		return;
- 	}
- 
-+	/*
-+	 * TLB consistency for this ASID is maintained with INVLPGB;
-+	 * TLB flushes happen even while the process isn't running.
-+	 */
-+#ifdef CONFIG_CPU_SUP_AMD
-+	if (static_cpu_has(X86_FEATURE_INVLPGB) && mm_broadcast_asid(next)) {
-+		*new_asid = mm_broadcast_asid(next);
-+		*need_flush = false;
-+		return;
-+	}
-+#endif
-+
- 	if (this_cpu_read(cpu_tlbstate.invalidate_other))
- 		clear_asid_other();
- 
-@@ -251,6 +265,245 @@ static void choose_new_asid(struct mm_struct *next, u64 next_tlb_gen,
- 	*need_flush = true;
- }
- 
-+#ifdef CONFIG_CPU_SUP_AMD
-+/*
-+ * Logic for AMD INVLPGB support.
-+ */
-+static DEFINE_RAW_SPINLOCK(broadcast_asid_lock);
-+static u16 last_broadcast_asid = TLB_NR_DYN_ASIDS;
-+static DECLARE_BITMAP(broadcast_asid_used, MAX_ASID_AVAILABLE) = { 0 };
-+static LIST_HEAD(broadcast_asid_list);
-+static int broadcast_asid_available = MAX_ASID_AVAILABLE - TLB_NR_DYN_ASIDS - 1;
-+
-+static void reset_broadcast_asid_space(void)
-+{
-+	mm_context_t *context;
-+
-+	lockdep_assert_held(&broadcast_asid_lock);
-+
-+	/*
-+	 * Flush once when we wrap around the ASID space, so we won't need
-+	 * to flush every time we allocate an ASID for boradcast flushing.
-+	 */
-+	invlpgb_flush_all_nonglobals();
-+	tlbsync();
-+
-+	/*
-+	 * Leave the currently used broadcast ASIDs set in the bitmap, since
-+	 * those cannot be reused before the next wraparound and flush..
-+	 */
-+	bitmap_clear(broadcast_asid_used, 0, MAX_ASID_AVAILABLE);
-+	list_for_each_entry(context, &broadcast_asid_list, broadcast_asid_list)
-+		__set_bit(context->broadcast_asid, broadcast_asid_used);
-+
-+	last_broadcast_asid = TLB_NR_DYN_ASIDS;
-+}
-+
-+static u16 get_broadcast_asid(void)
-+{
-+	lockdep_assert_held(&broadcast_asid_lock);
-+
-+	do {
-+		u16 start = last_broadcast_asid;
-+		u16 asid = find_next_zero_bit(broadcast_asid_used, MAX_ASID_AVAILABLE, start);
-+
-+		if (asid >= MAX_ASID_AVAILABLE) {
-+			reset_broadcast_asid_space();
-+			continue;
-+		}
-+
-+		/* Try claiming this broadcast ASID. */
-+		if (!test_and_set_bit(asid, broadcast_asid_used)) {
-+			last_broadcast_asid = asid;
-+			return asid;
-+		}
-+	} while (1);
-+}
-+
-+/*
-+ * Returns true if the mm is transitioning from a CPU-local ASID to a broadcast
-+ * (INVLPGB) ASID, or the other way around.
-+ */
-+static bool needs_broadcast_asid_reload(struct mm_struct *next, u16 prev_asid)
-+{
-+	u16 broadcast_asid = mm_broadcast_asid(next);
-+
-+	if (broadcast_asid && prev_asid != broadcast_asid)
-+		return true;
-+
-+	if (!broadcast_asid && is_broadcast_asid(prev_asid))
-+		return true;
-+
-+	return false;
-+}
-+
-+void destroy_context_free_broadcast_asid(struct mm_struct *mm)
-+{
-+	if (!mm->context.broadcast_asid)
-+		return;
-+
-+	guard(raw_spinlock_irqsave)(&broadcast_asid_lock);
-+	mm->context.broadcast_asid = 0;
-+	list_del(&mm->context.broadcast_asid_list);
-+	broadcast_asid_available++;
-+}
-+
-+static bool mm_active_cpus_exceeds(struct mm_struct *mm, int threshold)
-+{
-+	int count = 0;
-+	int cpu;
-+
-+	if (cpumask_weight(mm_cpumask(mm)) <= threshold)
-+		return false;
-+
-+	for_each_cpu(cpu, mm_cpumask(mm)) {
-+		/* Skip the CPUs that aren't really running this process. */
-+		if (per_cpu(cpu_tlbstate.loaded_mm, cpu) != mm)
-+			continue;
-+
-+		if (per_cpu(cpu_tlbstate_shared.is_lazy, cpu))
-+			continue;
-+
-+		if (++count > threshold)
-+			return true;
-+	}
-+	return false;
-+}
-+
-+/*
-+ * Assign a broadcast ASID to the current process, protecting against
-+ * races between multiple threads in the process.
-+ */
-+static void use_broadcast_asid(struct mm_struct *mm)
-+{
-+	guard(raw_spinlock_irqsave)(&broadcast_asid_lock);
-+
-+	/* This process is already using broadcast TLB invalidation. */
-+	if (mm->context.broadcast_asid)
-+		return;
-+
-+	mm->context.broadcast_asid = get_broadcast_asid();
-+	mm->context.asid_transition = true;
-+	list_add(&mm->context.broadcast_asid_list, &broadcast_asid_list);
-+	broadcast_asid_available--;
-+}
-+
-+/*
-+ * Figure out whether to assign a broadcast (global) ASID to a process.
-+ * We vary the threshold by how empty or full broadcast ASID space is.
-+ * 1/4 full: >= 4 active threads
-+ * 1/2 full: >= 8 active threads
-+ * 3/4 full: >= 16 active threads
-+ * 7/8 full: >= 32 active threads
-+ * etc
-+ *
-+ * This way we should never exhaust the broadcast ASID space, even on very
-+ * large systems, and the processes with the largest number of active
-+ * threads should be able to use broadcast TLB invalidation.
-+ */
-+#define HALFFULL_THRESHOLD 8
-+static bool meets_broadcast_asid_threshold(struct mm_struct *mm)
-+{
-+	int avail = broadcast_asid_available;
-+	int threshold = HALFFULL_THRESHOLD;
-+
-+	if (!avail)
-+		return false;
-+
-+	if (avail > MAX_ASID_AVAILABLE * 3 / 4) {
-+		threshold = HALFFULL_THRESHOLD / 4;
-+	} else if (avail > MAX_ASID_AVAILABLE / 2) {
-+		threshold = HALFFULL_THRESHOLD / 2;
-+	} else if (avail < MAX_ASID_AVAILABLE / 3) {
-+		do {
-+			avail *= 2;
-+			threshold *= 2;
-+		} while ((avail + threshold) < MAX_ASID_AVAILABLE / 2);
-+	}
-+
-+	return mm_active_cpus_exceeds(mm, threshold);
-+}
-+
-+static void count_tlb_flush(struct mm_struct *mm)
-+{
-+	if (!static_cpu_has(X86_FEATURE_INVLPGB))
-+		return;
-+
-+	/* Check every once in a while. */
-+	if ((current->pid & 0x1f) != (jiffies & 0x1f))
-+		return;
-+
-+	if (meets_broadcast_asid_threshold(mm))
-+		use_broadcast_asid(mm);
-+}
-+
-+static void finish_asid_transition(struct flush_tlb_info *info)
-+{
-+	struct mm_struct *mm = info->mm;
-+	int bc_asid = mm_broadcast_asid(mm);
-+	int cpu;
-+
-+	if (!mm->context.asid_transition)
-+		return;
-+
-+	for_each_cpu(cpu, mm_cpumask(mm)) {
-+		if (READ_ONCE(per_cpu(cpu_tlbstate.loaded_mm, cpu)) != mm)
-+			continue;
-+
-+		/*
-+		 * If at least one CPU is not using the broadcast ASID yet,
-+		 * send a TLB flush IPI. The IPI should cause stragglers
-+		 * to transition soon.
-+		 */
-+		if (per_cpu(cpu_tlbstate.loaded_mm_asid, cpu) != bc_asid) {
-+			flush_tlb_multi(mm_cpumask(info->mm), info);
-+			return;
-+		}
-+	}
-+
-+	/* All the CPUs running this process are using the broadcast ASID. */
-+	mm->context.asid_transition = 0;
-+}
-+
-+static void broadcast_tlb_flush(struct flush_tlb_info *info)
-+{
-+	bool pmd = info->stride_shift == PMD_SHIFT;
-+	unsigned long maxnr = invlpgb_count_max;
-+	unsigned long asid = info->mm->context.broadcast_asid;
-+	unsigned long addr = info->start;
-+	unsigned long nr;
-+
-+	/* Flushing multiple pages at once is not supported with 1GB pages. */
-+	if (info->stride_shift > PMD_SHIFT)
-+		maxnr = 1;
-+
-+	if (info->end == TLB_FLUSH_ALL) {
-+		invlpgb_flush_single_pcid(kern_pcid(asid));
-+		/* Do any CPUs supporting INVLPGB need PTI? */
-+		if (static_cpu_has(X86_FEATURE_PTI))
-+			invlpgb_flush_single_pcid(user_pcid(asid));
-+	} else do {
-+		/*
-+		 * Calculate how many pages can be flushed at once; if the
-+		 * remainder of the range is less than one page, flush one.
-+		 */
-+		nr = min(maxnr, (info->end - addr) >> info->stride_shift);
-+		nr = max(nr, 1);
-+
-+		invlpgb_flush_user_nr(kern_pcid(asid), addr, nr, pmd);
-+		/* Do any CPUs supporting INVLPGB need PTI? */
-+		if (static_cpu_has(X86_FEATURE_PTI))
-+			invlpgb_flush_user_nr(user_pcid(asid), addr, nr, pmd);
-+		addr += nr << info->stride_shift;
-+	} while (addr < info->end);
-+
-+	finish_asid_transition(info);
-+
-+	/* Wait for the INVLPGBs kicked off above to finish. */
-+	tlbsync();
-+}
-+#endif /* CONFIG_CPU_SUP_AMD */
-+
- /*
-  * Given an ASID, flush the corresponding user ASID.  We can delay this
-  * until the next time we switch to it.
-@@ -556,8 +809,9 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
- 	 */
- 	if (prev == next) {
- 		/* Not actually switching mm's */
--		VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[prev_asid].ctx_id) !=
--			   next->context.ctx_id);
-+		if (is_dyn_asid(prev_asid))
-+			VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[prev_asid].ctx_id) !=
-+				   next->context.ctx_id);
- 
- 		/*
- 		 * If this races with another thread that enables lam, 'new_lam'
-@@ -573,6 +827,23 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
- 				 !cpumask_test_cpu(cpu, mm_cpumask(next))))
- 			cpumask_set_cpu(cpu, mm_cpumask(next));
- 
-+		/*
-+		 * Check if the current mm is transitioning to a new ASID.
-+		 */
-+		if (needs_broadcast_asid_reload(next, prev_asid)) {
-+			next_tlb_gen = atomic64_read(&next->context.tlb_gen);
-+
-+			choose_new_asid(next, next_tlb_gen, &new_asid, &need_flush);
-+			goto reload_tlb;
-+		}
-+
-+		/*
-+		 * Broadcast TLB invalidation keeps this PCID up to date
-+		 * all the time.
-+		 */
-+		if (is_broadcast_asid(prev_asid))
-+			return;
-+
- 		/*
- 		 * If the CPU is not in lazy TLB mode, we are just switching
- 		 * from one thread in a process to another thread in the same
-@@ -626,8 +897,10 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
- 		barrier();
- 	}
- 
-+reload_tlb:
- 	new_lam = mm_lam_cr3_mask(next);
- 	if (need_flush) {
-+		VM_BUG_ON(is_broadcast_asid(new_asid));
- 		this_cpu_write(cpu_tlbstate.ctxs[new_asid].ctx_id, next->context.ctx_id);
- 		this_cpu_write(cpu_tlbstate.ctxs[new_asid].tlb_gen, next_tlb_gen);
- 		load_new_mm_cr3(next->pgd, new_asid, new_lam, true);
-@@ -746,7 +1019,7 @@ static void flush_tlb_func(void *info)
- 	const struct flush_tlb_info *f = info;
- 	struct mm_struct *loaded_mm = this_cpu_read(cpu_tlbstate.loaded_mm);
- 	u32 loaded_mm_asid = this_cpu_read(cpu_tlbstate.loaded_mm_asid);
--	u64 local_tlb_gen = this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
-+	u64 local_tlb_gen;
- 	bool local = smp_processor_id() == f->initiating_cpu;
- 	unsigned long nr_invalidate = 0;
- 	u64 mm_tlb_gen;
-@@ -769,6 +1042,16 @@ static void flush_tlb_func(void *info)
- 	if (unlikely(loaded_mm == &init_mm))
- 		return;
- 
-+	/* Reload the ASID if transitioning into or out of a broadcast ASID */
-+	if (needs_broadcast_asid_reload(loaded_mm, loaded_mm_asid)) {
-+		switch_mm_irqs_off(NULL, loaded_mm, NULL);
-+		loaded_mm_asid = this_cpu_read(cpu_tlbstate.loaded_mm_asid);
-+	}
-+
-+	/* Broadcast ASIDs are always kept up to date with INVLPGB. */
-+	if (is_broadcast_asid(loaded_mm_asid))
-+		return;
-+
- 	VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].ctx_id) !=
- 		   loaded_mm->context.ctx_id);
- 
-@@ -786,6 +1069,8 @@ static void flush_tlb_func(void *info)
- 		return;
- 	}
- 
-+	local_tlb_gen = this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
-+
- 	if (unlikely(f->new_tlb_gen != TLB_GENERATION_INVALID &&
- 		     f->new_tlb_gen <= local_tlb_gen)) {
- 		/*
-@@ -953,7 +1238,7 @@ STATIC_NOPV void native_flush_tlb_multi(const struct cpumask *cpumask,
- 	 * up on the new contents of what used to be page tables, while
- 	 * doing a speculative memory access.
- 	 */
--	if (info->freed_tables)
-+	if (info->freed_tables || in_asid_transition(info))
- 		on_each_cpu_mask(cpumask, flush_tlb_func, (void *)info, true);
- 	else
- 		on_each_cpu_cond_mask(should_flush_tlb, flush_tlb_func,
-@@ -1026,14 +1311,18 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
- 				bool freed_tables)
- {
- 	struct flush_tlb_info *info;
-+	unsigned long threshold = tlb_single_page_flush_ceiling;
- 	u64 new_tlb_gen;
- 	int cpu;
- 
-+	if (static_cpu_has(X86_FEATURE_INVLPGB))
-+		threshold *= invlpgb_count_max;
-+
- 	cpu = get_cpu();
- 
- 	/* Should we flush just the requested range? */
- 	if ((end == TLB_FLUSH_ALL) ||
--	    ((end - start) >> stride_shift) > tlb_single_page_flush_ceiling) {
-+	    ((end - start) >> stride_shift) > threshold) {
- 		start = 0;
- 		end = TLB_FLUSH_ALL;
- 	}
-@@ -1049,8 +1338,11 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
- 	 * a local TLB flush is needed. Optimize this use-case by calling
- 	 * flush_tlb_func_local() directly in this case.
- 	 */
--	if (cpumask_any_but(mm_cpumask(mm), cpu) < nr_cpu_ids) {
-+	if (IS_ENABLED(CONFIG_CPU_SUP_AMD) && mm_broadcast_asid(mm)) {
-+		broadcast_tlb_flush(info);
-+	} else if (cpumask_any_but(mm_cpumask(mm), cpu) < nr_cpu_ids) {
- 		flush_tlb_multi(mm_cpumask(mm), info);
-+		count_tlb_flush(mm);
- 	} else if (mm == this_cpu_read(cpu_tlbstate.loaded_mm)) {
- 		lockdep_assert_irqs_enabled();
- 		local_irq_disable();
--- 
-2.47.1
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id CFE9A1B2EFB
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:06 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581968; cv=none; b=Cv4vL++53Cg54zb3DS1PSwSsUkMbadO6yMCbOm4UFNKnrFYMfgSDpg299RfguRm1EC9Z1/38zTVDgPqWCKhwtWhVhHMNKPgoqnWpgQ9CappYnSI6Tk+aAMvFG6OuXx2qsKlg0nOODNJxmJ1bE20N3VyPwT8OZDtPzmPcIalyk+g=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581968; c=relaxed/simple;
-	bh=LDcdgOQyY9dwd7dBfRQonNijKD4k7Be4KCxAufSkWW0=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=nJOXBtYyhJMCAvScra5XQf/OcDbZnnRbNey/RRTygL13UEiGytUG34Zws8FSYG5jS5t5WN4BlqQ41W8RhImL6n1z9jNV01jCLLZ65WlNd4FgmpfhDbAZJPjrYwZ8wkNdlM2l+XG6kWGvHQPq6ZhY2g2U9LWZelOFv0M5AQ6ZWrM=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzc-000000008Lf-2Fys;
-	Mon, 30 Dec 2024 12:55:52 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 01/12] x86/mm: make MMU_GATHER_RCU_TABLE_FREE unconditional
-Date: Mon, 30 Dec 2024 12:53:02 -0500
-Message-ID: <20241230175550.4046587-2-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
+* [PATCH v4 01/12] x86/mm: make MMU_GATHER_RCU_TABLE_FREE unconditional
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 02/12] x86/mm: remove pv_ops.mmu.tlb_remove_table call Rik van Riel
+                   ` (10 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
 
 Currently x86 uses CONFIG_MMU_GATHER_TABLE_FREE when using
 paravirt, and not when running on bare metal.
@@ -1386,13 +82,21 @@ paravirt, and not when running on bare metal.
 There is no real good reason to do things differently for
 each setup. Make them all the same.
 
-After this change, the synchronization between get_user_pages_fast
-and page table freeing is handled by RCU, which prevents page tables
-from being reused for other data while get_user_pages_fast is walking
-them.
+Currently get_user_pages_fast synchronizes against page table
+freeing in two different ways:
+- on bare metal, by blocking IRQs, which block TLB flush IPIs
+- on paravirt, with MMU_GATHER_RCU_TABLE_FREE
 
-This allows us to invalidate page tables while other CPUs have
-interrupts disabled.
+This is done because some paravirt TLB flush implementations
+handle the TLB flush in the hypervisor, and will do the flush
+even when the target CPU has interrupts disabled.
+
+After this change, the synchronization between get_user_pages_fast
+and page table freeing is always handled with MMU_GATHER_RCU_TABLE_FREE,
+which allows bare metal to also do TLB flushes while interrupts are
+disabled.
+
+That makes it safe to use INVLPGB on AMD CPUs.
 
 Signed-off-by: Rik van Riel <riel@surriel.com>
 Suggested-by: Peter Zijlstra <peterz@infradead.org>
@@ -1414,88 +118,21 @@ index 9d7bd0ae48c4..e8743f8c9fd0 100644
  	select MMU_GATHER_MERGE_VMAS
  	select HAVE_POSIX_CPU_TIMERS_TASK_WORK
  	select HAVE_REGS_AND_STACK_ACCESS_API
-diff --git a/arch/x86/kernel/paravirt.c b/arch/x86/kernel/paravirt.c
-index fec381533555..2b78a6b466ed 100644
---- a/arch/x86/kernel/paravirt.c
-+++ b/arch/x86/kernel/paravirt.c
-@@ -59,11 +59,6 @@ void __init native_pv_lock_init(void)
- 		static_branch_enable(&virt_spin_lock_key);
- }
- 
--static void native_tlb_remove_table(struct mmu_gather *tlb, void *table)
--{
--	tlb_remove_page(tlb, table);
--}
--
- struct static_key paravirt_steal_enabled;
- struct static_key paravirt_steal_rq_enabled;
- 
-@@ -191,7 +186,7 @@ struct paravirt_patch_template pv_ops = {
- 	.mmu.flush_tlb_kernel	= native_flush_tlb_global,
- 	.mmu.flush_tlb_one_user	= native_flush_tlb_one_user,
- 	.mmu.flush_tlb_multi	= native_flush_tlb_multi,
--	.mmu.tlb_remove_table	= native_tlb_remove_table,
-+	.mmu.tlb_remove_table	= tlb_remove_table,
- 
- 	.mmu.exit_mmap		= paravirt_nop,
- 	.mmu.notify_page_enc_status_changed	= paravirt_nop,
--- 
-2.47.1
 
 
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id E7C1A1B2EFB
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:12 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581974; cv=none; b=aeTplltC6bYOW3j+EPCQdwxCJwzsui+0gvIVpUofyI01r3B2Qtu10gKbJTZ60EWzWHg/PR8bF1jRvH5NYaD3MZGEHc1NZ9AV4iI78sMuqb5YM4RLWyBjE+JF2PpVCIRBYnNpZ+PBGwvLF52RqzvqO1S5TpVl/A/W2KHZxHKJjGc=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581974; c=relaxed/simple;
-	bh=ltYDdx6jkK4RDnCyqRr70KPzlYZpXcMH3q9xf7d0zPo=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=QDK6yKT1qMo6+rYNKJXKUC846LNv4mEbMAxUeE+5G/RZ40iinzvBAlBUOfDBlvsnChon1mlH/oD71CWQ1ygPlpnR1jI4b18lvL+5RF6THJfSFNuCxE61EcPtLC+RFSTDrXZut3nBEdpxCITHabyZ7xSpk6sxLEWxaPLtyEVRNok=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzc-000000008Lf-37RI;
-	Mon, 30 Dec 2024 12:55:52 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 02/12] x86/mm: remove pv_ops.mmu.tlb_remove_table call
-Date: Mon, 30 Dec 2024 12:53:03 -0500
-Message-ID: <20241230175550.4046587-3-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 02/12] x86/mm: remove pv_ops.mmu.tlb_remove_table call
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 01/12] x86/mm: make MMU_GATHER_RCU_TABLE_FREE unconditional Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 03/12] x86/mm: consolidate full flush threshold decision Rik van Riel
+                   ` (9 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
 
 Every pv_ops.mmu.tlb_remove_table call ends up calling tlb_remove_table.
 
@@ -1528,10 +165,11 @@ diff --git a/arch/x86/include/asm/paravirt.h b/arch/x86/include/asm/paravirt.h
 index d4eb9e1d61b8..794ba3647c6c 100644
 --- a/arch/x86/include/asm/paravirt.h
 +++ b/arch/x86/include/asm/paravirt.h
-@@ -91,11 +91,6 @@ static inline void __flush_tlb_multi(const struct cpumask *cpumask,
+@@ -91,11 +91,7 @@ static inline void __flush_tlb_multi(const struct cpumask *cpumask,
  	PVOP_VCALL2(mmu.flush_tlb_multi, cpumask, info);
  }
  
++#define paravirt_tlb_remove_table tlb_remove_table
 -static inline void paravirt_tlb_remove_table(struct mmu_gather *tlb, void *table)
 -{
 -	PVOP_VCALL2(mmu.tlb_remove_table, tlb, table);
@@ -1573,64 +211,10 @@ index 2b78a6b466ed..c019771e0123 100644
  	.mmu.flush_tlb_kernel	= native_flush_tlb_global,
  	.mmu.flush_tlb_one_user	= native_flush_tlb_one_user,
  	.mmu.flush_tlb_multi	= native_flush_tlb_multi,
--	.mmu.tlb_remove_table	= tlb_remove_table,
+-	.mmu.tlb_remove_table	= native_tlb_remove_table,
  
  	.mmu.exit_mmap		= paravirt_nop,
  	.mmu.notify_page_enc_status_changed	= paravirt_nop,
-diff --git a/arch/x86/mm/pgtable.c b/arch/x86/mm/pgtable.c
-index 5745a354a241..3dc4af1f7868 100644
---- a/arch/x86/mm/pgtable.c
-+++ b/arch/x86/mm/pgtable.c
-@@ -18,14 +18,6 @@ EXPORT_SYMBOL(physical_mask);
- #define PGTABLE_HIGHMEM 0
- #endif
- 
--#ifndef CONFIG_PARAVIRT
--static inline
--void paravirt_tlb_remove_table(struct mmu_gather *tlb, void *table)
--{
--	tlb_remove_page(tlb, table);
--}
--#endif
--
- gfp_t __userpte_alloc_gfp = GFP_PGTABLE_USER | PGTABLE_HIGHMEM;
- 
- pgtable_t pte_alloc_one(struct mm_struct *mm)
-@@ -54,7 +46,7 @@ void ___pte_free_tlb(struct mmu_gather *tlb, struct page *pte)
- {
- 	pagetable_pte_dtor(page_ptdesc(pte));
- 	paravirt_release_pte(page_to_pfn(pte));
--	paravirt_tlb_remove_table(tlb, pte);
-+	tlb_remove_table(tlb, pte);
- }
- 
- #if CONFIG_PGTABLE_LEVELS > 2
-@@ -70,7 +62,7 @@ void ___pmd_free_tlb(struct mmu_gather *tlb, pmd_t *pmd)
- 	tlb->need_flush_all = 1;
- #endif
- 	pagetable_pmd_dtor(ptdesc);
--	paravirt_tlb_remove_table(tlb, ptdesc_page(ptdesc));
-+	tlb_remove_table(tlb, ptdesc_page(ptdesc));
- }
- 
- #if CONFIG_PGTABLE_LEVELS > 3
-@@ -80,14 +72,14 @@ void ___pud_free_tlb(struct mmu_gather *tlb, pud_t *pud)
- 
- 	pagetable_pud_dtor(ptdesc);
- 	paravirt_release_pud(__pa(pud) >> PAGE_SHIFT);
--	paravirt_tlb_remove_table(tlb, virt_to_page(pud));
-+	tlb_remove_table(tlb, virt_to_page(pud));
- }
- 
- #if CONFIG_PGTABLE_LEVELS > 4
- void ___p4d_free_tlb(struct mmu_gather *tlb, p4d_t *p4d)
- {
- 	paravirt_release_p4d(__pa(p4d) >> PAGE_SHIFT);
--	paravirt_tlb_remove_table(tlb, virt_to_page(p4d));
-+	tlb_remove_table(tlb, virt_to_page(p4d));
- }
- #endif	/* CONFIG_PGTABLE_LEVELS > 4 */
- #endif	/* CONFIG_PGTABLE_LEVELS > 3 */
 diff --git a/arch/x86/xen/mmu_pv.c b/arch/x86/xen/mmu_pv.c
 index 55a4996d0c04..041e17282af0 100644
 --- a/arch/x86/xen/mmu_pv.c
@@ -1647,137 +231,1186 @@ index 55a4996d0c04..041e17282af0 100644
 2.47.1
 
 
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 5B0301B3946
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:15 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581976; cv=none; b=VJRxUkhY0dIrvPEMk244Ha97uRr1MWNJNEv/CcoFsPCxeaZ10bG0BD1AVbzLBbUWcjcrH7/hwdsFBYIckw6M/9WoxkyfKnF8foHkpI20fNbQbxR7JhJLTVfU9wIcKeA/YSXI0KvCe8azTNy7hRYjiYlYiHMih9dxv5FK5sDyFRQ=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581976; c=relaxed/simple;
-	bh=vSOp7mQqx9DZPYHOqL11R5RNMHdmLCoKVeX6sTBCV4o=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=WR4vR5tjSaytVeAH2ll3dvdwzYgc6HYen9KQCt8Ge6pRKfi+cMrw5DIgpfY3AeB891TkH9WF7bPiTkF9lzvKfjKr9RjJcaIcwA6z1/r+/H/JM3RRId2XrXU3HNFqCKzCFH+1VkklmhceQ2htRPcJWcQTfraoJWGxLmfvVr5IMn0=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzc-000000008Lf-41s8;
-	Mon, 30 Dec 2024 12:55:52 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 03/12] x86/mm: add X86_FEATURE_INVLPGB definition.
-Date: Mon, 30 Dec 2024 12:53:04 -0500
-Message-ID: <20241230175550.4046587-4-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
 
-Add the INVPLGB CPUID definition, allowing the kernel to recognize
-whether the CPU supports the INVLPGB instruction.
+* [PATCH v4 03/12] x86/mm: consolidate full flush threshold decision
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 01/12] x86/mm: make MMU_GATHER_RCU_TABLE_FREE unconditional Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 02/12] x86/mm: remove pv_ops.mmu.tlb_remove_table call Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 04/12] x86/mm: get INVLPGB count max from CPUID Rik van Riel
+                   ` (8 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel,
+	Dave Hansen
+
+Reduce code duplication by consolidating the decision point
+for whether to do individual invalidations or a full flush
+inside get_flush_tlb_info.
+
+Signed-off-by: Rik van Riel <riel@surriel.com>
+Suggested-by: Dave Hansen <dave.hansen@intel.com>
+---
+ arch/x86/mm/tlb.c | 42 +++++++++++++++++++-----------------------
+ 1 file changed, 19 insertions(+), 23 deletions(-)
+
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 6cf881a942bb..2b339f55f839 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -1009,6 +1009,15 @@ static struct flush_tlb_info *get_flush_tlb_info(struct mm_struct *mm,
+ 	info->initiating_cpu	= smp_processor_id();
+ 	info->trim_cpumask	= 0;
+ 
++	/*
++	 * If the number of flushes is so large that a full flush
++	 * would be faster, do a full flush.
++	 */
++	if ((end - start) >> stride_shift > tlb_single_page_flush_ceiling) {
++		info->start = 0;
++		info->end = TLB_FLUSH_ALL;
++	}
++
+ 	return info;
+ }
+ 
+@@ -1026,17 +1035,8 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
+ 				bool freed_tables)
+ {
+ 	struct flush_tlb_info *info;
++	int cpu = get_cpu();
+ 	u64 new_tlb_gen;
+-	int cpu;
+-
+-	cpu = get_cpu();
+-
+-	/* Should we flush just the requested range? */
+-	if ((end == TLB_FLUSH_ALL) ||
+-	    ((end - start) >> stride_shift) > tlb_single_page_flush_ceiling) {
+-		start = 0;
+-		end = TLB_FLUSH_ALL;
+-	}
+ 
+ 	/* This is also a barrier that synchronizes with switch_mm(). */
+ 	new_tlb_gen = inc_mm_tlb_gen(mm);
+@@ -1089,22 +1089,18 @@ static void do_kernel_range_flush(void *info)
+ 
+ void flush_tlb_kernel_range(unsigned long start, unsigned long end)
+ {
+-	/* Balance as user space task's flush, a bit conservative */
+-	if (end == TLB_FLUSH_ALL ||
+-	    (end - start) > tlb_single_page_flush_ceiling << PAGE_SHIFT) {
+-		on_each_cpu(do_flush_tlb_all, NULL, 1);
+-	} else {
+-		struct flush_tlb_info *info;
++	struct flush_tlb_info *info;
++	guard(preempt)();
+ 
+-		preempt_disable();
+-		info = get_flush_tlb_info(NULL, start, end, 0, false,
+-					  TLB_GENERATION_INVALID);
++	info = get_flush_tlb_info(NULL, start, end, PAGE_SHIFT, false,
++				  TLB_GENERATION_INVALID);
+ 
++	if (end == TLB_FLUSH_ALL)
++		on_each_cpu(do_flush_tlb_all, NULL, 1);
++	else
+ 		on_each_cpu(do_kernel_range_flush, info, 1);
+ 
+-		put_flush_tlb_info();
+-		preempt_enable();
+-	}
++	put_flush_tlb_info();
+ }
+ 
+ /*
+@@ -1276,7 +1272,7 @@ void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
+ 
+ 	int cpu = get_cpu();
+ 
+-	info = get_flush_tlb_info(NULL, 0, TLB_FLUSH_ALL, 0, false,
++	info = get_flush_tlb_info(NULL, 0, TLB_FLUSH_ALL, PAGE_SHIFT, false,
+ 				  TLB_GENERATION_INVALID);
+ 	/*
+ 	 * flush_tlb_multi() is not optimized for the common case in which only
+-- 
+2.47.1
+
+
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 04/12] x86/mm: get INVLPGB count max from CPUID
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (2 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 03/12] x86/mm: consolidate full flush threshold decision Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 05/12] x86/mm: add INVLPGB support code Rik van Riel
+                   ` (7 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
+
+The CPU advertises the maximum number of pages that can be shot down
+with one INVLPGB instruction in the CPUID data.
+
+Save that information for later use.
 
 Signed-off-by: Rik van Riel <riel@surriel.com>
 ---
+ arch/x86/Kconfig.cpu               | 5 +++++
  arch/x86/include/asm/cpufeatures.h | 1 +
- 1 file changed, 1 insertion(+)
+ arch/x86/include/asm/tlbflush.h    | 7 +++++++
+ arch/x86/kernel/cpu/amd.c          | 8 ++++++++
+ 4 files changed, 21 insertions(+)
 
+diff --git a/arch/x86/Kconfig.cpu b/arch/x86/Kconfig.cpu
+index 2a7279d80460..bacdc502903f 100644
+--- a/arch/x86/Kconfig.cpu
++++ b/arch/x86/Kconfig.cpu
+@@ -395,6 +395,10 @@ config X86_VMX_FEATURE_NAMES
+ 	def_bool y
+ 	depends on IA32_FEAT_CTL
+ 
++config X86_BROADCAST_TLB_FLUSH
++	def_bool y
++	depends on CPU_SUP_AMD
++
+ menuconfig PROCESSOR_SELECT
+ 	bool "Supported processor vendors" if EXPERT
+ 	help
+@@ -431,6 +435,7 @@ config CPU_SUP_CYRIX_32
+ config CPU_SUP_AMD
+ 	default y
+ 	bool "Support AMD processors" if PROCESSOR_SELECT
++	select X86_BROADCAST_TLB_FLUSH
+ 	help
+ 	  This enables detection, tunings and quirks for AMD processors
+ 
 diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
-index 17b6590748c0..b7209d6c3a5f 100644
+index 17b6590748c0..f9b832e971c5 100644
 --- a/arch/x86/include/asm/cpufeatures.h
 +++ b/arch/x86/include/asm/cpufeatures.h
 @@ -338,6 +338,7 @@
  #define X86_FEATURE_CLZERO		(13*32+ 0) /* "clzero" CLZERO instruction */
  #define X86_FEATURE_IRPERF		(13*32+ 1) /* "irperf" Instructions Retired Count */
  #define X86_FEATURE_XSAVEERPTR		(13*32+ 2) /* "xsaveerptr" Always save/restore FP error pointers */
-+#define X86_FEATURE_INVLPGB		(13*32+ 3) /* "invlpgb" INVLPGB instruction */
++#define X86_FEATURE_INVLPGB		(13*32+ 3) /* INVLPGB and TLBSYNC instruction supported. */
  #define X86_FEATURE_RDPRU		(13*32+ 4) /* "rdpru" Read processor register at user level */
  #define X86_FEATURE_WBNOINVD		(13*32+ 9) /* "wbnoinvd" WBNOINVD instruction */
  #define X86_FEATURE_AMD_IBPB		(13*32+12) /* Indirect Branch Prediction Barrier */
+diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
+index 02fc2aa06e9e..8fe3b2dda507 100644
+--- a/arch/x86/include/asm/tlbflush.h
++++ b/arch/x86/include/asm/tlbflush.h
+@@ -183,6 +183,13 @@ static inline void cr4_init_shadow(void)
+ extern unsigned long mmu_cr4_features;
+ extern u32 *trampoline_cr4_features;
+ 
++/* How many pages can we invalidate with one INVLPGB. */
++#ifdef CONFIG_X86_BROADCAST_TLB_FLUSH
++extern u16 invlpgb_count_max;
++#else
++#define invlpgb_count_max 1
++#endif
++
+ extern void initialize_tlbstate_and_flush(void);
+ 
+ /*
+diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
+index 79d2e17f6582..bcf73775b4f8 100644
+--- a/arch/x86/kernel/cpu/amd.c
++++ b/arch/x86/kernel/cpu/amd.c
+@@ -29,6 +29,8 @@
+ 
+ #include "cpu.h"
+ 
++u16 invlpgb_count_max __ro_after_init;
++
+ static inline int rdmsrl_amd_safe(unsigned msr, unsigned long long *p)
+ {
+ 	u32 gprs[8] = { 0 };
+@@ -1135,6 +1137,12 @@ static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
+ 		tlb_lli_2m[ENTRIES] = eax & mask;
+ 
+ 	tlb_lli_4m[ENTRIES] = tlb_lli_2m[ENTRIES] >> 1;
++
++	/* Max number of pages INVLPGB can invalidate in one shot */
++	if (boot_cpu_has(X86_FEATURE_INVLPGB)) {
++		cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
++		invlpgb_count_max = (edx & 0xffff) + 1;
++	}
+ }
+ 
+ static const struct cpu_dev amd_cpu_dev = {
 -- 
 2.47.1
 
 
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 1B3401B422F
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:27 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581988; cv=none; b=RLnnz8zzdmGMziKIvC9a/k1ak22pe7fUoYfMKPa2Z6bLHGyQhVE2GxJckgYqruBMmZ0q/lzBwWIYUsugIRu9buE3AqD2eQZoNNuhgMvZ4G7stp8uf+ibS0UHlFMdDvmsWNQmehmlfbVy4Uk58tEK1uCjzj12v2hxGuyFvR6Wlcs=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581988; c=relaxed/simple;
-	bh=OtAv6GRfSIOgo7hIA7WVqawGSav28XPEnv3ucG67peI=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=jitPTvCrZ22ykbOfmLXikVZqirKUOxpcHydWj5nuS+Yj2Gr/Nf6fM5l9fwimfuxMCUk4V8Sut4stggXI3BM8MsjVAEw2b2aFKrKwJFq1x3IwN1e8vmX89K/gXErGC8fPp1uBgn7Ipu+HybXuawLLLHbkDep+3RtUQxsYluIxrM4=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzf-000000008Lf-0ChP;
-	Mon, 30 Dec 2024 12:55:55 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 10/12] x86,tlb: do targeted broadcast flushing from tlbbatch code
-Date: Mon, 30 Dec 2024 12:53:11 -0500
-Message-ID: <20241230175550.4046587-11-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 05/12] x86/mm: add INVLPGB support code
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (3 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 04/12] x86/mm: get INVLPGB count max from CPUID Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 06/12] x86/mm: use INVLPGB for kernel TLB flushes Rik van Riel
+                   ` (6 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
+
+Add invlpgb.h with the helper functions and definitions needed to use
+broadcast TLB invalidation on AMD EPYC 3 and newer CPUs.
+
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ arch/x86/include/asm/invlpgb.h  | 95 +++++++++++++++++++++++++++++++++
+ arch/x86/include/asm/tlbflush.h |  1 +
+ 2 files changed, 96 insertions(+)
+ create mode 100644 arch/x86/include/asm/invlpgb.h
+
+diff --git a/arch/x86/include/asm/invlpgb.h b/arch/x86/include/asm/invlpgb.h
+new file mode 100644
+index 000000000000..d62e3733a1ab
+--- /dev/null
++++ b/arch/x86/include/asm/invlpgb.h
+@@ -0,0 +1,95 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_X86_INVLPGB
++#define _ASM_X86_INVLPGB
++
++#include <vdso/bits.h>
++
++/*
++ * INVLPGB does broadcast TLB invalidation across all the CPUs in the system.
++ *
++ * The INVLPGB instruction is weakly ordered, and a batch of invalidations can
++ * be done in a parallel fashion.
++ *
++ * TLBSYNC is used to ensure that pending INVLPGB invalidations initiated from
++ * this CPU have completed.
++ */
++static inline void __invlpgb(unsigned long asid, unsigned long pcid, unsigned long addr,
++			    int extra_count, bool pmd_stride, unsigned long flags)
++{
++	u32 edx = (pcid << 16) | asid;
++	u32 ecx = (pmd_stride << 31);
++	u64 rax = addr | flags;
++
++	/* Protect against negative numbers. */
++	extra_count = max(extra_count, 0);
++	ecx |= extra_count;
++
++	asm volatile("invlpgb" : : "a" (rax), "c" (ecx), "d" (edx));
++}
++
++/* Wait for INVLPGB originated by this CPU to complete. */
++static inline void tlbsync(void)
++{
++	asm volatile("tlbsync");
++}
++
++/*
++ * INVLPGB can be targeted by virtual address, PCID, ASID, or any combination
++ * of the three. For example:
++ * - INVLPGB_VA | INVLPGB_INCLUDE_GLOBAL: invalidate all TLB entries at the address
++ * - INVLPGB_PCID:              	  invalidate all TLB entries matching the PCID
++ *
++ * The first can be used to invalidate (kernel) mappings at a particular
++ * address across all processes.
++ *
++ * The latter invalidates all TLB entries matching a PCID.
++ */
++#define INVLPGB_VA			BIT(0)
++#define INVLPGB_PCID			BIT(1)
++#define INVLPGB_ASID			BIT(2)
++#define INVLPGB_INCLUDE_GLOBAL		BIT(3)
++#define INVLPGB_FINAL_ONLY		BIT(4)
++#define INVLPGB_INCLUDE_NESTED		BIT(5)
++
++/* Flush all mappings for a given pcid and addr, not including globals. */
++static inline void invlpgb_flush_user(unsigned long pcid,
++				      unsigned long addr)
++{
++	__invlpgb(0, pcid, addr, 0, 0, INVLPGB_PCID | INVLPGB_VA);
++	tlbsync();
++}
++
++static inline void invlpgb_flush_user_nr_nosync(unsigned long pcid,
++						unsigned long addr,
++						int nr, bool pmd_stride)
++{
++	__invlpgb(0, pcid, addr, nr - 1, pmd_stride, INVLPGB_PCID | INVLPGB_VA);
++}
++
++/* Flush all mappings for a given PCID, not including globals. */
++static inline void invlpgb_flush_single_pcid_nosync(unsigned long pcid)
++{
++	__invlpgb(0, pcid, 0, 0, 0, INVLPGB_PCID);
++}
++
++/* Flush all mappings, including globals, for all PCIDs. */
++static inline void invlpgb_flush_all(void)
++{
++	__invlpgb(0, 0, 0, 0, 0, INVLPGB_INCLUDE_GLOBAL);
++	tlbsync();
++}
++
++/* Flush addr, including globals, for all PCIDs. */
++static inline void invlpgb_flush_addr_nosync(unsigned long addr, int nr)
++{
++	__invlpgb(0, 0, addr, nr - 1, 0, INVLPGB_INCLUDE_GLOBAL);
++}
++
++/* Flush all mappings for all PCIDs except globals. */
++static inline void invlpgb_flush_all_nonglobals(void)
++{
++	__invlpgb(0, 0, 0, 0, 0, 0);
++	tlbsync();
++}
++
++#endif /* _ASM_X86_INVLPGB */
+diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
+index 8fe3b2dda507..dba5caa4a9f4 100644
+--- a/arch/x86/include/asm/tlbflush.h
++++ b/arch/x86/include/asm/tlbflush.h
+@@ -10,6 +10,7 @@
+ #include <asm/cpufeature.h>
+ #include <asm/special_insns.h>
+ #include <asm/smp.h>
++#include <asm/invlpgb.h>
+ #include <asm/invpcid.h>
+ #include <asm/pti.h>
+ #include <asm/processor-flags.h>
+-- 
+2.47.1
+
+
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 06/12] x86/mm: use INVLPGB for kernel TLB flushes
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (4 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 05/12] x86/mm: add INVLPGB support code Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 07/12] x86/tlb: use INVLPGB in flush_tlb_all Rik van Riel
+                   ` (5 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
+
+Use broadcast TLB invalidation for kernel addresses when available.
+
+Remove the need to send IPIs for kernel TLB flushes.
+
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ arch/x86/mm/tlb.c | 28 +++++++++++++++++++++++++++-
+ 1 file changed, 27 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 2b339f55f839..45c7b84f6f80 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -1077,6 +1077,30 @@ void flush_tlb_all(void)
+ 	on_each_cpu(do_flush_tlb_all, NULL, 1);
+ }
+ 
++static bool broadcast_kernel_range_flush(struct flush_tlb_info *info)
++{
++	unsigned long addr;
++	unsigned long nr;
++
++	if (!IS_ENABLED(CONFIG_X86_BROADCAST_TLB_FLUSH))
++		return false;
++
++	if (!cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		return false;
++
++	if (info->end == TLB_FLUSH_ALL) {
++		invlpgb_flush_all();
++		return true;
++	}
++
++	for (addr = info->start; addr < info->end; addr += nr << PAGE_SHIFT) {
++		nr = min((info->end - addr) >> PAGE_SHIFT, invlpgb_count_max);
++		invlpgb_flush_addr_nosync(addr, nr);
++	}
++	tlbsync();
++	return true;
++}
++
+ static void do_kernel_range_flush(void *info)
+ {
+ 	struct flush_tlb_info *f = info;
+@@ -1095,7 +1119,9 @@ void flush_tlb_kernel_range(unsigned long start, unsigned long end)
+ 	info = get_flush_tlb_info(NULL, start, end, PAGE_SHIFT, false,
+ 				  TLB_GENERATION_INVALID);
+ 
+-	if (end == TLB_FLUSH_ALL)
++	if (broadcast_kernel_range_flush(info))
++		; /* Fall through. */
++	else if (end == TLB_FLUSH_ALL)
+ 		on_each_cpu(do_flush_tlb_all, NULL, 1);
+ 	else
+ 		on_each_cpu(do_kernel_range_flush, info, 1);
+-- 
+2.47.1
+
+
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 07/12] x86/tlb: use INVLPGB in flush_tlb_all
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (5 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 06/12] x86/mm: use INVLPGB for kernel TLB flushes Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 08/12] x86/mm: use broadcast TLB flushing for page reclaim TLB flushing Rik van Riel
+                   ` (4 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
+
+The flush_tlb_all() function is not used a whole lot, but we might
+as well use broadcast TLB flushing there, too.
+
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ arch/x86/mm/tlb.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 45c7b84f6f80..56634c735351 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -1065,6 +1065,18 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
+ }
+ 
+ 
++static bool broadcast_flush_tlb_all(void) {
++	if (!IS_ENABLED(CONFIG_X86_BROADCAST_TLB_FLUSH))
++		return false;
++
++	if (!cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		return false;
++
++	guard(preempt)();
++	invlpgb_flush_all();
++	return true;
++}
++
+ static void do_flush_tlb_all(void *info)
+ {
+ 	count_vm_tlb_event(NR_TLB_REMOTE_FLUSH_RECEIVED);
+@@ -1073,6 +1085,8 @@ static void do_flush_tlb_all(void *info)
+ 
+ void flush_tlb_all(void)
+ {
++	if (broadcast_flush_tlb_all())
++		return;
+ 	count_vm_tlb_event(NR_TLB_REMOTE_FLUSH);
+ 	on_each_cpu(do_flush_tlb_all, NULL, 1);
+ }
+-- 
+2.47.1
+
+
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 08/12] x86/mm: use broadcast TLB flushing for page reclaim TLB flushing
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (6 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 07/12] x86/tlb: use INVLPGB in flush_tlb_all Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 09/12] x86/mm: enable broadcast TLB invalidation for multi-threaded processes Rik van Riel
+                   ` (3 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
+
+In the page reclaim code, we only track the CPU(s) where the TLB needs
+to be flushed, rather than all the individual mappings that may be getting
+invalidated.
+
+Use broadcast TLB flushing when that is available.
+
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ arch/x86/mm/tlb.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 56634c735351..b47d6c3fe0af 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -1319,7 +1319,9 @@ void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
+ 	 * a local TLB flush is needed. Optimize this use-case by calling
+ 	 * flush_tlb_func_local() directly in this case.
+ 	 */
+-	if (cpumask_any_but(&batch->cpumask, cpu) < nr_cpu_ids) {
++	if (cpu_feature_enabled(X86_FEATURE_INVLPGB)) {
++		invlpgb_flush_all_nonglobals();
++	} else if (cpumask_any_but(&batch->cpumask, cpu) < nr_cpu_ids) {
+ 		flush_tlb_multi(&batch->cpumask, info);
+ 	} else if (cpumask_test_cpu(cpu, &batch->cpumask)) {
+ 		lockdep_assert_irqs_enabled();
+-- 
+2.47.1
+
+
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 09/12] x86/mm: enable broadcast TLB invalidation for multi-threaded processes
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (7 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 08/12] x86/mm: use broadcast TLB flushing for page reclaim TLB flushing Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 10/12] x86,tlb: do targeted broadcast flushing from tlbbatch code Rik van Riel
+                   ` (2 subsequent siblings)
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
+
+Use broadcast TLB invalidation, using the INVPLGB instruction, on AMD EPYC 3
+and newer CPUs.
+
+In order to not exhaust PCID space, and keep TLB flushes local for single
+threaded processes, we only hand out broadcast ASIDs to processes active on
+3 or more CPUs, and gradually increase the threshold as broadcast ASID space
+is depleted.
+
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ arch/x86/include/asm/mmu.h         |   6 +
+ arch/x86/include/asm/mmu_context.h |  14 ++
+ arch/x86/include/asm/tlbflush.h    |  64 +++++
+ arch/x86/mm/tlb.c                  | 363 ++++++++++++++++++++++++++++-
+ 4 files changed, 435 insertions(+), 12 deletions(-)
+
+diff --git a/arch/x86/include/asm/mmu.h b/arch/x86/include/asm/mmu.h
+index 3b496cdcb74b..d71cd599fec4 100644
+--- a/arch/x86/include/asm/mmu.h
++++ b/arch/x86/include/asm/mmu.h
+@@ -69,6 +69,12 @@ typedef struct {
+ 	u16 pkey_allocation_map;
+ 	s16 execute_only_pkey;
+ #endif
++
++#ifdef CONFIG_X86_BROADCAST_TLB_FLUSH
++	u16 global_asid;
++	bool asid_transition;
++#endif
++
+ } mm_context_t;
+ 
+ #define INIT_MM_CONTEXT(mm)						\
+diff --git a/arch/x86/include/asm/mmu_context.h b/arch/x86/include/asm/mmu_context.h
+index 795fdd53bd0a..d670699d32c2 100644
+--- a/arch/x86/include/asm/mmu_context.h
++++ b/arch/x86/include/asm/mmu_context.h
+@@ -139,6 +139,8 @@ static inline void mm_reset_untag_mask(struct mm_struct *mm)
+ #define enter_lazy_tlb enter_lazy_tlb
+ extern void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk);
+ 
++extern void destroy_context_free_global_asid(struct mm_struct *mm);
++
+ /*
+  * Init a new mm.  Used on mm copies, like at fork()
+  * and on mm's that are brand-new, like at execve().
+@@ -161,6 +163,14 @@ static inline int init_new_context(struct task_struct *tsk,
+ 		mm->context.execute_only_pkey = -1;
+ 	}
+ #endif
++
++#ifdef CONFIG_X86_BROADCAST_TLB_FLUSH
++	if (cpu_feature_enabled(X86_FEATURE_INVLPGB)) {
++		mm->context.global_asid = 0;
++		mm->context.asid_transition = false;
++	}
++#endif
++
+ 	mm_reset_untag_mask(mm);
+ 	init_new_context_ldt(mm);
+ 	return 0;
+@@ -170,6 +180,10 @@ static inline int init_new_context(struct task_struct *tsk,
+ static inline void destroy_context(struct mm_struct *mm)
+ {
+ 	destroy_context_ldt(mm);
++#ifdef CONFIG_X86_BROADCAST_TLB_FLUSH
++	if (cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		destroy_context_free_global_asid(mm);
++#endif
+ }
+ 
+ extern void switch_mm(struct mm_struct *prev, struct mm_struct *next,
+diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
+index dba5caa4a9f4..cd244cdd49dd 100644
+--- a/arch/x86/include/asm/tlbflush.h
++++ b/arch/x86/include/asm/tlbflush.h
+@@ -239,6 +239,70 @@ void flush_tlb_one_kernel(unsigned long addr);
+ void flush_tlb_multi(const struct cpumask *cpumask,
+ 		      const struct flush_tlb_info *info);
+ 
++#ifdef CONFIG_X86_BROADCAST_TLB_FLUSH
++static inline bool is_dyn_asid(u16 asid)
++{
++	if (!cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		return true;
++
++	return asid < TLB_NR_DYN_ASIDS;
++}
++
++static inline bool is_global_asid(u16 asid)
++{
++	return !is_dyn_asid(asid);
++}
++
++static inline bool in_asid_transition(const struct flush_tlb_info *info)
++{
++	if (!cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		return false;
++
++	return info->mm && info->mm->context.asid_transition;
++}
++
++static inline u16 mm_global_asid(struct mm_struct *mm)
++{
++	if (!cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		return 0;
++
++	return mm->context.global_asid;
++}
++#else
++static inline bool is_dyn_asid(u16 asid)
++{
++	return true;
++}
++
++static inline bool is_global_asid(u16 asid)
++{
++	return false;
++}
++
++static inline bool in_asid_transition(const struct flush_tlb_info *info)
++{
++	return false;
++}
++
++static inline u16 mm_global_asid(struct mm_struct *mm)
++{
++	return 0;
++}
++
++static inline bool needs_global_asid_reload(struct mm_struct *next, u16 prev_asid)
++{
++	return false;
++}
++
++static inline void broadcast_tlb_flush(struct flush_tlb_info *info)
++{
++}
++
++static inline void consider_global_asid(struct mm_struct *mm)
++{
++}
++#endif
++
+ #ifdef CONFIG_PARAVIRT
+ #include <asm/paravirt.h>
+ #endif
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index b47d6c3fe0af..80375ef186d5 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -74,13 +74,15 @@
+  * use different names for each of them:
+  *
+  * ASID  - [0, TLB_NR_DYN_ASIDS-1]
+- *         the canonical identifier for an mm
++ *         the canonical identifier for an mm, dynamically allocated on each CPU
++ *         [TLB_NR_DYN_ASIDS, MAX_ASID_AVAILABLE-1]
++ *         the canonical, global identifier for an mm, identical across all CPUs
+  *
+- * kPCID - [1, TLB_NR_DYN_ASIDS]
++ * kPCID - [1, MAX_ASID_AVAILABLE]
+  *         the value we write into the PCID part of CR3; corresponds to the
+  *         ASID+1, because PCID 0 is special.
+  *
+- * uPCID - [2048 + 1, 2048 + TLB_NR_DYN_ASIDS]
++ * uPCID - [2048 + 1, 2048 + MAX_ASID_AVAILABLE]
+  *         for KPTI each mm has two address spaces and thus needs two
+  *         PCID values, but we can still do with a single ASID denomination
+  *         for each mm. Corresponds to kPCID + 2048.
+@@ -225,6 +227,19 @@ static void choose_new_asid(struct mm_struct *next, u64 next_tlb_gen,
+ 		return;
+ 	}
+ 
++	/*
++	 * TLB consistency for global ASIDs is maintained with broadcast TLB
++	 * flushing. The TLB is never outdated, and does not need flushing.
++	 */
++	if (IS_ENABLED(CONFIG_X86_BROADCAST_TLB_FLUSH) && static_cpu_has(X86_FEATURE_INVLPGB)) {
++		u16 global_asid = mm_global_asid(next);
++		if (global_asid) {
++			*new_asid = global_asid;
++			*need_flush = false;
++			return;
++		}
++	}
++
+ 	if (this_cpu_read(cpu_tlbstate.invalidate_other))
+ 		clear_asid_other();
+ 
+@@ -251,6 +266,292 @@ static void choose_new_asid(struct mm_struct *next, u64 next_tlb_gen,
+ 	*need_flush = true;
+ }
+ 
++#ifdef CONFIG_X86_BROADCAST_TLB_FLUSH
++/*
++ * Logic for broadcast TLB invalidation.
++ */
++static DEFINE_RAW_SPINLOCK(global_asid_lock);
++static u16 last_global_asid = MAX_ASID_AVAILABLE;
++static DECLARE_BITMAP(global_asid_used, MAX_ASID_AVAILABLE) = { 0 };
++static DECLARE_BITMAP(global_asid_freed, MAX_ASID_AVAILABLE) = { 0 };
++static int global_asid_available = MAX_ASID_AVAILABLE - TLB_NR_DYN_ASIDS - 1;
++
++static void reset_global_asid_space(void)
++{
++	lockdep_assert_held(&global_asid_lock);
++
++	/*
++	 * A global TLB flush guarantees that any stale entries from
++	 * previously freed global ASIDs get flushed from the TLB
++	 * everywhere, making these global ASIDs safe to reuse.
++	 */
++	invlpgb_flush_all_nonglobals();
++
++	/*
++	 * Clear all the previously freed global ASIDs from the
++	 * broadcast_asid_used bitmap, now that the global TLB flush
++	 * has made them actually available for re-use.
++	 */
++	bitmap_andnot(global_asid_used, global_asid_used,
++			global_asid_freed, MAX_ASID_AVAILABLE);
++	bitmap_clear(global_asid_freed, 0, MAX_ASID_AVAILABLE);
++
++	/*
++	 * ASIDs 0-TLB_NR_DYN_ASIDS are used for CPU-local ASID
++	 * assignments, for tasks doing IPI based TLB shootdowns.
++	 * Restart the search from the start of the global ASID space.
++	 */
++	last_global_asid = TLB_NR_DYN_ASIDS;
++}
++
++static u16 get_global_asid(void)
++{
++	lockdep_assert_held(&global_asid_lock);
++
++	do {
++		u16 start = last_global_asid;
++		u16 asid = find_next_zero_bit(global_asid_used, MAX_ASID_AVAILABLE, start);
++
++		if (asid >= MAX_ASID_AVAILABLE) {
++			reset_global_asid_space();
++			continue;
++		}
++
++		/* Claim this global ASID. */
++		__set_bit(asid, global_asid_used);
++		last_global_asid = asid;
++		return asid;
++	} while (1);
++}
++
++/*
++ * Returns true if the mm is transitioning from a CPU-local ASID to a global 
++ * (INVLPGB) ASID, or the other way around.
++ */
++static bool needs_global_asid_reload(struct mm_struct *next, u16 prev_asid)
++{
++	u16 global_asid = mm_global_asid(next);
++
++	if (global_asid && prev_asid != global_asid)
++		return true;
++
++	if (!global_asid && is_global_asid(prev_asid))
++		return true;
++
++	return false;
++}
++
++void destroy_context_free_global_asid(struct mm_struct *mm)
++{
++	if (!mm->context.global_asid)
++		return;
++
++	guard(raw_spinlock_irqsave)(&global_asid_lock);
++
++	/* The global ASID can be re-used only after flush at wrap-around. */
++	__set_bit(mm->context.global_asid, global_asid_freed);
++
++	mm->context.global_asid = 0;
++	global_asid_available++;
++}
++
++/*
++ * Check whether a process is currently active on more than "threshold" CPUs.
++ * This is a cheap estimation on whether or not it may make sense to assign
++ * a global ASID to this process, and use broadcast TLB invalidation.
++ */
++static bool mm_active_cpus_exceeds(struct mm_struct *mm, int threshold)
++{
++	int count = 0;
++	int cpu;
++
++	/* This quick check should eliminate most single threaded programs. */
++	if (cpumask_weight(mm_cpumask(mm)) <= threshold)
++		return false;
++
++	/* Slower check to make sure. */
++	for_each_cpu(cpu, mm_cpumask(mm)) {
++		/* Skip the CPUs that aren't really running this process. */
++		if (per_cpu(cpu_tlbstate.loaded_mm, cpu) != mm)
++			continue;
++
++		if (per_cpu(cpu_tlbstate_shared.is_lazy, cpu))
++			continue;
++
++		if (++count > threshold)
++			return true;
++	}
++	return false;
++}
++
++/*
++ * Assign a global ASID to the current process, protecting against
++ * races between multiple threads in the process.
++ */
++static void use_global_asid(struct mm_struct *mm)
++{
++	guard(raw_spinlock_irqsave)(&global_asid_lock);
++
++	/* This process is already using broadcast TLB invalidation. */
++	if (mm->context.global_asid)
++		return;
++
++	/* The last global ASID was consumed while waiting for the lock. */
++	if (!global_asid_available)
++		return;
++
++	/*
++	 * The transition from IPI TLB flushing, with a dynamic ASID,
++	 * and broadcast TLB flushing, using a global ASID, uses memory
++	 * ordering for synchronization.
++	 *
++	 * While the process has threads still using a dynamic ASID,
++	 * TLB invalidation IPIs continue to get sent.
++	 *
++	 * This code sets asid_transition first, before assigning the
++	 * global ASID.
++	 *
++	 * The TLB flush code will only verify the ASID transition
++	 * after it has seen the new global ASID for the process.
++	 */
++	WRITE_ONCE(mm->context.asid_transition, true);
++	WRITE_ONCE(mm->context.global_asid, get_global_asid());
++
++	global_asid_available--;
++}
++
++/*
++ * Figure out whether to assign a global ASID to a process.
++ * We vary the threshold by how empty or full global ASID space is.
++ * 1/4 full: >= 4 active threads
++ * 1/2 full: >= 8 active threads
++ * 3/4 full: >= 16 active threads
++ * 7/8 full: >= 32 active threads
++ * etc
++ *
++ * This way we should never exhaust the global ASID space, even on very
++ * large systems, and the processes with the largest number of active
++ * threads should be able to use broadcast TLB invalidation.
++ */
++#define HALFFULL_THRESHOLD 8
++static bool meets_global_asid_threshold(struct mm_struct *mm)
++{
++	int avail = global_asid_available;
++	int threshold = HALFFULL_THRESHOLD;
++
++	if (!avail)
++		return false;
++
++	if (avail > MAX_ASID_AVAILABLE * 3 / 4) {
++		threshold = HALFFULL_THRESHOLD / 4;
++	} else if (avail > MAX_ASID_AVAILABLE / 2) {
++		threshold = HALFFULL_THRESHOLD / 2;
++	} else if (avail < MAX_ASID_AVAILABLE / 3) {
++		do {
++			avail *= 2;
++			threshold *= 2;
++		} while ((avail + threshold) < MAX_ASID_AVAILABLE / 2);
++	}
++
++	return mm_active_cpus_exceeds(mm, threshold);
++}
++
++static void consider_global_asid(struct mm_struct *mm)
++{
++	if (!static_cpu_has(X86_FEATURE_INVLPGB))
++		return;
++
++	/* Check every once in a while. */
++	if ((current->pid & 0x1f) != (jiffies & 0x1f))
++		return;
++
++	if (meets_global_asid_threshold(mm))
++		use_global_asid(mm);
++}
++
++static void finish_asid_transition(struct flush_tlb_info *info)
++{
++	struct mm_struct *mm = info->mm;
++	int bc_asid = mm_global_asid(mm);
++	int cpu;
++
++	if (!READ_ONCE(mm->context.asid_transition))
++		return;
++
++	for_each_cpu(cpu, mm_cpumask(mm)) {
++		/*
++		 * The remote CPU is context switching. Wait for that to
++		 * finish, to catch the unlikely case of it switching to
++		 * the target mm with an out of date ASID.
++		 */
++		while (READ_ONCE(per_cpu(cpu_tlbstate.loaded_mm, cpu)) == LOADED_MM_SWITCHING)
++			cpu_relax();
++
++		if (READ_ONCE(per_cpu(cpu_tlbstate.loaded_mm, cpu)) != mm)
++			continue;
++
++		/*
++		 * If at least one CPU is not using the global ASID yet,
++		 * send a TLB flush IPI. The IPI should cause stragglers
++		 * to transition soon.
++		 *
++		 * This can race with the CPU switching to another task;
++		 * that results in a (harmless) extra IPI.
++		 */
++		if (READ_ONCE(per_cpu(cpu_tlbstate.loaded_mm_asid, cpu)) != bc_asid) {
++			flush_tlb_multi(mm_cpumask(info->mm), info);
++			return;
++		}
++	}
++
++	/* All the CPUs running this process are using the global ASID. */
++	WRITE_ONCE(mm->context.asid_transition, false);
++}
++
++static void broadcast_tlb_flush(struct flush_tlb_info *info)
++{
++	bool pmd = info->stride_shift == PMD_SHIFT;
++	unsigned long maxnr = invlpgb_count_max;
++	unsigned long asid = info->mm->context.global_asid;
++	unsigned long addr = info->start;
++	unsigned long nr;
++
++	/* Flushing multiple pages at once is not supported with 1GB pages. */
++	if (info->stride_shift > PMD_SHIFT)
++		maxnr = 1;
++
++	/*
++	 * TLB flushes with INVLPGB are kicked off asynchronously.
++	 * The inc_mm_tlb_gen() guarantees page table updates are done
++	 * before these TLB flushes happen.
++	 */
++	if (info->end == TLB_FLUSH_ALL) {
++		invlpgb_flush_single_pcid_nosync(kern_pcid(asid));
++		/* Do any CPUs supporting INVLPGB need PTI? */
++		if (static_cpu_has(X86_FEATURE_PTI))
++			invlpgb_flush_single_pcid_nosync(user_pcid(asid));
++	} else do {
++		/*
++		 * Calculate how many pages can be flushed at once; if the
++		 * remainder of the range is less than one page, flush one.
++		 */
++		nr = min(maxnr, (info->end - addr) >> info->stride_shift);
++		nr = max(nr, 1);
++
++		invlpgb_flush_user_nr_nosync(kern_pcid(asid), addr, nr, pmd);
++		/* Do any CPUs supporting INVLPGB need PTI? */
++		if (static_cpu_has(X86_FEATURE_PTI))
++			invlpgb_flush_user_nr_nosync(user_pcid(asid), addr, nr, pmd);
++		addr += nr << info->stride_shift;
++	} while (addr < info->end);
++
++	finish_asid_transition(info);
++
++	/* Wait for the INVLPGBs kicked off above to finish. */
++	tlbsync();
++}
++#endif /* CONFIG_X86_BROADCAST_TLB_FLUSH */
++
+ /*
+  * Given an ASID, flush the corresponding user ASID.  We can delay this
+  * until the next time we switch to it.
+@@ -556,8 +857,9 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
+ 	 */
+ 	if (prev == next) {
+ 		/* Not actually switching mm's */
+-		VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[prev_asid].ctx_id) !=
+-			   next->context.ctx_id);
++		VM_WARN_ON(is_dyn_asid(prev_asid) &&
++				this_cpu_read(cpu_tlbstate.ctxs[prev_asid].ctx_id) !=
++				next->context.ctx_id);
+ 
+ 		/*
+ 		 * If this races with another thread that enables lam, 'new_lam'
+@@ -573,6 +875,23 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
+ 				 !cpumask_test_cpu(cpu, mm_cpumask(next))))
+ 			cpumask_set_cpu(cpu, mm_cpumask(next));
+ 
++		/*
++		 * Check if the current mm is transitioning to a new ASID.
++		 */
++		if (needs_global_asid_reload(next, prev_asid)) {
++			next_tlb_gen = atomic64_read(&next->context.tlb_gen);
++
++			choose_new_asid(next, next_tlb_gen, &new_asid, &need_flush);
++			goto reload_tlb;
++		}
++
++		/*
++		 * Broadcast TLB invalidation keeps this PCID up to date
++		 * all the time.
++		 */
++		if (is_global_asid(prev_asid))
++			return;
++
+ 		/*
+ 		 * If the CPU is not in lazy TLB mode, we are just switching
+ 		 * from one thread in a process to another thread in the same
+@@ -606,6 +925,13 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
+ 		 */
+ 		cond_mitigation(tsk);
+ 
++		/*
++		 * Let nmi_uaccess_okay() and finish_asid_transition()
++		 * know that we're changing CR3.
++		 */
++		this_cpu_write(cpu_tlbstate.loaded_mm, LOADED_MM_SWITCHING);
++		barrier();
++
+ 		/*
+ 		 * Leave this CPU in prev's mm_cpumask. Atomic writes to
+ 		 * mm_cpumask can be expensive under contention. The CPU
+@@ -620,14 +946,12 @@ void switch_mm_irqs_off(struct mm_struct *unused, struct mm_struct *next,
+ 		next_tlb_gen = atomic64_read(&next->context.tlb_gen);
+ 
+ 		choose_new_asid(next, next_tlb_gen, &new_asid, &need_flush);
+-
+-		/* Let nmi_uaccess_okay() know that we're changing CR3. */
+-		this_cpu_write(cpu_tlbstate.loaded_mm, LOADED_MM_SWITCHING);
+-		barrier();
+ 	}
+ 
++reload_tlb:
+ 	new_lam = mm_lam_cr3_mask(next);
+ 	if (need_flush) {
++		VM_BUG_ON(is_global_asid(new_asid));
+ 		this_cpu_write(cpu_tlbstate.ctxs[new_asid].ctx_id, next->context.ctx_id);
+ 		this_cpu_write(cpu_tlbstate.ctxs[new_asid].tlb_gen, next_tlb_gen);
+ 		load_new_mm_cr3(next->pgd, new_asid, new_lam, true);
+@@ -746,7 +1070,7 @@ static void flush_tlb_func(void *info)
+ 	const struct flush_tlb_info *f = info;
+ 	struct mm_struct *loaded_mm = this_cpu_read(cpu_tlbstate.loaded_mm);
+ 	u32 loaded_mm_asid = this_cpu_read(cpu_tlbstate.loaded_mm_asid);
+-	u64 local_tlb_gen = this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
++	u64 local_tlb_gen;
+ 	bool local = smp_processor_id() == f->initiating_cpu;
+ 	unsigned long nr_invalidate = 0;
+ 	u64 mm_tlb_gen;
+@@ -769,6 +1093,16 @@ static void flush_tlb_func(void *info)
+ 	if (unlikely(loaded_mm == &init_mm))
+ 		return;
+ 
++	/* Reload the ASID if transitioning into or out of a global ASID */
++	if (needs_global_asid_reload(loaded_mm, loaded_mm_asid)) {
++		switch_mm_irqs_off(NULL, loaded_mm, NULL);
++		loaded_mm_asid = this_cpu_read(cpu_tlbstate.loaded_mm_asid);
++	}
++
++	/* Broadcast ASIDs are always kept up to date with INVLPGB. */
++	if (is_global_asid(loaded_mm_asid))
++		return;
++
+ 	VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].ctx_id) !=
+ 		   loaded_mm->context.ctx_id);
+ 
+@@ -786,6 +1120,8 @@ static void flush_tlb_func(void *info)
+ 		return;
+ 	}
+ 
++	local_tlb_gen = this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
++
+ 	if (unlikely(f->new_tlb_gen != TLB_GENERATION_INVALID &&
+ 		     f->new_tlb_gen <= local_tlb_gen)) {
+ 		/*
+@@ -953,7 +1289,7 @@ STATIC_NOPV void native_flush_tlb_multi(const struct cpumask *cpumask,
+ 	 * up on the new contents of what used to be page tables, while
+ 	 * doing a speculative memory access.
+ 	 */
+-	if (info->freed_tables)
++	if (info->freed_tables || in_asid_transition(info))
+ 		on_each_cpu_mask(cpumask, flush_tlb_func, (void *)info, true);
+ 	else
+ 		on_each_cpu_cond_mask(should_flush_tlb, flush_tlb_func,
+@@ -1049,8 +1385,11 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
+ 	 * a local TLB flush is needed. Optimize this use-case by calling
+ 	 * flush_tlb_func_local() directly in this case.
+ 	 */
+-	if (cpumask_any_but(mm_cpumask(mm), cpu) < nr_cpu_ids) {
++	if (mm_global_asid(mm)) {
++		broadcast_tlb_flush(info);
++	} else if (cpumask_any_but(mm_cpumask(mm), cpu) < nr_cpu_ids) {
+ 		flush_tlb_multi(mm_cpumask(mm), info);
++		consider_global_asid(mm);
+ 	} else if (mm == this_cpu_read(cpu_tlbstate.loaded_mm)) {
+ 		lockdep_assert_irqs_enabled();
+ 		local_irq_disable();
+-- 
+2.47.1
+
+
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 10/12] x86,tlb: do targeted broadcast flushing from tlbbatch code
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (8 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 09/12] x86/mm: enable broadcast TLB invalidation for multi-threaded processes Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 11/12] x86/mm: enable AMD translation cache extensions Rik van Riel
+  2025-01-12 15:53 ` [PATCH v4 12/12] x86/mm: only invalidate final translations with INVLPGB Rik van Riel
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
 
 Instead of doing a system-wide TLB flush from arch_tlbbatch_flush,
 queue up asynchronous, targeted flushes from arch_tlbbatch_add_pending.
@@ -1789,9 +1422,9 @@ flushing from the reclaim and compaction paths.
 Signed-off-by: Rik van Riel <riel@surriel.com>
 ---
  arch/x86/include/asm/tlbbatch.h |  1 +
- arch/x86/include/asm/tlbflush.h | 12 +++------
- arch/x86/mm/tlb.c               | 48 ++++++++++++++++++++++++++-------
- 3 files changed, 42 insertions(+), 19 deletions(-)
+ arch/x86/include/asm/tlbflush.h | 12 +++-------
+ arch/x86/mm/tlb.c               | 41 ++++++++++++++++++++++++++++++---
+ 3 files changed, 42 insertions(+), 12 deletions(-)
 
 diff --git a/arch/x86/include/asm/tlbbatch.h b/arch/x86/include/asm/tlbbatch.h
 index 1ad56eb3e8a8..f9a17edf63ad 100644
@@ -1806,10 +1439,10 @@ index 1ad56eb3e8a8..f9a17edf63ad 100644
  
  #endif /* _ARCH_X86_TLBBATCH_H */
 diff --git a/arch/x86/include/asm/tlbflush.h b/arch/x86/include/asm/tlbflush.h
-index 5e9956af98d1..17ec1b169ebd 100644
+index cd244cdd49dd..fa4fcafa8b87 100644
 --- a/arch/x86/include/asm/tlbflush.h
 +++ b/arch/x86/include/asm/tlbflush.h
-@@ -297,21 +297,15 @@ static inline u64 inc_mm_tlb_gen(struct mm_struct *mm)
+@@ -350,21 +350,15 @@ static inline u64 inc_mm_tlb_gen(struct mm_struct *mm)
  	return atomic64_inc_return(&mm->context.tlb_gen);
  }
  
@@ -1835,28 +1468,21 @@ index 5e9956af98d1..17ec1b169ebd 100644
  static inline bool pte_flags_need_flush(unsigned long oldflags,
  					unsigned long newflags,
 diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-index eb83391385ce..454a370494d3 100644
+index 80375ef186d5..532911fbb12a 100644
 --- a/arch/x86/mm/tlb.c
 +++ b/arch/x86/mm/tlb.c
-@@ -1602,16 +1602,7 @@ EXPORT_SYMBOL_GPL(__flush_tlb_all);
- void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
- {
- 	struct flush_tlb_info *info;
--	int cpu;
--
+@@ -1658,9 +1658,7 @@ void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
+ 	 * a local TLB flush is needed. Optimize this use-case by calling
+ 	 * flush_tlb_func_local() directly in this case.
+ 	 */
 -	if (cpu_feature_enabled(X86_FEATURE_INVLPGB)) {
--		guard(preempt)();
 -		invlpgb_flush_all_nonglobals();
--		tlbsync();
--		return;
--	}
--
--	cpu = get_cpu();
-+	int cpu = get_cpu();
- 
- 	info = get_flush_tlb_info(NULL, 0, TLB_FLUSH_ALL, 0, false,
- 				  TLB_GENERATION_INVALID);
-@@ -1629,12 +1620,49 @@ void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
+-	} else if (cpumask_any_but(&batch->cpumask, cpu) < nr_cpu_ids) {
++	if (cpumask_any_but(&batch->cpumask, cpu) < nr_cpu_ids) {
+ 		flush_tlb_multi(&batch->cpumask, info);
+ 	} else if (cpumask_test_cpu(cpu, &batch->cpumask)) {
+ 		lockdep_assert_irqs_enabled();
+@@ -1669,12 +1667,49 @@ void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
  		local_irq_enable();
  	}
  
@@ -1881,8 +1507,8 @@ index eb83391385ce..454a370494d3 100644
 +					     struct mm_struct *mm,
 +					     unsigned long uaddr)
 +{
-+	if (static_cpu_has(X86_FEATURE_INVLPGB) && mm_broadcast_asid(mm)) {
-+		u16 asid = mm_broadcast_asid(mm);
++	if (static_cpu_has(X86_FEATURE_INVLPGB) && mm_global_asid(mm)) {
++		u16 asid = mm_global_asid(mm);
 +		/*
 +		 * Queue up an asynchronous invalidation. The corresponding
 +		 * TLBSYNC is done in arch_tlbbatch_flush(), and must be done
@@ -1892,10 +1518,10 @@ index eb83391385ce..454a370494d3 100644
 +			batch->used_invlpgb = true;
 +			migrate_disable();
 +		}
-+		invlpgb_flush_user_nr(kern_pcid(asid), uaddr, 1, 0);
++		invlpgb_flush_user_nr_nosync(kern_pcid(asid), uaddr, 1, false);
 +		/* Do any CPUs supporting INVLPGB need PTI? */
 +		if (static_cpu_has(X86_FEATURE_PTI))
-+			invlpgb_flush_user_nr(user_pcid(asid), uaddr, 1, 0);
++			invlpgb_flush_user_nr_nosync(user_pcid(asid), uaddr, 1, false);
 +	} else {
 +		inc_mm_tlb_gen(mm);
 +		cpumask_or(&batch->cpumask, &batch->cpumask, mm_cpumask(mm));
@@ -1910,59 +1536,20 @@ index eb83391385ce..454a370494d3 100644
 2.47.1
 
 
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 5C1A41B0437
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:06:33 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735581994; cv=none; b=WjLBGYjj0sumXFgwUNnBOp19QJV1NLEWVxr4UzlLY+GaA3dQUlmc63vQ6XqVaXGvUWGYM3BcEOP066bW0fcC9IvexU5bsZJk2c4nzvFl1F8+T9IT7uZEKcAWERVUKlK5RdvZ3WkQWbhvXGQk9X/qd39/MvTyPd/+68EgpmJ/IyQ=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735581994; c=relaxed/simple;
-	bh=tOUSI5RGft1SXvut59cbSLRd10l0mLm+tsKZPXmc/+8=;
-	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
-	 MIME-Version; b=C/BZURjd9L4hqncvdOuuwbDM6oWhAn3dW77CIhNoSfQsCiB+Yh9Kvbty0JZoWOQJ/jhhhYkw6shx7UejDeWUfJTfhAHZZdfh5MQ2YbosnnMkRmPodzG3pedTIrUHUeYxX+k/DsaQDuvJ/dh9wfYqWXM9dWrT0oHpfXM6FfLn7sU=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSJzf-000000008Lf-1Qtd;
-	Mon, 30 Dec 2024 12:55:55 -0500
-From: Rik van Riel <riel@surriel.com>
-To: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org,
-	kernel-team@meta.com,
-	dave.hansen@linux.intel.com,
-	luto@kernel.org,
-	peterz@infradead.org,
-	tglx@linutronix.de,
-	mingo@redhat.com,
-	bp@alien8.de,
-	hpa@zytor.com,
-	akpm@linux-foundation.org,
-	nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com,
-	linux-mm@kvack.org,
-	Rik van Riel <riel@surriel.com>
-Subject: [PATCH 11/12] x86/mm: enable AMD translation cache extensions
-Date: Mon, 30 Dec 2024 12:53:12 -0500
-Message-ID: <20241230175550.4046587-12-riel@surriel.com>
-X-Mailer: git-send-email 2.47.1
-In-Reply-To: <20241230175550.4046587-1-riel@surriel.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Transfer-Encoding: 8bit
-Sender: riel@surriel.com
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
+
+* [PATCH v4 11/12] x86/mm: enable AMD translation cache extensions
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (9 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 10/12] x86,tlb: do targeted broadcast flushing from tlbbatch code Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  2025-01-13 11:32   ` Andrew Cooper
+  2025-01-12 15:53 ` [PATCH v4 12/12] x86/mm: only invalidate final translations with INVLPGB Rik van Riel
+  11 siblings, 1 reply; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
 
 With AMD TCE (translation cache extensions) only the intermediate mappings
 that cover the address range zapped by INVLPG / INVLPGB get invalidated,
@@ -1971,7 +1558,7 @@ rather than all intermediate mappings getting zapped at every TLB invalidation.
 This can help reduce the TLB miss rate, by keeping more intermediate
 mappings in the cache.
 
->From the AMD manual:
+From the AMD manual:
 
 Translation Cache Extension (TCE) Bit. Bit 15, read/write. Setting this bit
 to 1 changes how the INVLPG, INVLPGB, and INVPCID instructions operate on
@@ -1984,1195 +1571,147 @@ the page table hierarchy, leaving unrelated upper-level entries intact.
 
 Signed-off-by: Rik van Riel <riel@surriel.com>
 ---
- arch/x86/kernel/cpu/amd.c |  8 ++++++++
- arch/x86/mm/tlb.c         | 10 +++++++---
- 2 files changed, 15 insertions(+), 3 deletions(-)
+ arch/x86/include/asm/msr-index.h       | 2 ++
+ arch/x86/kernel/cpu/amd.c              | 3 +++
+ tools/arch/x86/include/asm/msr-index.h | 2 ++
+ 3 files changed, 7 insertions(+)
 
+diff --git a/arch/x86/include/asm/msr-index.h b/arch/x86/include/asm/msr-index.h
+index 3ae84c3b8e6d..dc1c1057f26e 100644
+--- a/arch/x86/include/asm/msr-index.h
++++ b/arch/x86/include/asm/msr-index.h
+@@ -25,6 +25,7 @@
+ #define _EFER_SVME		12 /* Enable virtualization */
+ #define _EFER_LMSLE		13 /* Long Mode Segment Limit Enable */
+ #define _EFER_FFXSR		14 /* Enable Fast FXSAVE/FXRSTOR */
++#define _EFER_TCE		15 /* Enable Translation Cache Extensions */
+ #define _EFER_AUTOIBRS		21 /* Enable Automatic IBRS */
+ 
+ #define EFER_SCE		(1<<_EFER_SCE)
+@@ -34,6 +35,7 @@
+ #define EFER_SVME		(1<<_EFER_SVME)
+ #define EFER_LMSLE		(1<<_EFER_LMSLE)
+ #define EFER_FFXSR		(1<<_EFER_FFXSR)
++#define EFER_TCE		(1<<_EFER_TCE)
+ #define EFER_AUTOIBRS		(1<<_EFER_AUTOIBRS)
+ 
+ /*
 diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
-index 226b8fc64bfc..4dc42705aaca 100644
+index bcf73775b4f8..b7e84d43a22d 100644
 --- a/arch/x86/kernel/cpu/amd.c
 +++ b/arch/x86/kernel/cpu/amd.c
-@@ -1143,6 +1143,14 @@ static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
+@@ -1071,6 +1071,9 @@ static void init_amd(struct cpuinfo_x86 *c)
  
- 	/* Max number of pages INVLPGB can invalidate in one shot */
- 	invlpgb_count_max = (edx & 0xffff) + 1;
+ 	/* AMD CPUs don't need fencing after x2APIC/TSC_DEADLINE MSR writes. */
+ 	clear_cpu_cap(c, X86_FEATURE_APIC_MSRS_FENCE);
 +
-+	/* If supported, enable translation cache extensions (TCE) */
-+	cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
-+	if (ecx & BIT(17)) {
-+		u64 msr = native_read_msr(MSR_EFER);;
-+		msr |= BIT(15);
-+		wrmsrl(MSR_EFER, msr);
-+	}
++	if (cpu_feature_enabled(X86_FEATURE_INVLPGB))
++		msr_set_bit(MSR_EFER, _EFER_TCE);
  }
  
- static const struct cpu_dev amd_cpu_dev = {
-diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-index 454a370494d3..585d0731ca9f 100644
---- a/arch/x86/mm/tlb.c
-+++ b/arch/x86/mm/tlb.c
-@@ -477,7 +477,7 @@ static void broadcast_tlb_flush(struct flush_tlb_info *info)
- 	if (info->stride_shift > PMD_SHIFT)
- 		maxnr = 1;
+ #ifdef CONFIG_X86_32
+diff --git a/tools/arch/x86/include/asm/msr-index.h b/tools/arch/x86/include/asm/msr-index.h
+index 3ae84c3b8e6d..dc1c1057f26e 100644
+--- a/tools/arch/x86/include/asm/msr-index.h
++++ b/tools/arch/x86/include/asm/msr-index.h
+@@ -25,6 +25,7 @@
+ #define _EFER_SVME		12 /* Enable virtualization */
+ #define _EFER_LMSLE		13 /* Long Mode Segment Limit Enable */
+ #define _EFER_FFXSR		14 /* Enable Fast FXSAVE/FXRSTOR */
++#define _EFER_TCE		15 /* Enable Translation Cache Extensions */
+ #define _EFER_AUTOIBRS		21 /* Enable Automatic IBRS */
  
--	if (info->end == TLB_FLUSH_ALL) {
-+	if (info->end == TLB_FLUSH_ALL || info->freed_tables) {
- 		invlpgb_flush_single_pcid(kern_pcid(asid));
- 		/* Do any CPUs supporting INVLPGB need PTI? */
- 		if (static_cpu_has(X86_FEATURE_PTI))
-@@ -1110,7 +1110,7 @@ static void flush_tlb_func(void *info)
- 	 *
- 	 * The only question is whether to do a full or partial flush.
- 	 *
--	 * We do a partial flush if requested and two extra conditions
-+	 * We do a partial flush if requested and three extra conditions
- 	 * are met:
- 	 *
- 	 * 1. f->new_tlb_gen == local_tlb_gen + 1.  We have an invariant that
-@@ -1137,10 +1137,14 @@ static void flush_tlb_func(void *info)
- 	 *    date.  By doing a full flush instead, we can increase
- 	 *    local_tlb_gen all the way to mm_tlb_gen and we can probably
- 	 *    avoid another flush in the very near future.
-+	 *
-+	 * 3. No page tables were freed. If page tables were freed, a full
-+	 *    flush ensures intermediate translations in the TLB get flushed.
- 	 */
- 	if (f->end != TLB_FLUSH_ALL &&
- 	    f->new_tlb_gen == local_tlb_gen + 1 &&
--	    f->new_tlb_gen == mm_tlb_gen) {
-+	    f->new_tlb_gen == mm_tlb_gen &&
-+	    !f->freed_tables) {
- 		/* Partial flush */
- 		unsigned long addr = f->start;
+ #define EFER_SCE		(1<<_EFER_SCE)
+@@ -34,6 +35,7 @@
+ #define EFER_SVME		(1<<_EFER_SVME)
+ #define EFER_LMSLE		(1<<_EFER_LMSLE)
+ #define EFER_FFXSR		(1<<_EFER_FFXSR)
++#define EFER_TCE		(1<<_EFER_TCE)
+ #define EFER_AUTOIBRS		(1<<_EFER_AUTOIBRS)
  
+ /*
 -- 
 2.47.1
 
 
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-ej1-f47.google.com (mail-ej1-f47.google.com [209.85.218.47])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id A5E561ACECE
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:25:56 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.218.47
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735583158; cv=none; b=MJHd6bJCH3/agx+fXisKixjCe7eIiRVfav/a8O0iYnTvxAAoTLYmzaoe/YDu492YL6ylLtU5+eEBG3n1KOplE9jX96ZPSU1z1GzpcZL0K4nq7bbrUCJGEg4D+LbPpoA7fAP7RTB3IaRtGHgduu3ttTZOlRoLzUlMlSM4xBPC9cU=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735583158; c=relaxed/simple;
-	bh=mkeqLVFiffXgkQLYONH/kpQ6nWTDpuPh1WlyBmICpQA=;
-	h=Content-Type:Mime-Version:Subject:From:In-Reply-To:Date:Cc:
-	 Message-Id:References:To; b=WQXur5LJl/iJq6pDfITz1wHZyIF2HuESWQcmL5BgX9iT3T5Q4vwxbkuQmP7yrG88ZQnbeQSSR0kVetAHTYAGJdVDbRrpbocki3VXwuBiRjbOhdGXXhijdhIYZQWPc1t6oX4eKC3F9t7rQK+CYThQ/MS1Jc9zJMb7Dm4iQH+/RNc=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b=B+LQNfDs; arc=none smtp.client-ip=209.85.218.47
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
-Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b="B+LQNfDs"
-Received: by mail-ej1-f47.google.com with SMTP id a640c23a62f3a-aaf60d85238so125932966b.0
-        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 10:25:56 -0800 (PST)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20230601; t=1735583155; x=1736187955; darn=vger.kernel.org;
-        h=to:references:message-id:content-transfer-encoding:cc:date
-         :in-reply-to:from:subject:mime-version:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=c4Cv2FWyi1dOOOU9BTe3r48rsCqijhG21beZ7nCyVIc=;
-        b=B+LQNfDsaEBETI35IQ1iuP7itpX7FcvtYs3+rFaBcyhAu2r5VgefjUT0OCO/Lh8eA3
-         /mTQiJXQoCHgCS0Mp1LuWdHj6ngV5FlMUDqqLZHxkJLBjuKmePNRWJiJ512gqHpF8BKx
-         VxLACsHT1qFUPUKrnPKPGv3eWZuI6OeCithm88zkyTvbmCgrv3TkJ/OYNUSpjDhpyeiT
-         MdYImyQiqVg27GKWXnrSg6xiBBZNsT59GV5M7q0JMbTU86tFxBnNdwE0QXuK97jDGDwj
-         y8k0QuhHOejW5EhXbfwj/YOR2mIhm8n00+eqq/iD9AQY5xNNeHdnsASZrgMgo2TTnCcB
-         kq0g==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1735583155; x=1736187955;
-        h=to:references:message-id:content-transfer-encoding:cc:date
-         :in-reply-to:from:subject:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=c4Cv2FWyi1dOOOU9BTe3r48rsCqijhG21beZ7nCyVIc=;
-        b=FzggPHcVQrrdIHF3tk6DFpO42m09IsnvOSrgTlvJ8cMqz0NAKDU4LqklJSjDcDrMiQ
-         wKJ7CC7GXsaETnO/+7MZmDkRB0GqKdc5UqP2nZ7UaJUbF9iyUXVnNe2JxS+imYO65zkq
-         aBpWhJRr3Eja5teWAXWPwOLys5fgNTY+9AxYEdKDGqcXjDEFgsXmPMVdyDOGvAHx2aRT
-         RTM2mFi5y69yQslbIzj+XTDlb1IkIMa45EvKMHr1vsbFYpnluWxGq5elv6mChqSwrMaF
-         XiO4SLtqk8MKA19EDUvGkjYScc56SwaGjzuCXOSOZ9QL4Lnfa4yViE71h0WcRuWvF7DU
-         fofA==
-X-Forwarded-Encrypted: i=1; AJvYcCUokx+TfB1TQomu5n5ahiIx1HalLr/60kHzb2mOC/fi2aEUlsUPtnjGP65hhJcn1Fo1u9MV8ljwxy6Qltw=@vger.kernel.org
-X-Gm-Message-State: AOJu0YxLD1t25Z44bFa1NRmo2arPKmIhOtdhprvME1stGU5/llBfA7sr
-	Uki9Q8cfiqFjDbpTgxIeK0oqusfamENHOwU794FvHkdqNb4499DR
-X-Gm-Gg: ASbGncvl1gy7pQe3/1c8Rmg4afGiY8TN4JuybtIGTPHeJs1K6r9tF4dm8+lHVYoBxDf
-	PWzHqHmIXjzOMZVYH9Ufn9a5EKXVdycJ0BOCxstjYEBymCjN2OUNkf+ngRgN+8F/jF0j/yZDLKh
-	6lPxGdF0jKe32hs4Xp15nzeYpUTfFG/hc34PEXVcPQCrzaUUq9NfQF3mWt3+va0XI5V3kbRXwN2
-	xH04gAz7fmeChzUCp/6hvPrUBF3usITSWXEDi4RGwzSjlJvigsc9dFkDBW8NJLGbHFf90me8Q==
-X-Google-Smtp-Source: AGHT+IHw2JU5Wyqfk8AFSsi+FCQ5WkOGTKKAN23Vi5IhLMHTvYSQN9n+ShG0NvWFbqzc7jGJDSPvYA==
-X-Received: by 2002:a17:907:7f16:b0:aaf:f1a:d2ad with SMTP id a640c23a62f3a-aaf0f1ade0amr1683092766b.50.1735583154561;
-        Mon, 30 Dec 2024 10:25:54 -0800 (PST)
-Received: from smtpclient.apple ([132.69.243.32])
-        by smtp.gmail.com with ESMTPSA id a640c23a62f3a-aaf6afc3e11sm81994566b.73.2024.12.30.10.25.52
-        (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 30 Dec 2024 10:25:53 -0800 (PST)
-Content-Type: text/plain;
-	charset=us-ascii
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.300.87.4.3\))
-Subject: Re: [PATCH 11/12] x86/mm: enable AMD translation cache extensions
-From: Nadav Amit <nadav.amit@gmail.com>
-In-Reply-To: <20241230175550.4046587-12-riel@surriel.com>
-Date: Mon, 30 Dec 2024 20:25:40 +0200
-Cc: the arch/x86 maintainers <x86@kernel.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- kernel-team@meta.com,
- Dave Hansen <dave.hansen@linux.intel.com>,
- luto@kernel.org,
- peterz@infradead.org,
- Thomas Gleixner <tglx@linutronix.de>,
- Ingo Molnar <mingo@redhat.com>,
- Borislav Petkov <bp@alien8.de>,
- "H. Peter Anvin" <hpa@zytor.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- zhengqi.arch@bytedance.com,
- "open list:MEMORY MANAGEMENT" <linux-mm@kvack.org>
-Content-Transfer-Encoding: quoted-printable
-Message-Id: <40C8627F-0B0B-4F19-8FF8-5D852A5F9F0F@gmail.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
- <20241230175550.4046587-12-riel@surriel.com>
-To: Rik van Riel <riel@surriel.com>
-X-Mailer: Apple Mail (2.3826.300.87.4.3)
+^ permalink raw reply related	[flat|nested] 14+ messages in thread
 
+* [PATCH v4 12/12] x86/mm: only invalidate final translations with INVLPGB
+  2025-01-12 15:53 [RFC PATCH v4 00/10] AMD broadcast TLB invalidation Rik van Riel
+                   ` (10 preceding siblings ...)
+  2025-01-12 15:53 ` [PATCH v4 11/12] x86/mm: enable AMD translation cache extensions Rik van Riel
+@ 2025-01-12 15:53 ` Rik van Riel
+  11 siblings, 0 replies; 14+ messages in thread
+From: Rik van Riel @ 2025-01-12 15:53 UTC (permalink / raw)
+  To: x86
+  Cc: linux-kernel, bp, peterz, dave.hansen, zhengqi.arch, nadav.amit,
+	thomas.lendacky, kernel-team, linux-mm, akpm, jannh, Rik van Riel
 
-> On 30 Dec 2024, at 19:53, Rik van Riel <riel@surriel.com> wrote:
->=20
-> --- a/arch/x86/kernel/cpu/amd.c
-> +++ b/arch/x86/kernel/cpu/amd.c
-> @@ -1143,6 +1143,14 @@ static void cpu_detect_tlb_amd(struct =
-cpuinfo_x86 *c)
->=20
-> 	/* Max number of pages INVLPGB can invalidate in one shot */
-> 	invlpgb_count_max =3D (edx & 0xffff) + 1;
-> +
-> +	/* If supported, enable translation cache extensions (TCE) */
-> +	cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
-> +	if (ecx & BIT(17)) {
-> +		u64 msr =3D native_read_msr(MSR_EFER);;
-> +		msr |=3D BIT(15);
-> +		wrmsrl(MSR_EFER, msr);
-> +	}
-> }
+Use the INVLPGB_FINAL_ONLY flag when invalidating mappings with INVPLGB.
+This way only leaf mappings get removed from the TLB, leaving intermediate
+translations cached.
 
-Sorry for the gradual/delayed feedback.
+On the (rare) occasions where we free page tables we do a full flush,
+ensuring intermediate translations get flushed from the TLB.
 
-Is it possible to avoid the BIT(x) and just add the bits to=20
-arch/x86/include/asm/msr-index.h like EFER_FFXSR ?
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ arch/x86/include/asm/invlpgb.h | 10 ++++++++--
+ arch/x86/mm/tlb.c              |  8 ++++----
+ 2 files changed, 12 insertions(+), 6 deletions(-)
 
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from shelob.surriel.com (shelob.surriel.com [96.67.55.147])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 6AFCE1ACECE
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:27:47 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=96.67.55.147
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735583268; cv=none; b=MPp33koY1Dj9NDthpEiS2QhmSRfQgTBs/P1wWwbTw5V7HGYzaSPUUwn4gGAjF5kbir1oZxW0ICepyo9Crdt4LIl7VB8EwbLFPJScrMDJoP7nuOrpwqteNQRIO4qnfmUM4KbQn4j0FspI0B9BkXAqU0hsYMKXTJcBwR/Sr7oTKUA=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735583268; c=relaxed/simple;
-	bh=KqK7EhrdTyWnmu/XBKWNIqYmlq9r00DoSE4UPt4uyrA=;
-	h=Message-ID:Subject:From:To:Cc:Date:In-Reply-To:References:
-	 Content-Type:MIME-Version; b=YpcsLTuPcpoVrhahUs/sFk/FRh5CGzX50RmzjAq15P4uC2jAqibAEKK6un75KvQKx0/TRZuhBXsM85dq2Y5V0DaSr4GbphD67tfgpP22688msOES7weEQSLZrte0kUcmrCvLIsFGV+js8AzKDjiJrjEvg+OsRWtQ9kavFPNous4=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com; spf=pass smtp.mailfrom=shelob.surriel.com; arc=none smtp.client-ip=96.67.55.147
-Authentication-Results: smtp.subspace.kernel.org; dmarc=none (p=none dis=none) header.from=surriel.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=shelob.surriel.com
-Received: from fangorn.home.surriel.com ([10.0.13.7])
-	by shelob.surriel.com with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	(Exim 4.97.1)
-	(envelope-from <riel@shelob.surriel.com>)
-	id 1tSKUP-000000000Mg-1WXb;
-	Mon, 30 Dec 2024 13:27:41 -0500
-Message-ID: <f9a8109a7dad017b693b75d906790c45fb28d5e9.camel@surriel.com>
-Subject: Re: [PATCH 11/12] x86/mm: enable AMD translation cache extensions
-From: Rik van Riel <riel@surriel.com>
-To: Nadav Amit <nadav.amit@gmail.com>
-Cc: the arch/x86 maintainers <x86@kernel.org>, Linux Kernel Mailing List	
- <linux-kernel@vger.kernel.org>, kernel-team@meta.com, Dave Hansen	
- <dave.hansen@linux.intel.com>, luto@kernel.org, peterz@infradead.org,
- Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>,
- Borislav Petkov <bp@alien8.de>, "H. Peter Anvin"	 <hpa@zytor.com>, Andrew
- Morton <akpm@linux-foundation.org>, 	zhengqi.arch@bytedance.com, "open
- list:MEMORY MANAGEMENT" <linux-mm@kvack.org>
-Date: Mon, 30 Dec 2024 13:27:40 -0500
-In-Reply-To: <40C8627F-0B0B-4F19-8FF8-5D852A5F9F0F@gmail.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
-	 <20241230175550.4046587-12-riel@surriel.com>
-	 <40C8627F-0B0B-4F19-8FF8-5D852A5F9F0F@gmail.com>
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-User-Agent: Evolution 3.54.1 (3.54.1-1.fc41) 
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Sender: riel@surriel.com
-
-On Mon, 2024-12-30 at 20:25 +0200, Nadav Amit wrote:
->=20
-> > On 30 Dec 2024, at 19:53, Rik van Riel <riel@surriel.com> wrote:
-> >=20
-> > --- a/arch/x86/kernel/cpu/amd.c
-> > +++ b/arch/x86/kernel/cpu/amd.c
-> > @@ -1143,6 +1143,14 @@ static void cpu_detect_tlb_amd(struct
-> > cpuinfo_x86 *c)
-> >=20
-> > 	/* Max number of pages INVLPGB can invalidate in one shot
-> > */
-> > 	invlpgb_count_max =3D (edx & 0xffff) + 1;
-> > +
-> > +	/* If supported, enable translation cache extensions (TCE)
-> > */
-> > +	cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
-> > +	if (ecx & BIT(17)) {
-> > +		u64 msr =3D native_read_msr(MSR_EFER);;
-> > +		msr |=3D BIT(15);
-> > +		wrmsrl(MSR_EFER, msr);
-> > +	}
-> > }
->=20
-> Sorry for the gradual/delayed feedback.
->=20
-> Is it possible to avoid the BIT(x) and just add the bits to=20
-> arch/x86/include/asm/msr-index.h like EFER_FFXSR ?
->=20
-Of course!
-
-I'd be happy to send that either as part of the
-next version of the patch series, or as a separate
-cleanup patch later. Whatever is more convenient
-for the x86 maintainers.
-
---=20
-All Rights Reversed.
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail.alien8.de (mail.alien8.de [65.109.113.108])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 87471EAD0
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 18:41:44 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=65.109.113.108
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735584106; cv=none; b=Vk3vTGGJaKuDKkYSt9syagwRUrYqzIaJzNIwa0qHnH0LfpQLhwfcANG4EO840fsRWaT3J57rfW5ebNyqzqJeldgMm7CiWmWw5s02BlPfEJQL0HIeTVeXlei30Z4oDokJGa/19U4KeGznadgP0Hcq/HyoQ/QEqWdcx77PnnJJAlY=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735584106; c=relaxed/simple;
-	bh=u16xLa+SO8PcbbuHGcVdHQmS9YvGkD9E8WhI+rLxxZQ=;
-	h=Date:From:To:Cc:Subject:Message-ID:References:MIME-Version:
-	 Content-Type:Content-Disposition:In-Reply-To; b=JrBuzada018VHOcsj/KNIB0QkQKdavWqRVFX/WYsZDogXLHyRcOlekR3vW/kNuLjvDQM6+ttd+BNwr2KM0981sZ4IUw9lvdg4+rJC7Nc+5ywyQRiG3U7fpl3WgDJD66S+RQIVuIdgPhxIWxaQvYyDrkGjjj6UsjYFUa1YEI4swg=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=alien8.de; spf=pass smtp.mailfrom=alien8.de; dkim=pass (4096-bit key) header.d=alien8.de header.i=@alien8.de header.b=NcujmvRY; arc=none smtp.client-ip=65.109.113.108
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=alien8.de
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=alien8.de
-Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (4096-bit key) header.d=alien8.de header.i=@alien8.de header.b="NcujmvRY"
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.alien8.de (SuperMail on ZX Spectrum 128k) with ESMTP id 108B440E021D;
-	Mon, 30 Dec 2024 18:41:42 +0000 (UTC)
-X-Virus-Scanned: Debian amavisd-new at mail.alien8.de
-Authentication-Results: mail.alien8.de (amavisd-new); dkim=pass (4096-bit key)
-	header.d=alien8.de
-Received: from mail.alien8.de ([127.0.0.1])
-	by localhost (mail.alien8.de [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id aspOp-eY9dWg; Mon, 30 Dec 2024 18:41:39 +0000 (UTC)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=alien8.de; s=alien8;
-	t=1735584098; bh=os7X2r1FTeE+a49VsTcZ4KvXBsRH4NpmQw2k3cOTdCA=;
-	h=Date:From:To:Cc:Subject:References:In-Reply-To:From;
-	b=NcujmvRYOua1ybQhqn3nMA6sVzRiAh95DLdvslY4G8lI3uILBirBvpczkY1W72epG
-	 7QWW1DPikKwRAS2UDVJZxYgN2o18AnQtAqI8zTQA+RtcYaJUPudMFaZeSSb7ajEsuD
-	 Xqy9EDaJ0rJSdKSV8h2IwfeNmkyp75Mtb64dG8MNMDYJ3KI1OcIf5pgoMYXwZ0LMMd
-	 TxHKFHpVqJCi8lughOwTP2/9Ms9TGG1W7ci3iAvL0MpRCvceZa0BHieSVvbZ7IkjBC
-	 b/Cl4FRo7+L37qyMkxiP3kNHcveuqGDhPw5lqgZJB+gvnQKIHOG/mTKyvInzSo29E9
-	 RJdngFv/M/t32VlK3aLqCDMiNIFhm+iiOk/TmCYxF2Q6iShQO63Co9jWSE37eC9dXe
-	 EwXsPBeBUEQ4Y2tPla/Ac0DNweSOTebluXqaKnNzYkuijQDP1elRkQbhtm9dAnfKQQ
-	 DsEZntLRgcPe4phTm798bNCnHH+M638ycIP1mmKvCMbff97JfPz1sgYNJTO2OqjM8Z
-	 b9oHhXY1O0OLDj7yb7ieXrwQDpN+NpncIXr29k10MZEHe1AQllOfqQro9oWadckx5b
-	 d2qA6w7Xw8AG4MfzsmnXrLKC9tE687uc4FmHnnIbFkYuGCl+b9p2IkU6ykSV/dMMgI
-	 Yc1a1NHbLvXCvnVCIokWPrw0=
-Received: from zn.tnic (pd953008e.dip0.t-ipconnect.de [217.83.0.142])
-	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
-	 key-exchange ECDHE (P-256) server-signature ECDSA (P-256) server-digest SHA256)
-	(No client certificate requested)
-	by mail.alien8.de (SuperMail on ZX Spectrum 128k) with ESMTPSA id A56B140E02D6;
-	Mon, 30 Dec 2024 18:41:24 +0000 (UTC)
-Date: Mon, 30 Dec 2024 19:41:18 +0100
-From: Borislav Petkov <bp@alien8.de>
-To: Rik van Riel <riel@surriel.com>
-Cc: x86@kernel.org, linux-kernel@vger.kernel.org, kernel-team@meta.com,
-	dave.hansen@linux.intel.com, luto@kernel.org, peterz@infradead.org,
-	tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com,
-	akpm@linux-foundation.org, nadav.amit@gmail.com,
-	zhengqi.arch@bytedance.com, linux-mm@kvack.org
-Subject: Re: [PATCH 01/12] x86/mm: make MMU_GATHER_RCU_TABLE_FREE
- unconditional
-Message-ID: <20241230184118.GMZ3LpTn3dHvu_bq-p@fat_crate.local>
-References: <20241230175550.4046587-1-riel@surriel.com>
- <20241230175550.4046587-2-riel@surriel.com>
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-In-Reply-To: <20241230175550.4046587-2-riel@surriel.com>
-
-On Mon, Dec 30, 2024 at 12:53:02PM -0500, Rik van Riel wrote:
-> Currently x86 uses CONFIG_MMU_GATHER_TABLE_FREE when using
-> paravirt, and not when running on bare metal.
-> 
-> There is no real good reason to do things differently for
-> each setup. Make them all the same.
-> 
-> After this change, the synchronization between get_user_pages_fast
-> and page table freeing is handled by RCU, which prevents page tables
-> from being reused for other data while get_user_pages_fast is walking
-> them.
-
-I'd rather like to read here why this is not a problem anymore and why
-
-  48a8b97cfd80 ("x86/mm: Only use tlb_remove_table() for paravirt")
-
-is not relevant anymore.
-
-> This allows us to invalidate page tables while other CPUs have
-	      ^^
-
-Please use passive voice in your commit message: no "we" or "I", etc,
-and describe your changes in imperative mood.
-
-Personal pronouns are ambiguous in text, especially with so many
-parties/companies/etc developing the kernel so let's avoid them please.
-
+diff --git a/arch/x86/include/asm/invlpgb.h b/arch/x86/include/asm/invlpgb.h
+index d62e3733a1ab..4fa48d063b76 100644
+--- a/arch/x86/include/asm/invlpgb.h
++++ b/arch/x86/include/asm/invlpgb.h
+@@ -61,9 +61,15 @@ static inline void invlpgb_flush_user(unsigned long pcid,
+ 
+ static inline void invlpgb_flush_user_nr_nosync(unsigned long pcid,
+ 						unsigned long addr,
+-						int nr, bool pmd_stride)
++						int nr, bool pmd_stride,
++						bool freed_tables)
+ {
+-	__invlpgb(0, pcid, addr, nr - 1, pmd_stride, INVLPGB_PCID | INVLPGB_VA);
++	unsigned long flags = INVLPGB_PCID | INVLPGB_VA;
++
++	if (!freed_tables)
++		flags |= INVLPGB_FINAL_ONLY;
++
++	__invlpgb(0, pcid, addr, nr - 1, pmd_stride, flags);
+ }
+ 
+ /* Flush all mappings for a given PCID, not including globals. */
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 532911fbb12a..0254e9ebaf15 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -538,10 +538,10 @@ static void broadcast_tlb_flush(struct flush_tlb_info *info)
+ 		nr = min(maxnr, (info->end - addr) >> info->stride_shift);
+ 		nr = max(nr, 1);
+ 
+-		invlpgb_flush_user_nr_nosync(kern_pcid(asid), addr, nr, pmd);
++		invlpgb_flush_user_nr_nosync(kern_pcid(asid), addr, nr, pmd, info->freed_tables);
+ 		/* Do any CPUs supporting INVLPGB need PTI? */
+ 		if (static_cpu_has(X86_FEATURE_PTI))
+-			invlpgb_flush_user_nr_nosync(user_pcid(asid), addr, nr, pmd);
++			invlpgb_flush_user_nr_nosync(user_pcid(asid), addr, nr, pmd, info->freed_tables);
+ 		addr += nr << info->stride_shift;
+ 	} while (addr < info->end);
+ 
+@@ -1699,10 +1699,10 @@ void arch_tlbbatch_add_pending(struct arch_tlbflush_unmap_batch *batch,
+ 			batch->used_invlpgb = true;
+ 			migrate_disable();
+ 		}
+-		invlpgb_flush_user_nr_nosync(kern_pcid(asid), uaddr, 1, false);
++		invlpgb_flush_user_nr_nosync(kern_pcid(asid), uaddr, 1, false, false);
+ 		/* Do any CPUs supporting INVLPGB need PTI? */
+ 		if (static_cpu_has(X86_FEATURE_PTI))
+-			invlpgb_flush_user_nr_nosync(user_pcid(asid), uaddr, 1, false);
++			invlpgb_flush_user_nr_nosync(user_pcid(asid), uaddr, 1, false, false);
+ 	} else {
+ 		inc_mm_tlb_gen(mm);
+ 		cpumask_or(&batch->cpumask, &batch->cpumask, mm_cpumask(mm));
 -- 
-Regards/Gruss,
-    Boris.
-
-https://people.kernel.org/tglx/notes-about-netiquette
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-ej1-f46.google.com (mail-ej1-f46.google.com [209.85.218.46])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id CF743EAD0
-	for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 19:24:30 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.218.46
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735586673; cv=none; b=c8PKtFE6+Tqvw2GEtkfl7WiDwzJ4RFbDt6y06q53be3Oo0pcqKKEGG2yCBAlnrlIzSj4XsX/CUX2TXweZQvnPYV2NwBMAJTdet25FfaLen0h2Lz3peTXDMh7lNTJWe6cGyStaPgDcvsM7xHNI6U7k0UGfVIjrWFw6jFYVnEFqIo=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735586673; c=relaxed/simple;
-	bh=M1km7HjDeVph6cIAJtr/4N3NmMCjuJ17Pc5/q6JAsbw=;
-	h=Content-Type:Mime-Version:Subject:From:In-Reply-To:Date:Cc:
-	 Message-Id:References:To; b=lPdd46nUZ89kzxjwQfrSbjLRWvAeVBBZCjr9Q9VLsd9xfEeev6Y9KImgOS6QvlADy0TV3QTq/NAxI6xD0JIfGoxRK4Pk3MtIg8J7uNIbxZHvM6RatJ4EIMppbBsFqFh4UaW2jP9wBA7lM7uuu5hSaeMIaAW6S6ExWK6YZ7rjIyQ=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com; spf=pass smtp.mailfrom=gmail.com; dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b=LSL7T/C2; arc=none smtp.client-ip=209.85.218.46
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=gmail.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=gmail.com
-Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=gmail.com header.i=@gmail.com header.b="LSL7T/C2"
-Received: by mail-ej1-f46.google.com with SMTP id a640c23a62f3a-aabfb33aff8so1647336566b.0
-        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 11:24:30 -0800 (PST)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=gmail.com; s=20230601; t=1735586669; x=1736191469; darn=vger.kernel.org;
-        h=to:references:message-id:content-transfer-encoding:cc:date
-         :in-reply-to:from:subject:mime-version:from:to:cc:subject:date
-         :message-id:reply-to;
-        bh=MvZhetW4yctH43dLLBYpm6faFlepdUMw/rl8YLjOU9c=;
-        b=LSL7T/C2sgHJU12CxhcAg1kVAJ62fN+9fhWLPq2qcNHW7ETLTHdMZFUvxoCepyoTre
-         q3Ko+kePhZRAoj8gqefGU+ZY+fIPdWjRG4QaLOkVgIqJPOt3KrVi4Q7WSjXSM376RYR1
-         X4hwNljJPiDev39v5hRk6KbLpWVK76uPzL8CrA1cCW4Isda98J1XEklhI4D6Zhq7eTXj
-         Oz/As7/M3TyH60cXnx28IJfKXPouprSKgcAGuWgiyPG47L0cQX6k3bQ5gK8AsgQwlLxV
-         2Y87dcKBUDUqRlfia/MgyhQ91EEFxsaXm5IgvwNlpdfH4w2LBJ/CN3bP3NcGSq1NZtqr
-         qp8g==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1735586669; x=1736191469;
-        h=to:references:message-id:content-transfer-encoding:cc:date
-         :in-reply-to:from:subject:mime-version:x-gm-message-state:from:to:cc
-         :subject:date:message-id:reply-to;
-        bh=MvZhetW4yctH43dLLBYpm6faFlepdUMw/rl8YLjOU9c=;
-        b=pi8Wom9mAzcFlOfsj+Wsj4+dBCCf4C6UiB1wfQ5yueW1mCphICBT3EVWhJAxDHZBt7
-         Di90NtKBE1BOPhT3MbiReJL6GGgiLB8u04DwkXLsgO9nZtnPVodwlzc0x/40GHPjjCmA
-         wO8nlEo39lEAlz071moRAKzW+Azst+u1n4rjzQ+jCA1gtvL1OZsLzH8bySSPe6IhlDvf
-         abGtRAk28B1CysHNrBtg+oG1YJ+OjmS8Fi4LNJPhwJWxLhUL6caMzYSeRp4lSwCV/M6Q
-         0Gha+njq4jFDhyq1+BnQh6a0mOqNXuel76zw37UTJvvycjSZZN7ZBGROBoB7Ys5HrHmx
-         +VDQ==
-X-Forwarded-Encrypted: i=1; AJvYcCWe0IjgYr5AE9h3f3LU+bIOtuTG3CnlZMmQVDVw1HE0X/mumdAMyE7+IHYGp7snbXxkyAU4f6a+5v4k9sw=@vger.kernel.org
-X-Gm-Message-State: AOJu0YwBYTCmUqGmHJqhJdFU2t10NbCBsg/t8JkLc4lIeAs/hJIWoZub
-	hYyArL9jXLZNdPeyb2mMOkT0yGQOOz8aNKaVyr5p2e0dIa8IRVya
-X-Gm-Gg: ASbGncsri8bwwcaxh9cYloAlHzWQ+6nZXaSpEzFcEYVSKud5IZetIXOEJGQtsSUcsfC
-	wHqdiITiyKJQb1pm+op8dm6+9013+IK4VekWNyYYviDt6wovhNrmKlwvgNsO6Dp+2YGYFlORUpw
-	H5E/freA1CUFulYH7nicBReSIT25kRPVDn0janlPSMvNINIJA+HU8yA/ATjjta+Pf6LSLTmi6Lz
-	ittbjlbMDzomQbf4QiVcbMdXX7kV8hbbIAqI5+QzaMRVzwmhlF5RPlCSSTE697g2mWx3hvq/w==
-X-Google-Smtp-Source: AGHT+IGRWuNlvPcQdEx1bm6cGGFNa6MWn7Lw5KH6sGaNgmNSN8jx426e1ViadlzPJdWL7CIkY48bOQ==
-X-Received: by 2002:a17:906:dc8f:b0:aab:a1a8:92be with SMTP id a640c23a62f3a-aac080feebdmr3538958466b.5.1735586668551;
-        Mon, 30 Dec 2024 11:24:28 -0800 (PST)
-Received: from smtpclient.apple ([132.69.243.32])
-        by smtp.gmail.com with ESMTPSA id a640c23a62f3a-aac0e895194sm1495899366b.70.2024.12.30.11.24.25
-        (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 30 Dec 2024 11:24:27 -0800 (PST)
-Content-Type: text/plain;
-	charset=utf-8
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3826.300.87.4.3\))
-Subject: Re: [PATCH 09/12] x86/mm: enable broadcast TLB invalidation for
- multi-threaded processes
-From: Nadav Amit <nadav.amit@gmail.com>
-In-Reply-To: <20241230175550.4046587-10-riel@surriel.com>
-Date: Mon, 30 Dec 2024 21:24:13 +0200
-Cc: the arch/x86 maintainers <x86@kernel.org>,
- Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
- kernel-team@meta.com,
- Dave Hansen <dave.hansen@linux.intel.com>,
- luto@kernel.org,
- peterz@infradead.org,
- Thomas Gleixner <tglx@linutronix.de>,
- Ingo Molnar <mingo@redhat.com>,
- Borislav Petkov <bp@alien8.de>,
- "H. Peter Anvin" <hpa@zytor.com>,
- Andrew Morton <akpm@linux-foundation.org>,
- zhengqi.arch@bytedance.com,
- "open list:MEMORY MANAGEMENT" <linux-mm@kvack.org>
-Content-Transfer-Encoding: quoted-printable
-Message-Id: <E03A9B6B-8DB3-4777-A458-E6DC85E2EF9E@gmail.com>
-References: <20241230175550.4046587-1-riel@surriel.com>
- <20241230175550.4046587-10-riel@surriel.com>
-To: Rik van Riel <riel@surriel.com>
-X-Mailer: Apple Mail (2.3826.300.87.4.3)
-
-
-
-> On 30 Dec 2024, at 19:53, Rik van Riel <riel@surriel.com> wrote:
->=20
-> Use broadcast TLB invalidation, using the INVPLGB instruction, on AMD =
-EPYC 3
-> and newer CPUs.
->=20
-> In order to not exhaust PCID space, and keep TLB flushes local for =
-single
-> threaded processes, we only hand out broadcast ASIDs to processes =
-active on
-> 3 or more CPUs, and gradually increase the threshold as broadcast ASID =
-space
-> is depleted.
->=20
-> Signed-off-by: Rik van Riel <riel@surriel.com>
-> ---
->=20
-
-[snip]
-
-> --- a/arch/x86/include/asm/mmu_context.h
-> +++ b/arch/x86/include/asm/mmu_context.h
-> @@ -139,6 +139,8 @@ static inline void mm_reset_untag_mask(struct =
-mm_struct *mm)
-> #define enter_lazy_tlb enter_lazy_tlb
-> extern void enter_lazy_tlb(struct mm_struct *mm, struct task_struct =
-*tsk);
->=20
-> +extern void destroy_context_free_broadcast_asid(struct mm_struct =
-*mm);
-> +
-> /*
->  * Init a new mm.  Used on mm copies, like at fork()
->  * and on mm's that are brand-new, like at execve().
-> @@ -161,6 +163,13 @@ static inline int init_new_context(struct =
-task_struct *tsk,
-> 		mm->context.execute_only_pkey =3D -1;
-> 	}
-> #endif
-> +
-> +#ifdef CONFIG_CPU_SUP_AMD
-> +	INIT_LIST_HEAD(&mm->context.broadcast_asid_list);
-> +	mm->context.broadcast_asid =3D 0;
-> +	mm->context.asid_transition =3D false;
-> +#endif
-> +
-> 	mm_reset_untag_mask(mm);
-> 	init_new_context_ldt(mm);
-> 	return 0;
-> @@ -170,6 +179,9 @@ static inline int init_new_context(struct =
-task_struct *tsk,
-> static inline void destroy_context(struct mm_struct *mm)
-> {
-> 	destroy_context_ldt(mm);
-> +#ifdef CONFIG_CPU_SUP_AMD
-> +	destroy_context_free_broadcast_asid(mm);
-> +#endif
-
-This ifdef=E2=80=99ry is not great. I think it=E2=80=99s better to have =
-entire functions
-in ifdef than put ifdef=E2=80=99s within the code.=20
-
-> }
->=20
-> extern void switch_mm(struct mm_struct *prev, struct mm_struct *next,
-> diff --git a/arch/x86/include/asm/tlbflush.h =
-b/arch/x86/include/asm/tlbflush.h
-> index 20074f17fbcd..5e9956af98d1 100644
-> --- a/arch/x86/include/asm/tlbflush.h
-> +++ b/arch/x86/include/asm/tlbflush.h
-> @@ -65,6 +65,23 @@ static inline void cr4_clear_bits(unsigned long =
-mask)
->  */
-> #define TLB_NR_DYN_ASIDS	6
->=20
-> +#ifdef CONFIG_CPU_SUP_AMD
-> +#define is_dyn_asid(asid) (asid) < TLB_NR_DYN_ASIDS
-> +#define is_broadcast_asid(asid) (asid) >=3D TLB_NR_DYN_ASIDS
-> +#define in_asid_transition(info) (info->mm && =
-info->mm->context.asid_transition)
-> +#define mm_broadcast_asid(mm) (mm->context.broadcast_asid)
-> +#else
-> +#define is_dyn_asid(asid) true
-> +#define is_broadcast_asid(asid) false
-> +#define in_asid_transition(info) false
-> +#define mm_broadcast_asid(mm) 0
-
-I don=E2=80=99t see a reason why those should be #define instead of =
-inline functions.
-Arguably, those are better due to type-checking, etc. For instance =
-is_dyn_asid()
-is missing brackets to be safe.
-
-> +
-> +inline bool needs_broadcast_asid_reload(struct mm_struct *next, u16 =
-prev_asid)
-> +{
-> +	return false;
-> +}
-> +#endif
-> +
-> struct tlb_context {
-> 	u64 ctx_id;
-> 	u64 tlb_gen;
-> diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
-> index 64f1679c37e1..eb83391385ce 100644
-> --- a/arch/x86/mm/tlb.c
-> +++ b/arch/x86/mm/tlb.c
-> @@ -74,13 +74,15 @@
->  * use different names for each of them:
->  *
->  * ASID  - [0, TLB_NR_DYN_ASIDS-1]
-> - *         the canonical identifier for an mm
-> + *         the canonical identifier for an mm, dynamically allocated =
-on each CPU
-> + *         [TLB_NR_DYN_ASIDS, MAX_ASID_AVAILABLE-1]
-> + *         the canonical, global identifier for an mm, identical =
-across all CPUs
->  *
-> - * kPCID - [1, TLB_NR_DYN_ASIDS]
-> + * kPCID - [1, MAX_ASID_AVAILABLE]
->  *         the value we write into the PCID part of CR3; corresponds =
-to the
->  *         ASID+1, because PCID 0 is special.
->  *
-> - * uPCID - [2048 + 1, 2048 + TLB_NR_DYN_ASIDS]
-> + * uPCID - [2048 + 1, 2048 + MAX_ASID_AVAILABLE]
->  *         for KPTI each mm has two address spaces and thus needs two
->  *         PCID values, but we can still do with a single ASID =
-denomination
->  *         for each mm. Corresponds to kPCID + 2048.
-> @@ -225,6 +227,18 @@ static void choose_new_asid(struct mm_struct =
-*next, u64 next_tlb_gen,
-> 		return;
-> 	}
->=20
-> +	/*
-> +	 * TLB consistency for this ASID is maintained with INVLPGB;
-> +	 * TLB flushes happen even while the process isn't running.
-> +	 */
-> +#ifdef CONFIG_CPU_SUP_AMD
-I=E2=80=99m pretty sure IS_ENABLED() can be used here.
-
-> +	if (static_cpu_has(X86_FEATURE_INVLPGB) && =
-mm_broadcast_asid(next)) {
-> +		*new_asid =3D mm_broadcast_asid(next);
-
-Isn=E2=80=99t there a risk of a race changing broadcast_asid between the =
-two reads?
-
-Maybe use READ_ONCE() also since the value is modified asynchronously?=20=
-
-
-> +		*need_flush =3D false;
-> +		return;
-> +	}
-> +#endif
-> +
-> 	if (this_cpu_read(cpu_tlbstate.invalidate_other))
-> 		clear_asid_other();
->=20
-> @@ -251,6 +265,245 @@ static void choose_new_asid(struct mm_struct =
-*next, u64 next_tlb_gen,
-> 	*need_flush =3D true;
-> }
->=20
-> +#ifdef CONFIG_CPU_SUP_AMD
-> +/*
-> + * Logic for AMD INVLPGB support.
-> + */
-> +static DEFINE_RAW_SPINLOCK(broadcast_asid_lock);
-> +static u16 last_broadcast_asid =3D TLB_NR_DYN_ASIDS;
-> +static DECLARE_BITMAP(broadcast_asid_used, MAX_ASID_AVAILABLE) =3D { =
-0 };
-> +static LIST_HEAD(broadcast_asid_list);
-> +static int broadcast_asid_available =3D MAX_ASID_AVAILABLE - =
-TLB_NR_DYN_ASIDS - 1;
-
-Presumably some of these data structures are shared, and some are =
-accessed
-frequently together. Wouldn=E2=80=99t it make more sense to put them =
-inside a struct(s)
-and make it cacheline aligned?
-
-> +
-> +static void reset_broadcast_asid_space(void)
-> +{
-> +	mm_context_t *context;
-> +
-> +	lockdep_assert_held(&broadcast_asid_lock);
-> +
-> +	/*
-> +	 * Flush once when we wrap around the ASID space, so we won't =
-need
-> +	 * to flush every time we allocate an ASID for boradcast =
-flushing.
-> +	 */
-> +	invlpgb_flush_all_nonglobals();
-> +	tlbsync();
-> +
-> +	/*
-> +	 * Leave the currently used broadcast ASIDs set in the bitmap, =
-since
-> +	 * those cannot be reused before the next wraparound and flush..
-> +	 */
-> +	bitmap_clear(broadcast_asid_used, 0, MAX_ASID_AVAILABLE);
-> +	list_for_each_entry(context, &broadcast_asid_list, =
-broadcast_asid_list)
-> +		__set_bit(context->broadcast_asid, broadcast_asid_used);
-> +
-> +	last_broadcast_asid =3D TLB_NR_DYN_ASIDS;
-> +}
-> +
-> +static u16 get_broadcast_asid(void)
-> +{
-> +	lockdep_assert_held(&broadcast_asid_lock);
-> +
-> +	do {
-> +		u16 start =3D last_broadcast_asid;
-> +		u16 asid =3D find_next_zero_bit(broadcast_asid_used, =
-MAX_ASID_AVAILABLE, start);
-> +
-> +		if (asid >=3D MAX_ASID_AVAILABLE) {
-> +			reset_broadcast_asid_space();
-> +			continue;
-> +		}
-> +
-> +		/* Try claiming this broadcast ASID. */
-> +		if (!test_and_set_bit(asid, broadcast_asid_used)) {
-
-IIUC, broadcast_asid_used is always protected with broadcast_asid_lock.
-So why test_and_set_bit  ?
-
-> +			last_broadcast_asid =3D asid;
-> +			return asid;
-> +		}
-> +	} while (1);
-> +}
-> +
-> +/*
-> + * Returns true if the mm is transitioning from a CPU-local ASID to a =
-broadcast
-> + * (INVLPGB) ASID, or the other way around.
-> + */
-> +static bool needs_broadcast_asid_reload(struct mm_struct *next, u16 =
-prev_asid)
-> +{
-> +	u16 broadcast_asid =3D mm_broadcast_asid(next);
-> +
-> +	if (broadcast_asid && prev_asid !=3D broadcast_asid)
-> +		return true;
-> +
-> +	if (!broadcast_asid && is_broadcast_asid(prev_asid))
-> +		return true;
-> +
-> +	return false;
-> +}
-> +
-> +void destroy_context_free_broadcast_asid(struct mm_struct *mm)
-> +{
-> +	if (!mm->context.broadcast_asid)
-
-mm_broadcast_asid()?
-
-> +		return;
-> +
-> +	guard(raw_spinlock_irqsave)(&broadcast_asid_lock);
-> +	mm->context.broadcast_asid =3D 0;
-> +	list_del(&mm->context.broadcast_asid_list);
-> +	broadcast_asid_available++;
-> +}
-> +
-> +static bool mm_active_cpus_exceeds(struct mm_struct *mm, int =
-threshold)
-> +{
-> +	int count =3D 0;
-> +	int cpu;
-> +
-> +	if (cpumask_weight(mm_cpumask(mm)) <=3D threshold)
-> +		return false;
-> +
-> +	for_each_cpu(cpu, mm_cpumask(mm)) {
-> +		/* Skip the CPUs that aren't really running this =
-process. */
-> +		if (per_cpu(cpu_tlbstate.loaded_mm, cpu) !=3D mm)
-> +			continue;
-> +
-> +		if (per_cpu(cpu_tlbstate_shared.is_lazy, cpu))
-> +			continue;
-> +
-> +		if (++count > threshold)
-> +			return true;
-> +	}
-> +	return false;
-> +}
-> +
-> +/*
-> + * Assign a broadcast ASID to the current process, protecting against
-> + * races between multiple threads in the process.
-> + */
-> +static void use_broadcast_asid(struct mm_struct *mm)
-> +{
-> +	guard(raw_spinlock_irqsave)(&broadcast_asid_lock);
-> +
-> +	/* This process is already using broadcast TLB invalidation. */
-> +	if (mm->context.broadcast_asid)
-> +		return;
-> +
-> +	mm->context.broadcast_asid =3D get_broadcast_asid();
-
-This is read without the lock, so do you want WRITE_ONCE() here?=20
-
-> +	mm->context.asid_transition =3D true;
-
-And what about asid_transition? Presumably also need WRITE_ONCE(). But =
-more
-importantly than this theoretical compiler optimization, is there some =
-assumed
-ordering with setting broadcast_asid?
-
-> +	list_add(&mm->context.broadcast_asid_list, =
-&broadcast_asid_list);
-> +	broadcast_asid_available--;
-> +}
-> +
-> +/*
-> + * Figure out whether to assign a broadcast (global) ASID to a =
-process.
-> + * We vary the threshold by how empty or full broadcast ASID space =
-is.
-> + * 1/4 full: >=3D 4 active threads
-> + * 1/2 full: >=3D 8 active threads
-> + * 3/4 full: >=3D 16 active threads
-> + * 7/8 full: >=3D 32 active threads
-> + * etc
-> + *
-> + * This way we should never exhaust the broadcast ASID space, even on =
-very
-> + * large systems, and the processes with the largest number of active
-> + * threads should be able to use broadcast TLB invalidation.
-> + */
-> +#define HALFFULL_THRESHOLD 8
-> +static bool meets_broadcast_asid_threshold(struct mm_struct *mm)
-> +{
-> +	int avail =3D broadcast_asid_available;
-> +	int threshold =3D HALFFULL_THRESHOLD;
-> +
-> +	if (!avail)
-> +		return false;
-> +
-> +	if (avail > MAX_ASID_AVAILABLE * 3 / 4) {
-> +		threshold =3D HALFFULL_THRESHOLD / 4;
-> +	} else if (avail > MAX_ASID_AVAILABLE / 2) {
-> +		threshold =3D HALFFULL_THRESHOLD / 2;
-> +	} else if (avail < MAX_ASID_AVAILABLE / 3) {
-> +		do {
-> +			avail *=3D 2;
-> +			threshold *=3D 2;
-> +		} while ((avail + threshold) < MAX_ASID_AVAILABLE / 2);
-> +	}
-> +
-> +	return mm_active_cpus_exceeds(mm, threshold);
-> +}
-> +
-> +static void count_tlb_flush(struct mm_struct *mm)
-> +{
-> +	if (!static_cpu_has(X86_FEATURE_INVLPGB))
-> +		return;
-> +
-> +	/* Check every once in a while. */
-> +	if ((current->pid & 0x1f) !=3D (jiffies & 0x1f))
-> +		return;
-> +
-> +	if (meets_broadcast_asid_threshold(mm))
-> +		use_broadcast_asid(mm);
-> +}
-
-I don=E2=80=99t think count_tlb_flush() is a name that reflects what =
-this function
-does.
-
-> +
-> +static void finish_asid_transition(struct flush_tlb_info *info)
-> +{
-> +	struct mm_struct *mm =3D info->mm;
-> +	int bc_asid =3D mm_broadcast_asid(mm);
-> +	int cpu;
-> +
-> +	if (!mm->context.asid_transition)
-
-is_asid_transition()?
-
-
-> +		return;
-> +
-> +	for_each_cpu(cpu, mm_cpumask(mm)) {
-> +		if (READ_ONCE(per_cpu(cpu_tlbstate.loaded_mm, cpu)) !=3D =
-mm)
-> +			continue;
-> +
-> +		/*
-> +		 * If at least one CPU is not using the broadcast ASID =
-yet,
-> +		 * send a TLB flush IPI. The IPI should cause stragglers
-> +		 * to transition soon.
-> +		 */
-> +		if (per_cpu(cpu_tlbstate.loaded_mm_asid, cpu) !=3D =
-bc_asid) {
-> +			flush_tlb_multi(mm_cpumask(info->mm), info);
-> +			return;
-> +		}
-> +	}
-> +
-> +	/* All the CPUs running this process are using the broadcast =
-ASID. */
-> +	mm->context.asid_transition =3D 0;
-> +}
-> +
-> +static void broadcast_tlb_flush(struct flush_tlb_info *info)
-> +{
-> +	bool pmd =3D info->stride_shift =3D=3D PMD_SHIFT;
-> +	unsigned long maxnr =3D invlpgb_count_max;
-> +	unsigned long asid =3D info->mm->context.broadcast_asid;
-> +	unsigned long addr =3D info->start;
-> +	unsigned long nr;
-> +
-> +	/* Flushing multiple pages at once is not supported with 1GB =
-pages. */
-> +	if (info->stride_shift > PMD_SHIFT)
-> +		maxnr =3D 1;
-> +
-> +	if (info->end =3D=3D TLB_FLUSH_ALL) {
-> +		invlpgb_flush_single_pcid(kern_pcid(asid));
-> +		/* Do any CPUs supporting INVLPGB need PTI? */
-> +		if (static_cpu_has(X86_FEATURE_PTI))
-> +			invlpgb_flush_single_pcid(user_pcid(asid));
-> +	} else do {
-
-I couldn=E2=80=99t find any use of =E2=80=9Celse do=E2=80=9D in the =
-kernel. Might it be confusing?
-
-> +		/*
-> +		 * Calculate how many pages can be flushed at once; if =
-the
-> +		 * remainder of the range is less than one page, flush =
-one.
-> +		 */
-> +		nr =3D min(maxnr, (info->end - addr) >> =
-info->stride_shift);
-> +		nr =3D max(nr, 1);
-> +
-> +		invlpgb_flush_user_nr(kern_pcid(asid), addr, nr, pmd);
-> +		/* Do any CPUs supporting INVLPGB need PTI? */
-> +		if (static_cpu_has(X86_FEATURE_PTI))
-> +			invlpgb_flush_user_nr(user_pcid(asid), addr, nr, =
-pmd);
-> +		addr +=3D nr << info->stride_shift;
-> +	} while (addr < info->end);
-> +
-> +	finish_asid_transition(info);
-> +
-> +	/* Wait for the INVLPGBs kicked off above to finish. */
-> +	tlbsync();
-> +}
-> +#endif /* CONFIG_CPU_SUP_AMD */
-> +
-> /*
->  * Given an ASID, flush the corresponding user ASID.  We can delay =
-this
->  * until the next time we switch to it.
-> @@ -556,8 +809,9 @@ void switch_mm_irqs_off(struct mm_struct *unused, =
-struct mm_struct *next,
-> 	 */
-> 	if (prev =3D=3D next) {
-> 		/* Not actually switching mm's */
-> -		=
-VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[prev_asid].ctx_id) !=3D
-> -			   next->context.ctx_id);
-> +		if (is_dyn_asid(prev_asid))
-> +			=
-VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[prev_asid].ctx_id) !=3D
-> +				   next->context.ctx_id);
-
-Why not to add the condition into the VM_WARN_ON and avoid the nesting?
-
->=20
-> 		/*
-> 		 * If this races with another thread that enables lam, =
-'new_lam'
-> @@ -573,6 +827,23 @@ void switch_mm_irqs_off(struct mm_struct *unused, =
-struct mm_struct *next,
-> 				 !cpumask_test_cpu(cpu, =
-mm_cpumask(next))))
-> 			cpumask_set_cpu(cpu, mm_cpumask(next));
->=20
-> +		/*
-> +		 * Check if the current mm is transitioning to a new =
-ASID.
-> +		 */
-> +		if (needs_broadcast_asid_reload(next, prev_asid)) {
-> +			next_tlb_gen =3D =
-atomic64_read(&next->context.tlb_gen);
-> +
-> +			choose_new_asid(next, next_tlb_gen, &new_asid, =
-&need_flush);
-> +			goto reload_tlb;
-> +		}
-> +
-> +		/*
-> +		 * Broadcast TLB invalidation keeps this PCID up to date
-> +		 * all the time.
-> +		 */
-> +		if (is_broadcast_asid(prev_asid))
-> +			return;
-> +
-> 		/*
-> 		 * If the CPU is not in lazy TLB mode, we are just =
-switching
-> 		 * from one thread in a process to another thread in the =
-same
-> @@ -626,8 +897,10 @@ void switch_mm_irqs_off(struct mm_struct *unused, =
-struct mm_struct *next,
-> 		barrier();
-> 	}
->=20
-> +reload_tlb:
-> 	new_lam =3D mm_lam_cr3_mask(next);
-> 	if (need_flush) {
-> +		VM_BUG_ON(is_broadcast_asid(new_asid));
-> 		this_cpu_write(cpu_tlbstate.ctxs[new_asid].ctx_id, =
-next->context.ctx_id);
-> 		this_cpu_write(cpu_tlbstate.ctxs[new_asid].tlb_gen, =
-next_tlb_gen);
-> 		load_new_mm_cr3(next->pgd, new_asid, new_lam, true);
-> @@ -746,7 +1019,7 @@ static void flush_tlb_func(void *info)
-> 	const struct flush_tlb_info *f =3D info;
-> 	struct mm_struct *loaded_mm =3D =
-this_cpu_read(cpu_tlbstate.loaded_mm);
-> 	u32 loaded_mm_asid =3D =
-this_cpu_read(cpu_tlbstate.loaded_mm_asid);
-> -	u64 local_tlb_gen =3D =
-this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
-> +	u64 local_tlb_gen;
-> 	bool local =3D smp_processor_id() =3D=3D f->initiating_cpu;
-> 	unsigned long nr_invalidate =3D 0;
-> 	u64 mm_tlb_gen;
-> @@ -769,6 +1042,16 @@ static void flush_tlb_func(void *info)
-> 	if (unlikely(loaded_mm =3D=3D &init_mm))
-> 		return;
->=20
-> +	/* Reload the ASID if transitioning into or out of a broadcast =
-ASID */
-> +	if (needs_broadcast_asid_reload(loaded_mm, loaded_mm_asid)) {
-> +		switch_mm_irqs_off(NULL, loaded_mm, NULL);
-> +		loaded_mm_asid =3D =
-this_cpu_read(cpu_tlbstate.loaded_mm_asid);
-> +	}
-> +
-> +	/* Broadcast ASIDs are always kept up to date with INVLPGB. */
-> +	if (is_broadcast_asid(loaded_mm_asid))
-> +		return;
-> +
-> 	=
-VM_WARN_ON(this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].ctx_id) !=3D
-> 		   loaded_mm->context.ctx_id);
->=20
-> @@ -786,6 +1069,8 @@ static void flush_tlb_func(void *info)
-> 		return;
-> 	}
->=20
-> +	local_tlb_gen =3D =
-this_cpu_read(cpu_tlbstate.ctxs[loaded_mm_asid].tlb_gen);
-> +
-> 	if (unlikely(f->new_tlb_gen !=3D TLB_GENERATION_INVALID &&
-> 		     f->new_tlb_gen <=3D local_tlb_gen)) {
-> 		/*
-> @@ -953,7 +1238,7 @@ STATIC_NOPV void native_flush_tlb_multi(const =
-struct cpumask *cpumask,
-> 	 * up on the new contents of what used to be page tables, while
-> 	 * doing a speculative memory access.
-> 	 */
-> -	if (info->freed_tables)
-> +	if (info->freed_tables || in_asid_transition(info))
-> 		on_each_cpu_mask(cpumask, flush_tlb_func, (void *)info, =
-true);
-> 	else
-> 		on_each_cpu_cond_mask(should_flush_tlb, flush_tlb_func,
-> @@ -1026,14 +1311,18 @@ void flush_tlb_mm_range(struct mm_struct *mm, =
-unsigned long start,
-> 				bool freed_tables)
-> {
-> 	struct flush_tlb_info *info;
-> +	unsigned long threshold =3D tlb_single_page_flush_ceiling;
-> 	u64 new_tlb_gen;
-> 	int cpu;
->=20
-> +	if (static_cpu_has(X86_FEATURE_INVLPGB))
-> +		threshold *=3D invlpgb_count_max;
-
-I know it=E2=80=99s not really impacting performance, but it is hard for =
-me to see
-such calculations happening unnecessarily every time...
-
-
-From mboxrd@z Thu Jan  1 00:00:00 1970
-Received: from mail-pl1-f175.google.com (mail-pl1-f175.google.com [209.85.214.175])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 449AD28E7
-	for <linux-kernel@vger.kernel.org>; Tue, 31 Dec 2024 03:18:51 +0000 (UTC)
-Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=209.85.214.175
-ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
-	t=1735615137; cv=none; b=KGsA1kUpGU5a33WBUU1hzHtDdrPeC2yVGKa1kPqxoL5AglASV2v/yBwU2qU7MFf8lJnuGhxa9Vpbilj1O+xx6yBNDuR/769HOkwcMoCF65Ig50Ba+YNuMIExeiIlPPZIwZCzmTN5F2sgosC2ZstPv11bz48pyOaPXsUBvj9iZqU=
-ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
-	s=arc-20240116; t=1735615137; c=relaxed/simple;
-	bh=ZiaPTVhOCTgacMTOc7mRE4UMEXiVw2+C1pm7qGGRugY=;
-	h=Message-ID:Date:MIME-Version:Subject:To:Cc:References:From:
-	 In-Reply-To:Content-Type; b=kYSht2ODJz18gW6eiiL7ZgGh0Of85n0427VdG62EonL9hqDtq2oDhH7V+pcWQBKCcIpHcz1S7QfKiIl91HayFS5mAtU6ds2J1cct3z3h0mEjyavXXT9hpzl89cZQaBi2ujuNLxbDZPysg6+vzKq2XJd2q+ZWywWACet0/yl/1eE=
-ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=bytedance.com; spf=pass smtp.mailfrom=bytedance.com; dkim=pass (2048-bit key) header.d=bytedance.com header.i=@bytedance.com header.b=bP2k04Rk; arc=none smtp.client-ip=209.85.214.175
-Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=quarantine dis=none) header.from=bytedance.com
-Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=bytedance.com
-Authentication-Results: smtp.subspace.kernel.org;
-	dkim=pass (2048-bit key) header.d=bytedance.com header.i=@bytedance.com header.b="bP2k04Rk"
-Received: by mail-pl1-f175.google.com with SMTP id d9443c01a7336-216634dd574so85229865ad.2
-        for <linux-kernel@vger.kernel.org>; Mon, 30 Dec 2024 19:18:51 -0800 (PST)
-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=bytedance.com; s=google; t=1735615131; x=1736219931; darn=vger.kernel.org;
-        h=content-transfer-encoding:in-reply-to:from:references:cc:to
-         :content-language:subject:user-agent:mime-version:date:message-id
-         :from:to:cc:subject:date:message-id:reply-to;
-        bh=7zo370Vm/uei4aMsevMaKzbPlMUBBOnYJ/SJhXkOZws=;
-        b=bP2k04RkuBQ6DYHf9+lGsY3VCvWpBm3xw3z2Y+5y6ukH5kqpaqaqGBU2IYk//YBJKX
-         muOPi2QMbSUQnIKNBqS7uM4fNAWTA5fYafMEP3oq315aF2b/5IQ/jrlgqsNHCqzD+ynq
-         JEmxYMVSv3CpDI3207azrq+mxduhgjkWkDb9TRxcqWQvT/zhvktNWOmPzx3IAHOR1/vS
-         j+gtG5hZD793oDjsebDSGwejGkiaa29cHW7Ks9WdGMLYJY3p5w1jSeFiUm04bI7hDcAn
-         YYkXEO7pDNX1OeImKa9HpuMGaPJxLjQ0+iwC0GLYbx3X1M7/R3dl5FAodgKMqsxlmsl4
-         hNHA==
-X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
-        d=1e100.net; s=20230601; t=1735615131; x=1736219931;
-        h=content-transfer-encoding:in-reply-to:from:references:cc:to
-         :content-language:subject:user-agent:mime-version:date:message-id
-         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;
-        bh=7zo370Vm/uei4aMsevMaKzbPlMUBBOnYJ/SJhXkOZws=;
-        b=gFZxNqcXu2X5qiQUC3ZfcG2iFveycJ21tUw93QUogfjIghPrCRmZ/9BPM4X38bhbHI
-         AoXpLzzSKFHVtHSIBhtabboXs5l7+m2xyHMjYU/YsKlhPQa1vsOKCJurSe9CnwXXxDSG
-         lGAAgBheENH4HJ22ionqO+ERSGRj7Vel8Iwm60rFAL28gDUw/5o7Qm45lSr+AD/ota80
-         dpBNX3vKs44aMxen5Zfu+C2CTWGVlZEkaFuXXS7B3GWmZDjxjybWGTMgTWkN0OGnNUvW
-         J7cwah7GAj1U6QAfDwX+rtM32M4/QK3ZWb7EaP3vbW7sQwZRUAXTV1KZtlB9nasMMRlU
-         FK1w==
-X-Forwarded-Encrypted: i=1; AJvYcCW0pHHVDmEFTQ8NHQL1FQzMTML+MrnxMdthzBdkJVlgtjgz0YAmNVAdu2voTnBwr/tcW1tBxeqTwUDitW4=@vger.kernel.org
-X-Gm-Message-State: AOJu0YzWm2j2iGEVZ2AoHwJxVQs5FJWpB2q1HXe26hQajqH27GNKHc3y
-	JZxpNvhwpwfp52GFmx7zJnDVgmw9gOuk9LPBuNw1QoPHTGzD2BU1xNqhtFCZYVA=
-X-Gm-Gg: ASbGncslbLxnJAC4X1JIORHAd0tZm1IKTrzmuf4XuG7kBIE1ssnz1227OZ6priYEf+P
-	yVo040ZPjhE0sugj1c6O41WrIfP00ToaEEG1rjH2IP9M4kj6uE9Als/RyJhYKzWmxFc7gF9/NMg
-	3cLrmspDTrtaLuqYZDwcd1zV44+vgs8H40bO5+di9RHMVcp2kWwCNHm3KqP1CuDkLE+RvLQnbmT
-	RkZbDuSZTwXrjyIQZHLnC/9VZxYpIBwqjbDy5vnC6GQ2vZQTDjBn4jShJ4DaX4612++3nH27X1a
-	NijLqg==
-X-Google-Smtp-Source: AGHT+IHUFtnFGBUg9VKIMxQ9+h2qGO/fJ57n3azK0YDNIIwaL951XSJv1sYjQ9BPoBGXxPbZUmpqXA==
-X-Received: by 2002:a17:902:f606:b0:20b:7210:5859 with SMTP id d9443c01a7336-219e6f1457bmr582787485ad.38.1735615131505;
-        Mon, 30 Dec 2024 19:18:51 -0800 (PST)
-Received: from [10.84.148.23] ([203.208.167.148])
-        by smtp.gmail.com with ESMTPSA id d9443c01a7336-219dc9f6285sm185590235ad.215.2024.12.30.19.18.46
-        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
-        Mon, 30 Dec 2024 19:18:51 -0800 (PST)
-Message-ID: <9f44fb9a-353b-4d50-b2de-497c87fcbb97@bytedance.com>
-Date: Tue, 31 Dec 2024 11:18:43 +0800
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-List-Id: <linux-kernel.vger.kernel.org>
-List-Subscribe: <mailto:linux-kernel+subscribe@vger.kernel.org>
-List-Unsubscribe: <mailto:linux-kernel+unsubscribe@vger.kernel.org>
-MIME-Version: 1.0
-User-Agent: Mozilla Thunderbird
-Subject: Re: [PATCH 02/12] x86/mm: remove pv_ops.mmu.tlb_remove_table call
-Content-Language: en-US
-To: Rik van Riel <riel@surriel.com>
-Cc: x86@kernel.org, linux-kernel@vger.kernel.org, kernel-team@meta.com,
- dave.hansen@linux.intel.com, luto@kernel.org, peterz@infradead.org,
- tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com,
- akpm@linux-foundation.org, nadav.amit@gmail.com, zhengqi.arch@bytedance.com,
- linux-mm@kvack.org
-References: <20241230175550.4046587-1-riel@surriel.com>
- <20241230175550.4046587-3-riel@surriel.com>
-From: Qi Zheng <zhengqi.arch@bytedance.com>
-In-Reply-To: <20241230175550.4046587-3-riel@surriel.com>
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-
-
-
-On 2024/12/31 01:53, Rik van Riel wrote:
-> Every pv_ops.mmu.tlb_remove_table call ends up calling tlb_remove_table.
-> 
-> Get rid of the indirection by simply calling tlb_remove_table directly,
-> and not going through the paravirt function pointers.
-> 
-> Signed-off-by: Rik van Riel <riel@surriel.com>
-> Suggested-by: Qi Zheng <zhengqi.arch@bytedance.com>
-> ---
->   arch/x86/hyperv/mmu.c                 |  1 -
->   arch/x86/include/asm/paravirt.h       |  5 -----
->   arch/x86/include/asm/paravirt_types.h |  2 --
->   arch/x86/kernel/kvm.c                 |  1 -
->   arch/x86/kernel/paravirt.c            |  1 -
->   arch/x86/mm/pgtable.c                 | 16 ++++------------
->   arch/x86/xen/mmu_pv.c                 |  1 -
->   7 files changed, 4 insertions(+), 23 deletions(-)
-
-This change looks good to me. Thanks!
-
-In addition, since I also made relevant changes [1], there will be
-conflict when our code is merged into the linux-next branch. Of course,
-this is very easy to fix. ;)
-
-[1]. 
-https://lore.kernel.org/all/0287d442a973150b0e1019cc406e6322d148277a.1733305182.git.zhengqi.arch@bytedance.com/
-(This patch has been merged into the mm-unstable branch, and we can
-also see it in the linux-next: 
-https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/commit/?id=62e76fb4ff704945b5cf9411dda448fefb6618f9)
-
-Thanks,
-Qi
-
+2.47.1
 
