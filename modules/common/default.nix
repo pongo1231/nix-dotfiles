@@ -63,9 +63,8 @@
         "vm.dirty_background_bytes" = 134217728;
         "fs.inotify.max_user_instances" = 1024;
 
-        # Those should be defaults usually
         "vm.compact_unevictable_allowed" = 1;
-        "vm.compaction_proactiveness" = 20;
+        "vm.compaction_proactiveness" = 0;
 
         "kernel.split_lock_mitigate" = 0;
       };
