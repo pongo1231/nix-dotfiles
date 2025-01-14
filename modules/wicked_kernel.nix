@@ -13,8 +13,8 @@
 
   nixpkgs.overlays = [
     (final: prev: {
-      linuxPackages_wicked = final.kernel.linuxPackages_testing.extend (finalAttrs: prevAttrs: {
-        kernel = prevAttrs.kernel.override (prevAttrs': {
+      linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
+        /*kernel = prevAttrs.kernel.override (prevAttrs': {
           #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
           ignoreConfigErrors = true;
           argsOverride =
@@ -24,17 +24,17 @@
             {
               inherit version;
               modDirVersion = "6.13.0-rc7";
-              /*src = pkgs.fetchgit {
+              src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "059dd502b263d8a4e2a84809cf1068d6a3905e6f";
-                hash = "sha256-8s0nj3g58v9SoMgAz3LHqImiljlgWeQ9e8fBUnDg2Us=";
-              };*/
-              src = pkgs.fetchzip {
-                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                hash = "sha256-QARyMteJ8iR0lKF3DG7SExgtDBDvvF3xbfPeGUFbiYk=";
+                rev = "c45323b7560ec87c37c729b703c86ee65f136d75";
+                hash = "sha256-t0ZyarZYT+MCLpQ4ObxC4bBcQeqjVyLC0t1GOLn7QDg=";
               };
-            };
-        });
+              /*src = pkgs.fetchzip {
+                url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                hash = "";
+              };*/
+            /*};
+        });*/
 
         xpadneo = prevAttrs.xpadneo.overrideAttrs (finalAttrs': prevAttrs': {
           src = final.fetchFromGitHub {
@@ -72,18 +72,18 @@
       [
         {
           name = "cachyos";
-          patch = patch /linux/6.13/cachyos.patch;
+          patch = patch /linux/6.12/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
         }
-        {
+        /*{
           name = "HAS_EXECMEM_ROX";
           patch = null;
           extraConfig = ''
             HAS_EXECMEM_ROX y
           '';
-        }
+        }*/
         /*{
           name = "dgpu passthrough fix";
           patch = null;
@@ -223,15 +223,15 @@
         }*/
         {
           name = "BORE";
-          patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.5.patch;
+          patch = patch /linux/6.12/0001-linux6.12.y-bore5.9.5.patch;
         }
-        {
+        /*{
           name = "mm-unstable";
           patch = patch /linux/6.13/mm-unstable.patch;
           extraConfig = ''
             PT_RECLAIM y
           '';
-        }
+        }*/
         /*{
           name = "mglru-optimizations";
           patch = patch /linux/6.13/mglru-optimizations.patch;
@@ -248,10 +248,10 @@
           name = "uncached-buffered-io-optimizations";
           patch = patch /linux/6.13/uncached-buffered-io-optimizations.patch;
         }*/
-        {
+        /*{
           name = "binder-optimizations";
           patch = patch /linux/6.13/binder-optimizations.patch;
-        }
+        }*/
         /*{
           name = "xhci-improvements";
           patch = patch /linux/6.13/xhci-improvements.patch;
@@ -266,8 +266,8 @@
         }*/
         {
           name = "jupiter-mfd";
-          #patch = patch /linux/6.12/jupiter-mfd.patch;
-          patch = null;
+          patch = patch /linux/6.12/jupiter-mfd.patch;
+          #patch = null;
           extraConfig = ''
             LEDS_STEAMDECK m
             EXTCON_STEAMDECK m
