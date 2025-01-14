@@ -33,7 +33,7 @@
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "";
               };*/
-            /*};
+        /*};
         });*/
 
         xpadneo = prevAttrs.xpadneo.overrideAttrs (finalAttrs': prevAttrs': {

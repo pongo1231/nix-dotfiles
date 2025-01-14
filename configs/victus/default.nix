@@ -79,7 +79,8 @@
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [
-      (kvmfr/*.overrideAttrs (finalAttrs: prevAttrs: {
+      (
+        kvmfr/*.overrideAttrs (finalAttrs: prevAttrs: {
         src = pkgs.fetchFromGitHub {
           owner = "gnif";
           repo = "LookingGlass";
@@ -87,7 +88,8 @@
           hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
         };
         patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
-      })*/)
+      })*/
+      )
       hp-omen-linux-module
       ryzen-smu
     ];
