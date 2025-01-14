@@ -71,7 +71,6 @@ installPhase() {
         rm -f $i/lib/lib{glx,nvidia-wfb}.so.* # handled separately
         rm -f $i/lib/libnvidia-gtk* # built from source
         rm -f $i/lib/libnvidia-wayland-client* # built from source
-        rm $i/lib/libEGL.so.* $i/lib/libGLX.so.*
         if [ "$useGLVND" = "1" ]; then
             # Pre-built libglvnd
             rm $i/lib/lib{GL,GLX,EGL,GLESv1_CM,GLESv2,OpenGL,GLdispatch}.so.*
@@ -115,7 +114,6 @@ installPhase() {
         fi
 
         # EGL
-        : '
         if [ "$useGLVND" = "1" ]; then
             mkdir -p "$i/share/egl/egl_external_platform.d"
             for icdname in $(find . -name '*_nvidia*.json')
@@ -132,7 +130,9 @@ installPhase() {
               ln -s $i/lib/libnvidia-allocator.so $i/lib/gbm/nvidia-drm_gbm.so
             fi
         fi
-        '
+
+        # Custom
+        rm -rf $i/share/egl $i/share/glvnd
 
         # Install libraries needed by Proton to support DLSS
         if [ -e nvngx.dll ] && [ -e _nvngx.dll ]; then
