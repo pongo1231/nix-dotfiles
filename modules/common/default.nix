@@ -64,7 +64,7 @@
         "fs.inotify.max_user_instances" = 1024;
 
         "vm.compact_unevictable_allowed" = 1;
-        "vm.compaction_proactiveness" = 0;
+        "vm.compaction_proactiveness" = 20;
 
         "kernel.split_lock_mitigate" = 0;
       };
