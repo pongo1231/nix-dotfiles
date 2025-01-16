@@ -166,7 +166,15 @@
   environment = {
     systemPackages = with pkgs; [
       virtiofsd
-      kde-rounded-corners
+      (kde-rounded-corners.overrideAttrs
+        (finalAttrs: prevAttrs: {
+          src = pkgs.fetchFromGitHub {
+            owner = "matinlotfali";
+            repo = "KDE-Rounded-Corners";
+            rev = "53980a5dd5d0a24422cdd9aaea84c3b3ebcab545";
+            hash = "sha256-6uSgYFY+JV8UCy3j9U/hjk6wJpD1XqpnXBqmKVi/2W0=";
+          };
+        }))
       freerdp
       inputs.winapps.packages.${system}.winapps
       inputs.winapps.packages.${system}.winapps-launcher
