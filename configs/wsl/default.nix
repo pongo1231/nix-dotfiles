@@ -26,17 +26,11 @@
 
   wsl = {
     enable = true;
-
     defaultUser = "pongo";
-
     usbip.enable = true;
-
     useWindowsDriver = true;
-
     nativeSystemd = true;
-
     startMenuLaunchers = true;
-
     interop.register = true;
   };
 
@@ -49,4 +43,8 @@
   };
 
   services.resolved.enable = false;
+
+  environment.systemPackages = [
+    pkgs.wget # for vs code server
+  ];
 }
