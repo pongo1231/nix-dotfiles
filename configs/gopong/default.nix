@@ -58,6 +58,9 @@
         forceSSL = true;
         enableACME = true;
         locations."/".proxyPass = "https://gopong.dev:9907";
+        extraConfig = ''
+          client_max_body_size 50M;
+        '';
       };
 
       "habbo.gopong.dev" = {
