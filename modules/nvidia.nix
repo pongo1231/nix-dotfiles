@@ -14,7 +14,7 @@
   '';*/
 
   hardware.nvidia = {
-    package = (config.boot.kernelPackages/*.extend
+    package = (config.boot.kernelPackages.extend
       (finalAttrs: prevAttrs:
         let generic = args: finalAttrs.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args) { };
         in {
@@ -62,10 +62,11 @@
               #settings = prevAttrs'.passthru.settings.overrideAttrs (prevAttrs'': {});
             };
           });
-        }))*/.nvidiaPackages.beta.overrideAttrs (finalAttrs': prevAttrs': {
-      # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-      builder = (patch /nvidia/builder.sh);
-    }));
+        })).nvidiaPackages.production/*.overrideAttrs
+      (finalAttrs': prevAttrs': {
+        # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
+        builder = (patch /nvidia/builder.sh);
+      }))*/;
     modesetting.enable = true;
     #nvidiaPersistenced = true;
     open = true; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)

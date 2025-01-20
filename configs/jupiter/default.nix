@@ -1,4 +1,5 @@
-{ inputs
+{ system
+, inputs
 , module
 , patch
 , config
@@ -91,6 +92,7 @@ in
 
     sunshine = {
       enable = true;
+      package = inputs.nixpkgs-stable.legacyPackages.${system}.sunshine;
       capSysAdmin = true;
       autoStart = false;
     };

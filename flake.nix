@@ -46,14 +46,14 @@
             inputs.nixpkgs.lib.nixosSystem
               {
                 specialArgs = specialArgs // {
-                  inherit inputs;
+                  inherit system inputs;
                 };
 
                 modules = [
                   (_: {
                     nixpkgs.overlays = [
                       (import ./overlay.nix {
-                        inherit inputs system;
+                        inherit system inputs;
                         inherit (specialArgs) pkg;
                         inherit (inputs.nixpkgs) lib;
                       })

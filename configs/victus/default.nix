@@ -1,4 +1,5 @@
-{ inputs
+{ system
+, inputs
 , module
 , patch
 , pkg
@@ -80,15 +81,15 @@
 
     extraModulePackages = with config.boot.kernelPackages; [
       (
-        kvmfr/*.overrideAttrs (finalAttrs: prevAttrs: {
-        src = pkgs.fetchFromGitHub {
-          owner = "gnif";
-          repo = "LookingGlass";
-          rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
-          hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
-        };
-        patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
-      })*/
+        kvmfr.overrideAttrs (finalAttrs: prevAttrs: {
+          src = pkgs.fetchFromGitHub {
+            owner = "gnif";
+            repo = "LookingGlass";
+            rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
+            hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
+          };
+          patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
+        })
       )
       hp-omen-linux-module
       ryzen-smu
@@ -144,6 +145,7 @@
 
     sunshine = {
       enable = true;
+      package = inputs.nixpkgs-stable.legacyPackages.${system}.sunshine;
       capSysAdmin = true;
       autoStart = false;
     };

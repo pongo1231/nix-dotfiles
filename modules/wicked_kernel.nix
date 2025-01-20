@@ -72,7 +72,7 @@
       [
         {
           name = "cachyos";
-          patch = patch /linux/6.12/cachyos.patch;
+          patch = patch /linux/6.13/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
@@ -223,7 +223,7 @@
         }*/
         {
           name = "BORE";
-          patch = patch /linux/6.12/0001-linux6.12.y-bore5.9.5.patch;
+          patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.6.patch;
         }
         /*{
           name = "mm-unstable";
@@ -248,10 +248,10 @@
           name = "uncached-buffered-io-optimizations";
           patch = patch /linux/6.13/uncached-buffered-io-optimizations.patch;
         }*/
-        /*{
+        {
           name = "binder-optimizations";
           patch = patch /linux/6.13/binder-optimizations.patch;
-        }*/
+        }
         /*{
           name = "xhci-improvements";
           patch = patch /linux/6.13/xhci-improvements.patch;
@@ -264,13 +264,17 @@
           name = "crypto";
           patch = patch /linux/6.13/crypto.patch;
         }*/
+        /*{
+          name = "sched-improvements";
+          patch = patch /linux/6.13/sched-improvements.patch;
+        }*/
         {
           name = "jupiter-mfd";
-          patch = patch /linux/6.12/jupiter-mfd.patch;
-          #patch = null;
+          #patch = patch /linux/6.12/jupiter-mfd.patch;
+          patch = null;
           extraConfig = ''
             LEDS_STEAMDECK m
-            EXTCON_STEAMDECK m
+            #EXTCON_STEAMDECK m
             MFD_STEAMDECK m
             SENSORS_STEAMDECK m
           '';

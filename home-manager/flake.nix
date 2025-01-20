@@ -36,39 +36,43 @@
       commonUsers = [
         "pongo"
       ];
-      commonConfig = { info, user, config ? null, userConfig ? null }: inputs.home-manager.lib.homeManagerConfiguration {
-        pkgs = inputs.nixpkgs.legacyPackages.${if info ? system && info.system != null then info.system else "x86_64-linux"};
+      commonConfig = { info, user, config ? null, userConfig ? null }:
+        let
+          system = if info ? system && info.system != null then info.system else "x86_64-linux";
+        in
+        inputs.home-manager.lib.homeManagerConfiguration {
+          pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-        extraSpecialArgs = {
-          inherit inputs;
-          module = file: modules/${file};
-          patch = file: patches/${file};
+          extraSpecialArgs = {
+            inherit system inputs;
+            module = file: modules/${file};
+            patch = file: patches/${file};
+          };
+
+          modules = [
+            inputs.nix-index-database.hmModules.nix-index
+
+            (_: {
+              nixpkgs.overlays = [
+                (import ./overlay.nix { })
+              ];
+
+              home = {
+                username = user;
+                homeDirectory = "/home/${user}";
+              };
+            })
+
+            ./nix.nix
+            ./modules/common
+          ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
+            ./modules/${info.type}
+          ] ++ inputs.nixpkgs.lib.optionals (config != null) [
+            config
+          ] ++ inputs.nixpkgs.lib.optionals (userConfig != null) [
+            userConfig
+          ];
         };
-
-        modules = [
-          inputs.nix-index-database.hmModules.nix-index
-
-          (_: {
-            nixpkgs.overlays = [
-              (import ./overlay.nix { })
-            ];
-
-            home = {
-              username = user;
-              homeDirectory = "/home/${user}";
-            };
-          })
-
-          ./nix.nix
-          ./modules/common
-        ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
-          ./modules/${info.type}
-        ] ++ inputs.nixpkgs.lib.optionals (config != null) [
-          config
-        ] ++ inputs.nixpkgs.lib.optionals (userConfig != null) [
-          userConfig
-        ];
-      };
     in
     {
       homeConfigurations = inputs.nixpkgs.lib.foldlAttrs
