@@ -14,27 +14,27 @@
   nixpkgs.overlays = [
     (final: prev: {
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
-        /*kernel = prevAttrs.kernel.override (prevAttrs': {
+        kernel = prevAttrs.kernel.override (prevAttrs': {
           #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
           ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc7";
+              version = "6.14-git";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc7";
+              modDirVersion = "6.13.0";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "c45323b7560ec87c37c729b703c86ee65f136d75";
-                hash = "sha256-t0ZyarZYT+MCLpQ4ObxC4bBcQeqjVyLC0t1GOLn7QDg=";
+                rev = "c4b9570cfb63501638db720f3bee9f6dfd044b82";
+                hash = "sha256-y9zKzUXb2U7k3yImfq3DYTX3sghQ7+/6xz0M059tyRo=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "";
               };*/
-        /*};
-        });*/
+            };
+        });
 
         xpadneo = prevAttrs.xpadneo.overrideAttrs (finalAttrs': prevAttrs': {
           src = final.fetchFromGitHub {
@@ -70,13 +70,13 @@
         '';
       in
       [
-        {
+        /*{
           name = "cachyos";
           patch = patch /linux/6.13/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
-        }
+        }*/
         /*{
           name = "HAS_EXECMEM_ROX";
           patch = null;
@@ -152,7 +152,7 @@
           name = "kcore-optimizations";
           patch = patch /linux/6.12/kcore-optimizations.patch;
         }*/
-        /*{
+        {
           name = "amd-color-management";
           patch = pkgs.fetchpatch {
             url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
@@ -161,7 +161,7 @@
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
-        }*/
+        }
         /*{
           name = "faster-suspend-resume";
           patch = patch /linux/6.12/PATCH-v1-0-5-Optimize-async-device-suspend-resume.patch;
@@ -221,10 +221,10 @@
             ARCH_HAS_EXECMEM_ROX y
           '';
         }*/
-        {
+        /*{
           name = "BORE";
           patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.6.patch;
-        }
+        }*/
         /*{
           name = "mm-unstable";
           patch = patch /linux/6.13/mm-unstable.patch;
@@ -268,13 +268,21 @@
           name = "sched-improvements";
           patch = patch /linux/6.13/sched-improvements.patch;
         }*/
+        /*{
+          name = "tlb-flush-optimization";
+          patch = patch /linux/6.13/tlb-flush-optimization.patch;
+        }*/
+        /*{
+          name = "sched-core-2025-01-21";
+          patch = patch /linux/6.13/sched-core-2025-01-21.patch;
+        }*/
         {
           name = "jupiter-mfd";
-          #patch = patch /linux/6.12/jupiter-mfd.patch;
-          patch = null;
+          patch = patch /linux/6.12/jupiter-mfd.patch;
+          #patch = null;
           extraConfig = ''
             LEDS_STEAMDECK m
-            #EXTCON_STEAMDECK m
+            EXTCON_STEAMDECK m
             MFD_STEAMDECK m
             SENSORS_STEAMDECK m
           '';
