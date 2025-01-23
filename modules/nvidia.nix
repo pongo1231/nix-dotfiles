@@ -29,7 +29,6 @@
               (patch /nvidia/6.13/0001-KBuild-changes.patch)
               (patch /nvidia/6.13/0002-FROM-AOSC-Use-linux-aperture.c-for-removing-conflict.patch)
               (patch /nvidia/6.13/0003-FROM-AOSC-TTM-fbdev-emulation-for-Linux-6.13.patch)
-              (patch /nvidia/6.14/comment-out-date.patch)
             ];
           }).overrideAttrs (finalAttrs': prevAttrs': {
             # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
