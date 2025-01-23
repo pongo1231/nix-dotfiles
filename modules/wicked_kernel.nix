@@ -1,5 +1,4 @@
-{ desktop ? true
-}:
+{ desktop ? true }:
 { patch
 , pkg
 , pkgs
@@ -16,10 +15,10 @@
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
         /*kernel = prevAttrs.kernel.override (prevAttrs': {
           #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-          ignoreConfigErrors = true;
+          #ignoreConfigErrors = true;
           argsOverride =
             let
-              version = "6.13-rc7";
+              #version = "6.13-rc7";
             in
             {
               inherit version;
@@ -29,11 +28,11 @@
                 rev = "c45323b7560ec87c37c729b703c86ee65f136d75";
                 hash = "sha256-t0ZyarZYT+MCLpQ4ObxC4bBcQeqjVyLC0t1GOLn7QDg=";
               };
-              /*src = pkgs.fetchzip {
+              src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "";
-              };*/
-        /*};
+              };
+            };
         });*/
 
         xpadneo = prevAttrs.xpadneo.overrideAttrs (finalAttrs': prevAttrs': {
@@ -58,7 +57,34 @@
   ];
 
   boot = {
-    kernelPackages = pkgs.linuxPackages_wicked;
+    kernelPackages =
+      let
+        stdenvLLVM =
+          let
+            llvmPin = pkgs.buildPackages.llvmPackages.override (prevAttrs: {
+              bootBintools = null;
+              bootBintoolsNoLibc = null;
+            });
+            stdenv' = pkgs.overrideCC llvmPin.stdenv llvmPin.clangUseLLVM;
+          in
+          stdenv' // {
+            mkDerivation = args: stdenv'.mkDerivation (args // {
+              nativeBuildInputs = (args.nativeBuildInputs or [ ]) ++ (with llvmPin; [ lld ]);
+            });
+          };
+        makeLTO = p: p.extend (finalAttrs: prevAttrs: {
+          kernel = prevAttrs.kernel.override (prevAttrs': {
+            stdenv = stdenvLLVM;
+            extraMakeFlags = prevAttrs.kernel.extraMakeFlags ++ [ "LLVM=1" "LLVM_IAS=1" "KBUILD_CFLAGS=-Wno-error=unused-command-line-argument" ];
+            argsOverride.structuredExtraConfig =
+              prevAttrs.kernel.structuredExtraConfig // {
+                LTO_NONE = lib.kernel.no;
+                LTO_CLANG_FULL = lib.kernel.yes;
+              };
+          });
+        });
+      in
+        /*makeLTO*/ pkgs.linuxPackages_wicked;
 
     kernelPatches =
       let
@@ -75,6 +101,8 @@
           patch = patch /linux/6.13/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
+            X86_64_VERSION 3
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
         }
         /*{

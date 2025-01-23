@@ -4,8 +4,8 @@
 , patch
 , pkg
 , config
-, lib
 , pkgs
+, lib
 , ...
 }:
 {
@@ -60,14 +60,6 @@
       availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
     };
 
-    kernelPackages = lib.mkForce (pkgs.linuxPackages_wicked.extend (finalAttrs: prevAttrs: {
-      ryzen-smu = prevAttrs.ryzen-smu.overrideAttrs (finalAttrs': prevAttrs': {
-        patches = (prevAttrs'.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
-      });
-
-      hp-omen-linux-module = finalAttrs.callPackage (pkg /hp-omen-linux-module) { };
-    }));
-
     kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
 
     kernelParams = [
@@ -91,8 +83,10 @@
           patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
         })
       )
-      hp-omen-linux-module
-      ryzen-smu
+      (callPackage (pkg /hp-omen-linux-module) { })
+      (ryzen-smu.overrideAttrs (finalAttrs: prevAttrs: {
+        patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
+      }))
     ];
 
     binfmt.emulatedSystems = [

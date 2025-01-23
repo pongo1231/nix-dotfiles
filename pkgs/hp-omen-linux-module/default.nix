@@ -1,6 +1,6 @@
-{ stdenv
+{ kernel
+, stdenv
 , fetchFromGitHub
-, kernel
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "hp-omen-linux-module";
