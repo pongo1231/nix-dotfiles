@@ -9,7 +9,7 @@
     package = lib.mkDefault pkgs.nixVersions.latest;
 
     extraOptions = ''
-      experimental-features = ca-derivations nix-command flakes
+      experimental-features = ca-derivations nix-command flakes recursive-nix
       keep-outputs = true
       keep-derivations = true
     '';
