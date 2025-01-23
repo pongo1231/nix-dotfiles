@@ -16,7 +16,7 @@
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
         kernel = prevAttrs.kernel.override (prevAttrs': {
           #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-          #ignoreConfigErrors = true;
+          ignoreConfigErrors = true;
           argsOverride =
             let
               version = "6.14-git";
@@ -26,8 +26,8 @@
               modDirVersion = "6.13.0";
               src = pkgs.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "d0d106a2bd21499901299160744e5fe9f4c83ddb";
-                hash = "sha256-bF19Q7HciE3krdpll0ZRhQbcDjNSBcd8QbKpYGVZER8=";
+                rev = "c4b9570cfb63501638db720f3bee9f6dfd044b82";
+                hash = "sha256-y9zKzUXb2U7k3yImfq3DYTX3sghQ7+/6xz0M059tyRo=";
               };
               /*src = pkgs.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -153,8 +153,11 @@
           patch = patch /linux/6.12/kcore-optimizations.patch;
         }*/
         {
-          name = "amd-color-mgmt";
-          patch = (patch /linux/6.14/amd-color-mgmt.patch);
+          name = "amd-color-management";
+          patch = pkgs.fetchpatch {
+            url = "https://github.com/CachyOS/linux/commit/53c3930779ba776a6a4a7ea215fd7a3d225353b3.patch";
+            hash = "sha256-/ji6JF5gOY/wyaiT39kXKyWTbCMyI0CAvbvgQgWORnk=";
+          };
           extraConfig = ''
             AMD_PRIVATE_COLOR y
           '';
@@ -245,10 +248,10 @@
           name = "uncached-buffered-io-optimizations";
           patch = patch /linux/6.13/uncached-buffered-io-optimizations.patch;
         }*/
-        /*{
+        {
           name = "binder-optimizations";
           patch = patch /linux/6.13/binder-optimizations.patch;
-        }*/
+        }
         /*{
           name = "xhci-improvements";
           patch = patch /linux/6.13/xhci-improvements.patch;
@@ -275,7 +278,7 @@
         }*/
         {
           name = "jupiter-mfd";
-          patch = patch /linux/6.14/jupiter-mfd.patch;
+          patch = patch /linux/6.12/jupiter-mfd.patch;
           #patch = null;
           extraConfig = ''
             LEDS_STEAMDECK m
