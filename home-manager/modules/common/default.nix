@@ -84,6 +84,7 @@
       gptfdisk
       iotop
       micro
+      xclip # for micro
       pstree
       nvd
       manix
