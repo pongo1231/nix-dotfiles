@@ -43,8 +43,8 @@
     src = final.fetchFromGitHub {
       owner = "89luca89";
       repo = "distrobox";
-      rev = "3bac964bf0952674848dce170af8b41d743abe57";
-      hash = "sha256-uPCnI52PjxZPPzoMqS3ayF+5lqvQqb8WmeP1BxAC2ZE=";
+      rev = "b7cc70334351ce23ccc3c2556b59efc08d5f54e5";
+      hash = "sha256-LtsQNGfOPPbTJp/jnxTir5J4tOCJL2iuZLaNZRn+f1I=";
     };
   });
 
