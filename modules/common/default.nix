@@ -150,6 +150,11 @@
     nix-ld.enable = true;
 
     usbtop.enable = true;
+
+    ccache = {
+      enable = true;
+      packageNames = [ "hello" ]; # to configure the ccache wrapper
+    };
   };
 
   services = {

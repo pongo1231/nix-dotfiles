@@ -27,6 +27,7 @@
         "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
         "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
       ];
+      extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
     };
 
     registry = lib.mapAttrs' (name: flake: { inherit name; value.flake = flake; }) inputs;
