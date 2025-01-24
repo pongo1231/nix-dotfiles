@@ -2,6 +2,8 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
+    nixpkgs-master.url = "github:nixos/nixpkgs";
+
     nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
     nixpkgs-desktop-kernel = {

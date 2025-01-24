@@ -128,6 +128,21 @@
         "type": "github"
       }
     },
+    "nixpkgs-master": {
+      "locked": {
+        "lastModified": 1737723196,
+        "narHash": "sha256-SDNZAYW7bOjAk033GQcclfZHUO0gPwivx6lrKf0bQN4=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "c354e0128576a004f3f0dfbfa40f4895d2d69ce3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-stable": {
       "locked": {
         "lastModified": 1737299813,
@@ -152,6 +167,7 @@
         "nixpkgs-desktop-kernel": [
           "nixpkgs"
         ],
+        "nixpkgs-master": "nixpkgs-master",
         "nixpkgs-stable": "nixpkgs-stable",
         "winapps": "winapps"
       }

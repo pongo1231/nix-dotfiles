@@ -139,7 +139,7 @@
 
     sunshine = {
       enable = true;
-      package = inputs.nixpkgs-stable.legacyPackages.${system}.sunshine;
+      package = inputs.nixpkgs-master.legacyPackages.${system}.sunshine;
       capSysAdmin = true;
       autoStart = false;
     };
