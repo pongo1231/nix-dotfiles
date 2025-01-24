@@ -6,7 +6,7 @@
 {
   imports = [
     ./bluetooth.nix
-    ./flatpak-fonts-icons.nix
+    #./flatpak-fonts-icons.nix
     ./udev.nix
   ];
 
