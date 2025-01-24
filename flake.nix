@@ -73,7 +73,7 @@
                     };
                   })
 
-                  ./home-manager/nix.nix
+                  ./nix.nix
                   ./modules/common
                 ] ++ inputs.nixpkgs.lib.optionals (type != null) [
                   ./modules/${type}

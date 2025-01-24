@@ -63,7 +63,6 @@
               };
             })
 
-            ./nix.nix
             ./modules/common
           ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
             ./modules/${info.type}
