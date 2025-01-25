@@ -13,27 +13,30 @@
   nixpkgs.overlays = [
     (final: prev: {
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
-        /*kernel = prevAttrs.kernel.override (prevAttrs': {
+        kernel = (prevAttrs.kernel.override (prevAttrs': {
+          #stdenv = final.ccacheStdenv;
           #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-          #ignoreConfigErrors = true;
+          ignoreConfigErrors = true;
           argsOverride =
             let
-              #version = "6.13-rc7";
+              version = "6.14-git";
             in
             {
               inherit version;
-              modDirVersion = "6.13.0-rc7";
-              src = pkgs.fetchgit {
+              modDirVersion = "6.13.0";
+              src = final.fetchgit {
                 url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                rev = "c45323b7560ec87c37c729b703c86ee65f136d75";
-                hash = "sha256-t0ZyarZYT+MCLpQ4ObxC4bBcQeqjVyLC0t1GOLn7QDg=";
+                rev = "b46c89c08f4146e7987fc355941a93b12e2c03ef";
+                hash = "sha256-CGKl1pfuIg9EHsInLOOXq2+LOai57rgvUuAu7wynFTg=";
               };
-              src = pkgs.fetchzip {
+              /*src = final.fetchzip {
                 url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                 hash = "";
-              };
+              };*/
             };
-        });*/
+        })).overrideAttrs (finalAttrs': prevAttrs': {
+          #depsBuildBuild = [ final.ccacheStdenv ];
+        });
 
         xpadneo = prevAttrs.xpadneo.overrideAttrs (finalAttrs': prevAttrs': {
           src = final.fetchFromGitHub {
@@ -98,11 +101,13 @@
       [
         {
           name = "cachyos";
-          patch = patch /linux/6.13/cachyos.patch;
+          patch = patch /linux/6.14/cachyos.patch;
           extraConfig = ''
             AMD_PRIVATE_COLOR y
             X86_64_VERSION 3
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
+            PT_RECLAIM y
+            MHP_DEFAULT_ONLINE_TYPE_ONLINE_AUTO y
           '';
         }
         /*{
@@ -251,7 +256,7 @@
         }*/
         {
           name = "BORE";
-          patch = patch /linux/6.13/0001-linux6.13.y-bore5.9.6.patch;
+          patch = patch /linux/6.14/0001-linux6.13.y-bore5.9.6.patch;
         }
         /*{
           name = "mm-unstable";
