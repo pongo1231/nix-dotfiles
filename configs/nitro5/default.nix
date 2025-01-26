@@ -1,8 +1,10 @@
-{ module
-, config
-, pkgs
-, ...
-}: {
+{
+  module,
+  config,
+  pkgs,
+  ...
+}:
+{
   imports = [
     #(module /nbfc-linux)
 
@@ -24,8 +26,20 @@
     ];
 
     initrd = {
-      availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
-      kernelModules = [ "kvm-intel" "kvmgt" "vfio-iommu-type1" "mdev" ];
+      availableKernelModules = [
+        "xhci_pci"
+        "ahci"
+        "nvme"
+        "usb_storage"
+        "usbhid"
+        "sd_mod"
+      ];
+      kernelModules = [
+        "kvm-intel"
+        "kvmgt"
+        "vfio-iommu-type1"
+        "mdev"
+      ];
     };
   };
 
@@ -78,7 +92,7 @@
 
     thermald.enable = true;
 
-    udev.extraHwdb = ''                                         
+    udev.extraHwdb = ''
       evdev:input:b0011v0001p0001*
       KEYBOARD_KEY_F5=prog1
       KEYBOARD_KEY_F6=power

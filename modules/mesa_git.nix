@@ -1,8 +1,9 @@
-{ inputs
-, patch
-, pkgs
-, lib
-, ...
+{
+  inputs,
+  patch,
+  pkgs,
+  lib,
+  ...
 }:
 {
   imports = [
@@ -11,11 +12,15 @@
 
   hardware.graphics =
     let
-      patchMesa = mesa: mesa.overrideAttrs (finalAttrs: prevAttrs: {
-        patches = prevAttrs.patches ++ [
-          (patch /mesa/24.3.0/gamescope-limiter.patch)
-        ];
-      });
+      patchMesa =
+        mesa:
+        mesa.overrideAttrs (
+          finalAttrs: prevAttrs: {
+            patches = prevAttrs.patches ++ [
+              (patch /mesa/24.3.0/gamescope-limiter.patch)
+            ];
+          }
+        );
     in
     {
       # chaotic-nyx's mesa-git module uses mkForce for some reason...

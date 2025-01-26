@@ -1,8 +1,12 @@
-{ module
-, ...
+{
+  module,
+  ...
 }:
 {
   imports = [
-    (import (module /gpu) [ "intel" "nvidia" ])
+    (import (module /gpu) [
+      "intel"
+      "nvidia"
+    ])
   ];
 }

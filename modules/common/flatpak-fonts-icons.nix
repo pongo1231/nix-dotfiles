@@ -1,7 +1,8 @@
 # from https://github.com/NixOS/nixpkgs/issues/119433#issuecomment-1326957279
-{ config
-, pkgs
-, ...
+{
+  config,
+  pkgs,
+  ...
 }:
 {
   system.fsPackages = [ pkgs.bindfs ];
@@ -10,7 +11,11 @@
       mkRoSymBind = path: {
         device = path;
         fsType = "fuse.bindfs";
-        options = [ "ro" "resolve-symlinks" "x-gvfs-hide" ];
+        options = [
+          "ro"
+          "resolve-symlinks"
+          "x-gvfs-hide"
+        ];
       };
       aggregatedFonts = pkgs.buildEnv {
         name = "system-fonts";

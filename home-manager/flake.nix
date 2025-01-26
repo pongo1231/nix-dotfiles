@@ -36,7 +36,13 @@
       commonUsers = [
         "pongo"
       ];
-      commonConfig = { info, user, config ? null, userConfig ? null }:
+      commonConfig =
+        {
+          info,
+          user,
+          config ? null,
+          userConfig ? null,
+        }:
         let
           system = if info ? system && info.system != null then info.system else "x86_64-linux";
         in
@@ -49,52 +55,60 @@
             patch = file: patches/${file};
           };
 
-          modules = [
-            inputs.nix-index-database.hmModules.nix-index
+          modules =
+            [
+              inputs.nix-index-database.hmModules.nix-index
 
-            (_: {
-              nixpkgs.overlays = [
-                (import ./overlay.nix { })
-              ];
+              (_: {
+                nixpkgs.overlays = [
+                  (import ./overlay.nix { })
+                ];
 
-              home = {
-                username = user;
-                homeDirectory = "/home/${user}";
-              };
-            })
+                home = {
+                  username = user;
+                  homeDirectory = "/home/${user}";
+                };
+              })
 
-            ./modules/common
-          ] ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
-            ./modules/${info.type}
-          ] ++ inputs.nixpkgs.lib.optionals (config != null) [
-            config
-          ] ++ inputs.nixpkgs.lib.optionals (userConfig != null) [
-            userConfig
-          ];
+              ./modules/common
+            ]
+            ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
+              ./modules/${info.type}
+            ]
+            ++ inputs.nixpkgs.lib.optionals (config != null) [
+              config
+            ]
+            ++ inputs.nixpkgs.lib.optionals (userConfig != null) [
+              userConfig
+            ];
         };
     in
     {
-      homeConfigurations = inputs.nixpkgs.lib.foldlAttrs
-        (acc: hostName: _:
-          let
-            info = import ./configs/${hostName}/info.nix;
-            config = inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) { config = ./configs/${hostName}; };
-          in
-          acc // builtins.foldl'
-            (acc': user: acc' // {
-              "${user}@${hostName}" = commonConfig
-                (
-                  {
-                    inherit info user;
-                  }
-                  // config
-                  // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/${user}.nix) { userConfig = ./configs/${hostName}/${user}.nix; }
-                );
-            })
-            { }
-            commonUsers // inputs.nixpkgs.lib.optionalAttrs (info ? users) info.users
-        )
-        { }
-        (builtins.readDir ./configs);
+      homeConfigurations = inputs.nixpkgs.lib.foldlAttrs (
+        acc: hostName: _:
+        let
+          info = import ./configs/${hostName}/info.nix;
+          config = inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) {
+            config = ./configs/${hostName};
+          };
+        in
+        acc
+        // builtins.foldl' (
+          acc': user:
+          acc'
+          // {
+            "${user}@${hostName}" = commonConfig (
+              {
+                inherit info user;
+              }
+              // config
+              // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/${user}.nix) {
+                userConfig = ./configs/${hostName}/${user}.nix;
+              }
+            );
+          }
+        ) { } commonUsers
+        // inputs.nixpkgs.lib.optionalAttrs (info ? users) info.users
+      ) { } (builtins.readDir ./configs);
     };
 }

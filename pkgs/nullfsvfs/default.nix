@@ -1,6 +1,7 @@
-{ stdenv
-, fetchFromGitHub
-, kernel
+{
+  stdenv,
+  fetchFromGitHub,
+  kernel,
 }:
 
 stdenv.mkDerivation (finalAttrs: {

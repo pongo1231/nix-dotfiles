@@ -1,7 +1,8 @@
-{ inputs
-, pkgs
-, lib
-, ...
+{
+  inputs,
+  pkgs,
+  lib,
+  ...
 }:
 {
   imports = [
@@ -198,7 +199,20 @@
     users.pongo = {
       isNormalUser = true;
       home = "/home/pongo";
-      extraGroups = [ "wheel" "input" "libvirtd" "networkmanager" "podman" "video" "tty" "dialout" "seat" "libvirt" "kvm" "nginx" ];
+      extraGroups = [
+        "wheel"
+        "input"
+        "libvirtd"
+        "networkmanager"
+        "podman"
+        "video"
+        "tty"
+        "dialout"
+        "seat"
+        "libvirt"
+        "kvm"
+        "nginx"
+      ];
       hashedPassword = "$6$jTFwtF9QaSc/j2sI$W9nNE/f6QK1NE3uinzPYBffvxck86lmKf772auIG/8uESh.H1U9ZUUndd.DpW0tZKWOehfpJOxnGOVIxqmvh00";
     };
   };
@@ -229,23 +243,31 @@
         #MemoryKSM = true;
       };
 
-      /*"mglru-tweaks" = {
-        enable = true;
-        wantedBy = [ "multi-user.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${pkgs.bash}/bin/bash -c 'echo 2000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
+      /*
+        "mglru-tweaks" = {
+          enable = true;
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${pkgs.bash}/bin/bash -c 'echo 2000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
+          };
         };
-      };*/
+      */
     };
   };
 
   environment = {
     # thanks to ElvishJerricco
-    etc = (lib.mapAttrs' (name: flake: { name = "nix/inputs/${name}"; value.source = flake.outPath; }) inputs)
+    etc =
+      (lib.mapAttrs' (name: flake: {
+        name = "nix/inputs/${name}";
+        value.source = flake.outPath;
+      }) inputs)
       # allow imperative edits to /etc/hosts
-      // { hosts.mode = "0644"; };
+      // {
+        hosts.mode = "0644";
+      };
 
     sessionVariables = {
       GTK_USE_PORTAL = 1;

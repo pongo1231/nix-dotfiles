@@ -1,6 +1,7 @@
-{ inputs
-, pkgs
-, ...
+{
+  inputs,
+  pkgs,
+  ...
 }:
 {
   programs.firefox = {
@@ -40,7 +41,8 @@
       };
 
       # Workaround for plasma-browser-integration
-      ".mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json".source = "${pkgs.plasma-browser-integration}/lib/mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json";
+      ".mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json".source =
+        "${pkgs.plasma-browser-integration}/lib/mozilla/native-messaging-hosts/org.kde.plasma.browser_integration.json";
     };
 
     packages = with pkgs; [

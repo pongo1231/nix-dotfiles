@@ -1,16 +1,17 @@
 # From https://github.com/chayleaf/dotfiles/commit/818ba92987ca5ba53d78bd0159bd4ce1f5965c6b
-{ stdenv
-, libseccomp
-, libcap_ng
-, buildPackages
-, meson
-, ninja
-, pkg-config
-, perl
-, glib
-, pixman
-, qemu
-, python3Packages
+{
+  stdenv,
+  libseccomp,
+  libcap_ng,
+  buildPackages,
+  meson,
+  ninja,
+  pkg-config,
+  perl,
+  glib,
+  pixman,
+  qemu,
+  python3Packages,
 }:
 
 qemu.overrideAttrs (old: {
@@ -18,9 +19,20 @@ qemu.overrideAttrs (old: {
 
   depsBuildBuild = [ buildPackages.stdenv.cc ];
 
-  nativeBuildInputs = [ meson ninja pkg-config perl python3Packages.python ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+    perl
+    python3Packages.python
+  ];
 
-  buildInputs = [ glib libseccomp libcap_ng pixman ];
+  buildInputs = [
+    glib
+    libseccomp
+    libcap_ng
+    pixman
+  ];
 
   # overly defensive flags
   configureFlags = [

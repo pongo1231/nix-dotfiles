@@ -1,12 +1,13 @@
-{ system
-, inputs
-, module
-, patch
-, pkg
-, config
-, pkgs
-, lib
-, ...
+{
+  system,
+  inputs,
+  module,
+  patch,
+  pkg,
+  config,
+  pkgs,
+  lib,
+  ...
 }:
 {
   imports = [
@@ -21,46 +22,59 @@
 
   nixpkgs.overlays = [
     (final: prev: {
-      kdePackages = prev.kdePackages.overrideScope (finalScope: prevScope: {
-        /*kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
-          src = final.fetchgit {
-            url = "https://invent.kde.org/plasma/kwin.git";
-            rev = "4f03404fb3ebebf416f2af33f06a0b9b8c5eae65";
-            hash = "sha256-oA3DOKJf6B6Jmm+wGvI4k6zvoMISh5N8lfAeST62ql0=";
-          };
-
-          postPatch = prevAttrs.postPatch + ''
-            substituteInPlace src/wayland/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
-            substituteInPlace src/wayland/tools/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
-          '';
-
-          buildInputs = prevAttrs.buildInputs ++ [
-            final.libcanberra
-            (prevScope.plasma-wayland-protocols.overrideAttrs (prevAttrs: {
+      kdePackages = prev.kdePackages.overrideScope (
+        finalScope: prevScope: {
+          /*
+            kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
               src = final.fetchgit {
-                url = "https://invent.kde.org/libraries/plasma-wayland-protocols.git";
-                rev = "f8915796a606f672fb3f456cde782f66d1adfa14";
-                hash = "sha256-KC1ocnCLF2fMUX4MkRs2spHwPbZc91j4ALBPzF/ahDw=";
+                url = "https://invent.kde.org/plasma/kwin.git";
+                rev = "4f03404fb3ebebf416f2af33f06a0b9b8c5eae65";
+                hash = "sha256-oA3DOKJf6B6Jmm+wGvI4k6zvoMISh5N8lfAeST62ql0=";
               };
-            }))
-          ];
-        });*/
-      });
+
+              postPatch = prevAttrs.postPatch + ''
+                substituteInPlace src/wayland/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
+                substituteInPlace src/wayland/tools/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
+              '';
+
+              buildInputs = prevAttrs.buildInputs ++ [
+                final.libcanberra
+                (prevScope.plasma-wayland-protocols.overrideAttrs (prevAttrs: {
+                  src = final.fetchgit {
+                    url = "https://invent.kde.org/libraries/plasma-wayland-protocols.git";
+                    rev = "f8915796a606f672fb3f456cde782f66d1adfa14";
+                    hash = "sha256-KC1ocnCLF2fMUX4MkRs2spHwPbZc91j4ALBPzF/ahDw=";
+                  };
+                }))
+              ];
+            });
+          */
+        }
+      );
     })
   ];
 
   boot = {
     initrd = {
-      luks.devices."root" =
-        {
-          device = "/dev/disk/by-uuid/70a791df-646a-4684-81e3-4e943778296f";
-          allowDiscards = true;
-          bypassWorkqueues = true;
-        };
-      availableKernelModules = [ "nvme" "xhci_pci" "usb_storage" "sd_mod" ];
+      luks.devices."root" = {
+        device = "/dev/disk/by-uuid/70a791df-646a-4684-81e3-4e943778296f";
+        allowDiscards = true;
+        bypassWorkqueues = true;
+      };
+      availableKernelModules = [
+        "nvme"
+        "xhci_pci"
+        "usb_storage"
+        "sd_mod"
+      ];
     };
 
-    kernelModules = [ "vfio-pci" "kvmfr" "ec_sys" "ryzen_smu" ];
+    kernelModules = [
+      "vfio-pci"
+      "kvmfr"
+      "ec_sys"
+      "ryzen_smu"
+    ];
 
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
@@ -72,8 +86,8 @@
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [
-      (
-        kvmfr.overrideAttrs (finalAttrs: prevAttrs: {
+      (kvmfr.overrideAttrs (
+        finalAttrs: prevAttrs: {
           src = pkgs.fetchFromGitHub {
             owner = "gnif";
             repo = "LookingGlass";
@@ -81,12 +95,14 @@
             hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
           };
           patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
-        })
-      )
+        }
+      ))
       #(callPackage (pkg /hp-omen-linux-module) { })
-      (ryzen-smu.overrideAttrs (finalAttrs: prevAttrs: {
-        patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
-      }))
+      (ryzen-smu.overrideAttrs (
+        finalAttrs: prevAttrs: {
+          patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
+        }
+      ))
     ];
 
     binfmt.emulatedSystems = [
@@ -94,19 +110,21 @@
     ];
   };
 
-  fileSystems =
-    {
-      "/" = {
-        device = "/dev/disk/by-uuid/e4c4c179-e254-46a3-b28a-acec2ce1775f";
-        fsType = "btrfs";
-        options = [ "compress-force=zstd:6" "noatime" ];
-      };
-
-      "/boot" = {
-        device = "/dev/disk/by-uuid/7651-3774";
-        fsType = "vfat";
-      };
+  fileSystems = {
+    "/" = {
+      device = "/dev/disk/by-uuid/e4c4c179-e254-46a3-b28a-acec2ce1775f";
+      fsType = "btrfs";
+      options = [
+        "compress-force=zstd:6"
+        "noatime"
+      ];
     };
+
+    "/boot" = {
+      device = "/dev/disk/by-uuid/7651-3774";
+      fsType = "vfat";
+    };
+  };
 
   hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
@@ -147,7 +165,8 @@
 
   # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
   # work around this silly bug by binding it to vfio-pci first and then rebinding it to snd_hda_intel
-  /*systemd = {
+  /*
+    systemd = {
           services.dgpu-audio-to-snd_hda_intel = {
       enable = true;
       wantedBy = [ "multi-user.target" ];
@@ -157,24 +176,25 @@
         ExecStart = "${pkgs.bash}/bin/bash -c 'echo 0000:01:00.1 > /sys/bus/pci/drivers/vfio-pci/unbind && echo 0000:01:00.1 > /sys/bus/pci/drivers/snd_hda_intel/bind'";
       };
           };
-        };*/
+        };
+  */
 
   environment = {
     systemPackages = with pkgs; [
       virtiofsd
-      (kde-rounded-corners.overrideAttrs
-        (finalAttrs: prevAttrs: {
+      (kde-rounded-corners.overrideAttrs (
+        finalAttrs: prevAttrs: {
           src = pkgs.fetchFromGitHub {
             owner = "matinlotfali";
             repo = "KDE-Rounded-Corners";
             rev = "53980a5dd5d0a24422cdd9aaea84c3b3ebcab545";
             hash = "sha256-6uSgYFY+JV8UCy3j9U/hjk6wJpD1XqpnXBqmKVi/2W0=";
           };
-        }))
+        }
+      ))
       freerdp
       inputs.winapps.packages.${system}.winapps
       inputs.winapps.packages.${system}.winapps-launcher
     ];
   };
 }
-

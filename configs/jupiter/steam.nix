@@ -1,5 +1,6 @@
-{ pkgs
-, ...
+{
+  pkgs,
+  ...
 }:
 {
   services.udev.extraRules = ''
@@ -40,9 +41,10 @@
         xorg.xprop
       ];
 
-      extraPythonPackages = pythonPackages: with pythonPackages; [
-        click
-      ];
+      extraPythonPackages =
+        pythonPackages: with pythonPackages; [
+          click
+        ];
     };
   };
 }

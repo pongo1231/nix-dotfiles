@@ -1,6 +1,7 @@
-{ module
-, lib
-, ...
+{
+  module,
+  lib,
+  ...
 }:
 {
   imports = [
@@ -9,7 +10,14 @@
 
   boot = {
     kernelParams = [ "preempt=none" ];
-    initrd.availableKernelModules = [ "ata_piix" "virtio_pci" "virtio_scsi" "xhci_pci" "sd_mod" "sr_mod" ];
+    initrd.availableKernelModules = [
+      "ata_piix"
+      "virtio_pci"
+      "virtio_scsi"
+      "xhci_pci"
+      "sd_mod"
+      "sr_mod"
+    ];
 
     loader = {
       systemd-boot.enable = lib.mkForce false;
@@ -20,12 +28,14 @@
     };
   };
 
-  fileSystems."/" =
-    {
-      device = "/dev/disk/by-uuid/73d20b49-f05c-4d6a-9cf6-f6d6c90a54a2";
-      fsType = "btrfs";
-      options = [ "noatime" "compress-force=zstd:6" ];
-    };
+  fileSystems."/" = {
+    device = "/dev/disk/by-uuid/73d20b49-f05c-4d6a-9cf6-f6d6c90a54a2";
+    fsType = "btrfs";
+    options = [
+      "noatime"
+      "compress-force=zstd:6"
+    ];
+  };
 
   networking.networkmanager.enable = lib.mkForce false;
 

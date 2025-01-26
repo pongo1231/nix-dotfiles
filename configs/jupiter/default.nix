@@ -1,11 +1,12 @@
-{ system
-, inputs
-, module
-, patch
-, config
-, pkgs
-, lib
-, ...
+{
+  system,
+  inputs,
+  module,
+  patch,
+  config,
+  pkgs,
+  lib,
+  ...
 }:
 let
   kernelPkgs = inputs.nixpkgs-jupiter-kernel.legacyPackages.x86_64-linux;
@@ -27,14 +28,21 @@ in
       #"amdgpu.ppfeaturemask=0xffffffff"
     ];
 
-    /*zfs = {
-      package = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "user"; });
-      modulePackage = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
-    };*/
+    /*
+      zfs = {
+        package = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "user"; });
+        modulePackage = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
+      };
+    */
 
     plymouth.enable = false;
     initrd = {
-      availableKernelModules = [ "nvme" "xhci_pci" "usbhid" "sdhci_pci" ];
+      availableKernelModules = [
+        "nvme"
+        "xhci_pci"
+        "usbhid"
+        "sdhci_pci"
+      ];
 
       secrets."/keyfile" = "/keyfile";
 
@@ -49,12 +57,14 @@ in
     };
   };
 
-
   fileSystems = {
     "/" = {
       device = "/dev/disk/by-uuid/d685db49-ec70-4854-9949-4da35a09ad31";
       fsType = "btrfs";
-      options = [ "compress-force=zstd:6" "noatime" ];
+      options = [
+        "compress-force=zstd:6"
+        "noatime"
+      ];
     };
 
     "/boot" = {
@@ -68,11 +78,15 @@ in
 
     graphics =
       let
-        patchMesa = mesa: mesa.overrideAttrs (finalAttrs: prevAttrs: {
-          patches = prevAttrs.patches ++ [
-            (patch /mesa/24.3.0/gamescope-limiter.patch)
-          ];
-        });
+        patchMesa =
+          mesa:
+          mesa.overrideAttrs (
+            finalAttrs: prevAttrs: {
+              patches = prevAttrs.patches ++ [
+                (patch /mesa/24.3.0/gamescope-limiter.patch)
+              ];
+            }
+          );
       in
       {
         package = lib.mkForce (patchMesa pkgs.mesa.drivers);

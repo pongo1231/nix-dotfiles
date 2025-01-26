@@ -1,6 +1,7 @@
-{ lib
-, pkgs
-, ...
+{
+  lib,
+  pkgs,
+  ...
 }:
 let
   uksmd = pkgs.stdenv.mkDerivation (finalAttrs: {
@@ -14,9 +15,18 @@ let
       sha256 = "sha256-7w9/3x5DCWPlM+6LrWszuCvHZSk/z0qdr2h8MPBPHvc=";
     };
 
-    nativeBuildInputs = [ pkgs.pkg-config pkgs.meson pkgs.cmake pkgs.ninja ];
+    nativeBuildInputs = [
+      pkgs.pkg-config
+      pkgs.meson
+      pkgs.cmake
+      pkgs.ninja
+    ];
 
-    buildInputs = [ pkgs.procps pkgs.libcap_ng pkgs.systemd ];
+    buildInputs = [
+      pkgs.procps
+      pkgs.libcap_ng
+      pkgs.systemd
+    ];
 
     mesonFlags = [ "-Dlibalpm=disabled" ];
 
@@ -34,7 +44,11 @@ in
     unitConfig = {
       Description = "Userspace KSM helper daemon";
       Documentation = "https://codeberg.org/pf-kernel/uksmd";
-      ConditionPathExists = [ "/sys/kernel/process_ksm/process_ksm_enable" "/sys/kernel/process_ksm/process_ksm_disable" "/sys/kernel/process_ksm/process_ksm_status" ];
+      ConditionPathExists = [
+        "/sys/kernel/process_ksm/process_ksm_enable"
+        "/sys/kernel/process_ksm/process_ksm_disable"
+        "/sys/kernel/process_ksm/process_ksm_status"
+      ];
     };
 
     serviceConfig = {
@@ -42,8 +56,16 @@ in
       DynamicUser = true;
       User = "uksmd";
       Group = "uksmd";
-      CapabilityBoundingSet = [ "CAP_SYS_PTRACE" "CAP_DAC_OVERRIDE" "CAP_SYS_NICE" ];
-      AmbientCapabilities = [ "CAP_SYS_PTRACE" "CAP_DAC_OVERRIDE" "CAP_SYS_NICE" ];
+      CapabilityBoundingSet = [
+        "CAP_SYS_PTRACE"
+        "CAP_DAC_OVERRIDE"
+        "CAP_SYS_NICE"
+      ];
+      AmbientCapabilities = [
+        "CAP_SYS_PTRACE"
+        "CAP_DAC_OVERRIDE"
+        "CAP_SYS_NICE"
+      ];
       PrivateNetwork = "yes";
       RestrictAddressFamilies = "AF_UNIX";
       RestrictNamespaces = true;
@@ -65,10 +87,24 @@ in
       MemoryDenyWriteExecute = true;
       RemoveIPC = true;
       TasksMax = 1;
-      UMask = 0066;
+      UMask = 66;
       ProtectHostname = true;
       IPAddressDeny = "any";
-      SystemCallFilter = [ "~@clock" "@debug" "@module" "@mount" "@raw-io" "@reboot" "@swap" "@privileged" "@resources" "@cpu-emulation" "@obsolete" "setpriority" "set_mempolicy" ];
+      SystemCallFilter = [
+        "~@clock"
+        "@debug"
+        "@module"
+        "@mount"
+        "@raw-io"
+        "@reboot"
+        "@swap"
+        "@privileged"
+        "@resources"
+        "@cpu-emulation"
+        "@obsolete"
+        "setpriority"
+        "set_mempolicy"
+      ];
       WatchdogSec = 30;
       Restart = "on-failure";
       ExecStart = "${uksmd}/bin/uksmd";

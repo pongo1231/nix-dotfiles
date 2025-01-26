@@ -1,6 +1,7 @@
-{ lib
-, stdenv
-, suffix ? ""
+{
+  lib,
+  stdenv,
+  suffix ? "",
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "ksm_wrap${suffix}";
@@ -17,4 +18,3 @@ stdenv.mkDerivation (finalAttrs: {
     mv a.out $out/bin/ksmwrap${suffix}.so
   '';
 })
-

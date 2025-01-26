@@ -23,10 +23,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    /*chaotic = {
-      url = "github:chaotic-cx/nyx";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };*/
+    /*
+      chaotic = {
+        url = "github:chaotic-cx/nyx";
+        inputs.nixpkgs.follows = "nixpkgs";
+      };
+    */
 
     winapps = {
       url = "github:winapps-org/winapps";
@@ -34,60 +36,72 @@
     };
   };
 
-  outputs =
-    inputs: {
-      nixosConfigurations =
-        let
-          specialArgs = {
-            module = file: modules/${file};
-            patch = file: patches/${file};
-            pkg = file: pkgs/${file};
+  outputs = inputs: {
+    nixosConfigurations =
+      let
+        specialArgs = {
+          module = file: modules/${file};
+          patch = file: patches/${file};
+          pkg = file: pkgs/${file};
+        };
+
+        commonSystem =
+          {
+            system ? "x86_64-linux",
+            type ? null,
+            hostName,
+            config ? null,
+          }:
+          inputs.nixpkgs.lib.nixosSystem {
+            specialArgs = specialArgs // {
+              inherit system inputs;
+            };
+
+            modules =
+              [
+                (_: {
+                  nixpkgs.overlays = [
+                    (import ./overlay.nix {
+                      inherit system inputs;
+                      inherit (specialArgs) pkg;
+                      inherit (inputs.nixpkgs) lib;
+                    })
+                  ];
+
+                  nixpkgs = {
+                    hostPlatform.system = system;
+                    #buildPlatform.system = "x86_64-linux";
+
+                    config.allowUnfree = true;
+                  };
+
+                  networking = {
+                    inherit hostName;
+                  };
+                })
+
+                ./nix.nix
+                ./modules/common
+              ]
+              ++ inputs.nixpkgs.lib.optionals (type != null) [
+                ./modules/${type}
+              ]
+              ++ inputs.nixpkgs.lib.optionals (config != null) [
+                config
+              ];
           };
-
-          commonSystem = { system ? "x86_64-linux", type ? null, hostName, config ? null }:
-            inputs.nixpkgs.lib.nixosSystem
-              {
-                specialArgs = specialArgs // {
-                  inherit system inputs;
-                };
-
-                modules = [
-                  (_: {
-                    nixpkgs.overlays = [
-                      (import ./overlay.nix {
-                        inherit system inputs;
-                        inherit (specialArgs) pkg;
-                        inherit (inputs.nixpkgs) lib;
-                      })
-                    ];
-
-                    nixpkgs = {
-                      hostPlatform. system = system;
-                      #buildPlatform.system = "x86_64-linux";
-
-                      config.allowUnfree = true;
-                    };
-
-                    networking = {
-                      inherit hostName;
-                    };
-                  })
-
-                  ./nix.nix
-                  ./modules/common
-                ] ++ inputs.nixpkgs.lib.optionals (type != null) [
-                  ./modules/${type}
-                ] ++ inputs.nixpkgs.lib.optionals (config != null) [
-                  config
-                ];
-              };
-        in
-        inputs.nixpkgs.lib.mapAttrs
-          (name: value: commonSystem ((import ./configs/${name}/info.nix) // {
+      in
+      inputs.nixpkgs.lib.mapAttrs (
+        name: value:
+        commonSystem (
+          (import ./configs/${name}/info.nix)
+          // {
             hostName = name;
           }
-            // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) { config = ./configs/${name}; })
-          )
-          (builtins.readDir ./configs);
-    };
+          // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) {
+            config = ./configs/${name};
+          }
+        )
+      ) (builtins.readDir ./configs);
+  };
 }

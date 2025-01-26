@@ -1,10 +1,10 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, makeWrapper
-, python3
-, kmod
-, # for modprobe
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  makeWrapper,
+  python3,
+  kmod, # for modprobe
 }:
 let
   version = "0.1.7";
@@ -39,7 +39,12 @@ stdenv.mkDerivation {
     mkdir $out/share
     mv $out/usr/local/share/* $out/share
 
-    wrapProgram $out/bin/nbfc --prefix PATH : ${lib.makeBinPath [python3 kmod]}
+    wrapProgram $out/bin/nbfc --prefix PATH : ${
+      lib.makeBinPath [
+        python3
+        kmod
+      ]
+    }
     #wrapProgram $out/usr/bin/nbfc_service --prefix PATH
   '';
 }

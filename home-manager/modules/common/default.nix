@@ -1,9 +1,11 @@
-{ inputs
-, config
-, pkgs
-, lib
-, ...
-}: {
+{
+  inputs,
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+{
   imports = [
     ./helpers.nix
     ./suspender.nix
@@ -50,13 +52,17 @@
     nix-index-database.comma.enable = true;
   };
 
-  xdg.configFile = (lib.mapAttrs' (name: flake: { name = "nix/inputs/${name}"; value.source = flake.outPath; }) inputs)
+  xdg.configFile =
+    (lib.mapAttrs' (name: flake: {
+      name = "nix/inputs/${name}";
+      value.source = flake.outPath;
+    }) inputs)
     // {
-    "distrobox/distrobox.conf".text = ''
-      container_image_default="docker.io/library/archlinux"
-      #non_interactive="1"
-    '';
-  };
+      "distrobox/distrobox.conf".text = ''
+        container_image_default="docker.io/library/archlinux"
+        #non_interactive="1"
+      '';
+    };
 
   home = {
     stateVersion = "22.05";

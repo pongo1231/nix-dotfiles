@@ -1,24 +1,32 @@
-{ zfs
-, fetchFromGitHub
-, configFile
-, kernel ? null
-, removeLinuxDRM ? true
+{
+  zfs,
+  fetchFromGitHub,
+  configFile,
+  kernel ? null,
+  removeLinuxDRM ? true,
 }:
 
-(zfs.override (prevAttrs: { inherit configFile kernel removeLinuxDRM; })).overrideAttrs (finalAttrs: prevAttrs:
-let
-  rev = "645b83307918085ab2f0e12618809e348635b34f";
-in
-{
-  name = builtins.replaceStrings [ prevAttrs.version ] [ finalAttrs.version ] prevAttrs.name;
-  version = "git-${builtins.substring 0 6 rev}";
+(zfs.override (prevAttrs: {
+  inherit configFile kernel removeLinuxDRM;
+})).overrideAttrs
+  (
+    finalAttrs: prevAttrs:
+    let
+      rev = "645b83307918085ab2f0e12618809e348635b34f";
+    in
+    {
+      name = builtins.replaceStrings [ prevAttrs.version ] [ finalAttrs.version ] prevAttrs.name;
+      version = "git-${builtins.substring 0 6 rev}";
 
-  src = fetchFromGitHub {
-    owner = "openzfs";
-    repo = "zfs";
-    inherit rev;
-    hash = "sha256-hVATgJt9uvRiifphzzHfW3oCjqxz4O3yFujV4YMXEUA=";
-  };
+      src = fetchFromGitHub {
+        owner = "openzfs";
+        repo = "zfs";
+        inherit rev;
+        hash = "sha256-hVATgJt9uvRiifphzzHfW3oCjqxz4O3yFujV4YMXEUA=";
+      };
 
-  meta = prevAttrs.meta // { broken = false; };
-})
+      meta = prevAttrs.meta // {
+        broken = false;
+      };
+    }
+  )

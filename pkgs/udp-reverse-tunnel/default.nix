@@ -1,7 +1,8 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, makeWrapper
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  makeWrapper,
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "udp-reverse-tunnel";
@@ -22,4 +23,3 @@ stdenv.mkDerivation (finalAttrs: {
     mkdir -p $out/bin/
   '';
 })
-

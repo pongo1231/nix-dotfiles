@@ -1,9 +1,10 @@
-{ lib
-, stdenv
-, fetchurl
-, python
-, snapper
-, python3Packages
+{
+  lib,
+  stdenv,
+  fetchurl,
+  python,
+  snapper,
+  python3Packages,
 }:
 let
   version = "1.1.8";
@@ -16,7 +17,10 @@ stdenv.mkDerivation {
     sha256 = "AxuHiseNGvxUzITxU6z9T3t89YPlRRkA+21EO7Pyfi0=";
   };
 
-  buildInputs = [ python python3Packages.wrapPython ];
+  buildInputs = [
+    python
+    python3Packages.wrapPython
+  ];
 
   pythonPath = [
     (python3Packages.buildPythonPackage (

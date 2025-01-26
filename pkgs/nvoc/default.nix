@@ -1,8 +1,9 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nvidia_x11
-, makeWrapper
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nvidia_x11,
+  makeWrapper,
 }:
 let
   version = "1.0.3";
@@ -29,6 +30,11 @@ stdenv.mkDerivation {
     mv nvoc $out/bin/
     # mv gpu0.conf $out/etc/
 
-    wrapProgram $out/bin/nvoc --prefix PATH : ${lib.makeBinPath [nvidia_x11 nvidia_x11.settings]}
+    wrapProgram $out/bin/nvoc --prefix PATH : ${
+      lib.makeBinPath [
+        nvidia_x11
+        nvidia_x11.settings
+      ]
+    }
   '';
 }

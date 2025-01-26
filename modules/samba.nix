@@ -1,15 +1,14 @@
 { sharePath }:
-_:
-{
+_: {
   services.samba = {
     enable = true;
     settings = {
       global = {
         owner = "unix only";
         permissions = "yes";
-        "create mask" = 0664;
+        "create mask" = 664;
         "directory mask" = 2755;
-        "force create mode" = 0644;
+        "force create mode" = 644;
         "force directory mode" = 2755;
         security = "user";
         "load printers" = "no";
@@ -42,4 +41,3 @@ _:
     };
   };
 }
-

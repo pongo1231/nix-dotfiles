@@ -1,5 +1,4 @@
-_:
-{
+_: {
   services = {
     sanoid = {
       enable = true;
@@ -22,14 +21,32 @@ _:
         };
       };
       datasets = {
-        "root/home" = { useTemplate = [ "base" ]; recursive = true; };
-        "root/nosnap" = { useTemplate = [ "nosnap" ]; recursive = true; };
+        "root/home" = {
+          useTemplate = [ "base" ];
+          recursive = true;
+        };
+        "root/nosnap" = {
+          useTemplate = [ "nosnap" ];
+          recursive = true;
+        };
 
-        "ssd" = { useTemplate = [ "base" ]; recursive = true; };
-        "ssd/nosnap" = { useTemplate = [ "nosnap" ]; recursive = true; };
+        "ssd" = {
+          useTemplate = [ "base" ];
+          recursive = true;
+        };
+        "ssd/nosnap" = {
+          useTemplate = [ "nosnap" ];
+          recursive = true;
+        };
 
-        "hdd" = { useTemplate = [ "base" ]; recursive = true; };
-        "hdd/nosnap" = { useTemplate = [ "nosnap" ]; recursive = true; };
+        "hdd" = {
+          useTemplate = [ "base" ];
+          recursive = true;
+        };
+        "hdd/nosnap" = {
+          useTemplate = [ "nosnap" ];
+          recursive = true;
+        };
       };
     };
   };
