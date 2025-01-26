@@ -7,59 +7,14 @@
 }:
 {
   boot = {
-    /*
-      kernelPackages = lib.mkDefault (pkgs.kernel.linuxPackages_latest.extend (finalAttrs: prevAttrs: {
-        #zfs = pkgs.callPackage (pkg /zfs) { inherit (prevAttrs) zfs; };
-      }));
-    */
-
     kernelParams = [
-      #"preempt=full"
-      #"nohz_full=0-N"
       "threadirqs"
       "rcu_nocbs=0-N"
-      #"irqaffinity=0"
-      #"rcutree.enable_rcu_lazy=1"
-      #"rcutree.nohz_full_patience_delay=1000"
-      #"rcutree.use_softirq=0"
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [ ];
 
     plymouth.enable = lib.mkDefault true;
-
-    /*
-      extraModprobeConfig = ''
-        options zfs zfs_bclone_enabled=1
-        options spl spl_taskq_thread_priority=0
-        '';
-
-        zfs = {
-        package = pkgs.kernel.callPackage (pkg /zfs) { configFile = "user"; };
-        modulePackage = pkgs.kernel.callPackage (pkg /zfs) { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; };
-        removeLinuxDRM = true;
-        };
-
-        # Thanks to https://toxicfrog.github.io/automounting-zfs-on-nixos/
-        postBootCommands = ''
-        echo "=== STARTING ZPOOL IMPORT ==="
-
-        ${pkgs.zfs}/bin/zpool import -a
-        ${pkgs.zfs}/bin/zfs load-key -a
-        ${pkgs.zfs}/bin/zpool status
-        ${pkgs.zfs}/bin/zfs mount -a
-
-        echo "=== ZPOOL IMPORT COMPLETE ==="
-      '';
-    */
-
-    kernel = {
-      sysctl = {
-        # yanked from linux-zen
-        #"vm.compact_unevictable_allowed" = 0;
-        #"vm.compaction_proactiveness" = 0;
-      };
-    };
   };
 
   hardware = {
@@ -69,8 +24,6 @@
     };
     xpadneo.enable = true;
   };
-
-  #programs.cfs-zen-tweaks.enable = true;
 
   services = {
     displayManager.sddm = {

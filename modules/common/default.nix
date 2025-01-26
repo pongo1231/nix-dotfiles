@@ -7,7 +7,6 @@
 {
   imports = [
     ./bluetooth.nix
-    #./flatpak-fonts-icons.nix
     ./udev.nix
   ];
 
@@ -55,9 +54,6 @@
         "dev.i915.perf_stream_paranoid" = 0;
         "kernel.sysrq" = 1;
         "kernel.core_pattern" = "/dev/null";
-
-        # as per powertop's suggestion
-        #"vm.dirty_writeback_centisecs" = 1500;
 
         # https://github.com/pop-os/default-settings/blob/master_noble/etc/sysctl.d/10-pop-default-settings.conf
         "vm.dirty_bytes" = 268435456;
@@ -108,10 +104,7 @@
   hardware = {
     enableRedistributableFirmware = true;
 
-    ksm = {
-      enable = true;
-      #sleep = 50;
-    };
+    ksm.enable = true;
   };
 
   networking = {
@@ -180,8 +173,9 @@
       Storage=volatile
     '';
 
+    power-profiles-daemon.enable = true;
+
     fstrim.enable = true;
-    #zfs.trim.enable = true;
 
     envfs.enable = true;
 
@@ -228,10 +222,7 @@
     };
 
     tmpfiles.rules = [
-      #"w! /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise"
       "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
-      #"w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
-      #"w! /sys/kernel/mm/transparent_hugepage/khugepaged/defrag - - - - 1"
       "w! /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
 
       "w! /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
@@ -242,18 +233,6 @@
         Delegate = "cpu cpuset io memory pids";
         #MemoryKSM = true;
       };
-
-      /*
-        "mglru-tweaks" = {
-          enable = true;
-          wantedBy = [ "multi-user.target" ];
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            ExecStart = "${pkgs.bash}/bin/bash -c 'echo 2000 > /sys/kernel/mm/lru_gen/min_ttl_ms'";
-          };
-        };
-      */
     };
   };
 

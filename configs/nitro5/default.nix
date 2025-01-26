@@ -11,7 +11,6 @@
     (module /intelcpu.nix)
     (module /intelgpu.nix)
     (import (module /nvidia.nix) { platform = "intel"; })
-    (module /power.nix)
     #(module /samba.nix)
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/media/ssd/public"; })

@@ -10,12 +10,6 @@
 {
   services.xserver.videoDrivers = [ "nvidia" ];
 
-  /*
-    boot.extraModprobeConfig = ''
-      options nvidia NVreg_EnableGpuFirmware=0
-    '';
-  */
-
   hardware.nvidia = {
     package =
       (config.boot.kernelPackages.extend (
@@ -75,23 +69,13 @@
                         ];
                       }
                     );
-
-                    #settings = prevAttrs'.passthru.settings.overrideAttrs (prevAttrs'': {});
                   };
                 }
               );
         }
-      )).nvidiaPackages.production
-    /*
-      .overrideAttrs
-      (finalAttrs': prevAttrs': {
-        # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-        builder = (patch /nvidia/builder.sh);
-      }))
-    */
-    ;
+      )).nvidiaPackages.production;
+
     modesetting.enable = true;
-    #nvidiaPersistenced = true;
     open = true; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)
     prime =
       {

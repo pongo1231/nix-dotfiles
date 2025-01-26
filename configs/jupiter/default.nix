@@ -8,33 +8,16 @@
   lib,
   ...
 }:
-let
-  kernelPkgs = inputs.nixpkgs-jupiter-kernel.legacyPackages.x86_64-linux;
-in
 {
   imports = [
     inputs.jovian.nixosModules.default
 
-    (module /power.nix)
     (import (module /wicked_kernel.nix) { })
-    #(module /mesa_git.nix)
 
     ./steam.nix
-    #./tlp.nix
   ];
 
   boot = {
-    kernelParams = [
-      #"amdgpu.ppfeaturemask=0xffffffff"
-    ];
-
-    /*
-      zfs = {
-        package = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "user"; });
-        modulePackage = lib.mkForce (kernelPkgs.callPackage (pkg /zfs) { configFile = "kernel"; kernel = config.boot.kernelPackages.kernel; });
-      };
-    */
-
     plymouth.enable = false;
     initrd = {
       availableKernelModules = [
@@ -92,9 +75,6 @@ in
         package = lib.mkForce (patchMesa pkgs.mesa.drivers);
         package32 = lib.mkForce (patchMesa pkgs.pkgsi686Linux.mesa.drivers);
       };
-
-    #opengl.extraPackages = [ pkgs.mesa-radv-jupiter ];
-    #opengl.extraPackages32 = [ pkgs.pkgsi686Linux.mesa-radv-jupiter ];
   };
 
   networking.hostId = "a1f92a1f";
@@ -112,13 +92,9 @@ in
     };
   };
 
-  environment = {
-    #etc."drirc".source = "${pkgs.mesa-radv-jupiter}/share/drirc.d/00-radv-defaults.conf";
-
-    systemPackages = with pkgs; [
-      steamdeck-firmware
-      mangohud
-      gamescope
-    ];
-  };
+  environment.systemPackages = with pkgs; [
+    steamdeck-firmware
+    mangohud
+    gamescope
+  ];
 }

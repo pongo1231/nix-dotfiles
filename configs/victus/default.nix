@@ -13,45 +13,9 @@
   imports = [
     (module /amdcpu.nix)
     (import (module /nvidia.nix) { platform = "amd"; })
-    (module /power.nix)
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
     (import (module /wicked_kernel.nix) { })
-    #(module /mesa_git.nix)
-  ];
-
-  nixpkgs.overlays = [
-    (final: prev: {
-      kdePackages = prev.kdePackages.overrideScope (
-        finalScope: prevScope: {
-          /*
-            kwin = prevScope.kwin.overrideAttrs (finalAttrs: prevAttrs: {
-              src = final.fetchgit {
-                url = "https://invent.kde.org/plasma/kwin.git";
-                rev = "4f03404fb3ebebf416f2af33f06a0b9b8c5eae65";
-                hash = "sha256-oA3DOKJf6B6Jmm+wGvI4k6zvoMISh5N8lfAeST62ql0=";
-              };
-
-              postPatch = prevAttrs.postPatch + ''
-                substituteInPlace src/wayland/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
-                substituteInPlace src/wayland/tools/CMakeLists.txt --replace "PRIVATE_CODE" "\"\""
-              '';
-
-              buildInputs = prevAttrs.buildInputs ++ [
-                final.libcanberra
-                (prevScope.plasma-wayland-protocols.overrideAttrs (prevAttrs: {
-                  src = final.fetchgit {
-                    url = "https://invent.kde.org/libraries/plasma-wayland-protocols.git";
-                    rev = "f8915796a606f672fb3f456cde782f66d1adfa14";
-                    hash = "sha256-KC1ocnCLF2fMUX4MkRs2spHwPbZc91j4ALBPzF/ahDw=";
-                  };
-                }))
-              ];
-            });
-          */
-        }
-      );
-    })
   ];
 
   boot = {
@@ -78,10 +42,7 @@
 
     kernelParams = [
       "amdgpu.dcdebugmask=0x10"
-      #"amdgpu.ppfeaturemask=0xffffffff"
       "modprobe.blacklist=nouveau"
-      #"modprobe.blacklist=btusb"
-      #"vfio_pci.ids=10de:22bd" # dgpu audio
       "kvmfr.static_size_mb=32"
     ];
 
@@ -162,22 +123,6 @@
       autoStart = false;
     };
   };
-
-  # binding this too early to snd_hda_intel breaks unbinding later (for vfio passthrough)
-  # work around this silly bug by binding it to vfio-pci first and then rebinding it to snd_hda_intel
-  /*
-    systemd = {
-          services.dgpu-audio-to-snd_hda_intel = {
-      enable = true;
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${pkgs.bash}/bin/bash -c 'echo 0000:01:00.1 > /sys/bus/pci/drivers/vfio-pci/unbind && echo 0000:01:00.1 > /sys/bus/pci/drivers/snd_hda_intel/bind'";
-      };
-          };
-        };
-  */
 
   environment = {
     systemPackages = with pkgs; [
