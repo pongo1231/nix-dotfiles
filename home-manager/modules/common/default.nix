@@ -89,7 +89,7 @@
       nvd
       manix
       nixd
-      nixpkgs-fmt
+      nixfmt-rfc-style
       deadnix
       direnv
       nixos-generators
