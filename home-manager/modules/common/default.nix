@@ -88,7 +88,7 @@
       pstree
       nvd
       manix
-      nil
+      nixd
       nixpkgs-fmt
       deadnix
       direnv
