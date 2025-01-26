@@ -84,6 +84,9 @@
       "mitigations=off"
       "nosoftlockup"
       "split_lock_detect=off"
+      "transparent_hugepage=always"
+      "transparent_hugepage_shmem=always"
+      "transparent_hugepage_tmpfs=always"
     ];
 
     extraModprobeConfig = ''
@@ -211,10 +214,11 @@
     };
 
     tmpfiles.rules = [
-      "w! /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise"
+      #"w! /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise"
       "w! /sys/kernel/mm/transparent_hugepage/defrag - - - - defer+madvise"
-      "w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
-      "w! /sys/kernel/mm/transparent_hugepage/khugepaged/defrag - - - - 1"
+      #"w! /sys/kernel/mm/transparent_hugepage/shmem_enabled - - - - advise"
+      #"w! /sys/kernel/mm/transparent_hugepage/khugepaged/defrag - - - - 1"
+      "w! /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
 
       "w! /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
     ];
