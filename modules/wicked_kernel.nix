@@ -13,7 +13,7 @@
     (final: prev: {
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (
         finalAttrs: prevAttrs: {
-          kernel =
+          /*kernel =
             (prevAttrs.kernel.override (prevAttrs': {
               #stdenv = final.ccacheStdenv;
               #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
@@ -27,22 +27,20 @@
                   modDirVersion = "6.13.0";
                   src = final.fetchgit {
                     url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                    rev = "aa22f4da2a46b484a257d167c67a2adc1b7aaf68";
-                    hash = "sha256-cr81jKm/JDV8bL9PEfhUI5ek0GIjo+v5VBJzKcC2MwM=";
+                    rev = "6d61a53dd6f55405ebcaea6ee38d1ab5a8856c2c";
+                    hash = "sha256-4DEDOMSdREL6qbS52CFXKXXJF8iRTviN8UZozh5YYUU=";
                   };
-                  /*
-                    src = final.fetchzip {
-                      url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                      hash = "";
-                    };
-                  */
+                  #src = final.fetchzip {
+                  #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+                  #    hash = "";
+                  # };
                 };
             })).overrideAttrs
               (
                 finalAttrs': prevAttrs': {
                   #depsBuildBuild = [ final.ccacheStdenv ];
                 }
-              );
+              );*/
 
           xpadneo = prevAttrs.xpadneo.overrideAttrs (
             finalAttrs': prevAttrs': {
@@ -115,25 +113,18 @@
     kernelPatches = [
       {
         name = "base";
-        patch = patch /linux/6.14/cachyos.patch;
+        patch = patch /linux/6.14/base.patch;
         extraConfig = ''
           AMD_PRIVATE_COLOR y
           X86_64_VERSION 3
           CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
-          PT_RECLAIM y
-          MHP_DEFAULT_ONLINE_TYPE_ONLINE_AUTO y
+          #PT_RECLAIM y
+          #MHP_DEFAULT_ONLINE_TYPE_ONLINE_AUTO y
           LEDS_STEAMDECK m
+          EXTCON_STEAMDECK m
           MFD_STEAMDECK m
           SENSORS_STEAMDECK m
         '';
-      }
-      {
-        name = "BORE";
-        patch = patch /linux/6.14/0001-linux6.13.y-bore5.9.6.patch;
-      }
-      {
-        name = "binder-optimizations";
-        patch = patch /linux/6.13/binder-optimizations.patch;
       }
     ];
 
