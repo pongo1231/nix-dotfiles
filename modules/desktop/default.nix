@@ -8,6 +8,7 @@
 {
   boot = {
     kernelParams = [
+      "preempt=lazy"
       "threadirqs"
       "rcu_nocbs=0-N"
     ];

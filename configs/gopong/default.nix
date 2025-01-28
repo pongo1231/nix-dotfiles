@@ -5,7 +5,7 @@
 }:
 {
   imports = [
-    (import (module /wicked_kernel.nix) { desktop = false; })
+    (module /wicked_kernel.nix)
   ];
 
   boot = {
