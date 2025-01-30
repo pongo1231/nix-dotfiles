@@ -28,6 +28,11 @@
       url = "github:Mic92/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    isd = {
+      url = "github:isd-project/isd";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
