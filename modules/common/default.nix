@@ -16,14 +16,6 @@
     rebuild.enableNg = true;
   };
 
-  nix = {
-    nixPath = [
-      "/etc/nix/inputs"
-    ];
-    daemonCPUSchedPolicy = "idle";
-    daemonIOSchedClass = "idle";
-  };
-
   boot = {
     loader = {
       grub.enable = lib.mkDefault false;

@@ -15,6 +15,13 @@
       keep-derivations = true
     '';
 
+    nixPath = [
+      "/etc/nix/inputs"
+    ];
+
+    daemonCPUSchedPolicy = "idle";
+    daemonIOSchedClass = "idle";
+
     settings = {
       auto-optimise-store = true;
       trusted-users = [
