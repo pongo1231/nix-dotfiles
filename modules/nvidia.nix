@@ -24,15 +24,13 @@
         {
           nvidiaPackages.production =
             (generic {
-              version = "565.77";
-              sha256_64bit = "sha256-CnqnQsRrzzTXZpgkAtF7PbH9s7wbiTRNcM0SPByzFHw=";
-              openSha256 = "sha256-Fxo0t61KQDs71YA8u7arY+503wkAc1foaa51vi2Pl5I=";
-              settingsSha256 = "sha256-VUetj3LlOSz/LB+DDfMCN34uA4bNTTpjDrb6C6Iwukk=";
+              version = "570.86.16";
+              sha256_64bit = "sha256-RWPqS7ZUJH9JEAWlfHLGdqrNlavhaR1xMyzs8lJhy9U=";
+              openSha256 = "sha256-DuVNA63+pJ8IB7Tw2gM4HbwlOh1bcDg2AN2mbEU9VPE=";
+              settingsSha256 = "sha256-9rtqh64TyhDF5fFAYiWl3oDHzKJqyOW3abpcf2iNRT8=";
               persistencedSha256 = "";
 
               patches = [
-                (patch /nvidia/6.13/0001-KBuild-changes.patch)
-                (patch /nvidia/6.13/0002-FROM-AOSC-Use-linux-aperture.c-for-removing-conflict.patch)
                 (patch /nvidia/6.13/0003-FROM-AOSC-TTM-fbdev-emulation-for-Linux-6.13.patch)
                 (patch /nvidia/6.14/comment-out-date.patch)
               ];
@@ -52,10 +50,7 @@
                   passthru = prevAttrs'.passthru // {
                     open = prevAttrs'.passthru.open.overrideAttrs (
                       finalAttrs'': prevAttrs'': {
-                        patches = prevAttrs''.patches ++ [
-                          (patch /nvidia/6.13/0004-OPEN-Fix-MODULE_IMPORT_NS.patch)
-                          (patch /nvidia/6.13/0005-OPEN-disable-LKCA.patch)
-                        ];
+                        patches = prevAttrs''.patches ++ [];
 
                         makeFlags = [
                           "SYSSRC=${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/source"
