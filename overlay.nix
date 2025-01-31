@@ -54,12 +54,12 @@
 
   distrobox = prev.distrobox.overrideAttrs (
     finalAttrs: prevAttrs: {
-      version = "git";
+      version = "1.8.1.2";
       src = final.fetchFromGitHub {
         owner = "89luca89";
         repo = "distrobox";
-        rev = "b7cc70334351ce23ccc3c2556b59efc08d5f54e5";
-        hash = "sha256-LtsQNGfOPPbTJp/jnxTir5J4tOCJL2iuZLaNZRn+f1I=";
+        rev = "3b9f0e8d3d8bd102e1636a22afffafe00777d30b";
+        hash = "sha256-wTu+8SQZaf8TKkjyvKqTvIWnCZTiPnozybTu5uKXEJk=";
       };
     }
   );
