@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S nix shell --impure --expr "(builtins.getFlake \"nixpkgs\").legacyPackages.\${builtins.currentSystem}.python3.withPackages (p: [ p.pynvml ])" --command sudo python3
 
 from pynvml import *
 nvmlInit()
