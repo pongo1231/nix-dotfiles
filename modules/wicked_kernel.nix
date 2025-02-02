@@ -10,8 +10,7 @@
     (final: prev: {
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (
         finalAttrs: prevAttrs: {
-          /*
-            kernel =
+          kernel =
             (prevAttrs.kernel.override (prevAttrs': {
               #stdenv = final.ccacheStdenv;
               #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
@@ -25,8 +24,8 @@
                   modDirVersion = "6.13.0";
                   src = final.fetchgit {
                     url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                    rev = "6d61a53dd6f55405ebcaea6ee38d1ab5a8856c2c";
-                    hash = "sha256-4DEDOMSdREL6qbS52CFXKXXJF8iRTviN8UZozh5YYUU=";
+                    rev = "a86bf2283d2c9769205407e2b54777c03d012939";
+                    hash = "sha256-ovr19mViq+4rTPTIwrnXSiOAcD0JhVkhU2zkVdiewsA=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -39,7 +38,6 @@
                   #depsBuildBuild = [ final.ccacheStdenv ];
                 }
               );
-          */
 
           xpadneo = prevAttrs.xpadneo.overrideAttrs (
             finalAttrs': prevAttrs': {
@@ -117,8 +115,8 @@
           AMD_PRIVATE_COLOR y
           X86_64_VERSION 3
           CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
-          #PT_RECLAIM y
-          #MHP_DEFAULT_ONLINE_TYPE_ONLINE_AUTO y
+          PT_RECLAIM y
+          MHP_DEFAULT_ONLINE_TYPE_ONLINE_AUTO y
           LEDS_STEAMDECK m
           EXTCON_STEAMDECK m
           MFD_STEAMDECK m
