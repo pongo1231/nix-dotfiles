@@ -56,8 +56,8 @@
       #jamesdsp
       qbittorrent
       weston
-      inputs.nixpkgs-stable.legacyPackages.${system}.looking-glass-client
-      inputs.nixpkgs-stable.legacyPackages.${system}.virt-manager
+      looking-glass-client
+      virt-manager
     ];
   };
 }
