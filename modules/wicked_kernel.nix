@@ -10,7 +10,8 @@
     (final: prev: {
       linuxPackages_wicked = final.kernel.linuxPackages_latest.extend (
         finalAttrs: prevAttrs: {
-          /*kernel =
+          /*
+            kernel =
             (prevAttrs.kernel.override (prevAttrs': {
               #stdenv = final.ccacheStdenv;
               #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
@@ -37,7 +38,8 @@
                 finalAttrs': prevAttrs': {
                   #depsBuildBuild = [ final.ccacheStdenv ];
                 }
-              );*/
+              );
+          */
 
           xpadneo = prevAttrs.xpadneo.overrideAttrs (
             finalAttrs': prevAttrs': {

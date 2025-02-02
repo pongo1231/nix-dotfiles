@@ -50,7 +50,7 @@
                   passthru = prevAttrs'.passthru // {
                     open = prevAttrs'.passthru.open.overrideAttrs (
                       finalAttrs'': prevAttrs'': {
-                        patches = prevAttrs''.patches ++ [];
+                        patches = prevAttrs''.patches ++ [ ];
 
                         makeFlags = [
                           "SYSSRC=${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/source"
