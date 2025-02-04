@@ -44,7 +44,10 @@
       userName = "pongo1231";
       userEmail = "pongo1999712@gmail.com";
 
-      extraConfig.pull.rebase = true;
+      extraConfig = {
+        pull.rebase = true;
+        am.threeWay = true;
+      };
     };
 
     nix-index-database.comma.enable = true;
