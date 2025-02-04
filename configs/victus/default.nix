@@ -58,7 +58,7 @@
           patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
         }
       ))
-      (callPackage (pkg /hp-omen-linux-module) { })
+      #(callPackage (pkg /hp-omen-linux-module) { })
       (ryzen-smu.overrideAttrs (
         finalAttrs: prevAttrs: {
           patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
