@@ -22,10 +22,11 @@
                 {
                   inherit version;
                   modDirVersion = "6.14.0-rc1";
-                  src = final.fetchgit {
-                    url = "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git";
-                    rev = "92514ef226f511f2ca1fb1b8752966097518edc0";
-                    hash = "sha256-I6bVqJYH821ZHX4mJsDi7Om4CM0ueCnYnG9JnctiOog=";
+                  src = final.fetchFromGitHub {
+                    owner = "pongo1231";
+                    repo = "linux";
+                    rev = "b98e840bf8c471684cc60d31cfcc75fbc721c90f";
+                    hash = "sha256-h/rMv6bBa8X1gCgI6qvxFz3NH4LrJwwG9iB8CLzc7zI=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -66,51 +67,40 @@
   boot = {
     kernelPackages =
       let
-        stdenvLLVM =
-          let
-            llvmPin = pkgs.buildPackages.llvmPackages.override (prevAttrs: {
-              bootBintools = null;
-              bootBintoolsNoLibc = null;
-            });
-            stdenv' = pkgs.overrideCC llvmPin.stdenv llvmPin.clangUseLLVM;
-          in
-          stdenv'
-          // {
-            mkDerivation =
-              args:
-              stdenv'.mkDerivation (
-                args
-                // {
-                  nativeBuildInputs = (args.nativeBuildInputs or [ ]) ++ (with llvmPin; [ lld ]);
-                }
-              );
-          };
-        makeLTO =
-          p:
-          p.extend (
-            finalAttrs: prevAttrs: {
-              kernel = prevAttrs.kernel.override (prevAttrs': {
-                stdenv = stdenvLLVM;
-                extraMakeFlags = prevAttrs.kernel.extraMakeFlags ++ [
-                  "LLVM=1"
-                  "LLVM_IAS=1"
-                  "KBUILD_CFLAGS=-Wno-error=unused-command-line-argument"
-                ];
-                argsOverride.structuredExtraConfig = prevAttrs.kernel.structuredExtraConfig // {
-                  LTO_NONE = lib.kernel.no;
-                  LTO_CLANG_FULL = lib.kernel.yes;
-                };
-              });
-            }
-          );
       in
-      # makeLTO
+      /*
+        makeLTO =
+        p:
+        p.extend (finalAttrs: prevAttrs: {
+            kernel = prevAttrs.kernel.override (prevAttrs': {
+              stdenv = pkgs.clangStdenv // { mkDerivation =
+                args:
+                pkgs.clangStdenv.mkDerivation (
+                  args
+                  // {
+                    nativeBuildInputs = (args.nativeBuildInputs or [ ]) ++ ( [ pkgs.llvmPackages_latest.bintools ]);
+                  }
+                ); };
+              extraMakeFlags = prevAttrs.kernel.extraMakeFlags ++ [
+              "LLVM=1"
+                "LLVM_IAS=1"
+                "KBUILD_CFLAGS=-Wno-error=unused-command-line-argument" ];
+              argsOverride.structuredExtraConfig = prevAttrs.kernel.structuredExtraConfig // {
+                LTO_NONE = lib.kernel.no;
+                LTO_CLANG_FULL = lib.kernel.yes;
+              };
+            });
+          }
+        );
+      */
+      #makeLTO
       pkgs.linuxPackages_wicked;
 
     kernelPatches = [
       {
         name = "base";
-        patch = patch /linux/6.14/base.patch;
+        #patch = patch /linux/6.14/base.patch;
+        patch = null;
         extraConfig = ''
           AMD_PRIVATE_COLOR y
           X86_64_VERSION 3
