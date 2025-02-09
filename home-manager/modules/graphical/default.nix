@@ -52,7 +52,6 @@
       protontricks
       appimage-run
       syncthing
-      audacious
       #jamesdsp
       qbittorrent
       weston
