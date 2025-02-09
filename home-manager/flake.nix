@@ -2,7 +2,7 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
-    nixpkgs-stable.url = "github:pongo1231/nixpkgs/66cdf593c0041cf1efc9b2889d80c9a5c497b284";
+    nixpkgs-stable.url = "github:nixos/nixpkgs/nixos-24.11";
 
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -16,7 +16,7 @@
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-stable";
     };
 
     nix-be = {
