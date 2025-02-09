@@ -1,14 +1,12 @@
 {
   module,
+  pkgs,
   lib,
   ...
 }:
 {
-  imports = [
-    (module /wicked_kernel.nix)
-  ];
-
   boot = {
+    kernelPackages = pkgs.linuxPackages_latest;
     kernelParams = [ "preempt=none" ];
     initrd.availableKernelModules = [
       "ata_piix"
