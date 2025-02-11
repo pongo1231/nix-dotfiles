@@ -20,7 +20,7 @@
         ];
         buildInputs = with pkgs; prevAttrs.buildInputs ++ [ projectm ];
         postPatch = ''
-substituteInPlace src/visualizations/projectmvisualization.cpp --replace-fail "QStringList data_paths = QStringList() << QStringLiteral(\"/usr/share\")" "QStringList data_paths = QStringList() << QStringLiteral(\"${pkgs.projectm}/share\")"
+          substituteInPlace src/visualizations/projectmvisualization.cpp --replace-fail "QStringList data_paths = QStringList() << QStringLiteral(\"/usr/share\")" "QStringList data_paths = QStringList() << QStringLiteral(\"${pkgs.projectm}/share\")"
         '';
       }
     ))
