@@ -25,8 +25,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "0b4416aaa826c2be2a9443892ddebe54de505121";
-                    hash = "sha256-L4G0Vqdp8SKumFjHKDi9JAEJkDPaA8Pqndmn7Xwz6DY=";
+                    rev = "50d84180e35402580b9f1d07748e582fc05a8b14";
+                    hash = "sha256-Ca02Rm8emi2jDJWspDAGiiEGK9anxrpNll8oEb5Xmb4=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -45,8 +45,8 @@
               src = final.fetchFromGitHub {
                 owner = "atar-axis";
                 repo = "xpadneo";
-                rev = "227c101fea112e8b7309aadb736b9a1c4120b126";
-                hash = "sha256-fI6gX2p2RaJdKi8bluGjqryg0Zjv8otvDe0Fph72mMw=";
+                rev = "8d20a23e38883f45c78f48c8574ac93945b4cb03";
+                hash = "sha256-u54EX8z/zRXUN+pPOLwENdESunU/J0Lj1OpMj/1EVq4=";
               };
 
               patches = [ ];
