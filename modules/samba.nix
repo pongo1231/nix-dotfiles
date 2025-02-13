@@ -6,11 +6,8 @@ _: {
       global = {
         owner = "unix only";
         permissions = "yes";
-        "create mask" = 664;
-        "directory mask" = 2755;
-        "force create mode" = 644;
-        "force directory mode" = 2755;
         security = "user";
+        writable = "yes";
         "load printers" = "no";
         printing = "bsd";
         "printcap name" = "/dev/null";
@@ -32,9 +29,8 @@ _: {
         comment = "public";
         path = "${sharePath}";
         public = "yes";
-        writable = "yes";
-        printable = "no";
-        permissions = "yes";
+        "create mask" = 777;
+        "directory mask" = 777;
         "follow symlinks" = "yes";
         "wide links" = "yes";
       };
