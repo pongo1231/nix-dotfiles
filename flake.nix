@@ -34,12 +34,18 @@
       url = "github:winapps-org/winapps";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    lix = {
+      url = "https://git.lix.systems/lix-project/nixos-module/archive/2.92.0.tar.gz";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs: {
     nixosConfigurations =
       let
         specialArgs = {
+          inherit inputs;
           module = file: modules/${file};
           patch = file: patches/${file};
           pkg = file: pkgs/${file};
@@ -50,13 +56,13 @@
             hostName,
             system ? "x86_64-linux",
             type ? null,
-            commonArgs ? { },
+            args ? { },
             config ? null,
           }:
           inputs.nixpkgs.lib.nixosSystem {
-            specialArgs = specialArgs // {
-              inherit system inputs;
-            };
+            specialArgs = {
+              inherit system;
+            } // specialArgs;
 
             modules =
               [
@@ -81,8 +87,7 @@
                   };
                 })
 
-                ./nix.nix
-                (import ./modules/common commonArgs)
+                (import ./modules/common args)
               ]
               ++ inputs.nixpkgs.lib.optionals (type != null) [
                 ./modules/${type}

@@ -1,6 +1,7 @@
 { }:
 {
   inputs,
+  module,
   config,
   pkgs,
   lib,
@@ -8,8 +9,8 @@
 }:
 {
   imports = [
-    ./helpers.nix
-    ./suspender.nix
+    (module /common/helpers.nix)
+    (module /common/suspender.nix)
   ];
 
   nix.nixPath = [

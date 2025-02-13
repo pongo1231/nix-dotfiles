@@ -1,14 +1,18 @@
-{ }:
+{
+  useLixModule ? true,
+}:
 {
   inputs,
+  module,
   pkgs,
   lib,
   ...
 }:
 {
   imports = [
-    ./bluetooth.nix
-    ./udev.nix
+    (import (module /common/nix.nix) { inherit useLixModule; })
+    (module /common/bluetooth.nix)
+    (module /common/udev.nix)
   ];
 
   system = {

@@ -46,7 +46,7 @@
           user,
           system ? "x86_64-linux",
           type ? null,
-          commonArgs ? { },
+          args ? { },
           config ? null,
           userConfig ? null,
         }:
@@ -74,7 +74,7 @@
                 };
               })
 
-              (import ./modules/common commonArgs)
+              (import ./modules/common args)
             ]
             ++ inputs.nixpkgs.lib.optionals (type != null) [
               ./modules/${type}
