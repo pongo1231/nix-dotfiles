@@ -43,14 +43,13 @@
       ];
       commonConfig =
         {
-          info,
           user,
+          system ? "x86_64-linux",
+          type ? null,
+          commonArgs ? { },
           config ? null,
           userConfig ? null,
         }:
-        let
-          system = if info ? system && info.system != null then info.system else "x86_64-linux";
-        in
         inputs.home-manager.lib.homeManagerConfiguration {
           pkgs = inputs.nixpkgs.legacyPackages.${system};
 
@@ -75,10 +74,10 @@
                 };
               })
 
-              ./modules/common
+              (import ./modules/common commonArgs)
             ]
-            ++ inputs.nixpkgs.lib.optionals (info ? type && info.type != null) [
-              ./modules/${info.type}
+            ++ inputs.nixpkgs.lib.optionals (type != null) [
+              ./modules/${type}
             ]
             ++ inputs.nixpkgs.lib.optionals (config != null) [
               config
@@ -93,9 +92,6 @@
         acc: hostName: _:
         let
           info = import ./configs/${hostName}/info.nix;
-          config = inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) {
-            config = ./configs/${hostName};
-          };
         in
         acc
         // builtins.foldl' (
@@ -103,10 +99,13 @@
           acc'
           // {
             "${user}@${hostName}" = commonConfig (
-              {
-                inherit info user;
+              info
+              // {
+                inherit user;
               }
-              // config
+              // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) {
+                config = ./configs/${hostName};
+              }
               // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/${user}.nix) {
                 userConfig = ./configs/${hostName}/${user}.nix;
               }

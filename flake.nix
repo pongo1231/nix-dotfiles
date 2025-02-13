@@ -47,9 +47,10 @@
 
         commonSystem =
           {
+            hostName,
             system ? "x86_64-linux",
             type ? null,
-            hostName,
+            commonArgs ? { },
             config ? null,
           }:
           inputs.nixpkgs.lib.nixosSystem {
@@ -81,7 +82,7 @@
                 })
 
                 ./nix.nix
-                ./modules/common
+                (import ./modules/common commonArgs)
               ]
               ++ inputs.nixpkgs.lib.optionals (type != null) [
                 ./modules/${type}
