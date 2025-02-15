@@ -70,7 +70,7 @@
                   nixpkgs.overlays = [
                     (import ./overlay.nix {
                       inherit system inputs;
-                      inherit (specialArgs) pkg;
+                      inherit (specialArgs) patch pkg;
                       inherit (inputs.nixpkgs) lib;
                     })
                   ];

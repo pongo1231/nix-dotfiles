@@ -1,0 +1,721 @@
+From 7f5b4f34ba9c19b3e1982d996834b8cbfee33511 Mon Sep 17 00:00:00 2001
+From: iamSlightlyWind <70873548+iamSlightlyWind@users.noreply.github.com>
+Date: Sat, 16 Nov 2024 16:57:47 +0700
+Subject: [PATCH 1/2] Update HP Victus 16-e0xxx configurations
+
+---
+ share/nbfc/configs/HP Victus 16-e0xxx.json | 244 ++++++++++++---------
+ xml/HP Victus 16-e0xxx.xml                 |  99 ++++++---
+ 2 files changed, 202 insertions(+), 141 deletions(-)
+
+diff --git a/share/nbfc/configs/HP Victus 16-e0xxx.json b/share/nbfc/configs/HP Victus 16-e0xxx.json
+index 9a5d66c..d2e702b 100644
+--- a/share/nbfc/configs/HP Victus 16-e0xxx.json	
++++ b/share/nbfc/configs/HP Victus 16-e0xxx.json	
+@@ -1,112 +1,142 @@
+ {
+- "LegacyTemperatureThresholdsBehaviour": true,
+- "NotebookModel": "HP Victus 16-e0xxx",
+- "Author": "dzid26",
+- "EcPollInterval": 1500,
+- "ReadWriteWords": false,
+- "CriticalTemperature": 75,
+- "FanConfigurations": [
+-	{
+-	 "ReadRegister": 179,
+-	 "WriteRegister": 45,
+-	 "MinSpeedValue": 0,
+-	 "MaxSpeedValue": 100,
+-	 "IndependentReadMinMaxValues": true,
+-	 "MinSpeedValueRead": 0,
+-	 "MaxSpeedValueRead": 32,
+-	 "ResetRequired": true,
+-	 "FanSpeedResetValue": 255,
+-	 "FanDisplayName": "Fan 1",
+-	 "TemperatureThresholds": [
++	"NotebookModel": "HP Victus 16-e0xxx",
++	"Author": "iamslightlywind",
++	"EcPollInterval": 1500,
++	"ReadWriteWords": false,
++	"CriticalTemperature": 86,
++	"FanConfigurations": [
+ 	  {
+-	   "UpThreshold": 0,
+-	   "DownThreshold": 0,
+-	   "FanSpeed": 0.0
++		"ReadRegister": 177,
++		"WriteRegister": 44,
++		"MinSpeedValue": 0,
++		"MaxSpeedValue": 100,
++		"IndependentReadMinMaxValues": true,
++		"MinSpeedValueRead": 0,
++		"MaxSpeedValueRead": 33,
++		"ResetRequired": true,
++		"FanSpeedResetValue": 255,
++		"FanDisplayName": "CPU Fan",
++		"TemperatureThresholds": [
++			{
++			  "DownThreshold": 0,
++			  "UpThreshold": 44,
++			  "FanSpeed": 0
++			},
++			{
++			  "DownThreshold": 45,
++			  "UpThreshold": 50,
++			  "FanSpeed": 10
++			},
++			{
++			  "DownThreshold": 49,
++			  "UpThreshold": 55,
++			  "FanSpeed": 15
++			},
++			{
++			  "DownThreshold": 54,
++			  "UpThreshold": 60,
++			  "FanSpeed": 25
++			},
++			{
++			  "DownThreshold": 59,
++			  "UpThreshold": 65,
++			  "FanSpeed": 35
++			},
++			{
++			  "DownThreshold": 64,
++			  "UpThreshold": 70,
++			  "FanSpeed": 50
++			},
++			{
++			  "DownThreshold": 69,
++			  "UpThreshold": 75,
++			  "FanSpeed": 65
++			},
++			{
++			  "DownThreshold": 74,
++			  "UpThreshold": 80,
++			  "FanSpeed": 80
++			},
++			{
++			  "DownThreshold": 79,
++			  "UpThreshold": 85,
++			  "FanSpeed": 100
++			}
++		],
++		"FanSpeedPercentageOverrides": [
++		  {
++			"FanSpeedPercentage": 20,
++			"FanSpeedValue": 51,
++			"TargetOperation": "Write"
++		  }
++		]
+ 	  },
+ 	  {
+-	   "UpThreshold": 60,
+-	   "DownThreshold": 48,
+-	   "FanSpeed": 10.0
+-	  },
+-	  {
+-	   "UpThreshold": 63,
+-	   "DownThreshold": 55,
+-	   "FanSpeed": 20.0
+-	  },
+-	  {
+-	   "UpThreshold": 66,
+-	   "DownThreshold": 59,
+-	   "FanSpeed": 50.0
+-	  },
+-	  {
+-	   "UpThreshold": 68,
+-	   "DownThreshold": 63,
+-	   "FanSpeed": 70.0
+-	  },
+-	  {
+-	   "UpThreshold": 71,
+-	   "DownThreshold": 67,
+-	   "FanSpeed": 100.0
+-	  }
+-	 ],
+-	 "FanSpeedPercentageOverrides": [
+-	  {
+-	   "FanSpeedPercentage": 0.0,
+-	   "FanSpeedValue": 255,
+-	   "TargetOperation": "Write"
+-	  }
+-	 ]
+-	},
+-	{
+-	 "ReadRegister": 177,
+-	 "WriteRegister": 44,
+-	 "MinSpeedValue": 0,
+-	 "MaxSpeedValue": 100,
+-	 "IndependentReadMinMaxValues": true,
+-	 "MinSpeedValueRead": 0,
+-	 "MaxSpeedValueRead": 33,
+-	 "ResetRequired": true,
+-	 "FanSpeedResetValue": 255,
+-	 "FanDisplayName": "Fan 2",
+-	 "TemperatureThresholds": [
+-	  {
+-	   "UpThreshold": 0,
+-	   "DownThreshold": 0,
+-	   "FanSpeed": 0.0
+-	  },
+-	  {
+-	   "UpThreshold": 60,
+-	   "DownThreshold": 48,
+-	   "FanSpeed": 10.0
+-	  },
+-	  {
+-	   "UpThreshold": 63,
+-	   "DownThreshold": 55,
+-	   "FanSpeed": 20.0
+-	  },
+-	  {
+-	   "UpThreshold": 66,
+-	   "DownThreshold": 59,
+-	   "FanSpeed": 50.0
+-	  },
+-	  {
+-	   "UpThreshold": 68,
+-	   "DownThreshold": 63,
+-	   "FanSpeed": 70.0
+-	  },
+-	  {
+-	   "UpThreshold": 71,
+-	   "DownThreshold": 67,
+-	   "FanSpeed": 100.0
+-	  }
+-	 ],
+-	 "FanSpeedPercentageOverrides": [
+-	  {
+-	   "FanSpeedPercentage": 0.0,
+-	   "FanSpeedValue": 255,
+-	   "TargetOperation": "Write"
++		"ReadRegister": 179,
++		"WriteRegister": 45,
++		"MinSpeedValue": 0,
++		"MaxSpeedValue": 100,
++		"IndependentReadMinMaxValues": true,
++		"MinSpeedValueRead": 0,
++		"MaxSpeedValueRead": 32,
++		"ResetRequired": true,
++		"FanSpeedResetValue": 255,
++		"FanDisplayName": "GPU Fan",
++		"TemperatureThresholds": [
++		  {
++			"DownThreshold": 0,
++			"UpThreshold": 44,
++			"FanSpeed": 0
++		  },
++		  {
++			"DownThreshold": 45,
++			"UpThreshold": 50,
++			"FanSpeed": 10
++		  },
++		  {
++			"DownThreshold": 49,
++			"UpThreshold": 55,
++			"FanSpeed": 20
++		  },
++		  {
++			"DownThreshold": 54,
++			"UpThreshold": 60,
++			"FanSpeed": 30
++		  },
++		  {
++			"DownThreshold": 59,
++			"UpThreshold": 65,
++			"FanSpeed": 40
++		  },
++		  {
++			"DownThreshold": 64,
++			"UpThreshold": 70,
++			"FanSpeed": 50
++		  },
++		  {
++			"DownThreshold": 69,
++			"UpThreshold": 75,
++			"FanSpeed": 60
++		  },
++		  {
++			"DownThreshold": 74,
++			"UpThreshold": 80,
++			"FanSpeed": 70
++		  },
++		  {
++			"DownThreshold": 79,
++			"UpThreshold": 85,
++			"FanSpeed": 80
++		  }
++		],
++		"FanSpeedPercentageOverrides": [
++		  {
++			"FanSpeedPercentage": 20,
++			"FanSpeedValue": 51,
++			"TargetOperation": "Write"
++		  }
++		]
+ 	  }
+-	 ]
+-	}
+- ]
+-}
+\ No newline at end of file
++	],
++	"RegisterWriteConfigurations": []
++  }
+\ No newline at end of file
+diff --git a/xml/HP Victus 16-e0xxx.xml b/xml/HP Victus 16-e0xxx.xml
+index 478b248..16b403a 100644
+--- a/xml/HP Victus 16-e0xxx.xml	
++++ b/xml/HP Victus 16-e0xxx.xml	
+@@ -1,51 +1,67 @@
+ <?xml version="1.0"?>
+-<FanControlConfigV2 xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
++<FanControlConfigV2 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
++  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+   <NotebookModel>HP Victus 16-e0xxx</NotebookModel>
+-  <Author>dzid26</Author>
++  <Author>iamslightlywind</Author>
+   <EcPollInterval>1500</EcPollInterval>
+   <ReadWriteWords>false</ReadWriteWords>
+-  <CriticalTemperature>75</CriticalTemperature>
++  <CriticalTemperature>86</CriticalTemperature>
+   <FanConfigurations>
+     <FanConfiguration>
+-      <ReadRegister>179</ReadRegister>
+-      <WriteRegister>45</WriteRegister>
++      <ReadRegister>177</ReadRegister>
++      <WriteRegister>44</WriteRegister>
+       <MinSpeedValue>0</MinSpeedValue>
+       <MaxSpeedValue>100</MaxSpeedValue>
+       <IndependentReadMinMaxValues>true</IndependentReadMinMaxValues>
+       <MinSpeedValueRead>0</MinSpeedValueRead>
+-      <MaxSpeedValueRead>32</MaxSpeedValueRead>
++      <MaxSpeedValueRead>33</MaxSpeedValueRead>
+       <ResetRequired>true</ResetRequired>
+       <FanSpeedResetValue>255</FanSpeedResetValue>
+-      <FanDisplayName>Fan 1</FanDisplayName>
++      <FanDisplayName>CPU Fan</FanDisplayName>
+       <TemperatureThresholds>
+         <TemperatureThreshold>
+-          <UpThreshold>0</UpThreshold>
+           <DownThreshold>0</DownThreshold>
++          <UpThreshold>44</UpThreshold>
+           <FanSpeed>0</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>60</UpThreshold>
+-          <DownThreshold>48</DownThreshold>
++          <DownThreshold>45</DownThreshold>
++          <UpThreshold>50</UpThreshold>
+           <FanSpeed>10</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>63</UpThreshold>
+-          <DownThreshold>55</DownThreshold>
+-          <FanSpeed>20</FanSpeed>
++          <DownThreshold>49</DownThreshold>
++          <UpThreshold>55</UpThreshold>
++          <FanSpeed>15</FanSpeed>
++        </TemperatureThreshold>
++        <TemperatureThreshold>
++          <DownThreshold>54</DownThreshold>
++          <UpThreshold>60</UpThreshold>
++          <FanSpeed>25</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>66</UpThreshold>
+           <DownThreshold>59</DownThreshold>
++          <UpThreshold>65</UpThreshold>
++          <FanSpeed>35</FanSpeed>
++        </TemperatureThreshold>
++        <TemperatureThreshold>
++          <DownThreshold>64</DownThreshold>
++          <UpThreshold>70</UpThreshold>
+           <FanSpeed>50</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>68</UpThreshold>
+-          <DownThreshold>63</DownThreshold>
+-          <FanSpeed>70</FanSpeed>
++          <DownThreshold>69</DownThreshold>
++          <UpThreshold>75</UpThreshold>
++          <FanSpeed>65</FanSpeed>
++        </TemperatureThreshold>
++        <TemperatureThreshold>
++          <DownThreshold>74</DownThreshold>
++          <UpThreshold>80</UpThreshold>
++          <FanSpeed>80</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>71</UpThreshold>
+-          <DownThreshold>67</DownThreshold>
++          <DownThreshold>79</DownThreshold>
++          <UpThreshold>85</UpThreshold>
+           <FanSpeed>100</FanSpeed>
+         </TemperatureThreshold>
+       </TemperatureThresholds>
+@@ -58,46 +74,61 @@
+       </FanSpeedPercentageOverrides>
+     </FanConfiguration>
+     <FanConfiguration>
+-      <ReadRegister>177</ReadRegister>
+-      <WriteRegister>44</WriteRegister>
++      <ReadRegister>179</ReadRegister>
++      <WriteRegister>45</WriteRegister>
+       <MinSpeedValue>0</MinSpeedValue>
+       <MaxSpeedValue>100</MaxSpeedValue>
+       <IndependentReadMinMaxValues>true</IndependentReadMinMaxValues>
+       <MinSpeedValueRead>0</MinSpeedValueRead>
+-      <MaxSpeedValueRead>33</MaxSpeedValueRead>
++      <MaxSpeedValueRead>32</MaxSpeedValueRead>
+       <ResetRequired>true</ResetRequired>
+       <FanSpeedResetValue>255</FanSpeedResetValue>
+-      <FanDisplayName>Fan 2</FanDisplayName>
++      <FanDisplayName>GPU Fan</FanDisplayName>
+       <TemperatureThresholds>
+         <TemperatureThreshold>
+-          <UpThreshold>0</UpThreshold>
+           <DownThreshold>0</DownThreshold>
++          <UpThreshold>44</UpThreshold>
+           <FanSpeed>0</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>60</UpThreshold>
+-          <DownThreshold>48</DownThreshold>
++          <DownThreshold>45</DownThreshold>
++          <UpThreshold>50</UpThreshold>
+           <FanSpeed>10</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>63</UpThreshold>
+-          <DownThreshold>55</DownThreshold>
++          <DownThreshold>49</DownThreshold>
++          <UpThreshold>55</UpThreshold>
+           <FanSpeed>20</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>66</UpThreshold>
++          <DownThreshold>54</DownThreshold>
++          <UpThreshold>60</UpThreshold>
++          <FanSpeed>30</FanSpeed>
++        </TemperatureThreshold>
++        <TemperatureThreshold>
+           <DownThreshold>59</DownThreshold>
++          <UpThreshold>65</UpThreshold>
++          <FanSpeed>40</FanSpeed>
++        </TemperatureThreshold>
++        <TemperatureThreshold>
++          <DownThreshold>64</DownThreshold>
++          <UpThreshold>70</UpThreshold>
+           <FanSpeed>50</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>68</UpThreshold>
+-          <DownThreshold>63</DownThreshold>
++          <DownThreshold>69</DownThreshold>
++          <UpThreshold>75</UpThreshold>
++          <FanSpeed>60</FanSpeed>
++        </TemperatureThreshold>
++        <TemperatureThreshold>
++          <DownThreshold>74</DownThreshold>
++          <UpThreshold>80</UpThreshold>
+           <FanSpeed>70</FanSpeed>
+         </TemperatureThreshold>
+         <TemperatureThreshold>
+-          <UpThreshold>71</UpThreshold>
+-          <DownThreshold>67</DownThreshold>
+-          <FanSpeed>100</FanSpeed>
++          <DownThreshold>79</DownThreshold>
++          <UpThreshold>85</UpThreshold>
++          <FanSpeed>80</FanSpeed>
+         </TemperatureThreshold>
+       </TemperatureThresholds>
+       <FanSpeedPercentageOverrides>
+
+From dbaaf16fcf6151271eae4b9083a28e6d56786a9a Mon Sep 17 00:00:00 2001
+From: iamSlightlyWind <70873548+iamSlightlyWind@users.noreply.github.com>
+Date: Sat, 16 Nov 2024 17:28:48 +0700
+Subject: [PATCH 2/2]
+
+---
+ share/nbfc/configs/HP Victus 16-e0xxx.json | 255 ++++++++++-----------
+ xml/HP Victus 16-e0xxx.xml                 |   1 -
+ 2 files changed, 120 insertions(+), 136 deletions(-)
+
+diff --git a/share/nbfc/configs/HP Victus 16-e0xxx.json b/share/nbfc/configs/HP Victus 16-e0xxx.json
+index d2e702b..82a3b49 100644
+--- a/share/nbfc/configs/HP Victus 16-e0xxx.json	
++++ b/share/nbfc/configs/HP Victus 16-e0xxx.json	
+@@ -5,138 +5,123 @@
+ 	"ReadWriteWords": false,
+ 	"CriticalTemperature": 86,
+ 	"FanConfigurations": [
+-	  {
+-		"ReadRegister": 177,
+-		"WriteRegister": 44,
+-		"MinSpeedValue": 0,
+-		"MaxSpeedValue": 100,
+-		"IndependentReadMinMaxValues": true,
+-		"MinSpeedValueRead": 0,
+-		"MaxSpeedValueRead": 33,
+-		"ResetRequired": true,
+-		"FanSpeedResetValue": 255,
+-		"FanDisplayName": "CPU Fan",
+-		"TemperatureThresholds": [
+-			{
+-			  "DownThreshold": 0,
+-			  "UpThreshold": 44,
+-			  "FanSpeed": 0
+-			},
+-			{
+-			  "DownThreshold": 45,
+-			  "UpThreshold": 50,
+-			  "FanSpeed": 10
+-			},
+-			{
+-			  "DownThreshold": 49,
+-			  "UpThreshold": 55,
+-			  "FanSpeed": 15
+-			},
+-			{
+-			  "DownThreshold": 54,
+-			  "UpThreshold": 60,
+-			  "FanSpeed": 25
+-			},
+-			{
+-			  "DownThreshold": 59,
+-			  "UpThreshold": 65,
+-			  "FanSpeed": 35
+-			},
+-			{
+-			  "DownThreshold": 64,
+-			  "UpThreshold": 70,
+-			  "FanSpeed": 50
+-			},
+-			{
+-			  "DownThreshold": 69,
+-			  "UpThreshold": 75,
+-			  "FanSpeed": 65
+-			},
+-			{
+-			  "DownThreshold": 74,
+-			  "UpThreshold": 80,
+-			  "FanSpeed": 80
+-			},
+-			{
+-			  "DownThreshold": 79,
+-			  "UpThreshold": 85,
+-			  "FanSpeed": 100
+-			}
+-		],
+-		"FanSpeedPercentageOverrides": [
+-		  {
+-			"FanSpeedPercentage": 20,
+-			"FanSpeedValue": 51,
+-			"TargetOperation": "Write"
+-		  }
+-		]
+-	  },
+-	  {
+-		"ReadRegister": 179,
+-		"WriteRegister": 45,
+-		"MinSpeedValue": 0,
+-		"MaxSpeedValue": 100,
+-		"IndependentReadMinMaxValues": true,
+-		"MinSpeedValueRead": 0,
+-		"MaxSpeedValueRead": 32,
+-		"ResetRequired": true,
+-		"FanSpeedResetValue": 255,
+-		"FanDisplayName": "GPU Fan",
+-		"TemperatureThresholds": [
+-		  {
+-			"DownThreshold": 0,
+-			"UpThreshold": 44,
+-			"FanSpeed": 0
+-		  },
+-		  {
+-			"DownThreshold": 45,
+-			"UpThreshold": 50,
+-			"FanSpeed": 10
+-		  },
+-		  {
+-			"DownThreshold": 49,
+-			"UpThreshold": 55,
+-			"FanSpeed": 20
+-		  },
+-		  {
+-			"DownThreshold": 54,
+-			"UpThreshold": 60,
+-			"FanSpeed": 30
+-		  },
+-		  {
+-			"DownThreshold": 59,
+-			"UpThreshold": 65,
+-			"FanSpeed": 40
+-		  },
+-		  {
+-			"DownThreshold": 64,
+-			"UpThreshold": 70,
+-			"FanSpeed": 50
+-		  },
+-		  {
+-			"DownThreshold": 69,
+-			"UpThreshold": 75,
+-			"FanSpeed": 60
+-		  },
+-		  {
+-			"DownThreshold": 74,
+-			"UpThreshold": 80,
+-			"FanSpeed": 70
+-		  },
+-		  {
+-			"DownThreshold": 79,
+-			"UpThreshold": 85,
+-			"FanSpeed": 80
+-		  }
+-		],
+-		"FanSpeedPercentageOverrides": [
+-		  {
+-			"FanSpeedPercentage": 20,
+-			"FanSpeedValue": 51,
+-			"TargetOperation": "Write"
+-		  }
+-		]
+-	  }
+-	],
+-	"RegisterWriteConfigurations": []
+-  }
+\ No newline at end of file
++		{
++			"ReadRegister": 177,
++			"WriteRegister": 44,
++			"MinSpeedValue": 0,
++			"MaxSpeedValue": 100,
++			"IndependentReadMinMaxValues": true,
++			"MinSpeedValueRead": 0,
++			"MaxSpeedValueRead": 33,
++			"ResetRequired": true,
++			"FanSpeedResetValue": 255,
++			"FanDisplayName": "CPU Fan",
++			"TemperatureThresholds": [
++				{
++					"DownThreshold": 0,
++					"UpThreshold": 44,
++					"FanSpeed": 0
++				},
++				{
++					"DownThreshold": 45,
++					"UpThreshold": 50,
++					"FanSpeed": 10
++				},
++				{
++					"DownThreshold": 49,
++					"UpThreshold": 55,
++					"FanSpeed": 15
++				},
++				{
++					"DownThreshold": 54,
++					"UpThreshold": 60,
++					"FanSpeed": 25
++				},
++				{
++					"DownThreshold": 59,
++					"UpThreshold": 65,
++					"FanSpeed": 35
++				},
++				{
++					"DownThreshold": 64,
++					"UpThreshold": 70,
++					"FanSpeed": 50
++				},
++				{
++					"DownThreshold": 69,
++					"UpThreshold": 75,
++					"FanSpeed": 65
++				},
++				{
++					"DownThreshold": 74,
++					"UpThreshold": 80,
++					"FanSpeed": 80
++				},
++				{
++					"DownThreshold": 79,
++					"UpThreshold": 85,
++					"FanSpeed": 100
++				}
++			]
++		},
++		{
++			"ReadRegister": 179,
++			"WriteRegister": 45,
++			"MinSpeedValue": 0,
++			"MaxSpeedValue": 100,
++			"IndependentReadMinMaxValues": true,
++			"MinSpeedValueRead": 0,
++			"MaxSpeedValueRead": 32,
++			"ResetRequired": true,
++			"FanSpeedResetValue": 255,
++			"FanDisplayName": "GPU Fan",
++			"TemperatureThresholds": [
++				{
++					"DownThreshold": 0,
++					"UpThreshold": 44,
++					"FanSpeed": 0
++				},
++				{
++					"DownThreshold": 45,
++					"UpThreshold": 50,
++					"FanSpeed": 10
++				},
++				{
++					"DownThreshold": 49,
++					"UpThreshold": 55,
++					"FanSpeed": 20
++				},
++				{
++					"DownThreshold": 54,
++					"UpThreshold": 60,
++					"FanSpeed": 30
++				},
++				{
++					"DownThreshold": 59,
++					"UpThreshold": 65,
++					"FanSpeed": 40
++				},
++				{
++					"DownThreshold": 64,
++					"UpThreshold": 70,
++					"FanSpeed": 50
++				},
++				{
++					"DownThreshold": 69,
++					"UpThreshold": 75,
++					"FanSpeed": 60
++				},
++				{
++					"DownThreshold": 74,
++					"UpThreshold": 80,
++					"FanSpeed": 70
++				},
++				{
++					"DownThreshold": 79,
++					"UpThreshold": 85,
++					"FanSpeed": 80
++				}
++			]
++		}
++	]
++}
+\ No newline at end of file
+diff --git a/xml/HP Victus 16-e0xxx.xml b/xml/HP Victus 16-e0xxx.xml
+index 16b403a..ae2bdc2 100644
+--- a/xml/HP Victus 16-e0xxx.xml	
++++ b/xml/HP Victus 16-e0xxx.xml	
+@@ -140,5 +140,4 @@
+       </FanSpeedPercentageOverrides>
+     </FanConfiguration>
+   </FanConfigurations>
+-  <RegisterWriteConfigurations />
+ </FanControlConfigV2>
+\ No newline at end of file

@@ -1,6 +1,7 @@
 {
   system,
   inputs,
+  patch,
   pkg,
   lib,
 }:
@@ -13,7 +14,27 @@
     };
   };
 
-  nbfc-linux = final.callPackage (pkg /nbfc-linux) { };
+  nbfc-linux = prev.nbfc-linux.overrideAttrs (
+    finalAttrs: prevAttrs: {
+      src = final.fetchFromGitHub {
+        owner = "nbfc-linux";
+        repo = "nbfc-linux";
+        rev = "92b4cc7881e252aa847cd82cfeffadc4e8c8291a";
+        hash = "sha256-bOgUMcdJbNlqqjjyHeQSbgrOZ7HmfI6wka24ies5ysA=";
+      };
+      patches = (prevAttrs.patches or [ ]) ++ [ (patch /nbfc-linux/170.patch) ];
+      buildInputs = (prevAttrs.buildInputs or [ ]) ++ [ final.python3 ];
+      configureFlags = [
+        "--prefix=${placeholder "out"}"
+        "--sysconfdir=${placeholder "out"}/etc"
+        "--bindir=${placeholder "out"}/bin"
+      ];
+      postPatch = ''
+		substituteInPlace src/nbfc.h --replace-fail 'SYSCONFDIR "/nbfc"' '"/etc/nbfc"'
+		substituteInPlace src/nbfc.h --replace-fail 'SYSCONFDIR "/nbfc/nbfc.json"' '"/etc/nbfc/nbfc.json"'
+      '';
+    }
+  );
 
   extest = final.pkgsi686Linux.callPackage (pkg /extest) { };
 
