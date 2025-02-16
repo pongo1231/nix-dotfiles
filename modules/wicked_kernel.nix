@@ -14,7 +14,7 @@
             (prevAttrs.kernel.override (prevAttrs': {
               #stdenv = final.ccacheStdenv;
               #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-              ignoreConfigErrors = true;
+              #ignoreConfigErrors = true;
               argsOverride =
                 let
                   version = "6.14-git";
@@ -25,8 +25,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "57fdb14bc497d21ad88000238c6d3763906989ff";
-                    hash = "sha256-erEZuTL7spMpzuSL51g/k1VZ2myYUZI/p6JnvRZmiiQ=";
+                    rev = "2c05e69cb1eb18e15ca24d14a5e3464e39a99de5";
+                    hash = "sha256-NcoFDWH18Huaj+L9EwFEAkSqOxnjSvHve5+TRtGpW08=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
