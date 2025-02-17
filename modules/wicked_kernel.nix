@@ -21,12 +21,12 @@
                 in
                 {
                   inherit version;
-                  modDirVersion = "6.14.0-rc2";
+                  modDirVersion = "6.14.0-rc3";
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "2c05e69cb1eb18e15ca24d14a5e3464e39a99de5";
-                    hash = "sha256-NcoFDWH18Huaj+L9EwFEAkSqOxnjSvHve5+TRtGpW08=";
+                    rev = "7ccd051a1f80a70efb5be6e9250cf70fcc3f9a48";
+                    hash = "sha256-mUhTRZQ5qGDDlxROmgxfUDjgQNZT4VNH8tYFrJAwkOg=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
