@@ -46,10 +46,10 @@
           user,
           system ? "x86_64-linux",
           type ? null,
-          args ? { },
           config ? null,
           userConfig ? null,
-        }:
+          ...
+        }@args:
         inputs.home-manager.lib.homeManagerConfiguration {
           pkgs = inputs.nixpkgs.legacyPackages.${system};
 
@@ -74,7 +74,15 @@
                 };
               })
 
-              (import ./modules/common args)
+              (import ./modules/common (
+                builtins.removeAttrs args [
+                  "user"
+                  "system"
+                  "type"
+                  "config"
+                  "userConfig"
+                ]
+              ))
             ]
             ++ inputs.nixpkgs.lib.optionals (type != null) [
               ./modules/${type}

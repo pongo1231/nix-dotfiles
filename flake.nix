@@ -56,9 +56,9 @@
             hostName,
             system ? "x86_64-linux",
             type ? null,
-            args ? { },
             config ? null,
-          }:
+            ...
+          }@args:
           inputs.nixpkgs.lib.nixosSystem {
             specialArgs = {
               inherit system;
@@ -87,7 +87,14 @@
                   };
                 })
 
-                (import ./modules/common args)
+                (import ./modules/common (
+                  builtins.removeAttrs args [
+                    "hostName"
+                    "system"
+                    "type"
+                    "config"
+                  ]
+                ))
               ]
               ++ inputs.nixpkgs.lib.optionals (type != null) [
                 ./modules/${type}
