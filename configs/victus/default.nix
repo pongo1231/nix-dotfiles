@@ -15,7 +15,6 @@
     (import (module /nvidia.nix) { platform = "amd"; })
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
-    (module /wicked_kernel.nix)
   ];
 
   boot = {

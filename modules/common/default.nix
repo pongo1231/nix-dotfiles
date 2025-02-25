@@ -1,5 +1,6 @@
 {
   useLixModule ? true,
+  useWickedKernel ? false,
 }:
 {
   inputs,
@@ -9,11 +10,15 @@
   ...
 }:
 {
-  imports = [
-    (import (module /common/nix.nix) { inherit useLixModule; })
-    (module /common/bluetooth.nix)
-    (module /common/udev.nix)
-  ];
+  imports =
+    [
+      (import (module /common/nix.nix) { inherit useLixModule; })
+      (module /common/bluetooth.nix)
+      (import (module /common/udev.nix) { setSchedulers = !useWickedKernel; })
+    ]
+    ++ lib.optionals useWickedKernel [
+      (module /common/wicked_kernel.nix)
+    ];
 
   system = {
     stateVersion = "22.05";

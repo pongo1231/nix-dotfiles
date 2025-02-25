@@ -1,3 +1,4 @@
 {
   type = "desktop";
+  useWickedKernel = true;
 }

@@ -12,8 +12,6 @@
   imports = [
     inputs.jovian.nixosModules.default
 
-    (module /wicked_kernel.nix)
-
     ./steam.nix
   ];
 

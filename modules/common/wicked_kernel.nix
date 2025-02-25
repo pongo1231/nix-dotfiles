@@ -25,8 +25,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "e8fe35ab652bebac28e543c3060dbb5c1ef40837";
-                    hash = "sha256-m/zwdSgghtmYG8esgFVWylPDBs41NvXFMmMewV05Biw=";
+                    rev = "ae3eab09238d0af31226c1849b821c4b1efc5458";
+                    hash = "sha256-6Y+yXnibc7O1lCAoLxgu+oe1QYN81eri0JoNX6KRO2Y=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -115,10 +115,21 @@
       }
     ];
 
+    kernelModules = [ "adios" ];
+
     kernel.sysctl = {
       # cachyos settings
       "kernel.sched_burst_cache_lifetime" = 60000000;
       "kernel.sched_burst_penalty_offset" = 22;
     };
   };
+
+  services.udev.extraRules = ''
+    # set scheduler for NVMe
+    ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="adios"
+    # set scheduler for SSD and eMMC
+    ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="adios"
+    # set scheduler for rotating disks
+    ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="adios"
+  '';
 }
