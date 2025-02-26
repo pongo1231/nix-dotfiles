@@ -25,8 +25,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "ae3eab09238d0af31226c1849b821c4b1efc5458";
-                    hash = "sha256-6Y+yXnibc7O1lCAoLxgu+oe1QYN81eri0JoNX6KRO2Y=";
+                    rev = "93d838e01ebd1c2b460c191dfbc123a83d1eff08";
+                    hash = "sha256-lpk35kZVLX5ey+pRHehZ6md2kN5jURUKs9Uxj8W7Wiw=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
