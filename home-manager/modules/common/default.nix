@@ -1,4 +1,4 @@
-{ }:
+{ user }:
 {
   inputs,
   module,
@@ -9,6 +9,10 @@
 }:
 {
   imports = [
+    inputs.nix-index-database.hmModules.nix-index
+
+    (module /common/overlay)
+
     (module /common/helpers.nix)
     (module /common/suspender.nix)
   ];
@@ -18,6 +22,11 @@
   ];
 
   nixpkgs.config.allowUnfreePredicate = pkg: true;
+
+  home = {
+    username = user;
+    homeDirectory = "/home/${user}";
+  };
 
   programs = {
     fish = {

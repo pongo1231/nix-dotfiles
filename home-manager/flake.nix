@@ -61,22 +61,8 @@
 
           modules =
             [
-              inputs.nix-index-database.hmModules.nix-index
-
-              (_: {
-                nixpkgs.overlays = [
-                  (import ./overlay.nix { })
-                ];
-
-                home = {
-                  username = user;
-                  homeDirectory = "/home/${user}";
-                };
-              })
-
               (import ./modules/common (
                 builtins.removeAttrs args [
-                  "user"
                   "system"
                   "type"
                   "config"

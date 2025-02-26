@@ -44,13 +44,6 @@
   outputs = inputs: {
     nixosConfigurations =
       let
-        specialArgs = {
-          inherit inputs;
-          module = file: modules/${file};
-          patch = file: patches/${file};
-          pkg = file: pkgs/${file};
-        };
-
         commonSystem =
           {
             hostName,
@@ -61,35 +54,16 @@
           }@args:
           inputs.nixpkgs.lib.nixosSystem {
             specialArgs = {
-              inherit system;
-            } // specialArgs;
+              inherit system inputs;
+              module = file: modules/${file};
+              patch = file: patches/${file};
+              pkg = file: pkgs/${file};
+            };
 
             modules =
               [
-                (_: {
-                  nixpkgs.overlays = [
-                    (import ./overlay.nix {
-                      inherit system inputs;
-                      inherit (specialArgs) patch pkg;
-                      inherit (inputs.nixpkgs) lib;
-                    })
-                  ];
-
-                  nixpkgs = {
-                    hostPlatform.system = system;
-                    #buildPlatform.system = "x86_64-linux";
-
-                    config.allowUnfree = true;
-                  };
-
-                  networking = {
-                    inherit hostName;
-                  };
-                })
-
                 (import ./modules/common (
                   builtins.removeAttrs args [
-                    "hostName"
                     "system"
                     "type"
                     "config"

@@ -1,5 +1,6 @@
 { useLixModule }:
 {
+  system,
   inputs,
   config,
   pkgs,
@@ -53,4 +54,10 @@
         value.flake = flake;
       }) inputs;
     };
+
+  nixpkgs = {
+    hostPlatform.system = system;
+    #buildPlatform.system = "x86_64-linux";
+    config.allowUnfree = true;
+  };
 }

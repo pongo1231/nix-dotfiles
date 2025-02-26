@@ -1,4 +1,5 @@
 {
+  hostName,
   useLixModule ? true,
   useWickedKernel ? false,
 }:
@@ -13,6 +14,8 @@
   imports =
     [
       (import (module /common/nix.nix) { inherit useLixModule; })
+      (module /common/overlay)
+
       (module /common/bluetooth.nix)
       (import (module /common/udev.nix) { setSchedulers = !useWickedKernel; })
     ]
@@ -101,6 +104,8 @@
   };
 
   networking = {
+    inherit hostName;
+
     dhcpcd.enable = false;
     useNetworkd = true;
 
