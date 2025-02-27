@@ -1,1 +1,3 @@
-{ }
+{
+  useWickedKernel = true;
+}
