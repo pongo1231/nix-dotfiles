@@ -80,9 +80,9 @@
       "cgroup_no_v1=all"
       "mitigations=off"
       "split_lock_detect=off"
-      "transparent_hugepage=always"
-      "transparent_hugepage_shmem=always"
-      "transparent_hugepage_tmpfs=always"
+      #"transparent_hugepage=always"
+      #"transparent_hugepage_shmem=always"
+      #"transparent_hugepage_tmpfs=always"
     ];
 
     extraModprobeConfig = ''
