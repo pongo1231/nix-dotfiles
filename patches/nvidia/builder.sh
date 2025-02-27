@@ -1,6 +1,3 @@
-if [ -e "$NIX_ATTRS_SH_FILE" ]; then . "$NIX_ATTRS_SH_FILE"; elif [ -f .attrs.sh ]; then . .attrs.sh; fi
-source $stdenv/setup
-
 unpackManually() {
     skip=$(sed 's/^skip=//; t; d' $src)
     tail -n +$skip $src | bsdtar xvf -
@@ -135,9 +132,10 @@ installPhase() {
         rm -rf $i/share/egl $i/share/glvnd
 
         # Install libraries needed by Proton to support DLSS
-        if [ -e nvngx.dll ] && [ -e _nvngx.dll ]; then
-            install -Dm644 -t $i/lib/nvidia/wine/ nvngx.dll _nvngx.dll
-        fi
+        for winelib in $(find . -name '*nvngx*.dll')
+        do
+            install -Dm644 -t $i/lib/nvidia/wine/ "$winelib"
+        done
     done
 
 
