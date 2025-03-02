@@ -21,12 +21,12 @@
                 in
                 {
                   inherit version;
-                  modDirVersion = "6.14.0-rc4";
+                  modDirVersion = "6.14.0-rc5";
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "beb441806ef86c4679863ecb33d6cccf50387453";
-                    hash = "sha256-nQZA2p8XHDWmS+lSRNBVeEapzatnYAQ+yJTcc1YhbtE=";
+                    rev = "557dbf23eebba46b199b7d52bed862aa0d6dffcb";
+                    hash = "sha256-NFVQJPfZzFg4/VB6XYE1ADxbGURc09P9FCcsX4+Ekto=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -121,6 +121,8 @@
       # cachyos settings
       "kernel.sched_burst_cache_lifetime" = 60000000;
       "kernel.sched_burst_penalty_offset" = 22;
+
+      "vm.workingset_protection" = 0;
     };
   };
 
