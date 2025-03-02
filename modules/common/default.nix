@@ -217,7 +217,7 @@
     };
 
     tmpfiles.rules = [
-      "w! /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
+      "w /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
     ];
 
     services = {
