@@ -217,7 +217,6 @@
     };
 
     tmpfiles.rules = [
-      "w! /sys/kernel/mm/lru_gen/min_ttl_ms - - - - 1000"
       "w! /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
     ];
 
