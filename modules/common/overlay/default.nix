@@ -76,19 +76,17 @@
         };
       };
 
-      /*
-        distrobox = prev.distrobox.overrideAttrs (
-          finalAttrs: prevAttrs: {
-            version = "1.8.1.2";
-            src = final.fetchFromGitHub {
-              owner = "89luca89";
-              repo = "distrobox";
-              rev = "3b9f0e8d3d8bd102e1636a22afffafe00777d30b";
-              hash = "sha256-wTu+8SQZaf8TKkjyvKqTvIWnCZTiPnozybTu5uKXEJk=";
-            };
-          }
-        );
-      */
+      distrobox = prev.distrobox.overrideAttrs (
+        finalAttrs: prevAttrs: {
+          version = "1.8.1.2";
+          src = final.fetchFromGitHub {
+            owner = "89luca89";
+            repo = "distrobox";
+            rev = "3b9f0e8d3d8bd102e1636a22afffafe00777d30b";
+            hash = "sha256-wTu+8SQZaf8TKkjyvKqTvIWnCZTiPnozybTu5uKXEJk=";
+          };
+        }
+      );
 
       /*
         decky-loader =
