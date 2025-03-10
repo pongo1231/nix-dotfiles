@@ -39,12 +39,10 @@
       mesa.drivers
       libvdpau-va-gl
       (libedit.overrideAttrs (attrs: {
-        postInstall = (attrs.postInstall or "") + ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';
+        postInstall = ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';
       }))
     ];
   };
-
-  services.resolved.enable = false;
 
   environment.systemPackages = [
     pkgs.wget # for vs code server
