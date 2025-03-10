@@ -1,4 +1,7 @@
 {
+  isServer,
+}:
+{
   patch,
   pkg,
   pkgs,
@@ -115,13 +118,17 @@
 
     kernelModules = [ "adios" ];
 
-    kernel.sysctl = {
-      # cachyos settings
-      "kernel.sched_burst_cache_lifetime" = 60000000;
-      "kernel.sched_burst_penalty_offset" = 22;
+    kernel.sysctl =
+      {
+        # cachyos settings
+        "kernel.sched_burst_cache_lifetime" = 60000000;
+        "kernel.sched_burst_penalty_offset" = 22;
 
-      "vm.workingset_protection" = 0;
-    };
+        "vm.workingset_protection" = 0;
+      }
+      // lib.optionalAttrs isServer {
+        "kernel.sched_bore" = 0;
+      };
   };
 
   services.udev.extraRules = ''

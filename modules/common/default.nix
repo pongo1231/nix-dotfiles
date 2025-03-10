@@ -1,5 +1,6 @@
 {
   hostName,
+  isServer ? false,
   useLixModule ? true,
   useWickedKernel ? false,
 }:
@@ -20,7 +21,7 @@
       (import (module /common/udev.nix) { setSchedulers = !useWickedKernel; })
     ]
     ++ lib.optionals useWickedKernel [
-      (module /common/wicked_kernel.nix)
+      (import (module /common/wicked_kernel.nix) { inherit isServer; })
     ];
 
   system = {

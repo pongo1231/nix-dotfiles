@@ -1,3 +1,4 @@
 {
+  isServer = true;
   useWickedKernel = true;
 }
