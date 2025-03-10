@@ -63,6 +63,11 @@
     dynamicBoost.enable = true;
   };
 
+  boot.extraModprobeConfig = ''
+    options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0 NVreg_DynamicPowerManagement=0x02 NVreg_RegistryDwords=RMIntrLockingMode=1
+    options nvidia_drm modeset=1
+  '';
+
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "prime-run" ''
       export __NV_PRIME_RENDER_OFFLOAD=1
