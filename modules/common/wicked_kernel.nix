@@ -25,8 +25,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "347bfa882bc9114c434f611469b67cd5292041a4";
-                    hash = "sha256-FVesZ2MqJQSvvc8tiKEMy7pbKkXnoXtJVffiS9dciW4=";
+                    rev = "1a5acc6bf3901a1b05607bb12a181c73c992c8a1";
+                    hash = "sha256-hgiHywGcJwjf8G1ziZIzAyc4VLcX+wVvEnEmTHtsAQk=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -105,8 +105,6 @@
           AMD_PRIVATE_COLOR y
           X86_64_VERSION 3
           CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
-          PT_RECLAIM y
-          MHP_DEFAULT_ONLINE_TYPE_ONLINE_AUTO y
           LEDS_STEAMDECK m
           EXTCON_STEAMDECK m
           MFD_STEAMDECK m
