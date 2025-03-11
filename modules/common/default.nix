@@ -3,7 +3,7 @@
   isServer ? false,
   useLixModule ? true,
   useWickedKernel ? false,
-  forceKSM ? false,
+  forceKSM ? true,
 }:
 {
   inputs,
