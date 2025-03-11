@@ -3,6 +3,7 @@
   isServer ? false,
   useLixModule ? true,
   useWickedKernel ? false,
+  forceKSM ? false,
 }:
 {
   inputs,
@@ -232,10 +233,13 @@
     ];
 
     services = {
-      "user@".serviceConfig = {
-        Delegate = "cpu cpuset io memory pids";
-        #MemoryKSM = true;
-      };
+      "user@".serviceConfig =
+        {
+          Delegate = "cpu cpuset io memory pids";
+        }
+        // lib.optionalAttrs forceKSM {
+          MemoryKSM = true;
+        };
     };
   };
 
