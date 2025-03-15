@@ -131,8 +131,8 @@
           src = pkgs.fetchFromGitHub {
             owner = "matinlotfali";
             repo = "KDE-Rounded-Corners";
-            rev = "53980a5dd5d0a24422cdd9aaea84c3b3ebcab545";
-            hash = "sha256-6uSgYFY+JV8UCy3j9U/hjk6wJpD1XqpnXBqmKVi/2W0=";
+            rev = "81fb4e011ca5434edc5a20afa8101df470207b49";
+            hash = "sha256-TViJzwmDLR6Ej+2o7HeusiaYOm98JDzSuWqzrmuNJ6o=";
           };
         }
       ))
