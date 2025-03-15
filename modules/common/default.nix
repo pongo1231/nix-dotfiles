@@ -148,7 +148,10 @@
 
     extra-container.enable = true;
 
-    nix-ld.enable = true;
+    nix-ld = {
+      enable = true;
+      libraries = pkgs.steam-run-free.args.multiPkgs pkgs;
+    };
 
     usbtop.enable = true;
 
