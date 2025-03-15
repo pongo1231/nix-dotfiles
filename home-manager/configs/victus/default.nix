@@ -14,6 +14,5 @@
 
   home.packages = with pkgs; [
     audacious
-    jamesdsp
   ];
 }
