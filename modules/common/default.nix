@@ -108,7 +108,10 @@
   hardware = {
     enableRedistributableFirmware = true;
 
-    ksm.enable = true;
+    ksm = {
+      enable = true;
+      sleep = 2000;
+    };
   };
 
   networking = {
