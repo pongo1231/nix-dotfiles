@@ -123,28 +123,20 @@
     };
   };
 
-  environment = {
-    sessionVariables = {
-      PROTON_USE_NTSYNC = 1;
-      PROTON_ENABLE_NGX_UPDATER = 1;
-      DXVK_NVAPI_DRS_SETTINGS = "0x10E41E01=1,0x10E41E02=1,0x10E41E03=1,0x10E41DF3=0xffffff,0x10E41DF7=0xffffff";
-    };
-
-    systemPackages = with pkgs; [
-      virtiofsd
-      (kde-rounded-corners.overrideAttrs (
-        finalAttrs: prevAttrs: {
-          src = pkgs.fetchFromGitHub {
-            owner = "matinlotfali";
-            repo = "KDE-Rounded-Corners";
-            rev = "81fb4e011ca5434edc5a20afa8101df470207b49";
-            hash = "sha256-TViJzwmDLR6Ej+2o7HeusiaYOm98JDzSuWqzrmuNJ6o=";
-          };
-        }
-      ))
-      freerdp
-      inputs.winapps.packages.${system}.winapps
-      inputs.winapps.packages.${system}.winapps-launcher
-    ];
-  };
+  environment.systemPackages = with pkgs; [
+    virtiofsd
+    (kde-rounded-corners.overrideAttrs (
+      finalAttrs: prevAttrs: {
+        src = pkgs.fetchFromGitHub {
+          owner = "matinlotfali";
+          repo = "KDE-Rounded-Corners";
+          rev = "81fb4e011ca5434edc5a20afa8101df470207b49";
+          hash = "sha256-TViJzwmDLR6Ej+2o7HeusiaYOm98JDzSuWqzrmuNJ6o=";
+        };
+      }
+    ))
+    freerdp
+    inputs.winapps.packages.${system}.winapps
+    inputs.winapps.packages.${system}.winapps-launcher
+  ];
 }
