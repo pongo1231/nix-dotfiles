@@ -124,6 +124,7 @@
         "kernel.sched_burst_cache_lifetime" = 60000000;
         "kernel.sched_burst_penalty_offset" = 22;
 
+        "kernel.sched_burst_exclude_kthreads" = 0;
         "vm.workingset_protection" = 0;
       }
       // lib.optionalAttrs isServer {
