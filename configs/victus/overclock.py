@@ -5,6 +5,6 @@ nvmlInit()
 
 myGPU = nvmlDeviceGetHandleByIndex(0)
 
-nvmlDeviceSetGpcClkVfOffset(myGPU, 220)
+nvmlDeviceSetGpcClkVfOffset(myGPU, 200)
 
 nvmlDeviceSetMemClkVfOffset(myGPU, 3500)
