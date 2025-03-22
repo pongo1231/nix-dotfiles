@@ -110,7 +110,7 @@
 
     ksm = {
       enable = true;
-      sleep = 2000;
+      sleep = 250;
     };
   };
 
