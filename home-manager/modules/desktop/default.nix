@@ -17,11 +17,7 @@
   };
 
   home.packages = with pkgs; [
-    (discord.overrideAttrs (prevAttrs: {
-      desktopItem = prevAttrs.desktopItem.override {
-        exec = "Discord --disable-smooth-scrolling --enable-features=WaylandWindowDecorations --ozone-platform-hint=auto";
-      };
-    }))
+    vesktop
     libreoffice
     gimp
     audacity
