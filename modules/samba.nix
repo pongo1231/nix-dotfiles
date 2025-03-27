@@ -4,9 +4,6 @@ _: {
     enable = true;
     settings = {
       global = {
-        owner = "unix only";
-        permissions = "yes";
-        security = "user";
         writable = "yes";
         "load printers" = "no";
         printing = "bsd";
@@ -14,7 +11,6 @@ _: {
         "disable spoolss" = "yes";
         "show add printer wizard" = "no";
         "server multi channel support" = "yes";
-        deadtime = 30;
         "use sendfile" = "yes";
         "min receivefile size" = 16384;
         "aio read size" = 1;
