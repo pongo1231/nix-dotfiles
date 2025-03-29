@@ -28,8 +28,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "cdeae0142675a0d1a564e2604ebd19b2efe8e068";
-                    hash = "sha256-/FyEjYDD8keeCNZRAV0QpT9ZvL/Q3r3AlEHlwyyTy10=";
+                    rev = "5a8cc2bac79ebf232bd208d7dbb1846fcb4cb2d4";
+                    hash = "sha256-OvvxPCCHY8Cjb/pn9iOFzlnWAJU4pHwZkE4PST/XTwk=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
