@@ -47,9 +47,9 @@
         commonSystem =
           {
             hostName,
+            config ? null,
             system ? "x86_64-linux",
             type ? null,
-            config ? null,
             ...
           }@args:
           inputs.nixpkgs.lib.nixosSystem {
@@ -64,9 +64,9 @@
               [
                 (import ./modules/common (
                   builtins.removeAttrs args [
+                    "config"
                     "system"
                     "type"
-                    "config"
                   ]
                 ))
               ]
@@ -78,17 +78,23 @@
               ];
           };
       in
-      inputs.nixpkgs.lib.mapAttrs (
-        name: value:
-        commonSystem (
-          (import ./configs/${name}/info.nix)
-          // {
-            hostName = name;
-          }
-          // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) {
-            config = ./configs/${name};
-          }
+      inputs.nixpkgs.lib.mapAttrs
+        (
+          name: value:
+          commonSystem (
+            (import ./configs/${name}/info.nix)
+            // {
+              hostName = name;
+            }
+            // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) {
+              config = ./configs/${name};
+            }
+          )
         )
-      ) (builtins.readDir ./configs);
+        (
+          inputs.nixpkgs.lib.filterAttrs (name: value: !(builtins.pathExists ./configs/${name}/.broken)) (
+            builtins.readDir ./configs
+          )
+        );
   };
 }
