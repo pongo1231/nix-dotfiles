@@ -17,10 +17,10 @@
             (prevAttrs.kernel.override (prevAttrs': {
               #stdenv = final.ccacheStdenv;
               #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-              #ignoreConfigErrors = true;
+              ignoreConfigErrors = true;
               argsOverride =
                 let
-                  version = "6.14.0";
+                  version = "6.15.0";
                 in
                 {
                   inherit version;
@@ -28,8 +28,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "5a8cc2bac79ebf232bd208d7dbb1846fcb4cb2d4";
-                    hash = "sha256-OvvxPCCHY8Cjb/pn9iOFzlnWAJU4pHwZkE4PST/XTwk=";
+                    rev = "f2a81d445417a58bb10e9fb11752297ce4e55a21";
+                    hash = "sha256-F+qs5vT3K57oM4sx1AXVte5gublkIEg/dwMnUHpYB2I=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -106,8 +106,8 @@
         patch = null;
         extraConfig = ''
           AMD_PRIVATE_COLOR y
-          X86_64_VERSION 3
-          CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
+          #X86_64_VERSION 3
+          #CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           LEDS_STEAMDECK m
           EXTCON_STEAMDECK m
           MFD_STEAMDECK m

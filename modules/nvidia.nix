@@ -29,11 +29,14 @@
               openSha256 = "sha256-9l8N83Spj0MccA8+8R1uqiXBS0Ag4JrLPjrU3TaXHnM=";
               settingsSha256 = "sha256-XMk+FvTlGpMquM8aE8kgYK2PIEszUZD2+Zmj2OpYrzU=";
               persistencedSha256 = "";
+              patches = [ (patch /nvidia/6.15/build-fix.patch) ];
             }).overrideAttrs
               (
                 finalAttrs': prevAttrs': {
                   # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
                   builder = (patch /nvidia/builder.sh);
+
+                  patches = prevAttrs'.patches ++ [ (patch /nvidia/6.15/gpl-hack.patch) ];
 
                   passthru = prevAttrs'.passthru // {
                     open = prevAttrs'.passthru.open.overrideAttrs (

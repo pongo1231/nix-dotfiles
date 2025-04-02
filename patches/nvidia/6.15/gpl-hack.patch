@@ -1,0 +1,52 @@
+diff --git a/kernel/nvidia-drm/nvidia-drm-linux.c b/kernel/nvidia-drm/nvidia-drm-linux.c
+index 0007cbf..3cb1815 100644
+--- a/kernel/nvidia-drm/nvidia-drm-linux.c
++++ b/kernel/nvidia-drm/nvidia-drm-linux.c
+@@ -60,7 +60,7 @@ static void __exit nv_linux_drm_exit(void)
+ module_init(nv_linux_drm_init);
+ module_exit(nv_linux_drm_exit);
+ 
+-  MODULE_LICENSE("MIT");
++  MODULE_LICENSE("Dual MIT/GPL");
+ 
+ MODULE_INFO(supported, "external");
+ MODULE_VERSION(NV_VERSION_STRING);
+diff --git a/kernel/nvidia-modeset/nvidia-modeset-linux.c b/kernel/nvidia-modeset/nvidia-modeset-linux.c
+index 878984e..cbe2ad1 100644
+--- a/kernel/nvidia-modeset/nvidia-modeset-linux.c
++++ b/kernel/nvidia-modeset/nvidia-modeset-linux.c
+@@ -1960,7 +1960,7 @@ restart:
+ module_init(nvkms_init);
+ module_exit(nvkms_exit);
+ 
+-  MODULE_LICENSE("NVIDIA");
++  MODULE_LICENSE("Dual MIT/GPL");
+ 
+ MODULE_INFO(supported, "external");
+ MODULE_VERSION(NV_VERSION_STRING);
+diff --git a/kernel/nvidia-peermem/nvidia-peermem.c b/kernel/nvidia-peermem/nvidia-peermem.c
+index 416ad2a..4a77b1e 100644
+--- a/kernel/nvidia-peermem/nvidia-peermem.c
++++ b/kernel/nvidia-peermem/nvidia-peermem.c
+@@ -44,7 +44,7 @@
+ MODULE_AUTHOR("Yishai Hadas");
+ MODULE_DESCRIPTION("NVIDIA GPU memory plug-in");
+ 
+-MODULE_LICENSE("Linux-OpenIB");
++MODULE_LICENSE("Dual MIT/GPL");
+ 
+ MODULE_VERSION(DRV_VERSION);
+ enum {
+diff --git a/kernel/nvidia/nv.c b/kernel/nvidia/nv.c
+index 5309a73..74b9109 100644
+--- a/kernel/nvidia/nv.c
++++ b/kernel/nvidia/nv.c
+@@ -111,7 +111,7 @@
+ #define RM_THRESHOLD_UNAHNDLED_IRQ_COUNT 99900
+ #define RM_UNHANDLED_TIMEOUT_US          100000
+ 
+-MODULE_LICENSE("NVIDIA");
++MODULE_LICENSE("Dual MIT/GPL");
+ 
+ MODULE_INFO(supported, "external");
+ MODULE_VERSION(NV_VERSION_STRING);
