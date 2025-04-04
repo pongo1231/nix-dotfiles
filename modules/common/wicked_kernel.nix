@@ -28,8 +28,8 @@
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "50e1538147d71463b0c9d0a3ff5085072fb10311";
-                    hash = "sha256-UvBh6Mh3jm+JDTD7VbIKOrXQ04J7W8UJconyEaPuQK4=";
+                    rev = "8cdba632036cdbffda8b0ddd721827ee10e8ac02";
+                    hash = "sha256-B1UzKrVr6QhDPp5YEYKChYDaaZ0CmQCcmR5HfILP9/g=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -68,36 +68,7 @@
   ];
 
   boot = {
-    kernelPackages =
-      let
-      in
-      /*
-        makeLTO =
-        p:
-        p.extend (finalAttrs: prevAttrs: {
-            kernel = prevAttrs.kernel.override (prevAttrs': {
-              stdenv = pkgs.clangStdenv // { mkDerivation =
-                args:
-                pkgs.clangStdenv.mkDerivation (
-                  args
-                  // {
-                    nativeBuildInputs = (args.nativeBuildInputs or [ ]) ++ ( [ pkgs.llvmPackages_latest.bintools ]);
-                  }
-                ); };
-              extraMakeFlags = prevAttrs.kernel.extraMakeFlags ++ [
-              "LLVM=1"
-                "LLVM_IAS=1"
-                "KBUILD_CFLAGS=-Wno-error=unused-command-line-argument" ];
-              argsOverride.structuredExtraConfig = prevAttrs.kernel.structuredExtraConfig // {
-                LTO_NONE = lib.kernel.no;
-                LTO_CLANG_FULL = lib.kernel.yes;
-              };
-            });
-          }
-        );
-      */
-      #makeLTO
-      pkgs.linuxPackages_wicked;
+    kernelPackages = pkgs.linuxPackages_wicked;
 
     kernelPatches = [
       {
@@ -106,8 +77,6 @@
         patch = null;
         extraConfig = ''
           AMD_PRIVATE_COLOR y
-          #X86_64_VERSION 3
-          #CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           LEDS_STEAMDECK m
           EXTCON_STEAMDECK m
           MFD_STEAMDECK m
