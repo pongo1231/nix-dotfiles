@@ -12,8 +12,6 @@
   boot = {
     loader.systemd-boot.enable = lib.mkForce false;
 
-    kernelParams = [ "preempt=none" ];
-
     binfmt.emulatedSystems = [
       "aarch64-linux"
     ];
