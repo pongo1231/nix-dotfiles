@@ -20,16 +20,16 @@
               ignoreConfigErrors = true;
               argsOverride =
                 let
-                  version = "6.15.0";
+                  version = "6.15.0-rc1";
                 in
                 {
                   inherit version;
-                  modDirVersion = "6.14.0";
+                  modDirVersion = "6.15.0-rc1";
                   src = final.fetchFromGitHub {
                     owner = "pongo1231";
                     repo = "linux";
-                    rev = "8cdba632036cdbffda8b0ddd721827ee10e8ac02";
-                    hash = "sha256-B1UzKrVr6QhDPp5YEYKChYDaaZ0CmQCcmR5HfILP9/g=";
+                    rev = "1216d4d3db0303c35e8fbad09a88e2cdc1918187";
+                    hash = "sha256-QHdHoVkm0FXsp3RGg6IGyXbiG1poEtoM+V48GGu7JTA=";
                   };
                   #src = final.fetchzip {
                   #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
