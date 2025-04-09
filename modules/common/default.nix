@@ -219,7 +219,7 @@
         "kvm"
         "nginx"
       ];
-      hashedPassword = "$6$jTFwtF9QaSc/j2sI$W9nNE/f6QK1NE3uinzPYBffvxck86lmKf772auIG/8uESh.H1U9ZUUndd.DpW0tZKWOehfpJOxnGOVIxqmvh00";
+      hashedPassword = "$y$j9T$c2Nt1td.mLWHzJt2GuFhG.$.QLj0Uh94KxKKq15MKXG6EUNJRt9N/AH7cSf2ABsQZ5";
     } // defaultUserOverride;
   };
 
