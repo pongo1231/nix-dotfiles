@@ -4,6 +4,7 @@
   useLixModule ? true,
   useWickedKernel ? false,
   forceKSM ? true,
+  defaultUserOverride ? { },
 }:
 {
   inputs,
@@ -200,7 +201,7 @@
     mutableUsers = false;
     defaultUserShell = pkgs.fish;
 
-    users.pongo = {
+    users.${if (defaultUserOverride ? name) then defaultUserOverride.user else "pongo"} = {
       isNormalUser = true;
       home = "/home/pongo";
       extraGroups = [
@@ -218,7 +219,7 @@
         "nginx"
       ];
       hashedPassword = "$6$jTFwtF9QaSc/j2sI$W9nNE/f6QK1NE3uinzPYBffvxck86lmKf772auIG/8uESh.H1U9ZUUndd.DpW0tZKWOehfpJOxnGOVIxqmvh00";
-    };
+    } // defaultUserOverride;
   };
 
   systemd = {
