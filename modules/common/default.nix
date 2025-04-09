@@ -173,6 +173,7 @@
 
     openssh = {
       enable = true;
+      ports = [ 32 ];
       settings = {
         X11Forwarding = true;
         GatewayPorts = "yes";
