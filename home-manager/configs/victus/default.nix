@@ -15,5 +15,7 @@
   home.packages = with pkgs; [
     audacious
     jamesdsp
+    nextcloud-client
+    syncthing
   ];
 }
