@@ -41,11 +41,15 @@
 
   networking.networkmanager.enable = lib.mkForce false;
 
-
-  users = {
-    users.habbo = {
+  users.users = {
+    stuff = {
       isNormalUser = true;
-      home = "/home/habbo";
+      extraGroups = [ "podman" ];
+      hashedPassword = "$y$j9T$c2Nt1td.mLWHzJt2GuFhG.$.QLj0Uh94KxKKq15MKXG6EUNJRt9N/AH7cSf2ABsQZ5";
+    };
+
+    habbo = {
+      isNormalUser = true;
       extraGroups = [ "podman" ];
       hashedPassword = "$y$j9T$okA7Iq1HvpZz9jhUnm4kz.$yX/qF3P.WElXbCAZph5p/qSQ7BDOaX4j4l/3bh3ZjyB";
     };
