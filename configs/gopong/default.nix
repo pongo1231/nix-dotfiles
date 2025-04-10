@@ -5,6 +5,7 @@
 {
   imports = [
     ./webserver.nix
+    ./mailserver.nix
     ./nextcloud.nix
     ./vaultwarden.nix
   ];
