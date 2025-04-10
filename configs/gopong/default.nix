@@ -5,6 +5,7 @@
 {
   imports = [
     ./webserver.nix
+    ./nextcloud.nix
   ];
 
   boot = {
