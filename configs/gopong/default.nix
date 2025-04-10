@@ -6,6 +6,7 @@
   imports = [
     ./webserver.nix
     ./nextcloud.nix
+    ./vaultwarden.nix
   ];
 
   boot = {
