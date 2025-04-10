@@ -9,6 +9,7 @@
     ./mailserver.nix
     ./nextcloud.nix
     ./vaultwarden.nix
+    ./discourse.nix
   ];
 
   boot = {
