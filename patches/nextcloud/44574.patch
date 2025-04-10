@@ -1,0 +1,26 @@
+From 6dbd887eddcc5c2b84077909f082e66f4fb988a7 Mon Sep 17 00:00:00 2001
+From: Thomas Pointhuber <thomas.pointhuber@gmx.at>
+Date: Fri, 29 Mar 2024 17:08:59 +0100
+Subject: [PATCH] Fix #41210 to allow non Same-Site Cookies set on first
+ request
+
+Signed-off-by: Thomas Pointhuber <thomas.pointhuber@gmx.at>
+---
+ lib/base.php                                |  2 +-
+ tests/lib/AppFramework/Http/RequestTest.php | 81 +++++++++++++++++++++
+ 2 files changed, 82 insertions(+), 1 deletion(-)
+
+diff --git a/lib/base.php b/lib/base.php
+index bf324e946bc50..bf8cfa6a131d7 100644
+--- a/lib/base.php
++++ b/lib/base.php
+@@ -504,7 +504,7 @@ private static function performSameSiteCookieProtection(\OCP\IConfig $config): v
+ 			return;
+ 		}
+ 
+-		if (count($_COOKIE) > 0) {
++		if (count($_COOKIE) > 0 && (isset($_COOKIE['nc_sameSiteCookielax']) || isset($_COOKIE['nc_sameSiteCookiestrict']))) {
+ 			$requestUri = $request->getScriptName();
+ 			$processingScript = explode('/', $requestUri);
+ 			$processingScript = $processingScript[count($processingScript) - 1];
+diff --git a/tests/lib/AppFramework/Http/RequestTest.php b/tests/lib/AppFramework/Http/RequestTest.php
