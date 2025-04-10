@@ -15,8 +15,8 @@
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/media/ssd/public"; })
 
-    gpu_passthrough.nix
-    snapper.nix
+    ./gpu_passthrough.nix
+    ./snapper.nix
   ];
 
   boot = {
