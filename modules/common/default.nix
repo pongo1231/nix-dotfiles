@@ -204,7 +204,7 @@
 
     users.${if (defaultUserOverride ? name) then defaultUserOverride.user else "pongo"} = {
       isNormalUser = true;
-      home = "/home/pongo";
+      hashedPassword = "$y$j9T$c2Nt1td.mLWHzJt2GuFhG.$.QLj0Uh94KxKKq15MKXG6EUNJRt9N/AH7cSf2ABsQZ5";
       extraGroups = [
         "wheel"
         "input"
@@ -219,7 +219,6 @@
         "kvm"
         "nginx"
       ];
-      hashedPassword = "$y$j9T$c2Nt1td.mLWHzJt2GuFhG.$.QLj0Uh94KxKKq15MKXG6EUNJRt9N/AH7cSf2ABsQZ5";
     } // defaultUserOverride;
   };
 
