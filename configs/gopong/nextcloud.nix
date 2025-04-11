@@ -27,4 +27,6 @@
       };
     };
   };
+
+  environment.systemPackages = with pkgs; [ ffmpeg ];
 }
