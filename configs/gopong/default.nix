@@ -5,6 +5,7 @@
 {
   imports = [
     ./snapper.nix
+    ./postgresql.nix
     ./webserver.nix
     ./mailserver.nix
     ./nextcloud.nix

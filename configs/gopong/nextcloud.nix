@@ -23,7 +23,7 @@
       https = true;
       config = {
         adminpassFile = "/etc/nextcloud-admin-pass";
-        dbtype = "sqlite";
+        dbtype = "pgsql";
       };
     };
   };

@@ -5,6 +5,7 @@
     configs =
       let
         subvols = [
+          "/var/lib/postgresql"
           "/var/lib/nextcloud"
           "/var/lib/bitwarden_rs"
         ];
