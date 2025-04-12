@@ -17,5 +17,6 @@
     jamesdsp
     nextcloud-client
     syncthing
+    thunderbird
   ];
 }
