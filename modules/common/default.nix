@@ -16,14 +16,16 @@
 {
   imports =
     [
-      (import (module /common/nix.nix) { inherit useLixModule; })
-      (module /common/overlay)
+      (import ./nix.nix { inherit useLixModule; })
+      ./overlay
+      ./sops.nix
 
-      (module /common/bluetooth.nix)
-      (import (module /common/udev.nix) { setSchedulers = !useWickedKernel; })
+      (import ./users.nix { inherit defaultUserOverride; })
+      ./bluetooth.nix
+      (import ./udev.nix { setSchedulers = !useWickedKernel; })
     ]
     ++ lib.optionals useWickedKernel [
-      (import (module /common/wicked_kernel.nix) { inherit isServer; })
+      (import ./wicked_kernel.nix { inherit isServer; })
     ];
 
   system = {
@@ -198,30 +200,6 @@
 
   virtualisation.podman.enable = true;
 
-  users = {
-    mutableUsers = false;
-    defaultUserShell = pkgs.fish;
-
-    users.${if (defaultUserOverride ? name) then defaultUserOverride.user else "pongo"} = {
-      isNormalUser = true;
-      hashedPassword = "$y$j9T$c2Nt1td.mLWHzJt2GuFhG.$.QLj0Uh94KxKKq15MKXG6EUNJRt9N/AH7cSf2ABsQZ5";
-      extraGroups = [
-        "wheel"
-        "input"
-        "libvirtd"
-        "networkmanager"
-        "podman"
-        "video"
-        "tty"
-        "dialout"
-        "seat"
-        "libvirt"
-        "kvm"
-        "nginx"
-      ];
-    } // defaultUserOverride;
-  };
-
   systemd = {
     network.wait-online.enable = false;
 
@@ -291,6 +269,9 @@
       ksmwrap
       udp-reverse-tunnel
       sshfs
+      sops
+      ssh-to-age
+      direnv
     ];
   };
 }

@@ -44,6 +44,11 @@
       url = "gitlab:simple-nixos-mailserver/nixos-mailserver";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs: {
@@ -63,6 +68,8 @@
               module = file: modules/${file};
               patch = file: patches/${file};
               pkg = file: pkgs/${file};
+              secret = user: file: secrets/${user}/${file};
+              private = file: private/${file};
             };
 
             modules =

@@ -12,6 +12,7 @@
     inputs.nix-index-database.hmModules.nix-index
 
     (module /common/overlay)
+    (module /common/sops.nix)
 
     (module /common/helpers.nix)
     (module /common/suspender.nix)
@@ -80,6 +81,9 @@
     stateVersion = "22.05";
 
     packages = with pkgs; [
+      sops
+      ssh-to-age
+      direnv
       btop
       p7zip
       pciutils
@@ -109,7 +113,6 @@
       nixd
       nixfmt-rfc-style
       deadnix
-      direnv
       nixos-generators
       nix-melt
       nurl

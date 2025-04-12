@@ -33,6 +33,11 @@
       url = "github:isd-project/isd";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -57,6 +62,9 @@
             inherit system inputs;
             module = file: modules/${file};
             patch = file: patches/${file};
+            pkg = file: pkgs/${file};
+            secret = user: file: secrets/${user}/${file};
+            private = file: private/${file};
           };
 
           modules =

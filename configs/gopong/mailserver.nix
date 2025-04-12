@@ -1,6 +1,6 @@
 {
   inputs,
-  services,
+  config,
   ...
 }:
 {
@@ -8,12 +8,14 @@
     inputs.mailserver.nixosModules.default
   ];
 
+  sops.secrets."password_pongo@gopong.dev" = { };
+
   mailserver = {
     enable = true;
     fqdn = "gopong.dev";
     domains = [ "gopong.dev" ];
     loginAccounts."pongo@gopong.dev" = {
-      hashedPassword = "$y$j9T$jdjb8HAW.L3Hgtoj836Ez1$Vd.WqCTC0QmWYU4K4yCUBkdxxuxyJ4AKzVCN5vrlqh3";
+      hashedPasswordFile = config.sops.secrets."password_pongo@gopong.dev".path;
       aliases = [
         "admin@gopong.dev"
         "no-reply@gopong.dev"
