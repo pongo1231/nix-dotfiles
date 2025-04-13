@@ -1,4 +1,4 @@
-{ user }:
+{ user, args }:
 {
   inputs,
   module,

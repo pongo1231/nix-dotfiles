@@ -60,20 +60,20 @@
             config ? null,
             system ? "x86_64-linux",
             type ? null,
-            ...
-          }@args:
+            args,
+          }:
           inputs.nixpkgs.lib.nixosSystem {
             specialArgs = import ./specialArgs.nix { inherit system inputs; };
 
             modules =
               [
-                (import ./modules/common (
-                  builtins.removeAttrs args [
-                    "config"
+                (import ./modules/common {
+                  inherit hostName;
+                  args = builtins.removeAttrs args [
                     "system"
                     "type"
-                  ]
-                ))
+                  ];
+                })
               ]
               ++ inputs.nixpkgs.lib.optionals (type != null) [
                 ./modules/${type}
@@ -87,9 +87,15 @@
         (
           name: value:
           commonSystem (
-            (import ./configs/${name}/info.nix)
-            // {
+            let
+              args = import ./configs/${name}/info.nix;
+            in
+            {
               hostName = name;
+              inherit args;
+            }
+            // inputs.nixpkgs.lib.optionalAttrs (args ? type) {
+              type = args.type;
             }
             // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) {
               config = ./configs/${name};

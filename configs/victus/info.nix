@@ -1,4 +1,4 @@
 {
   type = "desktop";
-  useWickedKernel = true;
+  pongoKernel.enable = true;
 }

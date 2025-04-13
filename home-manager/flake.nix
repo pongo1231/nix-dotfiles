@@ -53,8 +53,8 @@
           type ? null,
           config ? null,
           userConfig ? null,
-          ...
-        }@args:
+          args,
+        }:
         inputs.home-manager.lib.homeManagerConfiguration {
           pkgs = inputs.nixpkgs.legacyPackages.${system};
 
@@ -62,14 +62,13 @@
 
           modules =
             [
-              (import ./modules/common (
-                builtins.removeAttrs args [
+              (import ./modules/common {
+                inherit user;
+                args = builtins.removeAttrs args [
                   "system"
                   "type"
-                  "config"
-                  "userConfig"
-                ]
-              ))
+                ];
+              })
             ]
             ++ inputs.nixpkgs.lib.optionals (type != null) [
               ./modules/${type}
@@ -86,7 +85,7 @@
       homeConfigurations = inputs.nixpkgs.lib.foldlAttrs (
         acc: hostName: _:
         let
-          info = import ./configs/${hostName}/info.nix;
+          args = import ./configs/${hostName}/info.nix;
         in
         acc
         // builtins.foldl' (
@@ -94,9 +93,12 @@
           acc'
           // {
             "${user}@${hostName}" = commonConfig (
-              info
-              // {
+              {
                 inherit user;
+                inherit args;
+              }
+              // inputs.nixpkgs.lib.optionalAttrs (args ? type) {
+                type = args.type;
               }
               // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) {
                 config = ./configs/${hostName};
@@ -107,7 +109,7 @@
             );
           }
         ) { } commonUsers
-        // inputs.nixpkgs.lib.optionalAttrs (info ? users) info.users
+        // inputs.nixpkgs.lib.optionalAttrs (args ? users) args.users
       ) { } (builtins.readDir ./configs);
     };
 }

@@ -1,33 +1,42 @@
-{ defaultUserOverride }:
 {
   withSecret,
   config,
   pkgs,
+  lib,
   ...
 }:
-withSecret "pongo" "password_pongo" { neededForUsers = true; }
-// {
-  users = {
-    mutableUsers = false;
-    defaultUserShell = pkgs.fish;
+let
+  cfg = config.pongo;
+in
+{
+  options.pongo.users.defaultOverride = lib.mkOption {
+    type = lib.types.attrs;
+    default = { };
+  };
 
-    users.${if (defaultUserOverride ? name) then defaultUserOverride.user else "pongo"} = {
-      isNormalUser = true;
-      hashedPasswordFile = config.sops.secrets.password_pongo.path;
-      extraGroups = [
-        "wheel"
-        "input"
-        "libvirtd"
-        "networkmanager"
-        "podman"
-        "video"
-        "tty"
-        "dialout"
-        "seat"
-        "libvirt"
-        "kvm"
-        "nginx"
-      ];
-    } // defaultUserOverride;
+  config = withSecret "pongo" "password_pongo" { neededForUsers = true; } // {
+    users = {
+      mutableUsers = false;
+      defaultUserShell = pkgs.fish;
+
+      users.${if (cfg.users.defaultOverride ? name) then cfg.users.defaultOverride.user else "pongo"} = {
+        isNormalUser = true;
+        hashedPasswordFile = config.sops.secrets.password_pongo.path;
+        extraGroups = [
+          "wheel"
+          "input"
+          "libvirtd"
+          "networkmanager"
+          "podman"
+          "video"
+          "tty"
+          "dialout"
+          "seat"
+          "libvirt"
+          "kvm"
+          "nginx"
+        ];
+      } // cfg.users.defaultOverride;
+    };
   };
 }

@@ -1,10 +1,6 @@
 {
   hostName,
-  isServer ? false,
-  useLixModule ? true,
-  useWickedKernel ? false,
-  forceKSM ? true,
-  defaultUserOverride ? { },
+  args,
 }:
 {
   inputs,
@@ -14,19 +10,20 @@
   ...
 }:
 {
-  imports =
-    [
-      (import ./nix.nix { inherit useLixModule; })
-      ./overlay
-      ./sops.nix
+  imports = [
+    ./nix.nix
+    ./overlay
+    ./sops.nix
 
-      (import ./users.nix { inherit defaultUserOverride; })
-      ./bluetooth.nix
-      (import ./udev.nix { setSchedulers = !useWickedKernel; })
-    ]
-    ++ lib.optionals useWickedKernel [
-      (import ./wicked_kernel.nix { inherit isServer; })
-    ];
+    ./boot.nix
+    ./users.nix
+    ./bluetooth.nix
+    ./udev.nix
+    ./pongoKernel.nix
+    ./ksm.nix
+  ];
+
+  pongo = args;
 
   system = {
     stateVersion = "22.05";
@@ -218,13 +215,9 @@
     ];
 
     services = {
-      "user@".serviceConfig =
-        {
-          Delegate = "cpu cpuset io memory pids";
-        }
-        // lib.optionalAttrs forceKSM {
-          MemoryKSM = true;
-        };
+      "user@".serviceConfig = {
+        Delegate = "cpu cpuset io memory pids";
+      };
     };
   };
 

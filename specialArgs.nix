@@ -1,4 +1,8 @@
-{ system, inputs, ... }@args:
+{
+  system,
+  inputs,
+  ...
+}@args:
 {
   module = file: ./modules/${file};
   patch = file: ./patches/${file};

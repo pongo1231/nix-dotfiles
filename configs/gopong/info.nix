@@ -1,4 +1,3 @@
 {
-  isServer = true;
-  useWickedKernel = true;
+  pongoKernel.enable = true;
 }

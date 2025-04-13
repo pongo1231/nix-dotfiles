@@ -26,6 +26,8 @@
     xpadneo.enable = true;
   };
 
+  pongo.boot.useFullPreempt = true;
+
   services = {
     displayManager.sddm = {
       enable = lib.mkDefault true;
