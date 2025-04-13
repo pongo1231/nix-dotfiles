@@ -1,12 +1,12 @@
 { defaultUserOverride }:
 {
+  withSecret,
   config,
   pkgs,
   ...
 }:
-{
-  sops.secrets.password_pongo.neededForUsers = true;
-
+withSecret "pongo" "password_pongo" { neededForUsers = true; }
+// {
   users = {
     mutableUsers = false;
     defaultUserShell = pkgs.fish;

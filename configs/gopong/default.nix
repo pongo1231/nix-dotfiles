@@ -1,9 +1,11 @@
 {
+  withSecret,
   config,
   lib,
   ...
 }:
-{
+withSecret "pongo" "password_pongo" { }
+// {
   imports = [
     ./snapper.nix
     ./postgresql.nix

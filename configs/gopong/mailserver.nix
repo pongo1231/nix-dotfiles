@@ -1,14 +1,14 @@
 {
   inputs,
+  withSecret,
   config,
   ...
 }:
-{
+withSecret "pongo" "password_pongo@gopong.dev" { }
+// {
   imports = [
     inputs.mailserver.nixosModules.default
   ];
-
-  sops.secrets."password_pongo@gopong.dev" = { };
 
   mailserver = {
     enable = true;

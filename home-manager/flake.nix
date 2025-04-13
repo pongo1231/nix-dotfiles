@@ -58,14 +58,7 @@
         inputs.home-manager.lib.homeManagerConfiguration {
           pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-          extraSpecialArgs = {
-            inherit system inputs;
-            module = file: modules/${file};
-            patch = file: patches/${file};
-            pkg = file: pkgs/${file};
-            secret = user: file: secrets/${user}/${file};
-            private = file: private/${file};
-          };
+          extraSpecialArgs = import ./specialArgs.nix { inherit system inputs; };
 
           modules =
             [

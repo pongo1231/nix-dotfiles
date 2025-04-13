@@ -63,14 +63,7 @@
             ...
           }@args:
           inputs.nixpkgs.lib.nixosSystem {
-            specialArgs = {
-              inherit system inputs;
-              module = file: modules/${file};
-              patch = file: patches/${file};
-              pkg = file: pkgs/${file};
-              secret = user: file: secrets/${user}/${file};
-              private = file: private/${file};
-            };
+            specialArgs = import ./specialArgs.nix { inherit system inputs; };
 
             modules =
               [
