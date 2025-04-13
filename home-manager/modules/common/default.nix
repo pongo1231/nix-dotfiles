@@ -126,7 +126,7 @@
       inputs.nix-alien.packages.${system}.nix-alien
       inputs.nix-be.packages.${system}.nix-be
       jj
-      inputs.nixpkgs-stable.legacyPackages.${system}.lazyjj
+      lazyjj
       inputs.isd.packages.${system}.default
     ];
   };
