@@ -137,11 +137,6 @@
   console.useXkbConfig = true;
 
   programs = {
-    fish = {
-      enable = true;
-      useBabelfish = true;
-    };
-
     nh = {
       enable = true;
       clean.enable = true;

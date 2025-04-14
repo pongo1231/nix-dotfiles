@@ -88,10 +88,6 @@
 
   hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
-  programs.fish.shellAliases = {
-    nvstatus = "cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status";
-  };
-
   services = {
     udev.extraRules = ''
       SUBSYSTEM=="kvmfr", OWNER="pongo", GROUP="wheel", MODE="0600"

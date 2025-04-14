@@ -15,6 +15,8 @@ in
   };
 
   config = withSecret "pongo" "password_pongo" { neededForUsers = true; } // {
+    programs.fish.enable = true;
+
     users = {
       mutableUsers = false;
       defaultUserShell = pkgs.fish;
