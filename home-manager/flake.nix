@@ -94,8 +94,10 @@
           // {
             "${user}@${hostName}" = commonConfig (
               {
-                inherit user;
-                inherit args;
+                inherit user args;
+              }
+              // inputs.nixpkgs.lib.optionalAttrs (args ? system) {
+                system = args.system;
               }
               // inputs.nixpkgs.lib.optionalAttrs (args ? type) {
                 type = args.type;
