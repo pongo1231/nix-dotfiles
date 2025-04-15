@@ -43,6 +43,7 @@
   outputs =
     inputs:
     let
+      lib = inputs.nixpkgs.lib;
       commonUsers = [
         "pongo"
       ];
@@ -58,7 +59,7 @@
         inputs.home-manager.lib.homeManagerConfiguration {
           pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-          extraSpecialArgs = import ./specialArgs.nix { inherit system inputs; };
+          extraSpecialArgs = import ./specialArgs.nix { inherit system inputs lib; };
 
           modules =
             [
@@ -70,19 +71,19 @@
                 ];
               })
             ]
-            ++ inputs.nixpkgs.lib.optionals (type != null) [
+            ++ lib.optionals (type != null) [
               ./modules/${type}
             ]
-            ++ inputs.nixpkgs.lib.optionals (config != null) [
+            ++ lib.optionals (config != null) [
               config
             ]
-            ++ inputs.nixpkgs.lib.optionals (userConfig != null) [
+            ++ lib.optionals (userConfig != null) [
               userConfig
             ];
         };
     in
     {
-      homeConfigurations = inputs.nixpkgs.lib.foldlAttrs (
+      homeConfigurations = lib.foldlAttrs (
         acc: hostName: _:
         let
           args = import ./configs/${hostName}/info.nix;
@@ -96,22 +97,22 @@
               {
                 inherit user args;
               }
-              // inputs.nixpkgs.lib.optionalAttrs (args ? system) {
+              // lib.optionalAttrs (args ? system) {
                 system = args.system;
               }
-              // inputs.nixpkgs.lib.optionalAttrs (args ? type) {
+              // lib.optionalAttrs (args ? type) {
                 type = args.type;
               }
-              // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) {
+              // lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/default.nix) {
                 config = ./configs/${hostName};
               }
-              // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/${user}.nix) {
+              // lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/${user}.nix) {
                 userConfig = ./configs/${hostName}/${user}.nix;
               }
             );
           }
         ) { } commonUsers
-        // inputs.nixpkgs.lib.optionalAttrs (args ? users) args.users
+        // lib.optionalAttrs (args ? users) args.users
       ) { } (builtins.readDir ./configs);
     };
 }

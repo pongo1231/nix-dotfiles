@@ -1,9 +1,17 @@
 {
   system,
   inputs,
+  withSecrets,
+  config,
   ...
 }:
-{
+withSecrets "pongo" { owner = config.users.users.discourse.name; } {
+  "discourse/adminPassword" = {
+  };
+  "discourse/secretKeyBase" = {
+  };
+}
+// {
   services.discourse = {
     enable = true;
     package = inputs.nixpkgs-stable.legacyPackages.${system}.discourse;
@@ -12,9 +20,9 @@
       email = "admin@gopong.dev";
       username = "root";
       fullName = "Root";
-      passwordFile = "/etc/discourse-admin-pass";
+      passwordFile = config.sops.secrets."discourse/adminPassword".path;
     };
-    secretKeyBaseFile = "/etc/discourse-secret-key-base";
+    secretKeyBaseFile = config.sops.secrets."discourse/secretKeyBase".path;
     database.ignorePostgresqlVersion = true;
     mail = {
       outgoing = {

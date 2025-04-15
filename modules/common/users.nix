@@ -1,5 +1,5 @@
 {
-  withSecret,
+  withSecrets,
   config,
   pkgs,
   lib,
@@ -14,31 +14,37 @@ in
     default = { };
   };
 
-  config = withSecret "pongo" "password_pongo" { neededForUsers = true; } // {
-    programs.fish.enable = true;
+  config =
+    withSecrets "pongo" { } {
+      "base/userPassword" = {
+        neededForUsers = true;
+      };
+    }
+    // {
+      programs.fish.enable = true;
 
-    users = {
-      mutableUsers = false;
-      defaultUserShell = pkgs.fish;
+      users = {
+        mutableUsers = false;
+        defaultUserShell = pkgs.fish;
 
-      users.${if (cfg.users.defaultOverride ? name) then cfg.users.defaultOverride.user else "pongo"} = {
-        isNormalUser = true;
-        hashedPasswordFile = config.sops.secrets.password_pongo.path;
-        extraGroups = [
-          "wheel"
-          "input"
-          "libvirtd"
-          "networkmanager"
-          "podman"
-          "video"
-          "tty"
-          "dialout"
-          "seat"
-          "libvirt"
-          "kvm"
-          "nginx"
-        ];
-      } // cfg.users.defaultOverride;
+        users.${if (cfg.users.defaultOverride ? name) then cfg.users.defaultOverride.user else "pongo"} = {
+          isNormalUser = true;
+          hashedPasswordFile = config.sops.secrets."base/userPassword".path;
+          extraGroups = [
+            "wheel"
+            "input"
+            "libvirtd"
+            "networkmanager"
+            "podman"
+            "video"
+            "tty"
+            "dialout"
+            "seat"
+            "libvirt"
+            "kvm"
+            "nginx"
+          ];
+        } // cfg.users.defaultOverride;
+      };
     };
-  };
 }

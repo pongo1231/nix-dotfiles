@@ -1,10 +1,10 @@
 {
-  withSecret,
+  withSecrets,
   config,
   lib,
   ...
 }:
-withSecret "pongo" "password_pongo" { }
+withSecrets "pongo" { } { "base/userPassword" = { }; }
 // {
   imports = [
     ./snapper.nix
@@ -53,7 +53,7 @@ withSecret "pongo" "password_pongo" { }
         "podman"
         "nginx"
       ];
-      hashedPasswordFile = config.sops.secrets.password_pongo.path;
+      hashedPasswordFile = config.sops.secrets."base/userPassword".path;
     };
 
     habbo = {

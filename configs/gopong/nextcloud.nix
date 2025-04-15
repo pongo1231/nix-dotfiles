@@ -1,9 +1,14 @@
 {
   patch,
+  withSecrets,
   pkgs,
+  config,
   ...
 }:
-{
+withSecrets "pongo" { owner = config.users.users.nextcloud.name; } {
+  "nextcloud/adminPassword" = { };
+}
+// {
   services = {
     nginx.virtualHosts."cloud.gopong.dev" = {
       forceSSL = true;
@@ -22,7 +27,7 @@
       hostName = "cloud.gopong.dev";
       https = true;
       config = {
-        adminpassFile = "/etc/nextcloud-admin-pass";
+        adminpassFile = config.sops.secrets."nextcloud/adminPassword".path;
         dbtype = "pgsql";
       };
     };

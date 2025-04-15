@@ -1,10 +1,10 @@
 {
   inputs,
-  withSecret,
+  withSecrets,
   config,
   ...
 }:
-withSecret "pongo" "password_pongo@gopong.dev" { }
+withSecrets "pongo" { owner = config.users.users.postfix.name; } { "base/emailPassword" = { }; }
 // {
   imports = [
     inputs.mailserver.nixosModules.default
@@ -15,7 +15,7 @@ withSecret "pongo" "password_pongo@gopong.dev" { }
     fqdn = "gopong.dev";
     domains = [ "gopong.dev" ];
     loginAccounts."pongo@gopong.dev" = {
-      hashedPasswordFile = config.sops.secrets."password_pongo@gopong.dev".path;
+      hashedPasswordFile = config.sops.secrets."base/emailPassword".path;
       aliases = [
         "admin@gopong.dev"
         "no-reply@gopong.dev"

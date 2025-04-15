@@ -54,6 +54,7 @@
   outputs = inputs: {
     nixosConfigurations =
       let
+        lib = inputs.nixpkgs.lib;
         commonSystem =
           {
             hostName,
@@ -62,8 +63,8 @@
             type ? null,
             args,
           }:
-          inputs.nixpkgs.lib.nixosSystem {
-            specialArgs = import ./specialArgs.nix { inherit system inputs; };
+          lib.nixosSystem {
+            specialArgs = import ./specialArgs.nix { inherit system inputs lib; };
 
             modules =
               [
@@ -75,15 +76,15 @@
                   ];
                 })
               ]
-              ++ inputs.nixpkgs.lib.optionals (type != null) [
+              ++ lib.optionals (type != null) [
                 ./modules/${type}
               ]
-              ++ inputs.nixpkgs.lib.optionals (config != null) [
+              ++ lib.optionals (config != null) [
                 config
               ];
           };
       in
-      inputs.nixpkgs.lib.mapAttrs
+      lib.mapAttrs
         (
           name: value:
           commonSystem (
@@ -94,19 +95,19 @@
               hostName = name;
               inherit args;
             }
-            // inputs.nixpkgs.lib.optionalAttrs (args ? system) {
+            // lib.optionalAttrs (args ? system) {
               system = args.system;
             }
-            // inputs.nixpkgs.lib.optionalAttrs (args ? type) {
+            // lib.optionalAttrs (args ? type) {
               type = args.type;
             }
-            // inputs.nixpkgs.lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) {
+            // lib.optionalAttrs (builtins.pathExists ./configs/${name}/default.nix) {
               config = ./configs/${name};
             }
           )
         )
         (
-          inputs.nixpkgs.lib.filterAttrs (name: value: !(builtins.pathExists ./configs/${name}/.broken)) (
+          lib.filterAttrs (name: value: !(builtins.pathExists ./configs/${name}/.broken)) (
             builtins.readDir ./configs
           )
         );
