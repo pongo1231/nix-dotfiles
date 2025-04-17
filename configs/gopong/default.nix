@@ -54,12 +54,14 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
         "nginx"
       ];
       hashedPasswordFile = config.sops.secrets."base/userPassword".path;
+      linger = true;
     };
 
     habbo = {
       isNormalUser = true;
       extraGroups = [ "podman" ];
       hashedPassword = "$y$j9T$okA7Iq1HvpZz9jhUnm4kz.$yX/qF3P.WElXbCAZph5p/qSQ7BDOaX4j4l/3bh3ZjyB";
+      linger = true;
     };
   };
 }

@@ -30,6 +30,7 @@ in
         users.${if (cfg.users.defaultOverride ? name) then cfg.users.defaultOverride.user else "pongo"} = {
           isNormalUser = true;
           hashedPasswordFile = config.sops.secrets."base/userPassword".path;
+          linger = true;
           extraGroups = [
             "wheel"
             "input"
