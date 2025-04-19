@@ -52,7 +52,6 @@
       protontricks
       appimage-run
       syncthing
-      #jamesdsp
       qbittorrent
       weston
       looking-glass-client
