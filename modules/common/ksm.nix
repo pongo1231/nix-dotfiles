@@ -18,14 +18,34 @@ in
       sleep = 250;
     };
 
-    systemd = {
-      services."user@".serviceConfig = lib.optionalAttrs cfg.ksm.forceAllProcesses {
-        MemoryKSM = true;
+    systemd =
+      {
+        tmpfiles.rules = [
+          "w /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
+        ];
+      }
+      // lib.optionalAttrs cfg.ksm.forceAllProcesses {
+        # https://github.com/CachyOS/CachyOS-PKGBUILDS/blob/master/cachyos-ksm-settings/PKGBUILD
+        services = {
+          "gdm".serviceConfig = {
+            MemoryKSM = true;
+          };
+          "sddm".serviceConfig = {
+            MemoryKSM = true;
+          };
+          "lightdm".serviceConfig = {
+            MemoryKSM = true;
+          };
+          "ly".serviceConfig = {
+            MemoryKSM = true;
+          };
+          "user@".serviceConfig = {
+            MemoryKSM = true;
+          };
+          "getty@".serviceConfig = {
+            MemoryKSM = true;
+          };
+        };
       };
-
-      tmpfiles.rules = [
-        "w /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
-      ];
-    };
   };
 }
