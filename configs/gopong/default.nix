@@ -13,7 +13,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./mailserver.nix
     ./nextcloud.nix
     ./vaultwarden.nix
-    ./discourse.nix
+    #./discourse.nix
   ];
 
   boot = {
