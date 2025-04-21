@@ -9,6 +9,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    flake-utils.url = "github:numtide/flake-utils";
+
     microvm = {
       url = "github:astro/microvm.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -40,50 +42,53 @@
     };
   };
 
-  outputs =
-    inputs:
-    let
-      lib = inputs.nixpkgs.lib;
-      commonUsers = [
-        "pongo"
-      ];
-      commonConfig =
-        {
-          user,
-          system ? "x86_64-linux",
-          type ? null,
-          config ? null,
-          userConfig ? null,
-          args,
-        }:
-        inputs.home-manager.lib.homeManagerConfiguration {
-          pkgs = inputs.nixpkgs.legacyPackages.${system};
+  outputs = inputs: {
+    formatter = inputs.flake-utils.lib.eachDefaultSystemPassThrough (system: {
+      ${system} = inputs.nixpkgs.legacyPackages.${system}.nixfmt-tree;
+    });
 
-          extraSpecialArgs = import ./specialArgs.nix { inherit system inputs lib; };
+    homeConfigurations =
+      let
+        lib = inputs.nixpkgs.lib;
+        commonUsers = [
+          "pongo"
+        ];
+        commonConfig =
+          {
+            user,
+            system ? "x86_64-linux",
+            type ? null,
+            config ? null,
+            userConfig ? null,
+            args,
+          }:
+          inputs.home-manager.lib.homeManagerConfiguration {
+            pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-          modules =
-            [
-              (import ./modules/common {
-                inherit user;
-                args = builtins.removeAttrs args [
-                  "system"
-                  "type"
-                ];
-              })
-            ]
-            ++ lib.optionals (type != null) [
-              ./modules/${type}
-            ]
-            ++ lib.optionals (config != null) [
-              config
-            ]
-            ++ lib.optionals (userConfig != null) [
-              userConfig
-            ];
-        };
-    in
-    {
-      homeConfigurations = lib.foldlAttrs (
+            extraSpecialArgs = import ./specialArgs.nix { inherit system inputs lib; };
+
+            modules =
+              [
+                (import ./modules/common {
+                  inherit user;
+                  args = builtins.removeAttrs args [
+                    "system"
+                    "type"
+                  ];
+                })
+              ]
+              ++ lib.optionals (type != null) [
+                ./modules/${type}
+              ]
+              ++ lib.optionals (config != null) [
+                config
+              ]
+              ++ lib.optionals (userConfig != null) [
+                userConfig
+              ];
+          };
+      in
+      lib.foldlAttrs (
         acc: hostName: _:
         let
           args = import ./configs/${hostName}/info.nix;
@@ -114,5 +119,5 @@
         ) { } commonUsers
         // lib.optionalAttrs (args ? users) args.users
       ) { } (builtins.readDir ./configs);
-    };
+  };
 }

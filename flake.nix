@@ -11,6 +11,8 @@
       follows = "nixpkgs";
     };
 
+    flake-utils.url = "github:numtide/flake-utils";
+
     jovian = {
       url = "github:pongo1231/Jovian-NixOS";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -47,6 +49,10 @@
   };
 
   outputs = inputs: {
+    formatter = inputs.flake-utils.lib.eachDefaultSystemPassThrough (system: {
+      ${system} = inputs.nixpkgs.legacyPackages.${system}.nixfmt-tree;
+    });
+
     nixosConfigurations =
       let
         lib = inputs.nixpkgs.lib;
