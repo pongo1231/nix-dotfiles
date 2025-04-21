@@ -21,27 +21,36 @@
           in
           before ++ after;
       };
-      pathPrefixLast =
+      filePath =
         let
-          split = splitGet (splitLen - 1);
+          range = x: if x < 1 then [ ] else range (x - 1) ++ [ x ];
         in
-        ./. + "/modules${lib.foldl' (acc: x: acc + "/${x}") "" split.excludeElem}/${prefix}/${split.elem}";
-      pathPrefixFirst =
-        let
-          split = splitGet 0;
-        in
-        ./. + "/modules/${split.elem}/${prefix}${lib.foldl' (acc: x: acc + "/${x}") "" split.excludeElem}";
+        builtins.foldl' (
+          acc: x:
+          let
+            split = splitGet x;
+            prefixLast =
+              ./. + "modules${lib.foldl' (acc: x: acc + "/${x}") "" split.excludeElem}/${prefix}/${split.elem}";
+            prefixFirst =
+              ./. + "modules/${split.elem}/${prefix}${lib.foldl' (acc: x: acc + "/${x}") "" split.excludeElem}";
+          in
+          if (builtins.pathExists prefixLast) then
+            prefixLast
+          else if (builtins.pathExists prefixFirst) then
+            prefixFirst
+          else
+            acc
+        ) "/" (range (splitLen - 1));
     in
-    if (splitLen > 1 && builtins.pathExists pathPrefixLast) then
-      pathPrefixLast
-    else if (splitLen > 1 && builtins.pathExists pathPrefixFirst) then
-      pathPrefixFirst
+    if (splitLen > 1 && builtins.pathExists filePath) then
+      filePath
     else if (builtins.pathExists ./modules/${file}/${prefix}) then
       ./modules/${file}/${prefix}
     else if (builtins.pathExists ./modules/${prefix}/${file}) then
       ./modules/${prefix}/${file}
     else
       ./modules/${file};
+
   patch = file: ./patches/${file};
   pkg = file: ./pkgs/${file};
 
