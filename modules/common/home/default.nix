@@ -57,7 +57,7 @@
       enable = true;
 
       userName = "pongo1231";
-      userEmail = "pongo1999712@gmail.com";
+      userEmail = "pongo@gopong.dev";
 
       extraConfig = {
         pull.rebase = true;

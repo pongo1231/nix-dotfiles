@@ -47,6 +47,6 @@
 
   security.acme = {
     acceptTerms = true;
-    defaults.email = "pongo1999712@gmail.com";
+    defaults.email = "pongo@gopong.dev";
   };
 }
