@@ -1,4 +1,7 @@
-{ user, args }:
+{
+  user,
+  args,
+}:
 {
   inputs,
   module,
@@ -111,7 +114,6 @@
       nvd
       manix
       nixd
-      nixfmt-rfc-style
       deadnix
       nixos-generators
       nix-melt
