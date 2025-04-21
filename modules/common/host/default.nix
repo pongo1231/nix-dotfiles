@@ -12,7 +12,7 @@
 {
   imports = [
     ./nix.nix
-    ./overlay
+    (module /common/overlay)
     ./sops.nix
 
     ./boot.nix

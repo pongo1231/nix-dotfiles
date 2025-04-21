@@ -1,4 +1,4 @@
 {
-  type = "desktop";
-  pongoKernel.enable = true;
+  type = "graphical";
+  host.pongoKernel.enable = true;
 }

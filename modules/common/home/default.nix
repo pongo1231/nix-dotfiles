@@ -15,10 +15,10 @@
     inputs.nix-index-database.hmModules.nix-index
 
     (module /common/overlay)
-    (module /common/sops.nix)
+    ./sops.nix
 
-    (module /common/helpers.nix)
-    (module /common/suspender.nix)
+    ./helpers.nix
+    ./suspender.nix
   ];
 
   nix.nixPath = [
