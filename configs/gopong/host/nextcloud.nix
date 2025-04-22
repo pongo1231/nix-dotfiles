@@ -20,7 +20,7 @@ withSecrets "pongo" { owner = config.users.users.nextcloud.name; } {
       package = pkgs.nextcloud31.overrideAttrs (
         finalAttrs: prevAttrs: {
           patches = (prevAttrs.patches or [ ]) ++ [
-            (patch /nextcloud/44574.patch)
+            #(patch /nextcloud/44574.patch)
           ];
         }
       );
