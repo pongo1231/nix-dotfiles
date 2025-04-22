@@ -21,6 +21,8 @@
 
   system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
 
+  networking.useNetworkd = lib.mkForce false;
+
   systemd.oomd.enable = lib.mkForce false;
 
   wsl = {
