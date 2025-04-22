@@ -8,7 +8,7 @@
 }:
 {
   nix = {
-    package = lib.mkDefault pkgs.lix;
+    package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
 
     extraOptions = ''
       experimental-features = ca-derivations nix-command flakes recursive-nix
