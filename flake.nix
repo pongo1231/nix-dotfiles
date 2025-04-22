@@ -83,11 +83,10 @@
     let
       lib = inputs.nixpkgs.lib;
     in
-    {
-      formatter = inputs.flake-utils.lib.eachDefaultSystemPassThrough (system: {
-        ${system} = inputs.nixpkgs.legacyPackages.${system}.nixfmt-tree;
-      });
-
+    inputs.flake-utils.lib.eachDefaultSystem (system: {
+      formatter = inputs.nixpkgs.legacyPackages.${system}.nixfmt-tree;
+    })
+    // {
       nixosConfigurations =
         let
           commonSystem =
