@@ -12,6 +12,7 @@
       fileStr = builtins.toString file;
       splitFile = lib.splitString "/" fileStr;
       splitLen = builtins.length splitFile;
+      splitLastIsNixFile = lib.hasSuffix ".nix" (builtins.elemAt splitFile (splitLen - 1));
       filePath =
         let
           filePaths =
@@ -34,8 +35,16 @@
                     ];
                   in
                   acc'
-                  ++ lib.foldl' (
-                    acc'': x'': if (builtins.pathExists (./${x''})) then acc'' ++ [ x'' ] else acc''
+                  ++ builtins.foldl' (
+                    acc'': x'':
+                    if
+                      (builtins.pathExists (
+                        ./. + "${x''}${if (x != splitLen - 1 || splitLastIsNixFile) then "" else "/default.nix"}"
+                      ))
+                    then
+                      acc'' ++ [ x'' ]
+                    else
+                      acc''
                   ) [ ] paths
                 ) [ ] acc
               ) [ "/modules" ] (range (splitLen - 1))
