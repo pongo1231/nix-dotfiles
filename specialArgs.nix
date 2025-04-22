@@ -40,9 +40,9 @@
             prefixFirst
           else
             acc
-        ) "/" (range (splitLen - 1));
+        ) "" (range (splitLen - 1));
     in
-    if (builtins.pathExists filePath) then
+    if (lib.stringLength filePath > 0 && builtins.pathExists filePath) then
       filePath
     else
       ./modules/${file};
