@@ -30,9 +30,9 @@
           let
             split = splitGet x;
             prefixLast =
-              ./. + "modules${lib.foldl' (acc: x: acc + "/${x}") "" split.excludeElem}/${prefix}/${split.elem}";
+              ./. + "/modules${lib.foldl' (acc: x: if (lib.stringLength x == 0) then acc else acc + "/${x}") "" split.excludeElem}/${prefix}/${split.elem}";
             prefixFirst =
-              ./. + "modules/${split.elem}/${prefix}${lib.foldl' (acc: x: acc + "/${x}") "" split.excludeElem}";
+              ./. + "/modules/${split.elem}/${prefix}${lib.foldl' (acc: x: if (lib.stringLength x == 0) then acc else acc + "/${x}") "" split.excludeElem}";
           in
           if (builtins.pathExists prefixLast) then
             prefixLast
@@ -42,12 +42,8 @@
             acc
         ) "/" (range (splitLen - 1));
     in
-    if (splitLen > 1 && builtins.pathExists filePath) then
+    if (builtins.pathExists filePath) then
       filePath
-    else if (builtins.pathExists ./modules/${file}/${prefix}) then
-      ./modules/${file}/${prefix}
-    else if (builtins.pathExists ./modules/${prefix}/${file}) then
-      ./modules/${prefix}/${file}
     else
       ./modules/${file};
 
