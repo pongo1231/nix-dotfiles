@@ -32,15 +32,13 @@
     interop.register = true;
   };
 
-  hardware.graphics = {
-    extraPackages = with pkgs; [
-      mesa.drivers
-      libvdpau-va-gl
-      (libedit.overrideAttrs (attrs: {
-        postInstall = ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';
-      }))
-    ];
-  };
+  hardware.graphics.extraPackages = with pkgs; [
+    mesa
+    libvdpau-va-gl
+    (libedit.overrideAttrs (attrs: {
+      postInstall = ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';
+    }))
+  ];
 
   environment.systemPackages = [
     pkgs.wget # for vs code server
