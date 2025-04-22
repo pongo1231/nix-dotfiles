@@ -12,40 +12,46 @@
       fileStr = builtins.toString file;
       splitFile = lib.splitString "/" fileStr;
       splitLen = builtins.length splitFile;
-      splitGet = index: {
-        elem = builtins.elemAt splitFile index;
-        excludeElem =
-          let
-            before = lib.sublist 0 index splitFile;
-            after = lib.sublist (index + 1) (splitLen - index - 1) splitFile;
-          in
-          before ++ after;
-      };
       filePath =
         let
-          range = x: if x < 1 then [ ] else range (x - 1) ++ [ x ];
+          filePaths =
+            let
+              range = x: if x < 1 then [ ] else range (x - 1) ++ [ x ];
+            in
+            lib.unique (
+              builtins.foldl' (
+                acc: x:
+                let
+                  split = builtins.elemAt splitFile x;
+                in
+                builtins.foldl' (
+                  acc': x':
+                  let
+                    paths = [
+                      "${x'}/${split}"
+                      "${x'}/${split}/${prefix}"
+                      "${x'}/${prefix}/${split}"
+                    ];
+                  in
+                  acc'
+                  ++ lib.foldl' (
+                    acc'': x'': if (builtins.pathExists (./${x''})) then acc'' ++ [ x'' ] else acc''
+                  ) [ ] paths
+                ) [ ] acc
+              ) [ "/modules" ] (range (splitLen - 1))
+            );
+          filePathsLen = builtins.length filePaths;
         in
-        builtins.foldl' (
-          acc: x:
-          let
-            split = splitGet x;
-            prefixLast =
-              ./. + "/modules${lib.foldl' (acc: x: if (lib.stringLength x == 0) then acc else acc + "/${x}") "" split.excludeElem}/${prefix}/${split.elem}";
-            prefixFirst =
-              ./. + "/modules/${split.elem}/${prefix}${lib.foldl' (acc: x: if (lib.stringLength x == 0) then acc else acc + "/${x}") "" split.excludeElem}";
-          in
-          if (builtins.pathExists prefixLast) then
-            prefixLast
-          else if (builtins.pathExists prefixFirst) then
-            prefixFirst
-          else
-            acc
-        ) "" (range (splitLen - 1));
+        if (filePathsLen == 0) then
+          builtins.throw "Could not find module ${fileStr}"
+        else if (filePathsLen > 1) then
+          builtins.throw "Ambiguous module ${fileStr} (found following paths:${
+            builtins.foldl' (acc: x: "${acc} ${x}") "" filePaths
+          })"
+        else
+          ./${builtins.elemAt filePaths 0};
     in
-    if (lib.stringLength filePath > 0 && builtins.pathExists filePath) then
-      filePath
-    else
-      ./modules/${file};
+    filePath;
 
   patch = file: ./patches/${file};
   pkg = file: ./pkgs/${file};
