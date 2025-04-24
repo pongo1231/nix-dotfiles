@@ -76,6 +76,8 @@
       url = "github:isd-project/isd";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    avf.url = "github:nix-community/nixos-avf";
   };
 
   outputs =

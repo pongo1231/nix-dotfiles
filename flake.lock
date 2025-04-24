@@ -1,5 +1,20 @@
 {
   "nodes": {
+    "avf": {
+      "locked": {
+        "lastModified": 1744668078,
+        "narHash": "sha256-pkbIduXLW85yB5wV6j72Gpxz5JJhuJBZxhXWsJ4BMd8=",
+        "owner": "nix-community",
+        "repo": "nixos-avf",
+        "rev": "f1ea9316a2e172ba060884bbfac5ddac28927dde",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "nixos-avf",
+        "type": "github"
+      }
+    },
     "blobs": {
       "flake": false,
       "locked": {
@@ -589,6 +604,7 @@
     },
     "root": {
       "inputs": {
+        "avf": "avf",
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
         "isd": "isd",

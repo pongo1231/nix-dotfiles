@@ -4,6 +4,7 @@ keys:
   - &host_gopong age1l4sknz73q64rz2gy59d92twvs07p3tql4utx77fudxt0qsrl24nqqk4fqf
   - &host_jupiter age1ma0e5ap4pdqmz4qj7rttlrk56mcvka0tuvltgp7dcv73fu6q3q5qj99gun
   - &host_rpi3b age1tl35pllv9mu4nzk8hpa2uuul96njqrcttg4hw20902saf3uynueshux230
+  - &host_avf age15s8lx5zeru8zarvu77gleczjfvscse39qavutlz3crlh9cwqduvqvgvc80
 creation_rules:
   - path_regex: secrets/pongo/[^/]+\.(yaml|json|env|ini|sops)$
     key_groups:
@@ -13,3 +14,4 @@ creation_rules:
           - *host_gopong
           - *host_jupiter
           - *host_rpi3b
+          - *host_avf

@@ -120,7 +120,7 @@
       };
     };
 
-    firewall.enable = false;
+    firewall.enable = lib.mkDefault false;
   };
 
   time.timeZone = "Europe/Berlin";
