@@ -26,6 +26,16 @@ let
               "type"
             ];
           })
+
+          inputs.home-manager.nixosModules.home-manager
+          (import ./homeConfigs.nix inputs {
+            isNixosModule = true;
+            extraSpecialArgs = import ./specialArgs.nix {
+              prefix = "home";
+              inherit system inputs lib;
+            };
+            configs.${hostName} = { };
+          })
         ]
         ++ lib.optionals (type != null) [
           ./modules/${type}/host

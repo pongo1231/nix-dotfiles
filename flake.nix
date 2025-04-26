@@ -85,6 +85,6 @@
     })
     // {
       nixosConfigurations = import ./nixosConfigs.nix inputs;
-      homeConfigurations = import ./homeConfigs.nix inputs;
+      homeConfigurations = import ./homeConfigs.nix inputs { };
     };
 }

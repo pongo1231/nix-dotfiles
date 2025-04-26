@@ -1,11 +1,11 @@
 {
   prefix,
-  system,
   inputs,
   lib,
   ...
 }@args:
 {
+  isHome = prefix == "home";
   module =
     file:
     let
@@ -89,4 +89,7 @@
 
   private = file: ./private/${file};
 }
-// builtins.removeAttrs args [ "lib" ]
+// builtins.removeAttrs args [
+  "prefix"
+  "lib"
+]

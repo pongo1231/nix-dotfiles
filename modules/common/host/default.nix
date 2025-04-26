@@ -11,7 +11,7 @@
 }:
 {
   imports = [
-    ./nix.nix
+    (module /common/nix.nix)
     (module /common/overlay)
     ./sops.nix
 

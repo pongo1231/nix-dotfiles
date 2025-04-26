@@ -14,18 +14,13 @@
   imports = [
     inputs.nix-index-database.hmModules.nix-index
 
+    (module /common/nix.nix)
     (module /common/overlay)
     ./sops.nix
 
     ./helpers.nix
     ./suspender.nix
   ];
-
-  nix.nixPath = [
-    "${config.xdg.configHome}/nix/inputs"
-  ];
-
-  nixpkgs.config.allowUnfreePredicate = pkg: true;
 
   home = {
     username = user;
@@ -79,6 +74,8 @@
         #non_interactive="1"
       '';
     };
+
+  fonts.fontconfig.enable = false;
 
   home = {
     stateVersion = "22.05";
