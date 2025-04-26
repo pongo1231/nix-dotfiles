@@ -1,0 +1,70 @@
+inputs:
+let
+  lib = inputs.nixpkgs.lib;
+in
+let
+  commonSystem =
+    {
+      hostName,
+      config ? null,
+      system ? "x86_64-linux",
+      type ? null,
+      args,
+    }:
+    lib.nixosSystem {
+      specialArgs = import ./specialArgs.nix {
+        prefix = "host";
+        inherit system inputs lib;
+      };
+
+      modules =
+        [
+          (import ./modules/common/host {
+            inherit hostName;
+            args = builtins.removeAttrs args [
+              "system"
+              "type"
+            ];
+          })
+        ]
+        ++ lib.optionals (type != null) [
+          ./modules/${type}/host
+        ]
+        ++ lib.optionals (config != null) [
+          config
+        ];
+    };
+in
+lib.mapAttrs
+  (
+    name: value:
+    commonSystem (
+      let
+        args =
+          let
+            info = import ./configs/${name}/info.nix;
+          in
+          lib.optionalAttrs (info ? system) { inherit (info) system; }
+          // lib.optionalAttrs (info ? type) { inherit (info) type; }
+          // lib.optionalAttrs (info ? host) info.host;
+      in
+      {
+        hostName = name;
+        inherit args;
+      }
+      // lib.optionalAttrs (args ? system) {
+        system = args.system;
+      }
+      // lib.optionalAttrs (args ? type) {
+        type = args.type;
+      }
+      // lib.optionalAttrs (builtins.pathExists ./configs/${name}/host) {
+        config = ./configs/${name}/host;
+      }
+    )
+  )
+  (
+    lib.filterAttrs (name: value: !(builtins.pathExists ./configs/${name}/.broken)) (
+      builtins.readDir ./configs
+    )
+  )
