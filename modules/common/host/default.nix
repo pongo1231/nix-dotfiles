@@ -91,6 +91,7 @@
       "split_lock_detect=off"
       "transparent_hugepage=${if config.pongo.pongoKernel.enable then "defer" else "always"}"
       "transparent_hugepage_shmem=always"
+      "transparent_hugepage_tmpfs=always"
     ];
 
     extraModprobeConfig = ''
