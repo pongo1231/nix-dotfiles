@@ -5,12 +5,17 @@
   config,
   ...
 }:
-withSecrets "pongo" { owner = config.users.users.discourse.name; } {
-  "discourse/adminPassword" = {
-  };
-  "discourse/secretKeyBase" = {
-  };
-}
+withSecrets "pongo"
+  {
+    store = "gopong";
+    owner = config.users.users.discourse.name;
+  }
+  {
+    "discourse/adminPassword" = {
+    };
+    "discourse/secretKeyBase" = {
+    };
+  }
 // {
   services.discourse = {
     enable = true;

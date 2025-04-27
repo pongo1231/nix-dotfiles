@@ -5,9 +5,14 @@
   config,
   ...
 }:
-withSecrets "pongo" { owner = config.users.users.nextcloud.name; } {
-  "nextcloud/adminPassword" = { };
-}
+withSecrets "pongo"
+  {
+    store = "gopong";
+    owner = config.users.users.nextcloud.name;
+  }
+  {
+    "nextcloud/adminPassword" = { };
+  }
 // {
   services = {
     nginx.virtualHosts."cloud.gopong.dev" = {

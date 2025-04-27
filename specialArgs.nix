@@ -6,6 +6,7 @@
 }@args:
 {
   isHome = prefix == "home";
+
   module =
     file:
     let
@@ -68,6 +69,7 @@
   withSecrets =
     user:
     {
+      store ? "default",
       owner ? null,
       group ? null,
     }:
@@ -76,14 +78,14 @@
         inherit name;
         value =
           {
-            sopsFile = ./secrets/${user}/secrets.yaml;
+            sopsFile = ./secrets/${user}/${if value ? store then value.store else store}.yaml;
           }
           // lib.optionalAttrs (owner != null) { inherit owner; }
           // lib.optionalAttrs (group != null) {
             inherit group;
             mode = "0440";
           }
-          // value;
+          // builtins.removeAttrs value [ "store" ];
       }) secrets;
     };
 

@@ -4,7 +4,10 @@
   config,
   ...
 }:
-withSecrets "pongo" { owner = config.users.users.postfix.name; } { "base/emailPassword" = { }; }
+withSecrets "pongo" {
+  store = "gopong";
+  owner = config.users.users.postfix.name;
+} { "base/emailPassword" = { }; }
 // {
   imports = [
     inputs.mailserver.nixosModules.default
