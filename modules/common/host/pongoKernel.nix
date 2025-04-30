@@ -18,7 +18,7 @@ in
   config = lib.mkIf cfg.pongoKernel.enable {
     nixpkgs.overlays = [
       (final: prev: {
-        linuxPackages_pongo = final.kernel.pkgsLLVM.linuxPackages_testing.extend (
+        linuxPackages_pongo = final.kernel.linuxPackages_testing.extend (
           finalAttrs: prevAttrs: {
             kernel =
               (prevAttrs.kernel.override (prevAttrs': {
@@ -45,34 +45,17 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "0cd782626957b1c63b4e44a30857e49de90cb871";
-                      hash = "sha256-TTg2yYxcldXnmu74n9gZcHT1F1mAJhkhTj7ssE/S+bI=";
+                      rev = "ff60adb141a970e71a1d7fe6f49a69d0ec782966";
+                      hash = "sha256-qleDSdjL+82LiQjAH0UJW3TgndUeSdETH+9uYhx8fFk=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                     #    hash = "";
                     # };
 
-                    extraMakeFlags =
-                      let
-                        llvmPkgs = pkgs.llvmPackages;
-                        llvm = llvmPkgs.llvm;
-                        clang = llvmPkgs.clang;
-                        lld = llvmPkgs.lld;
-                      in
-                      [
+                    extraMakeFlags = [
                         "LLVM=1"
                         "LLVM_IAS=1"
-                        #"CC=${clang}/bin/clang"
-                        #"LD=${lld}/bin/ld.lld"
-                        #"AR=${llvm}/bin/llvm-ar"
-                        #"NM=${llvm}/bin/llvm-nm"
-                        #"OBJCOPY=${llvm}/bin/llvm-objcopy"
-                        #"OBJDUMP=${llvm}/bin/llvm-objdump"
-                        #"READELF=${llvm}/bin/llvm-readelf"
-                        #"STRIP=${llvm}/bin/llvm-strip"
-                        #"HOSTCC=${clang}/bin/clang"
-                        #"HOSTCXX=${clang}/bin/clang++"
                       ];
 
                     extraConfig = ''
@@ -120,7 +103,6 @@ in
       kernelPatches = [
         {
           name = "base";
-          #patch = patch /linux/6.14/base.patch;
           patch = null;
           extraConfig = ''
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
@@ -130,6 +112,7 @@ in
             EXTCON_STEAMDECK m
             MFD_STEAMDECK m
             SENSORS_STEAMDECK m
+            USB_ONBOARD_DEV n
           '';
         }
       ];

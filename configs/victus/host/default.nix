@@ -36,7 +36,7 @@
       "vfio-pci"
       "kvmfr"
       "ec_sys"
-      "ryzen_smu"
+      #"ryzen_smu"
     ];
 
     kernelParams = [
@@ -46,7 +46,7 @@
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [
-      (kvmfr.overrideAttrs (
+      /*(kvmfr.overrideAttrs (
         finalAttrs: prevAttrs: {
           src = pkgs.fetchFromGitHub {
             owner = "gnif";
@@ -56,13 +56,13 @@
           };
           patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
         }
-      ))
-      (callPackage (pkg /hp-omen-linux-module) { })
-      (ryzen-smu.overrideAttrs (
+      ))*/
+      #(callPackage (pkg /hp-omen-linux-module) { })
+      /*(ryzen-smu.overrideAttrs (
         finalAttrs: prevAttrs: {
           patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
         }
-      ))
+      ))*/
     ];
 
     binfmt.emulatedSystems = [
