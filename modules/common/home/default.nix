@@ -127,6 +127,7 @@
       jj
       lazyjj
       inputs.isd.packages.${system}.default
+      b4
     ];
   };
 }
