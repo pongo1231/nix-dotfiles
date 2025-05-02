@@ -22,31 +22,57 @@ in
           finalAttrs: prevAttrs: {
             kernel =
               (prevAttrs.kernel.override (prevAttrs': {
+                /*
+                  stdenv = pkgs.llvmPackages.stdenv.override (prevAttrs'': {
+                    cc = prevAttrs''.cc.override {
+                      bintools = pkgs.llvmPackages.bintools;
+                      extraBuildCommands = ''
+                                          substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
+                        				  echo " -resource-dir=${pkgs.llvmPackages.libclang.lib}/lib/clang/${lib.versions.major pkgs.llvmPackages.libclang.version}" >> $out/nix-support/cc-cflags
+                        				  '';
+                    };
+                  });
+                */
+
                 #stdenv = final.ccacheStdenv;
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
                 ignoreConfigErrors = true;
                 argsOverride =
                   let
-                    version = "6.15.0-rc3";
+                    version = "6.15.0-rc4";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.15.0-rc3";
+                    modDirVersion = "6.15.0-rc4";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "e005b80069e84c92328ff748935d384e96cc7387";
-                      hash = "sha256-mYeuAA56jm8IjUDZOKiz4N8Wep2Hq5tcKakq8kLb6jc=";
+                      rev = "7319a8efe01a6dcba2f44cc7f2c911d9d096e45d";
+                      hash = "sha256-0rzD0cw732LtTBSzF+GGSrDiVMsNBgQlRC7Ucv4usXw=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                     #    hash = "";
                     # };
+
+                    /*
+                      extraMakeFlags = [
+                        "LLVM=1"
+                        "LLVM_IAS=1"
+                      ];
+                    */
+
+                    extraConfig = ''
+                      #CC_IS_CLANG y
+                      #LTO_CLANG y
+                      #LTO_CLANG_THIN y
+                      #LTO_CLANG_THIN_DIST y
+                    '';
                   };
               })).overrideAttrs
                 (
                   finalAttrs': prevAttrs': {
-                    #depsBuildBuild = [ final.ccacheStdenv ];
+                    #hardeningDisable = [ "strictoverflow" ];
                   }
                 );
 
@@ -66,6 +92,7 @@ in
                   "${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/build"
                   "M=$(sourceRoot)"
                   "VERSION=${finalAttrs'.version}"
+                  #"LLVM=1"
                 ];
               }
             );
@@ -80,9 +107,10 @@ in
       kernelPatches = [
         {
           name = "base";
-          #patch = patch /linux/6.14/base.patch;
           patch = null;
           extraConfig = ''
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
+            X86_64_VERSION 3
             AMD_PRIVATE_COLOR y
             LEDS_STEAMDECK m
             EXTCON_STEAMDECK m
