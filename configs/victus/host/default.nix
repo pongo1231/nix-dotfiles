@@ -156,7 +156,7 @@
 
     sunshine = {
       enable = true;
-      package = inputs.nixpkgs-master.legacyPackages.${system}.sunshine;
+      package = pkgs.sunshine;
       capSysAdmin = true;
       autoStart = false;
     };

@@ -10,14 +10,6 @@
 lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
   nixpkgs.overlays = [
     (final: prev: {
-      kernel = import inputs.nixpkgs-desktop-kernel {
-        inherit system;
-        config = {
-          allowUnfree = true;
-          nvidia.acceptLicense = true;
-        };
-      };
-
       nbfc-linux = prev.nbfc-linux.overrideAttrs (
         finalAttrs: prevAttrs: {
           src = final.fetchFromGitHub {
@@ -41,8 +33,6 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       );
 
       extest = final.pkgsi686Linux.callPackage (pkg /extest) { };
-
-      #mesa-radv-jupiter = final.callPackage (pkg /mesa-radv-jupiter) { mesa-radv-jupiter' = prev.mesa-radv-jupiter; };
 
       steamPackages = prev.steamPackages.overrideScope (
         finalScope: prevScope: {
@@ -88,18 +78,6 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
           };
         }
       );
-
-      /*
-        decky-loader =
-        inputs.nixpkgs-stable.legacyPackages.${system}.callPackage "${inputs.jovian}/pkgs/decky-loader"
-          { };
-
-        decky-loader = prev.decky-loader.overridePythonAttrs (prevAttrs: {
-          dependencies = (builtins.filter (x: x != inputs.nixpkgs.legacyPackages.${system}.python3Packages.watchdog) prevAttrs.dependencies) ++ [
-            inputs.nixpkgs-stable.legacyPackages.${system}.python3Packages.watchdog
-          ];
-        });
-      */
 
       ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
       ksmwrap32 = final.pkgsi686Linux.callPackage (pkg /ksmwrap) { suffix = "32"; };

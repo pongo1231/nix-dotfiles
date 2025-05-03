@@ -19,7 +19,7 @@ withSecrets "pongo"
 // {
   services.discourse = {
     enable = true;
-    package = inputs.nixpkgs-stable.legacyPackages.${system}.discourse;
+    package = pkgs.discourse;
     hostname = "discourse.gopong.dev";
     admin = {
       email = "admin@gopong.dev";

@@ -58,7 +58,10 @@
 
   nixpkgs =
     lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
-      config.allowUnfree = true;
+      config = {
+        allowUnfree = true;
+        nvidia.acceptLicense = true;
+      };
     }
     // lib.optionalAttrs (configInfo.type == "host") {
       hostPlatform.system = system;
