@@ -18,7 +18,7 @@
 
   home.packages = with pkgs; [
     audacious
-    #jamesdsp
+    jamesdsp
     nextcloud-client
     syncthing
     thunderbird
