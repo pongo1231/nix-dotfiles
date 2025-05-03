@@ -1,11 +1,15 @@
 {
   prefix,
+  isNixosModule,
   inputs,
   lib,
   ...
 }@args:
 {
-  isHome = prefix == "home";
+  configInfo = {
+    type = prefix;
+    inherit isNixosModule;
+  };
 
   module =
     file:

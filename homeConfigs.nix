@@ -50,7 +50,7 @@ let
 
         extraSpecialArgs = import ./specialArgs.nix {
           prefix = "home";
-          inherit system inputs;
+          inherit system inputs isNixosModule;
           inherit (inputs.nixpkgs) lib;
         };
 
@@ -99,6 +99,7 @@ in
 if isNixosModule then
   {
     home-manager = {
+      useGlobalPkgs = true;
       useUserPackages = true;
       inherit extraSpecialArgs users;
     };

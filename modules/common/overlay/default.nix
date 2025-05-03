@@ -1,12 +1,13 @@
 {
   system,
   inputs,
+  configInfo,
   patch,
   pkg,
   lib,
   ...
 }:
-{
+lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
   nixpkgs.overlays = [
     (final: prev: {
       kernel = import inputs.nixpkgs-desktop-kernel {

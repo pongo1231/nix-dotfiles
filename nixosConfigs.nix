@@ -14,6 +14,7 @@ let
     lib.nixosSystem {
       specialArgs = import ./specialArgs.nix {
         prefix = "host";
+        isNixosModule = true;
         inherit system inputs lib;
       };
 
@@ -32,6 +33,7 @@ let
             isNixosModule = true;
             extraSpecialArgs = import ./specialArgs.nix {
               prefix = "home";
+              isNixosModule = true;
               inherit system inputs lib;
             };
             configs.${hostName} = { };

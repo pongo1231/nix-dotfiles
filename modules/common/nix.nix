@@ -1,7 +1,7 @@
 {
   system,
   inputs,
-  isHome,
+  configInfo,
   config,
   pkgs,
   lib,
@@ -12,7 +12,11 @@
     {
       package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
 
-      nixPath = if isHome then [ "${config.xdg.configHome}/nix/inputs" ] else [ "/etc/nix/inputs" ];
+      nixPath =
+        if configInfo.type != "host" then
+          [ "${config.xdg.configHome}/nix/inputs" ]
+        else
+          [ "/etc/nix/inputs" ];
 
       registry = lib.mapAttrs' (name: flake: {
         inherit name;
@@ -43,20 +47,20 @@
             "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
           ];
         }
-        // lib.optionalAttrs (!isHome) {
+        // lib.optionalAttrs (configInfo.type == "host") {
           extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
         };
     }
-    // lib.optionalAttrs (!isHome) {
+    // lib.optionalAttrs (configInfo.type == "host") {
       daemonCPUSchedPolicy = "idle";
       daemonIOSchedClass = "idle";
     };
 
   nixpkgs =
-    {
+    lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       config.allowUnfree = true;
     }
-    // lib.optionalAttrs (!isHome) {
+    // lib.optionalAttrs (configInfo.type == "host") {
       hostPlatform.system = system;
     };
 }
