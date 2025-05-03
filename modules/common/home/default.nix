@@ -46,6 +46,47 @@
         end
         fish_add_path -maP ~/.local/bin
       '';
+
+      plugins = with pkgs.fishPlugins; [
+        {
+          name = "fzf-fish";
+          src = fzf-fish.src;
+        }
+        {
+          name = "autopair";
+          src = autopair.src;
+        }
+        {
+          name = "colored-man-pages";
+          src = colored-man-pages.src;
+        }
+        {
+          name = "transient-fish";
+          src = transient-fish.src;
+        }
+        {
+          name = "sponge";
+          src = sponge.src;
+        }
+        {
+          name = "z";
+          src = z.src;
+        }
+        {
+          name = "forgit";
+          src = forgit.src;
+        }
+        {
+          name = "async-prompt";
+          src = async-prompt.src;
+        }
+      ];
+    };
+
+    fzf = {
+      enable = true;
+      enableFishIntegration = true;
+      tmux.enableShellIntegration = true;
     };
 
     git = {
