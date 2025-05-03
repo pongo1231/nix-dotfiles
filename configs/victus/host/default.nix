@@ -45,25 +45,68 @@
       "kvmfr.static_size_mb=32"
     ];
 
-    extraModulePackages = with config.boot.kernelPackages; [
-      (kvmfr.overrideAttrs (
-        finalAttrs: prevAttrs: {
-          src = pkgs.fetchFromGitHub {
-            owner = "gnif";
-            repo = "LookingGlass";
-            rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
-            hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
-          };
-          patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
-        }
-      ))
-      (callPackage (pkg /hp-omen-linux-module) { })
-      (ryzen-smu.overrideAttrs (
-        finalAttrs: prevAttrs: {
-          patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
-        }
-      ))
-    ];
+    extraModulePackages =
+      with config.boot.kernelPackages;
+      let
+        llvmMod =
+          pkg:
+          pkg.overrideAttrs (
+            finalAttrs: prevAttrs: {
+              /*
+                inherit (kernel) stdenv;
+                makeFlags = (prevAttrs.makeFlags or [ ]) ++ [
+                  "LLVM=1"
+                  "CC=${finalAttrs.stdenv.cc}/bin/clang"
+                ];
+                hardeningDisable = [ "strictoverflow" ];
+              */
+            }
+          );
+      in
+      [
+        (llvmMod (
+          kvmfr.overrideAttrs (
+            finalAttrs: prevAttrs: {
+              src = pkgs.fetchFromGitHub {
+                owner = "gnif";
+                repo = "LookingGlass";
+                rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
+                hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
+              };
+
+              patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
+            }
+          )
+        ))
+
+        (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
+
+        (llvmMod (
+          ryzen-smu.overrideAttrs (
+            finalAttrs: prevAttrs: {
+              patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
+
+              installPhase = ''
+                install ryzen_smu.ko -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/ryzen_smu
+                install ${
+                  llvmMod (
+                    stdenv.mkDerivation {
+                      pname = "monitor-cpu";
+                      inherit (prevAttrs) version src;
+
+                      makeFlags = [
+                        "-C userspace"
+                      ];
+
+                      installPhase = "install userspace/monitor_cpu -Dm755 -t $out/bin";
+                    }
+                  )
+                }/bin/monitor_cpu -Dm755 -t $out/bin
+              '';
+            }
+          )
+        ))
+      ];
 
     binfmt.emulatedSystems = [
       "aarch64-linux"

@@ -27,7 +27,7 @@ in
                     cc = prevAttrs''.cc.override {
                       bintools = pkgs.llvmPackages.bintools;
                       extraBuildCommands = ''
-                                          substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
+                                        substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
                         				  echo " -resource-dir=${pkgs.llvmPackages.libclang.lib}/lib/clang/${lib.versions.major pkgs.llvmPackages.libclang.version}" >> $out/nix-support/cc-cflags
                         				  '';
                     };
@@ -47,8 +47,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "7319a8efe01a6dcba2f44cc7f2c911d9d096e45d";
-                      hash = "sha256-0rzD0cw732LtTBSzF+GGSrDiVMsNBgQlRC7Ucv4usXw=";
+                      rev = "7b217616745018ac5e30296f0947fa3b65928e80";
+                      hash = "sha256-CmAu0FByYzA5JOa3VbyU9vsMGtwRHsQHkQUpucKrKw4=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -60,14 +60,14 @@ in
                         "LLVM=1"
                         "LLVM_IAS=1"
                       ];
-                    */
 
-                    extraConfig = ''
-                      #CC_IS_CLANG y
-                      #LTO_CLANG y
-                      #LTO_CLANG_THIN y
-                      #LTO_CLANG_THIN_DIST y
-                    '';
+                      extraConfig = ''
+                        CC_IS_CLANG y
+                        LTO_CLANG y
+                        LTO_CLANG_THIN y
+                        LTO_CLANG_THIN_DIST y
+                      '';
+                    */
                   };
               })).overrideAttrs
                 (
@@ -94,6 +94,8 @@ in
                   "VERSION=${finalAttrs'.version}"
                   #"LLVM=1"
                 ];
+
+                #hardeningDisable = [ "strictoverflow" ];
               }
             );
           }
