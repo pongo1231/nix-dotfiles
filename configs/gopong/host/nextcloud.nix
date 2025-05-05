@@ -49,4 +49,17 @@ withSecrets "pongo"
   };
 
   environment.systemPackages = with pkgs; [ ffmpeg ];
+
+  system.activationScripts.nextcloud-config.text =
+    let
+      occ = "${config.services.nextcloud.occ}/bin/nextcloud-occ";
+    in
+    ''
+      ${occ} config:system:set redis 'host' --value 'localhost' --type string
+      ${occ} config:system:set redis 'port' --value ${
+        builtins.toString config.services.redis.servers."nextcloud".port
+      } --type integer
+      ${occ} config:system:set memcache.local --value '\OC\Memcache\Redis' --type string
+      ${occ} config:system:set memcache.locking --value '\OC\Memcache\Redis' --type string
+    '';
 }
