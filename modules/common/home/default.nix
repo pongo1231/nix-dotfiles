@@ -40,6 +40,8 @@
       };
 
       shellInit = ''
+        set async_prompt_functions fish_prompt
+
         function fish_command_not_found
           , $argv
           return $status
