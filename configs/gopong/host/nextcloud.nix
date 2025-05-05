@@ -20,6 +20,11 @@ withSecrets "pongo"
       enableACME = true;
     };
 
+    redis.servers."nextcloud" = {
+      enable = true;
+      port = 6501;
+    };
+
     nextcloud = {
       enable = true;
       package = pkgs.nextcloud31.overrideAttrs (
@@ -34,6 +39,11 @@ withSecrets "pongo"
       config = {
         adminpassFile = config.sops.secrets."nextcloud/adminPassword".path;
         dbtype = "pgsql";
+      };
+      caching = {
+        apcu = false;
+        redis = true;
+        memcached = false;
       };
     };
   };
