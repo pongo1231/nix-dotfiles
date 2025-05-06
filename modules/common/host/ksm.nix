@@ -24,6 +24,9 @@ in
       // lib.optionalAttrs cfg.ksm.forceAllProcesses {
         # https://github.com/CachyOS/CachyOS-PKGBUILDS/blob/master/cachyos-ksm-settings/PKGBUILD
         services = {
+          "display-manager".serviceConfig = {
+          	MemoryKSM = true;
+          };
           "gdm".serviceConfig = {
             MemoryKSM = true;
           };
