@@ -101,7 +101,6 @@
       nixos-generators
       nix-melt
       nurl
-      nix-health
       statix
       duperemove
       compsize
