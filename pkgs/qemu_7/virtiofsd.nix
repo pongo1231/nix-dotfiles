@@ -14,7 +14,7 @@
   python3Packages,
 }:
 
-qemu.overrideAttrs (old: {
+qemu.overrideAttrs {
   pname = "qemu-virtiofsd";
 
   depsBuildBuild = [ buildPackages.stdenv.cc ];
@@ -94,4 +94,4 @@ qemu.overrideAttrs (old: {
   '';
 
   outputs = [ "out" ];
-})
+}

@@ -37,9 +37,9 @@
   hardware.graphics.extraPackages = with pkgs; [
     mesa
     libvdpau-va-gl
-    (libedit.overrideAttrs (attrs: {
+    (libedit.overrideAttrs {
       postInstall = ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';
-    }))
+    })
   ];
 
   environment.systemPackages = [

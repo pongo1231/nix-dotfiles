@@ -1,7 +1,6 @@
 {
   prefix,
   isNixosModule,
-  inputs,
   lib,
   ...
 }@args:
@@ -82,7 +81,7 @@
         inherit name;
         value =
           {
-            sopsFile = ./secrets/${user}/${if value ? store then value.store else store}.yaml;
+            sopsFile = ./secrets/${user}/${value.store or store}.yaml;
           }
           // lib.optionalAttrs (owner != null) { inherit owner; }
           // lib.optionalAttrs (group != null) {

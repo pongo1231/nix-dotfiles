@@ -1,9 +1,8 @@
 {
-  lib,
   stdenv,
   suffix ? "",
 }:
-stdenv.mkDerivation (finalAttrs: {
+stdenv.mkDerivation {
   pname = "ksm_wrap${suffix}";
   version = "1.0";
 
@@ -17,4 +16,4 @@ stdenv.mkDerivation (finalAttrs: {
     mkdir -p $out/bin/
     mv a.out $out/bin/ksmwrap${suffix}.so
   '';
-})
+}

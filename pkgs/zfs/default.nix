@@ -6,9 +6,9 @@
   removeLinuxDRM ? true,
 }:
 
-(zfs.override (prevAttrs: {
+(zfs.override {
   inherit configFile kernel removeLinuxDRM;
-})).overrideAttrs
+}).overrideAttrs
   (
     finalAttrs: prevAttrs:
     let

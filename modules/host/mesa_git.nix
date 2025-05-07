@@ -15,7 +15,7 @@
       patchMesa =
         mesa:
         mesa.overrideAttrs (
-          finalAttrs: prevAttrs: {
+          prevAttrs: {
             patches = prevAttrs.patches ++ [
               (patch /mesa/24.3.0/gamescope-limiter.patch)
             ];

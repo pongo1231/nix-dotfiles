@@ -35,11 +35,9 @@ in
           if (!cfg.patchSystemd) then
             pkgs.systemd
           else
-            pkgs.systemd.overrideAttrs (
-              finalAttrs: prevAttrs: {
-                patches = prevAttrs.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
-              }
-            )
+            pkgs.systemd.overrideAttrs (prevAttrs: {
+              patches = prevAttrs.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
+            })
         );
 
         # https://github.com/CachyOS/CachyOS-PKGBUILDS/blob/master/cachyos-ksm-settings/PKGBUILD

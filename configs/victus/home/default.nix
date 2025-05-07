@@ -1,6 +1,5 @@
 {
   module,
-  patch,
   pkgs,
   ...
 }:

@@ -5,7 +5,6 @@
 {
   inputs,
   module,
-  config,
   pkgs,
   lib,
   ...
@@ -18,6 +17,7 @@
     (module /common/overlay)
     ./sops.nix
 
+    ./fish.nix
     ./helpers.nix
     ./suspender.nix
   ];
@@ -28,63 +28,6 @@
   };
 
   programs = {
-    fish = {
-      enable = true;
-
-      shellAliases = {
-        "cd.." = "cd ..";
-        cpufreq = "watch -n.1 'grep \"^[c]pu MHz\" /proc/cpuinfo'";
-
-        ksminfo = "grep -r . /sys/kernel/mm/ksm";
-        ksmprofit = "echo | awk -v profit=$(cat /sys/kernel/mm/ksm/general_profit) '{print \"\\033[35m\"profit / 1024 / 1024\" MB\\033[0m\"}'";
-      };
-
-      shellInit = ''
-        set async_prompt_functions fish_prompt
-
-        function fish_command_not_found
-          , $argv
-          return $status
-        end
-        fish_add_path -maP ~/.local/bin
-      '';
-
-      plugins = with pkgs.fishPlugins; [
-        {
-          name = "fzf-fish";
-          src = fzf-fish.src;
-        }
-        {
-          name = "autopair";
-          src = autopair.src;
-        }
-        {
-          name = "colored-man-pages";
-          src = colored-man-pages.src;
-        }
-        {
-          name = "transient-fish";
-          src = transient-fish.src;
-        }
-        {
-          name = "sponge";
-          src = sponge.src;
-        }
-        {
-          name = "z";
-          src = z.src;
-        }
-        {
-          name = "forgit";
-          src = forgit.src;
-        }
-        {
-          name = "async-prompt";
-          src = async-prompt.src;
-        }
-      ];
-    };
-
     fzf = {
       enable = true;
       enableFishIntegration = true;

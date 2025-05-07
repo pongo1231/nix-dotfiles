@@ -1,5 +1,4 @@
 {
-  patch,
   withSecrets,
   pkgs,
   config,
@@ -27,13 +26,7 @@ withSecrets "pongo"
 
     nextcloud = {
       enable = true;
-      package = pkgs.nextcloud31.overrideAttrs (
-        finalAttrs: prevAttrs: {
-          patches = (prevAttrs.patches or [ ]) ++ [
-            #(patch /nextcloud/44574.patch)
-          ];
-        }
-      );
+      package = pkgs.nextcloud31;
       hostName = "cloud.gopong.dev";
       https = true;
       config = {

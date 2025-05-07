@@ -6,7 +6,7 @@
   ...
 }:
 let
-  cfg = config.pongo;
+  cfg = config.pongo.users;
 in
 {
   options.pongo.users.defaultOverride = lib.mkOption {
@@ -27,7 +27,7 @@ in
         mutableUsers = false;
         defaultUserShell = pkgs.fish;
 
-        users.${if cfg.users.defaultOverride ? name then cfg.users.defaultOverride.user else "pongo"} = {
+        users.${if cfg.defaultOverride ? name then cfg.defaultOverride.user else "pongo"} = {
           isNormalUser = true;
           hashedPasswordFile = config.sops.secrets."base/userPassword".path;
           linger = true;
@@ -45,7 +45,7 @@ in
             "kvm"
             "nginx"
           ];
-        } // cfg.users.defaultOverride;
+        } // cfg.defaultOverride;
       };
     };
 }

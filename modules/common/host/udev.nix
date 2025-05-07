@@ -1,19 +1,15 @@
 {
-  cfg,
   config,
   lib,
   ...
 }:
-let
-  cfg = config.pongo;
-in
 {
   services.udev.extraRules =
     ''
       # auto enable runtime pm for all pci devices
       SUBSYSTEM=="pci", ATTR{power/control}="auto"
     ''
-    + lib.optionalString (!cfg.pongoKernel.enable) ''
+    + lib.optionalString (!config.pongo.pongoKernel.enable) ''
       # set scheduler for NVMe
       ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none"
       # set scheduler for SSD and eMMC

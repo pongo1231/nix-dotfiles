@@ -1,6 +1,5 @@
 {
   patch,
-  pkg,
   config,
   pkgs,
   lib,
@@ -17,11 +16,11 @@ in
 
   config = lib.mkIf cfg.pongoKernel.enable {
     nixpkgs.overlays = [
-      (final: prev: {
+      (final: {
         linuxPackages_pongo = final.linuxPackages_testing.extend (
           finalAttrs: prevAttrs: {
             kernel =
-              (prevAttrs.kernel.override (prevAttrs': {
+              (prevAttrs.kernel.override {
                 /*
                   stdenv = pkgs.llvmPackages.stdenv.override (prevAttrs'': {
                     cc = prevAttrs''.cc.override {
@@ -69,15 +68,15 @@ in
                       '';
                     */
                   };
-              })).overrideAttrs
-                (
-                  finalAttrs': prevAttrs': {
+              }).overrideAttrs
+                /*(
+                  finalAttrs': prevAttrs':*/ {
                     #hardeningDisable = [ "strictoverflow" ];
                   }
-                );
+                /*)*/;
 
             xpadneo = prevAttrs.xpadneo.overrideAttrs (
-              finalAttrs': prevAttrs': {
+              finalAttrs': _: {
                 src = final.fetchFromGitHub {
                   owner = "atar-axis";
                   repo = "xpadneo";

@@ -1,7 +1,5 @@
 {
-  system,
   inputs,
-  module,
   patch,
   config,
   pkgs,
@@ -61,13 +59,11 @@
       let
         patchMesa =
           mesa:
-          mesa.overrideAttrs (
-            finalAttrs: prevAttrs: {
-              patches = prevAttrs.patches ++ [
-                (patch /mesa/25.0.0/gamescope-limiter.patch)
-              ];
-            }
-          );
+          mesa.overrideAttrs (prevAttrs: {
+            patches = prevAttrs.patches ++ [
+              (patch /mesa/25.0.0/gamescope-limiter.patch)
+            ];
+          });
       in
       {
         package = lib.mkForce (patchMesa pkgs.mesa.drivers);

@@ -6,7 +6,6 @@
   pkg,
   config,
   pkgs,
-  lib,
   ...
 }:
 {
@@ -49,62 +48,60 @@
       with config.boot.kernelPackages;
       let
         llvmMod =
-          pkg:
-          pkg.overrideAttrs (
+          pkg: pkg
+        /*
+          .overrideAttrs (
             finalAttrs: prevAttrs: {
-              /*
+
                 inherit (kernel) stdenv;
                 makeFlags = (prevAttrs.makeFlags or [ ]) ++ [
                   "LLVM=1"
                   "CC=${finalAttrs.stdenv.cc}/bin/clang"
                 ];
                 hardeningDisable = [ "strictoverflow" ];
-              */
             }
-          );
+          )
+        */
+        ;
       in
       [
         (llvmMod (
-          kvmfr.overrideAttrs (
-            finalAttrs: prevAttrs: {
-              src = pkgs.fetchFromGitHub {
-                owner = "gnif";
-                repo = "LookingGlass";
-                rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
-                hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
-              };
+          kvmfr.overrideAttrs {
+            src = pkgs.fetchFromGitHub {
+              owner = "gnif";
+              repo = "LookingGlass";
+              rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
+              hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
+            };
 
-              patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
-            }
-          )
+            patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
+          }
         ))
 
         (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
 
         (llvmMod (
-          ryzen-smu.overrideAttrs (
-            finalAttrs: prevAttrs: {
-              patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
+          ryzen-smu.overrideAttrs {
+            patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
 
-              installPhase = ''
-                install ryzen_smu.ko -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/ryzen_smu
-                install ${
-                  llvmMod (
-                    stdenv.mkDerivation {
-                      pname = "monitor-cpu";
-                      inherit (prevAttrs) version src;
+            installPhase = ''
+              install ryzen_smu.ko -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/ryzen_smu
+              install ${
+                llvmMod (
+                  stdenv.mkDerivation {
+                    pname = "monitor-cpu";
+                    inherit (prevAttrs) version src;
 
-                      makeFlags = [
-                        "-C userspace"
-                      ];
+                    makeFlags = [
+                      "-C userspace"
+                    ];
 
-                      installPhase = "install userspace/monitor_cpu -Dm755 -t $out/bin";
-                    }
-                  )
-                }/bin/monitor_cpu -Dm755 -t $out/bin
-              '';
-            }
-          )
+                    installPhase = "install userspace/monitor_cpu -Dm755 -t $out/bin";
+                  }
+                )
+              }/bin/monitor_cpu -Dm755 -t $out/bin
+            '';
+          }
         ))
       ];
 
@@ -164,16 +161,14 @@
 
   environment.systemPackages = with pkgs; [
     virtiofsd
-    (kde-rounded-corners.overrideAttrs (
-      finalAttrs: prevAttrs: {
-        src = pkgs.fetchFromGitHub {
-          owner = "matinlotfali";
-          repo = "KDE-Rounded-Corners";
-          rev = "81fb4e011ca5434edc5a20afa8101df470207b49";
-          hash = "sha256-TViJzwmDLR6Ej+2o7HeusiaYOm98JDzSuWqzrmuNJ6o=";
-        };
-      }
-    ))
+    (kde-rounded-corners.overrideAttrs {
+      src = pkgs.fetchFromGitHub {
+        owner = "matinlotfali";
+        repo = "KDE-Rounded-Corners";
+        rev = "81fb4e011ca5434edc5a20afa8101df470207b49";
+        hash = "sha256-TViJzwmDLR6Ej+2o7HeusiaYOm98JDzSuWqzrmuNJ6o=";
+      };
+    })
     freerdp
     inputs.winapps.packages.${system}.winapps
     inputs.winapps.packages.${system}.winapps-launcher

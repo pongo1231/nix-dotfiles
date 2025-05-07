@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   services.snapper = {
     persistentTimer = true;
     configs =
@@ -13,7 +12,7 @@
       in
       builtins.listToAttrs (
         builtins.map (x: {
-          name = x; # builtins.replaceStrings [ "/" ] [ "_" ] x;
+          name = x;
           value = {
             SUBVOLUME = x;
             ALLOW_GROUPS = [ "wheel" ];

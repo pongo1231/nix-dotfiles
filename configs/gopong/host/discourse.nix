@@ -1,6 +1,4 @@
 {
-  system,
-  inputs,
   withSecrets,
   config,
   ...

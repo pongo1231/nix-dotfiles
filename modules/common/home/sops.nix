@@ -10,7 +10,7 @@
   ];
 
   sops = {
-    age.keyFile = (private /age.key);
-    defaultSopsFile = (secret /secrets.yaml);
+    age.keyFile = private /age.key;
+    defaultSopsFile = secret /secrets.yaml;
   };
 }

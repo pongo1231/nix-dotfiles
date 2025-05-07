@@ -36,16 +36,14 @@ mesa-radv-jupiter'.overrideAttrs (
     ];
 
     buildInputs = (builtins.filter (x: x.pname != "wayland-protocols") prevAttrs.buildInputs) ++ [
-      (wayland-protocols.overrideAttrs (
-        finalAttrs: prevAttrs: {
-          version = "1.34";
+      (wayland-protocols.overrideAttrs (finalAttrs: {
+        version = "1.34";
 
-          src = fetchurl {
-            url = "https://gitlab.freedesktop.org/wayland/${finalAttrs.pname}/-/releases/${finalAttrs.version}/downloads/${finalAttrs.pname}-${finalAttrs.version}.tar.xz";
-            hash = "sha256-xZsnys2F9guvTuX4DfXA0Vdg6taiQysAq34uBXTcr+s=";
-          };
-        }
-      ))
+        src = fetchurl {
+          url = "https://gitlab.freedesktop.org/wayland/${finalAttrs.pname}/-/releases/${finalAttrs.version}/downloads/${finalAttrs.pname}-${finalAttrs.version}.tar.xz";
+          hash = "sha256-xZsnys2F9guvTuX4DfXA0Vdg6taiQysAq34uBXTcr+s=";
+        };
+      }))
     ];
   }
 )

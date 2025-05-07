@@ -13,7 +13,7 @@
   hardware.nvidia = {
     package =
       (config.boot.kernelPackages.extend (
-        finalAttrs: prevAttrs:
+        finalAttrs: _:
         let
           generic =
             args:
@@ -31,13 +31,13 @@
               persistencedSha256 = "";
               patches = [ (patch /nvidia/6.15/build-fix.patch) ];
             }).overrideAttrs
-              (
-                finalAttrs': prevAttrs': {
-                  # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-                  builder = (patch /nvidia/builder.sh);
+              (prevAttrs': {
+                # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
+                builder = patch /nvidia/builder.sh;
 
-                  patches = prevAttrs'.patches ++ [ (patch /nvidia/6.15/gpl-hack.patch) ];
+                patches = prevAttrs'.patches ++ [ (patch /nvidia/6.15/gpl-hack.patch) ];
 
+                /*
                   passthru = prevAttrs'.passthru // {
                     open = prevAttrs'.passthru.open.overrideAttrs (
                       finalAttrs'': prevAttrs'': {
@@ -45,8 +45,8 @@
                       }
                     );
                   };
-                }
-              );
+                */
+              });
         }
       )).nvidiaPackages.production;
 

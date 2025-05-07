@@ -1,8 +1,6 @@
 inputs:
 let
-  lib = inputs.nixpkgs.lib;
-in
-let
+  inherit (inputs.nixpkgs) lib;
   commonSystem =
     {
       hostName,
@@ -49,7 +47,7 @@ let
 in
 lib.mapAttrs
   (
-    name: value:
+    name: _:
     commonSystem (
       let
         args =
@@ -65,10 +63,10 @@ lib.mapAttrs
         inherit args;
       }
       // lib.optionalAttrs (args ? system) {
-        system = args.system;
+        inherit (args) system;
       }
       // lib.optionalAttrs (args ? type) {
-        type = args.type;
+        inherit (args) type;
       }
       // lib.optionalAttrs (builtins.pathExists ./configs/${name}/host) {
         config = ./configs/${name}/host;
@@ -76,7 +74,7 @@ lib.mapAttrs
     )
   )
   (
-    lib.filterAttrs (name: value: !(builtins.pathExists ./configs/${name}/.broken)) (
+    lib.filterAttrs (name: _: !(builtins.pathExists ./configs/${name}/.broken)) (
       builtins.readDir ./configs
     )
   )

@@ -1,6 +1,6 @@
 { config, lib, ... }:
 let
-  cfg = config.pongo;
+  cfg = config.pongo.boot;
 in
 {
   options.pongo.boot.useFullPreempt = lib.mkOption {
@@ -8,6 +8,5 @@ in
     default = false;
   };
 
-  config.boot.kernelParams =
-    if cfg.boot.useFullPreempt then [ "preempt=full" ] else [ "preempt=lazy" ];
+  config.boot.kernelParams = if cfg.useFullPreempt then [ "preempt=full" ] else [ "preempt=lazy" ];
 }

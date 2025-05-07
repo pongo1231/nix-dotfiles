@@ -5,7 +5,7 @@ inputs:
   configs ? null,
 }:
 let
-  lib = inputs.nixpkgs.lib;
+  inherit (inputs.nixpkgs) lib;
   commonUsers = [
     "pongo"
   ];
@@ -56,8 +56,6 @@ let
 
         inherit modules;
       };
-in
-let
   users = lib.foldlAttrs (
     acc: hostName: _:
     let
