@@ -81,7 +81,7 @@
         (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
 
         (llvmMod (
-          ryzen-smu.overrideAttrs {
+          ryzen-smu.overrideAttrs (prevAttrs: {
             patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
 
             installPhase = ''
@@ -101,7 +101,7 @@
                 )
               }/bin/monitor_cpu -Dm755 -t $out/bin
             '';
-          }
+          })
         ))
       ];
 

@@ -16,7 +16,7 @@ in
 
   config = lib.mkIf cfg.pongoKernel.enable {
     nixpkgs.overlays = [
-      (final: {
+      (final: _: {
         linuxPackages_pongo = final.linuxPackages_testing.extend (
           finalAttrs: prevAttrs: {
             kernel =
