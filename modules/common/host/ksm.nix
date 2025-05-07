@@ -13,10 +13,7 @@ in
   };
 
   config = {
-    hardware.ksm = {
-      enable = true;
-      sleep = 250;
-    };
+    hardware.ksm.enable = true;
 
     systemd =
       {
