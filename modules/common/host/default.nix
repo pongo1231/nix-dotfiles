@@ -5,6 +5,7 @@
 {
   inputs,
   module,
+  patch,
   pkgs,
   lib,
   config,
@@ -187,6 +188,10 @@
   virtualisation.podman.enable = true;
 
   systemd = {
+    package = pkgs.systemd.overrideAttrs (finalAttrs: prevAttrs: {
+      patches = prevAttrs.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
+    });
+  
     network.wait-online.enable = false;
 
     oomd = {
