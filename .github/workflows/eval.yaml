@@ -8,5 +8,4 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: cachix/install-nix-action@v25
-    - run: "nix eval '.#nixosConfigurations' --apply 'c: builtins.attrNames c' --json | jq 'values[]' | xargs -I {} nix build --dry-run .#nixosConfigurations.{}.config.system.build.toplevel"
-    - run: "nix eval '.#homeConfigurations' --apply 'c: builtins.attrNames c' --json | jq 'values[]' | xargs -I {} nix build --dry-run .#homeConfigurations.{}.config.home.activationPackage"
+    - run: nix flake check --all-systems
