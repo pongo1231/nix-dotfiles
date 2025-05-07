@@ -69,11 +69,15 @@ in
                     */
                   };
               }).overrideAttrs
-                /*(
-                  finalAttrs': prevAttrs':*/ {
-                    #hardeningDisable = [ "strictoverflow" ];
-                  }
-                /*)*/;
+                /*
+                  (
+                  finalAttrs': prevAttrs':
+                */
+                {
+                  #hardeningDisable = [ "strictoverflow" ];
+                }
+            # )
+            ;
 
             xpadneo = prevAttrs.xpadneo.overrideAttrs (
               finalAttrs': _: {

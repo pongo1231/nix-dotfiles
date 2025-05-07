@@ -14,13 +14,11 @@
     let
       patchMesa =
         mesa:
-        mesa.overrideAttrs (
-          prevAttrs: {
-            patches = prevAttrs.patches ++ [
-              (patch /mesa/24.3.0/gamescope-limiter.patch)
-            ];
-          }
-        );
+        mesa.overrideAttrs (prevAttrs: {
+          patches = prevAttrs.patches ++ [
+            (patch /mesa/24.3.0/gamescope-limiter.patch)
+          ];
+        });
     in
     {
       # chaotic-nyx's mesa-git module uses mkForce for some reason...
