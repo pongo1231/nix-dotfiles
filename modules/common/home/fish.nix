@@ -29,7 +29,7 @@
           autopair
           colored-man-pages
           transient-fish
-          sponge
+          #sponge
           z
           forgit
           async-prompt
