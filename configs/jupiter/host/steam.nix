@@ -19,7 +19,7 @@
       enable = true;
       autoStart = true;
       user = "pongo";
-      desktopSession = "plasma";
+      desktopSession = "gnome"; # "plasma";
     };
 
     decky-loader = {

@@ -75,6 +75,7 @@
 
   services = {
     displayManager.sddm.enable = false;
+    xserver.displayManager.gdm.enable = false;
 
     fstrim.enable = true;
 

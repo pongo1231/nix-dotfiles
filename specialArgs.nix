@@ -12,6 +12,9 @@ rec {
 
   modules =
     file:
+    {
+      includeModulesInPath ? false,
+    }:
     let
       fileStr = builtins.toString file;
       splitFile = lib.splitString "/" fileStr;
@@ -34,17 +37,31 @@ rec {
               ];
             in
             acc'
-            ++ builtins.foldl' (
-              acc'': x'':
-              if
-                builtins.pathExists (
-                  ./. + "${x''}${if (x != splitLen - 1 || splitLastIsNixFile) then "" else "/default.nix"}"
-                )
-              then
-                acc'' ++ [ x'' ]
+            ++ (
+              if lib.hasSuffix "/default.nix" x' then
+                [ x' ]
               else
-                acc''
-            ) [ ] paths
+                builtins.foldl' (
+                  acc'': x'':
+                  (builtins.trace ("x: ${builtins.toString x} | x': ${builtins.toString x'} | x'': ${builtins.toString x''} || acc: ${builtins.toString acc} | acc': ${builtins.toString acc'} | acc'': ${builtins.toString acc''}") acc'')
+                  ++ (
+                    if
+                      builtins.pathExists (
+                        ./${x''} + "${if (x != splitLen - 1 || splitLastIsNixFile) then "" else "/default.nix"}"
+                      )
+                    then
+                      [ x'' ]
+                    else
+                      [ ]
+                      ++ (
+                        if x != splitLen - 1 && includeModulesInPath && builtins.pathExists ./${x''}/default.nix then
+                          [ "${x''}/default.nix" ]
+                        else
+                          [ ]
+                      )
+                  )
+                ) [ ] paths
+            )
           ) [ ] acc
         ) [ "/modules" ] (range (splitLen - 1))
       );
@@ -55,7 +72,7 @@ rec {
   module =
     file:
     let
-      foundModules = modules file;
+      foundModules = modules file { };
       foundModulesLen = builtins.length foundModules;
     in
     if foundModulesLen == 1 then builtins.elemAt foundModules 0 else _: { imports = foundModules; };

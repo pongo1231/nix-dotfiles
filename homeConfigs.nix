@@ -38,7 +38,7 @@ let
             ];
           })
         ]
-        ++ lib.optionals (type != null) (specialArgs.modules /${type})
+        ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeModulesInPath = true; })
         ++ lib.optionals (config != null) [
           config
         ]
