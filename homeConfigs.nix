@@ -19,6 +19,15 @@ let
       args,
     }:
     let
+      specialArgs =
+        if extraSpecialArgs != null then
+          extraSpecialArgs
+        else
+          import ./specialArgs.nix {
+            prefix = "home";
+            inherit system inputs isNixosModule;
+            inherit (inputs.nixpkgs) lib;
+          };
       modules =
         [
           (import ./modules/common/home {
@@ -29,9 +38,7 @@ let
             ];
           })
         ]
-        ++ lib.optionals (type != null) [
-          ./modules/${type}/home
-        ]
+        ++ lib.optionals (type != null) (specialArgs.modules /${type})
         ++ lib.optionals (config != null) [
           config
         ]
@@ -48,11 +55,7 @@ let
       inputs.home-manager.lib.homeManagerConfiguration {
         pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-        extraSpecialArgs = import ./specialArgs.nix {
-          prefix = "home";
-          inherit system inputs isNixosModule;
-          inherit (inputs.nixpkgs) lib;
-        };
+        extraSpecialArgs = specialArgs;
 
         inherit modules;
       };

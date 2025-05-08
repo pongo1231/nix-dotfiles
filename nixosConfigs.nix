@@ -9,12 +9,15 @@ let
       type ? null,
       args,
     }:
-    lib.nixosSystem {
+    let
       specialArgs = import ./specialArgs.nix {
         prefix = "host";
         isNixosModule = true;
         inherit system inputs lib;
       };
+    in
+    lib.nixosSystem {
+      inherit specialArgs;
 
       modules =
         [
@@ -37,9 +40,7 @@ let
             configs.${hostName} = { };
           })
         ]
-        ++ lib.optionals (type != null) [
-          ./modules/${type}/host
-        ]
+        ++ lib.optionals (type != null) (specialArgs.modules /${type})
         ++ lib.optionals (config != null) [
           config
         ];
