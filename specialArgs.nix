@@ -37,9 +37,9 @@ rec {
             ++ builtins.foldl' (
               acc'': x'':
               if
-                (builtins.pathExists (
+                builtins.pathExists (
                   ./. + "${x''}${if (x != splitLen - 1 || splitLastIsNixFile) then "" else "/default.nix"}"
-                ))
+                )
               then
                 acc'' ++ [ x'' ]
               else
