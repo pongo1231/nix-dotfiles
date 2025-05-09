@@ -40,9 +40,14 @@ let
             configs.${hostName} = { };
           })
         ]
-        ++ lib.optionals (type != null) /*builtins.trace (builtins.toString (
-          specialArgs.modules /${type} { includeModulesInPath = true; }
-        ))*/ (specialArgs.modules /${type} { includeModulesInPath = true; })
+        ++
+          lib.optionals (type != null)
+            /*
+              builtins.trace (builtins.toString (
+                specialArgs.modules /${type} { includeModulesInPath = true; }
+              ))
+            */
+            (specialArgs.modules /${type} { includeModulesInPath = true; })
         ++ lib.optionals (config != null) [
           config
         ];
