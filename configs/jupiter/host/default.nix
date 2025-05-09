@@ -14,7 +14,6 @@
   ];
 
   boot = {
-    plymouth.enable = false;
     initrd = {
       availableKernelModules = [
         "nvme"
@@ -23,17 +22,18 @@
         "sdhci_pci"
       ];
 
-      secrets."/keyfile" = "/keyfile";
-
       luks.devices = {
         root = {
           device = "/dev/disk/by-uuid/ac2b73ac-bae8-4345-8951-36a0ee38e2f1";
           allowDiscards = true;
           bypassWorkqueues = true;
-          keyFile = "/keyfile";
         };
       };
+
+      unl0kr.enable = true;
     };
+
+    plymouth.enable = false;
   };
 
   fileSystems = {
