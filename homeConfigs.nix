@@ -5,10 +5,12 @@ inputs:
   configs ? null,
 }:
 let
-  inherit (inputs.nixpkgs) lib;
   commonUsers = [
     "pongo"
   ];
+  
+  inherit (inputs.nixpkgs) lib;
+  
   commonConfig =
     {
       user,
