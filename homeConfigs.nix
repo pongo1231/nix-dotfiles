@@ -34,7 +34,7 @@ let
           };
       modules =
         [
-          ({...}: {
+          (_: {
             _module.args = specialArgs;
           })
           
