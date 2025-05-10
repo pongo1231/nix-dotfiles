@@ -8,9 +8,9 @@ let
   commonUsers = [
     "pongo"
   ];
-  
+
   inherit (inputs.nixpkgs) lib;
-  
+
   commonConfig =
     {
       user,
@@ -21,9 +21,10 @@ let
       args,
     }:
     let
-      specialArgs = if extraSpecialArgs != null then
-        extraSpecialArgs // { inherit user; }
-      else
+      specialArgs =
+        if extraSpecialArgs != null then
+          extraSpecialArgs // { inherit user; }
+        else
           import ./specialArgs.nix {
             prefix = "home";
             inherit
@@ -39,7 +40,7 @@ let
           (_: {
             _module.args = specialArgs;
           })
-          
+
           (import ./modules/common/home {
             args = builtins.removeAttrs args [
               "system"
