@@ -1,10 +1,11 @@
 {
   inputs,
+  configInfo,
   ...
 }:
 {
   imports = [
-    inputs.sops-nix.nixosModules.sops
+    inputs.sops-nix.${if configInfo.type == "home" then "homeManagerModules" else "nixosModules"}.sops
   ];
 
   sops.age = {

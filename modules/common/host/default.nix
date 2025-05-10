@@ -12,9 +12,9 @@
 }:
 {
   imports = [
-    (module /nix.nix)
-    (module /overlay.nix)
-    ./sops.nix
+    (module /common/nix.nix)
+    (module /common/overlay.nix)
+    (module /common/sops.nix)
 
     ./boot.nix
     ./users.nix
