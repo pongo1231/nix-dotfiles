@@ -102,5 +102,6 @@ rec {
 }
 // builtins.removeAttrs args [
   "prefix"
+  "isNixosModule"
   "lib"
 ]
