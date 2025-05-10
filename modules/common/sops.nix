@@ -17,6 +17,6 @@
     else
       {
         sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
-        keyFile = "/etc/ssh/age_key";
+        keyFile = "/etc/age.key";
       };
 }
