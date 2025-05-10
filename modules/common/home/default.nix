@@ -1,9 +1,9 @@
 {
-  user,
   args,
 }:
 {
   inputs,
+  user,
   module,
   pkgs,
   lib,

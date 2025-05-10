@@ -1,9 +1,9 @@
 {
-  hostName,
   args,
 }:
 {
   inputs,
+  hostName,
   module,
   pkgs,
   lib,

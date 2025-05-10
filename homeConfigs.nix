@@ -19,19 +19,26 @@ let
       args,
     }:
     let
-      specialArgs =
-        if extraSpecialArgs != null then
-          extraSpecialArgs
-        else
+      specialArgs = if extraSpecialArgs != null then
+        extraSpecialArgs // { inherit user; }
+      else
           import ./specialArgs.nix {
             prefix = "home";
-            inherit system inputs isNixosModule;
+            inherit
+              system
+              inputs
+              isNixosModule
+              user
+              ;
             inherit (inputs.nixpkgs) lib;
           };
       modules =
         [
+          ({...}: {
+            _module.args = specialArgs;
+          })
+          
           (import ./modules/common/home {
-            inherit user;
             args = builtins.removeAttrs args [
               "system"
               "type"
@@ -59,6 +66,7 @@ let
 
         inherit modules;
       };
+
   users = lib.foldlAttrs (
     acc: hostName: _:
     let

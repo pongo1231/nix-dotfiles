@@ -13,7 +13,12 @@ let
       specialArgs = import ./specialArgs.nix {
         prefix = "host";
         isNixosModule = true;
-        inherit system inputs lib;
+        inherit
+          system
+          inputs
+          lib
+          hostName
+          ;
       };
     in
     lib.nixosSystem {
@@ -22,7 +27,6 @@ let
       modules =
         [
           (import ./modules/common/host {
-            inherit hostName;
             args = builtins.removeAttrs args [
               "system"
               "type"
@@ -40,14 +44,7 @@ let
             configs.${hostName} = { };
           })
         ]
-        ++
-          lib.optionals (type != null)
-            /*
-              builtins.trace (builtins.toString (
-                specialArgs.modules /${type} { includeModulesInPath = true; }
-              ))
-            */
-            (specialArgs.modules /${type} { includeModulesInPath = true; })
+        ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeModulesInPath = true; })
         ++ lib.optionals (config != null) [
           config
         ];
