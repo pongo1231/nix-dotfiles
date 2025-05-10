@@ -79,6 +79,15 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       '';
 
       udp-reverse-tunnel = final.callPackage (pkg /udp-reverse-tunnel) { };
+
+      duperemove = prev.duperemove.overrideAttrs {
+        src = final.fetchFromGitHub {
+          owner = "markfasheh";
+          repo = "duperemove";
+          rev = "f0efb090c9c0eb5214b5eed8a0189b089e24965d";
+          hash = "sha256-Y3HIqq61bLfZi4XR2RtSyuCPmcWrTxeWvqpTh+3hUjc=";
+        };
+      };
     })
   ];
 }
