@@ -38,16 +38,16 @@ in
                 ignoreConfigErrors = true;
                 argsOverride =
                   let
-                    version = "6.15.0-rc5";
+                    version = "6.15.0-rc6";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.15.0-rc5";
+                    modDirVersion = "6.15.0-rc6";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "dd0b07a0e8c8f595b632e8231de6d42366f68d0e";
-                      hash = "sha256-8Q+YYDRIwXPIhtzj9vynSHttX7w4JnYXffGxPFnOKrw=";
+                      rev = "2243cf41de4e39d40a4ac738c19c00791c8b084c";
+                      hash = "sha256-+0+sQzE9Q3gPtAOv6zaH6V85ws7peH8wdaaEx9EViTI=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
