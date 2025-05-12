@@ -133,7 +133,7 @@ in
         "kernel.sched_burst_penalty_offset" = 22;
 
         "kernel.sched_burst_exclude_kthreads" = 0;
-        "vm.workingset_protection" = 0;
+        #"kernel.workingset_protection" = 0;
       };
     };
 
