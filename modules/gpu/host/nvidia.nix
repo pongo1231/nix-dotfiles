@@ -22,20 +22,20 @@
               { };
         in
         {
-          nvidiaPackages.production =
+          nvidiaPackagesbeta =
             (generic {
-              version = "570.133.07";
-              sha256_64bit = "sha256-LUPmTFgb5e9VTemIixqpADfvbUX1QoTT2dztwI3E3CY=";
-              openSha256 = "sha256-9l8N83Spj0MccA8+8R1uqiXBS0Ag4JrLPjrU3TaXHnM=";
-              settingsSha256 = "sha256-XMk+FvTlGpMquM8aE8kgYK2PIEszUZD2+Zmj2OpYrzU=";
+              version = "575.51.02";
+              #sha256_64bit = "sha256-XZ0N8ISmoAC8p28DrGHk/YN1rJsInJ2dZNL8O+Tuaa0=";
+              openSha256 = "sha256-bkvp/rypEqZUR15wGsKt0VxIvbdaMcGLP12QqtA2bFE=";
+              settingsSha256 = "sha256-6n9mVkEL39wJj5FB1HBml7TTJhNAhS/j5hqpNGFQE4w=";
               persistencedSha256 = "";
-              patches = [ (patch /nvidia/6.15/build-fix.patch) ];
+              patches = [ (patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch) (patch /nvidia/6.15/kbuild-Add-workaround-for-GCC-15-Compilation.patch) ];
             }).overrideAttrs
               (prevAttrs': {
                 # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-                builder = patch /nvidia/builder.sh;
+                #builder = patch /nvidia/builder.sh;
 
-                patches = prevAttrs'.patches ++ [ (patch /nvidia/6.15/gpl-hack.patch) ];
+                #patches = prevAttrs'.patches ++ [ (patch /nvidia/6.15/gpl-hack.patch) ];
 
                 /*
                   passthru = prevAttrs'.passthru // {
@@ -48,7 +48,7 @@
                 */
               });
         }
-      )).nvidiaPackages.production;
+      )).nvidiaPackages.beta;
 
     modesetting.enable = true;
     open = true; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)
