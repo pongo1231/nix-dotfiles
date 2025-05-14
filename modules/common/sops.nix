@@ -9,14 +9,19 @@
   ];
 
   sops.age =
-    if configInfo.type == "home" then
-      {
-        sshKeyPaths = [ "/home/${args.user}/.ssh/id_ed25519" ];
-        keyFile = "/home/${args.user}/.ssh/age_key";
-      }
-    else
-      {
-        sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
-        keyFile = "/etc/age.key";
-      };
+    {
+      generateKey = true;
+    }
+    // (
+      if configInfo.type == "home" then
+        {
+          sshKeyPaths = [ "/home/${args.user}/.ssh/id_ed25519" ];
+          keyFile = "/home/${args.user}/.ssh/age_key";
+        }
+      else
+        {
+          sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+          keyFile = "/etc/age.key";
+        }
+    );
 }
