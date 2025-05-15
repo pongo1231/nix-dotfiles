@@ -9,6 +9,12 @@
 lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
   nixpkgs.overlays = [
     (final: prev: {
+      ccacheWrapper = prev.ccacheWrapper.override {
+        extraConfig = ''
+              export CCACHE_SLOPPINESS=random_seed
+          	'';
+      };
+
       nbfc-linux = prev.nbfc-linux.overrideAttrs (prevAttrs: {
         src = final.fetchFromGitHub {
           owner = "nbfc-linux";

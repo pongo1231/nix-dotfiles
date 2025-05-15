@@ -21,6 +21,7 @@ in
           finalAttrs: prevAttrs: {
             kernel =
               (prevAttrs.kernel.override {
+                stdenv = pkgs.ccacheStdenv;
                 /*
                   stdenv = pkgs.llvmPackages.stdenv.override (prevAttrs'': {
                     cc = prevAttrs''.cc.override {
@@ -32,6 +33,10 @@ in
                     };
                   });
                 */
+
+                buildPackages = _.buildPackages // {
+                  stdenv = pkgs.ccacheStdenv;
+                };
 
                 #stdenv = final.ccacheStdenv;
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
@@ -46,8 +51,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "2243cf41de4e39d40a4ac738c19c00791c8b084c";
-                      hash = "sha256-+0+sQzE9Q3gPtAOv6zaH6V85ws7peH8wdaaEx9EViTI=";
+                      rev = "5d986f80622030167614b22b715dc626d5d9af3d";
+                      hash = "sha256-Cg4MqB82HWKgk+ryl6ed0UdEO9njqwdOKYiNzvyXYTM=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -121,29 +126,23 @@ in
             EXTCON_STEAMDECK m
             MFD_STEAMDECK m
             SENSORS_STEAMDECK m
+            MQ_IOSCHED_DEFAULT_ADIOS y
           '';
         }
       ];
 
       kernelModules = [ "adios" ];
-
-      kernel.sysctl = {
-        # cachyos settings
-        "kernel.sched_burst_cache_lifetime" = 60000000;
-        "kernel.sched_burst_penalty_offset" = 22;
-
-        "kernel.sched_burst_exclude_kthreads" = 0;
-        #"kernel.workingset_protection" = 0;
-      };
     };
 
-    services.udev.extraRules = ''
-      # set scheduler for NVMe
-      ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="adios"
-      # set scheduler for SSD and eMMC
-      ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="adios"
-      # set scheduler for rotating disks
-      ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="adios"
-    '';
+    /*
+      services.udev.extraRules = ''
+        # set scheduler for NVMe
+        ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="adios"
+        # set scheduler for SSD and eMMC
+        ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="adios"
+        # set scheduler for rotating disks
+        ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="adios"
+      '';
+    */
   };
 }
