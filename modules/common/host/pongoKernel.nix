@@ -16,7 +16,7 @@ in
 
   config = lib.mkIf cfg.pongoKernel.enable {
     nixpkgs.overlays = [
-      (final: _: {
+      (final: prev: {
         linuxPackages_pongo = final.linuxPackages_testing.extend (
           finalAttrs: prevAttrs: {
             kernel =
@@ -34,7 +34,7 @@ in
                   });
                 */
 
-                buildPackages = _.buildPackages // {
+                buildPackages = prev.buildPackages // {
                   stdenv = pkgs.ccacheStdenv;
                 };
 
@@ -51,8 +51,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "5d986f80622030167614b22b715dc626d5d9af3d";
-                      hash = "sha256-Cg4MqB82HWKgk+ryl6ed0UdEO9njqwdOKYiNzvyXYTM=";
+                      rev = "dea52059c8032048cfd73c1e33c06aea046b5736";
+                      hash = "sha256-/FkvKDvqqamw7XsrdWxgdP3qAmAOUZbMmVbMLXEYGzs=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
