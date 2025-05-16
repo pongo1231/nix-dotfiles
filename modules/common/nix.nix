@@ -31,7 +31,7 @@ in
         }) inputs;
 
         extraOptions = ''
-          experimental-features = ca-derivations nix-command flakes
+          experimental-features = nix-command flakes
           keep-outputs = true
           keep-derivations = true
         '';
