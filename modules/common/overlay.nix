@@ -11,8 +11,8 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
     (final: prev: {
       ccacheWrapper = prev.ccacheWrapper.override {
         extraConfig = ''
-              export CCACHE_SLOPPINESS=random_seed
-          	'';
+          export CCACHE_SLOPPINESS=random_seed
+        '';
       };
 
       nbfc-linux = prev.nbfc-linux.overrideAttrs (prevAttrs: {
