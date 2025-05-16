@@ -111,7 +111,7 @@
       inputs.nix-be.packages.${system}.nix-be
       jj
       lazyjj
-      inputs.isd.packages.${system}.default
+      isd
       b4
     ];
   };
