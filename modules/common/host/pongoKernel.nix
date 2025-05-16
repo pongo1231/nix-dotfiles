@@ -126,7 +126,6 @@ in
             EXTCON_STEAMDECK m
             MFD_STEAMDECK m
             SENSORS_STEAMDECK m
-            MQ_IOSCHED_DEFAULT_ADIOS y
           '';
         }
       ];
