@@ -21,6 +21,5 @@
     nextcloud-client
     syncthing
     thunderbird
-    birdtray
   ];
 }
