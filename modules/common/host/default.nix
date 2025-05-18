@@ -202,11 +202,7 @@
       "w /proc/sys/dev/hpet/max-user-freq - - - - 3072"
     ];
 
-    services = {
-      "user@".serviceConfig = {
-        Delegate = "cpu cpuset io memory pids";
-      };
-    };
+    services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
   };
 
   environment = {
