@@ -60,10 +60,10 @@ in
             extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
           };
       }
-      // lib.optionalAttrs (configInfo.type == "host") ({
+      // lib.optionalAttrs (configInfo.type == "host") {
         daemonCPUSchedPolicy = "idle";
         daemonIOSchedClass = "idle";
-      });
+      };
 
     nixpkgs =
       lib.optionalAttrs cfg.useLixOverlay {
@@ -75,8 +75,8 @@ in
           nvidia.acceptLicense = true;
         };
       }
-      // lib.optionalAttrs (configInfo.type == "host") ({
+      // lib.optionalAttrs (configInfo.type == "host") {
         hostPlatform.system = system;
-      });
+      };
   };
 }
