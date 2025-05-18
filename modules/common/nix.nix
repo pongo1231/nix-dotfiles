@@ -19,6 +19,8 @@ in
   config = {
     nix =
       {
+        package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
+
         nixPath =
           if configInfo.type != "host" then
             [ "${config.xdg.configHome}/nix/inputs" ]
@@ -58,30 +60,23 @@ in
             extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
           };
       }
-      // lib.optionalAttrs (configInfo.type == "host") (
-        {
-          daemonCPUSchedPolicy = "idle";
-          daemonIOSchedClass = "idle";
-        }
-        // lib.optionalAttrs (!cfg.useLixOverlay) {
-          package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
-        }
-      );
+      // lib.optionalAttrs (configInfo.type == "host") ({
+        daemonCPUSchedPolicy = "idle";
+        daemonIOSchedClass = "idle";
+      });
 
     nixpkgs =
-      lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
+      lib.optionalAttrs cfg.useLixOverlay {
+        overlays = [ (final: prev: inputs.lix.overlays.default final prev) ];
+      }
+      // lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
         config = {
           allowUnfree = true;
           nvidia.acceptLicense = true;
         };
       }
-      // lib.optionalAttrs (configInfo.type == "host") (
-        {
-          hostPlatform.system = system;
-        }
-        // lib.optionalAttrs cfg.useLixOverlay {
-          overlays = [ (final: prev: inputs.lix.overlays.default final prev) ];
-        }
-      );
+      // lib.optionalAttrs (configInfo.type == "host") ({
+        hostPlatform.system = system;
+      });
   };
 }
