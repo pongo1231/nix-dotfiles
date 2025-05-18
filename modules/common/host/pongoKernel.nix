@@ -131,6 +131,8 @@ in
       ];
 
       kernelModules = [ "adios" ];
+
+      kernel.sysctl."kernel.workingset_protection" = 0;
     };
 
     services.udev.extraRules = ''
