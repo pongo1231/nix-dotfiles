@@ -204,7 +204,10 @@
       "w /sys/kernel/mm/lru_gen/min_ttl_ms - - - - 500"
     ];
 
-    services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+    services = {
+      "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+      irqbalance.serviceConfig.ProtectKernelTunables = "no"; # remove when fixed upstream
+    };
   };
 
   environment = {
