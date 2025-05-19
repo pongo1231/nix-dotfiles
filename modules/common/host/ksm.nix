@@ -10,6 +10,11 @@ let
 in
 {
   options.pongo.ksm = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+    };
+
     forceAllProcesses = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -21,7 +26,7 @@ in
     };
   };
 
-  config = {
+  config = lib.mkIf cfg.enable {
     hardware.ksm.enable = true;
 
     systemd =
