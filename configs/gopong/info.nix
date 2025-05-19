@@ -1,3 +1,6 @@
 {
-  host.pongoKernel.enable = true;
+  host = {
+    pongoKernel.enable = true;
+    ksm.enable = true;
+  };
 }
