@@ -34,25 +34,27 @@ in
                   });
                 */
 
-                buildPackages = prev.buildPackages // {
-                  stdenv = pkgs.ccacheStdenv;
-                };
+                /*
+                  buildPackages = prev.buildPackages // {
+                    stdenv = pkgs.ccacheStdenv;
+                  };
+                */
 
                 #stdenv = final.ccacheStdenv;
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
                 ignoreConfigErrors = true;
                 argsOverride =
                   let
-                    version = "6.15.0-rc6";
+                    version = "6.15.0-rc7";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.15.0-rc6";
+                    modDirVersion = "6.15.0-rc7";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "dea52059c8032048cfd73c1e33c06aea046b5736";
-                      hash = "sha256-/FkvKDvqqamw7XsrdWxgdP3qAmAOUZbMmVbMLXEYGzs=";
+                      rev = "719d7c6176b9efd8cfc8d2077ce203568d2a381a";
+                      hash = "sha256-OeCeF6P/qSzoHHtw3jt/GqbN95RrrAdk8BoNHSZrRKQ=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -119,8 +121,6 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
-            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
-            X86_64_VERSION 3
             AMD_PRIVATE_COLOR y
             LEDS_STEAMDECK m
             EXTCON_STEAMDECK m
