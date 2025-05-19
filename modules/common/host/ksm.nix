@@ -12,12 +12,12 @@ in
   options.pongo.ksm = {
     forceAllProcesses = lib.mkOption {
       type = lib.types.bool;
-      default = true;
+      default = false;
     };
 
     patchSystemd = lib.mkOption {
       type = lib.types.bool;
-      default = config.pongo.ksm.forceAllProcesses;
+      default = true;
     };
   };
 
