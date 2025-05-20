@@ -248,7 +248,6 @@
       ddcutil
       #snapper
       distrobox
-      ksmwrap
       udp-reverse-tunnel
       sshfs
       sops

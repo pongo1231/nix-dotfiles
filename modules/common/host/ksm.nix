@@ -70,5 +70,7 @@ in
           };
         };
       };
+
+    environment.systemPackages = with pkgs; [ ksmwrap ];
   };
 }
