@@ -87,10 +87,12 @@
     };
   };
 
-  systemd = {
-    services.greetd.serviceConfig.MemoryKSM = true;
-    user.services.gamescope-session.serviceConfig.MemoryKSM = true;
-  };
+  /*
+    systemd = {
+      services.greetd.serviceConfig.MemoryKSM = true;
+      user.services.gamescope-session.serviceConfig.MemoryKSM = true;
+    };
+  */
 
   environment.systemPackages = with pkgs; [
     steamdeck-firmware
