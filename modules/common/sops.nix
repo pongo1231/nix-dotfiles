@@ -16,7 +16,7 @@
       if configInfo.type == "home" then
         {
           sshKeyPaths = [ "/home/${args.user}/.ssh/id_ed25519" ];
-          keyFile = "/home/${args.user}/.ssh/age_key";
+          keyFile = "/home/${args.user}/.age.key";
         }
       else
         {
