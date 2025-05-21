@@ -43,6 +43,7 @@
       extraConfig = {
         pull.rebase = true;
         am.threeWay = true;
+        core.fileMode = false;
       };
     };
 
