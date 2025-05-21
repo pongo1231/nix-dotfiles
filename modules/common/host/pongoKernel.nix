@@ -21,7 +21,6 @@ in
           finalAttrs: prevAttrs: {
             kernel =
               (prevAttrs.kernel.override {
-                stdenv = pkgs.ccacheStdenv;
                 /*
                   stdenv = pkgs.llvmPackages.stdenv.override (prevAttrs'': {
                     cc = prevAttrs''.cc.override {
@@ -34,15 +33,8 @@ in
                   });
                 */
 
-                /*
-                  buildPackages = prev.buildPackages // {
-                    stdenv = pkgs.ccacheStdenv;
-                  };
-                */
-
-                #stdenv = final.ccacheStdenv;
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-                ignoreConfigErrors = true;
+                ignoreConfigErrors = false;
                 argsOverride =
                   let
                     version = "6.15.0-rc7";
@@ -53,8 +45,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "5ed9c39c47ba66029ae7ba81872b76f94fb8be5c";
-                      hash = "sha256-sXWC8l+SBjHcyPKY378jLK6s/1ljOujWo9py9uB25+A=";
+                      rev = "ebbc17f7745287311158ba7f3a819a04fc2333de";
+                      hash = "sha256-MnNSGISlKD58f09oav4u1vYWJMbED7UH1hH0jZMDe64=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
