@@ -45,9 +45,7 @@ let
           })
         ]
         ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeModulesInPath = true; })
-        ++ lib.optionals (config != null) [
-          config
-        ];
+        ++ lib.optionals (config != null) [ config ];
     };
 in
 lib.mapAttrs

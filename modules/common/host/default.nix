@@ -5,9 +5,9 @@
   inputs,
   hostName,
   module,
+  config,
   pkgs,
   lib,
-  config,
   ...
 }:
 {
@@ -19,7 +19,6 @@
     ./boot.nix
     ./users.nix
     ./bluetooth.nix
-    ./udev.nix
     ./pongoKernel.nix
     ./ksm.nix
   ];
@@ -50,49 +49,11 @@
 
     kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
-    kernel = {
-      sysctl = {
-        # https://wiki.archlinux.org/title/Zram#Optimizing_swap_on_zram
-        "vm.swappiness" = 200;
-        "vm.page-cluster" = 0;
-        "vm.watermark_boost_factor" = 0;
-        "vm.watermark_scale_factor" = 125;
+    kernel.sysctl = ./sysctl.nix;
 
-        "vm.max_map_count" = 2147483642; # awareness through https://www.phoronix.com/news/Fedora-39-VM-Max-Map-Count
-        "dev.i915.perf_stream_paranoid" = 0;
-        "kernel.sysrq" = 1;
-        "kernel.core_pattern" = "/dev/null";
-
-        # https://github.com/pop-os/default-settings/blob/master_noble/etc/sysctl.d/10-pop-default-settings.conf
-        "vm.dirty_bytes" = 268435456;
-        "vm.dirty_background_bytes" = 67108864; # cachyos
-        "fs.inotify.max_user_instances" = 1024;
-
-        "vm.compact_unevictable_allowed" = 1;
-        "vm.compaction_proactiveness" = 20;
-
-        "kernel.split_lock_mitigate" = 0;
-
-        # Cachyos
-        "vm.vfs_cache_pressure" = 50;
-        "vm.dirty_writeback_centisecs" = 1500;
-        "net.core.netdev_max_backlog" = 4096;
-        "fs.file-max" = 2097152;
-      };
-    };
     initrd.systemd.enable = true;
 
-    kernelParams = [
-      "kvm.ignore_msrs=1"
-      "ec_sys.write_support=1"
-      "msr.allow_writes=on"
-      "cgroup_no_v1=all"
-      "mitigations=off"
-      "split_lock_detect=off"
-      "transparent_hugepage=${if config.pongo.pongoKernel.enable then "defer" else "always"}"
-      "transparent_hugepage_shmem=always"
-      "transparent_hugepage_tmpfs=always"
-    ];
+    kernelParams = import ./kernelParams.nix config;
 
     extraModprobeConfig = ''
       options snd_hda_intel power_save=1
@@ -153,6 +114,8 @@
   };
 
   services = {
+    udev.extraRules = import ./udev.nix { inherit config lib; };
+
     dbus = {
       enable = true;
       implementation = "broker";
@@ -195,13 +158,7 @@
       enableUserSlices = true;
     };
 
-    tmpfiles.rules = [
-      "w /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none - - - - 409"
-      "w /sys/class/rtc/rtc0/max_user_freq - - - - 3072"
-      "w /proc/sys/dev/hpet/max-user-freq - - - - 3072"
-
-      "w /sys/kernel/mm/lru_gen/min_ttl_ms - - - - 500"
-    ];
+    tmpfiles.rules = import ./tmpfiles.nix;
 
     services = {
       "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
