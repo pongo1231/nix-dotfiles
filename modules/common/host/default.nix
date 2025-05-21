@@ -135,7 +135,6 @@
     nh = {
       enable = true;
       clean.enable = true;
-      flake = "/etc/nixos";
     };
 
     extra-container.enable = true;
