@@ -29,24 +29,6 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
         '';
       });
 
-      extest = final.pkgsi686Linux.callPackage (pkg /extest) { };
-
-      steamPackages = prev.steamPackages.overrideScope (prevScope: {
-        steam = prevScope.steam.overrideAttrs (prevAttrs: {
-          postInstall =
-            prevAttrs.postInstall
-            + ''
-              substituteInPlace $out/share/applications/steam.desktop --replace "steam %U" "LD_PRELOAD=${final.extest}/lib/libextest.so steam %U -silent"
-            '';
-        });
-      });
-
-      libvirt = prev.libvirt.override {
-        enableXen = false;
-      };
-
-      openvswitch = prev.openvswitch.override { kernel = null; };
-
       virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
         qemu = final.callPackage (pkg /qemu_7) {
           inherit (final.darwin.apple_sdk.frameworks)
