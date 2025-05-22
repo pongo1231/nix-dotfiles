@@ -12,12 +12,12 @@ in
   options.pongo.ksm = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = false;
+      default = true;
     };
 
     forceAllProcesses = lib.mkOption {
       type = lib.types.bool;
-      default = false;
+      default = true;
     };
 
     patchSystemd = lib.mkOption {
