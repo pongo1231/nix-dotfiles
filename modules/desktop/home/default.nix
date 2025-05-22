@@ -21,9 +21,6 @@
     libreoffice
     gimp
     audacity
-    steam
-    mangohud
-    gamescope
     remmina
     moonlight-qt
   ];
