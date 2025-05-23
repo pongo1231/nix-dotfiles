@@ -22,36 +22,40 @@
               { };
         in
         {
-          nvidiaPackages.production =
+          nvidiaPackages.beta =
             (generic {
-              version = "570.133.07";
-              sha256_64bit = "sha256-LUPmTFgb5e9VTemIixqpADfvbUX1QoTT2dztwI3E3CY=";
-              openSha256 = "sha256-9l8N83Spj0MccA8+8R1uqiXBS0Ag4JrLPjrU3TaXHnM=";
-              settingsSha256 = "sha256-XMk+FvTlGpMquM8aE8kgYK2PIEszUZD2+Zmj2OpYrzU=";
+              version = "575.51.02";
+              sha256_64bit = "sha256-XZ0N8ISmoAC8p28DrGHk/YN1rJsInJ2dZNL8O+Tuaa0=";
+              openSha256 = "sha256-NQg+QDm9Gt+5bapbUO96UFsPnz1hG1dtEwT/g/vKHkw=";
+              settingsSha256 = "sha256-6n9mVkEL39wJj5FB1HBml7TTJhNAhS/j5hqpNGFQE4w=";
               persistencedSha256 = "";
-              patches = [ (patch /nvidia/6.15/build-fix.patch) ];
+              patches = [
+                (patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch)
+                (patch /nvidia/6.15/kernel-open-nvidia-Use-new-timer-functions-for-6.15.patch)
+                (patch /nvidia/6.15/Workaround-nv_vm_flags_-calling-GPL-only-code.patch)
+                (patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
+              ];
             }).overrideAttrs
               (prevAttrs': {
                 # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
                 builder = patch /nvidia/builder.sh;
 
-                patches = prevAttrs'.patches ++ [ (patch /nvidia/6.15/gpl-hack.patch) ];
-
-                /*
-                  passthru = prevAttrs'.passthru // {
-                    open = prevAttrs'.passthru.open.overrideAttrs (
-                      finalAttrs'': prevAttrs'': {
-                        patches = prevAttrs''.patches ++ [ ];
-                      }
-                    );
-                  };
-                */
+                passthru = prevAttrs'.passthru // {
+                  open = prevAttrs'.passthru.open.overrideAttrs (
+                    finalAttrs'': prevAttrs'': {
+                      patches = prevAttrs''.patches ++ [
+                        (patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
+                        (patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
+                      ];
+                    }
+                  );
+                };
               });
         }
-      )).nvidiaPackages.production;
+      )).nvidiaPackages.beta;
 
     modesetting.enable = true;
-    open = true; # open kernel driver keeps dying frequently currently (failed to allocate vmap() page descriptor table!)
+    open = true;
     prime =
       {
         offload.enable = true;
