@@ -9,6 +9,8 @@
 
       ksminfo = "grep -r . /sys/kernel/mm/ksm";
       ksmprofit = "echo | awk -v profit=$(cat /sys/kernel/mm/ksm/general_profit) '{print \"\\033[35m\"profit / 1024 / 1024\" MB\\033[0m\"}'";
+
+      thpinfo = "grep HugePages /proc/meminfo";
     };
 
     shellInit = ''
