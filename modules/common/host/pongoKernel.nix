@@ -16,14 +16,14 @@ in
 
   config = lib.mkIf cfg.pongoKernel.enable {
     nixpkgs.overlays = [
-      (final: prev: {
+      (final: _: {
         linuxPackages_pongo = final.linuxPackages_testing.extend (
-          finalAttrs: prevAttrs: {
+          _: prev': {
             kernel =
-              (prevAttrs.kernel.override {
+              (prev'.kernel.override {
                 /*
-                  stdenv = pkgs.llvmPackages.stdenv.override (prevAttrs'': {
-                    cc = prevAttrs''.cc.override {
+                  stdenv = pkgs.llvmPackages.stdenv.override (prev'': {
+                    cc = prev''.cc.override {
                       bintools = pkgs.llvmPackages.bintools;
                       extraBuildCommands = ''
                                         substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
@@ -33,7 +33,7 @@ in
                   });
                 */
 
-                #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
+                #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prev'.kernelPatches;
                 #ignoreConfigErrors = true;
                 argsOverride =
                   let
@@ -70,7 +70,7 @@ in
               }).overrideAttrs
                 /*
                   (
-                  finalAttrs': prevAttrs':
+                  _:
                 */
                 {
                   #hardeningDisable = [ "strictoverflow" ];
@@ -78,20 +78,18 @@ in
             # )
             ;
 
-            xpadneo = prevAttrs.xpadneo.overrideAttrs (
-              final': prev': {
-                src = final.fetchFromGitHub {
-                  owner = "atar-axis";
-                  repo = "xpadneo";
-                  rev = "cd256807c5f916735ae18749c43d5b0bd73240fa";
-                  hash = "sha256-TLtxpDYxatPV5VBssFX4kriEVy/GrQpq33j3/dVGxuE=";
-                };
+            xpadneo = prev'.xpadneo.overrideAttrs {
+              src = final.fetchFromGitHub {
+                owner = "atar-axis";
+                repo = "xpadneo";
+                rev = "cd256807c5f916735ae18749c43d5b0bd73240fa";
+                hash = "sha256-TLtxpDYxatPV5VBssFX4kriEVy/GrQpq33j3/dVGxuE=";
+              };
 
-                #makeFlags = prev'.makeFlags ++ [ "LLVM=1" ];
+              #makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
 
-                #hardeningDisable = [ "strictoverflow" ];
-              }
-            );
+              #hardeningDisable = [ "strictoverflow" ];
+            };
           }
         );
       })

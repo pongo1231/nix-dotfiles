@@ -4,14 +4,14 @@
   kernel,
 }:
 
-stdenv.mkDerivation (finalAttrs: {
+stdenv.mkDerivation (final: {
   pname = "nullfsvfs";
   version = "0.14";
 
   src = fetchFromGitHub {
     owner = "abbbi";
     repo = "nullfsvfs";
-    rev = "refs/tags/v${finalAttrs.version}";
+    rev = "refs/tags/v${final.version}";
     sha256 = "sha256-Dp2o/Rq77yY68DfCW2xeQC+5W54jywnfril2J8yquQc=";
   };
 

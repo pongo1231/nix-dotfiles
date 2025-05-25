@@ -13,12 +13,11 @@
   hardware.nvidia = {
     package =
       (config.boot.kernelPackages.extend (
-        finalAttrs: _:
+        final: _:
         let
           generic =
             args:
-            finalAttrs.callPackage
-              (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args)
+            final.callPackage (import "${inputs.nixpkgs}/pkgs/os-specific/linux/nvidia-x11/generic.nix" args)
               { };
         in
         {
@@ -36,19 +35,17 @@
                 (patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
               ];
             }).overrideAttrs
-              (prevAttrs': {
+              (prev': {
                 # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
                 builder = patch /nvidia/builder.sh;
 
-                passthru = prevAttrs'.passthru // {
-                  open = prevAttrs'.passthru.open.overrideAttrs (
-                    finalAttrs'': prevAttrs'': {
-                      patches = prevAttrs''.patches ++ [
-                        (patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
-                        (patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
-                      ];
-                    }
-                  );
+                passthru = prev'.passthru // {
+                  open = prev'.passthru.open.overrideAttrs (prev'': {
+                    patches = prev''.patches ++ [
+                      (patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
+                      (patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
+                    ];
+                  });
                 };
               });
         }

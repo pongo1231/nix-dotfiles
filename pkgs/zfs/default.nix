@@ -10,12 +10,12 @@
   inherit configFile kernel removeLinuxDRM;
 }).overrideAttrs
   (
-    finalAttrs: prevAttrs:
+    final: prev:
     let
       rev = "645b83307918085ab2f0e12618809e348635b34f";
     in
     {
-      name = builtins.replaceStrings [ prevAttrs.version ] [ finalAttrs.version ] prevAttrs.name;
+      name = builtins.replaceStrings [ prev.version ] [ final.version ] prev.name;
       version = "git-${builtins.substring 0 6 rev}";
 
       src = fetchFromGitHub {
@@ -25,7 +25,7 @@
         hash = "sha256-hVATgJt9uvRiifphzzHfW3oCjqxz4O3yFujV4YMXEUA=";
       };
 
-      meta = prevAttrs.meta // {
+      meta = prev.meta // {
         broken = false;
       };
     }

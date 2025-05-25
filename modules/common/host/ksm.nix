@@ -40,8 +40,8 @@ in
           if (!cfg.patchSystemd) then
             pkgs.systemd
           else
-            pkgs.systemd.overrideAttrs (prevAttrs: {
-              patches = prevAttrs.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
+            pkgs.systemd.overrideAttrs (prev: {
+              patches = prev.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
             })
         );
 

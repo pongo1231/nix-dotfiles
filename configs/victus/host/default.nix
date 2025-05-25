@@ -51,12 +51,12 @@
           pkg: pkg
         /*
           .overrideAttrs (
-            finalAttrs: prevAttrs: {
+            final: prev: {
 
                 inherit (kernel) stdenv;
-                makeFlags = (prevAttrs.makeFlags or [ ]) ++ [
+                makeFlags = (prev.makeFlags or [ ]) ++ [
                   "LLVM=1"
-                  "CC=${finalAttrs.stdenv.cc}/bin/clang"
+                  "CC=${final.stdenv.cc}/bin/clang"
                 ];
                 hardeningDisable = [ "strictoverflow" ];
             }
@@ -70,8 +70,8 @@
         (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
 
         (llvmMod (
-          ryzen-smu.overrideAttrs (prevAttrs: {
-            patches = (prevAttrs.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
+          ryzen-smu.overrideAttrs (prev: {
+            patches = (prev.patches or [ ]) ++ [ (patch /ryzen-smu/phoenix-new-pm-table-version.patch) ];
 
             installPhase = ''
               install ryzen_smu.ko -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/ryzen_smu
@@ -79,7 +79,7 @@
                 llvmMod (
                   stdenv.mkDerivation {
                     pname = "monitor-cpu";
-                    inherit (prevAttrs) version src;
+                    inherit (prev) version src;
 
                     makeFlags = [
                       "-C userspace"

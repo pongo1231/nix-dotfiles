@@ -3,14 +3,14 @@
   ...
 }:
 let
-  uksmd = pkgs.stdenv.mkDerivation (finalAttrs: {
+  uksmd = pkgs.stdenv.mkDerivation (final: {
     pname = "uksmd";
     version = "1.2.12";
 
     src = pkgs.fetchFromGitHub {
       owner = "CachyOS";
-      repo = finalAttrs.pname;
-      rev = "v${finalAttrs.version}";
+      repo = final.pname;
+      rev = "v${final.version}";
       sha256 = "sha256-7w9/3x5DCWPlM+6LrWszuCvHZSk/z0qdr2h8MPBPHvc=";
     };
 
