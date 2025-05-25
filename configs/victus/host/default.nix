@@ -65,18 +65,7 @@
         ;
       in
       [
-        (llvmMod (
-          kvmfr.overrideAttrs {
-            src = pkgs.fetchFromGitHub {
-              owner = "gnif";
-              repo = "LookingGlass";
-              rev = "e25492a3a36f7e1fde6e3c3014620525a712a64a";
-              hash = "sha256-efAO7KLdm7G4myUv6cS1gUSI85LtTwmIm+HGZ52arj8=";
-            };
-
-            patches = [ (patch /kvmfr/string-literal-symbol-namespace.patch) ];
-          }
-        ))
+        (llvmMod kvmfr)
 
         (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
 
@@ -161,14 +150,7 @@
 
   environment.systemPackages = with pkgs; [
     virtiofsd
-    (kde-rounded-corners.overrideAttrs {
-      src = pkgs.fetchFromGitHub {
-        owner = "matinlotfali";
-        repo = "KDE-Rounded-Corners";
-        rev = "81fb4e011ca5434edc5a20afa8101df470207b49";
-        hash = "sha256-TViJzwmDLR6Ej+2o7HeusiaYOm98JDzSuWqzrmuNJ6o=";
-      };
-    })
+    kde-rounded-corners
     freerdp
     inputs.winapps.packages.${system}.winapps
     inputs.winapps.packages.${system}.winapps-launcher

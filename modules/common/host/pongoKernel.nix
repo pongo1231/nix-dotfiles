@@ -34,7 +34,7 @@ in
                 */
 
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prevAttrs'.kernelPatches;
-                ignoreConfigErrors = false;
+                #ignoreConfigErrors = true;
                 argsOverride =
                   let
                     version = "6.15.0-rc7";
@@ -79,23 +79,15 @@ in
             ;
 
             xpadneo = prevAttrs.xpadneo.overrideAttrs (
-              finalAttrs': _: {
+              final': prev': {
                 src = final.fetchFromGitHub {
                   owner = "atar-axis";
                   repo = "xpadneo";
-                  rev = "8d20a23e38883f45c78f48c8574ac93945b4cb03";
-                  hash = "sha256-u54EX8z/zRXUN+pPOLwENdESunU/J0Lj1OpMj/1EVq4=";
+                  rev = "cd256807c5f916735ae18749c43d5b0bd73240fa";
+                  hash = "sha256-TLtxpDYxatPV5VBssFX4kriEVy/GrQpq33j3/dVGxuE=";
                 };
 
-                patches = [ ];
-
-                makeFlags = [
-                  "-C"
-                  "${finalAttrs.kernel.dev}/lib/modules/${finalAttrs.kernel.modDirVersion}/build"
-                  "M=$(sourceRoot)"
-                  "VERSION=${finalAttrs'.version}"
-                  #"LLVM=1"
-                ];
+                #makeFlags = prev'.makeFlags ++ [ "LLVM=1" ];
 
                 #hardeningDisable = [ "strictoverflow" ];
               }
