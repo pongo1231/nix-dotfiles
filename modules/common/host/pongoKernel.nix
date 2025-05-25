@@ -45,8 +45,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "4f33a05dc863a1c39784c55972cc29871b6ff239";
-                      hash = "sha256-BZzE1GTUT6geeVljycZ7nNt6U8W621x7e5gPZylxDOM=";
+                      rev = "90202155c31ab7dccac10e9720efedb0e00344c2";
+                      hash = "sha256-mLg3CDlersNVB+oUdbRS/RkIJqplK8w6x/DN6QvD6TA=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
@@ -116,7 +116,7 @@ in
 
       kernelModules = [ "adios" ];
 
-      kernel.sysctl."kernel.workingset_protection" = 0;
+      kernel.sysctl."vm.workingset_protection" = 0;
     };
 
     services.udev.extraRules = ''
