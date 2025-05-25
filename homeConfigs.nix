@@ -86,7 +86,7 @@ let
       acc': user:
       acc'
       // {
-        "${user}${lib.optionalString (!isNixosModule) "@${hostName}"}" = commonConfig (
+        "${user}${lib.optionalString (!isNixosModule && hostName != user) "@${hostName}"}" = commonConfig (
           {
             inherit user args;
           }
