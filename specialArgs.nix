@@ -97,8 +97,6 @@ rec {
           // builtins.removeAttrs value [ "store" ];
       }) secrets;
     };
-
-  private = file: ./private/${file};
 }
 // builtins.removeAttrs args [
   "prefix"
