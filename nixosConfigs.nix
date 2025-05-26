@@ -77,7 +77,7 @@ lib.mapAttrs
     )
   )
   (
-    lib.filterAttrs (name: _: !(builtins.pathExists ./configs/${name}/.broken)) (
+    lib.filterAttrs (name: _: !(builtins.pathExists ./configs/${name}/.homeonly)) (
       builtins.readDir ./configs
     )
   )
