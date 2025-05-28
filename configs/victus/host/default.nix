@@ -39,7 +39,7 @@
     ];
 
     kernelParams = [
-      "amdgpu.dcdebugmask=0x10"
+      #"amdgpu.dcdebugmask=0x10"
       "modprobe.blacklist=nouveau"
       "kvmfr.static_size_mb=32"
     ];
