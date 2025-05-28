@@ -116,7 +116,10 @@ in
 
       kernelModules = [ "adios" ];
 
-      kernel.sysctl."vm.workingset_protection" = 0;
+      kernel.sysctl = {
+        "vm.workingset_protection" = 0;
+        "vm.zram_recomp_immediate" = 2;
+      };
     };
 
     services.udev.extraRules = ''
