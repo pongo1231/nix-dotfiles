@@ -37,16 +37,16 @@ in
                 #ignoreConfigErrors = true;
                 argsOverride =
                   let
-                    version = "6.15.0-rc7";
+                    version = "6.15.0";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.15.0-rc7";
+                    modDirVersion = "6.15.0";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "90202155c31ab7dccac10e9720efedb0e00344c2";
-                      hash = "sha256-mLg3CDlersNVB+oUdbRS/RkIJqplK8w6x/DN6QvD6TA=";
+                      rev = "261a4f63e9d9e8b3e79d6d9c2e8940ae9956e416";
+                      hash = "sha256-fHpKPPTAU2GuDwny2A1XiwziMBLzupL3GRf4IIe0j0E=";
                     };
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
