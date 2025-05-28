@@ -23,27 +23,27 @@
         {
           nvidiaPackages.beta =
             (generic {
-              version = "575.51.02";
-              sha256_64bit = "sha256-XZ0N8ISmoAC8p28DrGHk/YN1rJsInJ2dZNL8O+Tuaa0=";
-              openSha256 = "sha256-NQg+QDm9Gt+5bapbUO96UFsPnz1hG1dtEwT/g/vKHkw=";
-              settingsSha256 = "sha256-6n9mVkEL39wJj5FB1HBml7TTJhNAhS/j5hqpNGFQE4w=";
+              version = "570.153.02";
+              sha256_64bit = "sha256-FIiG5PaVdvqPpnFA5uXdblH5Cy7HSmXxp6czTfpd4bY=";
+              openSha256 = "sha256-2DpY3rgQjYFuPfTY4U/5TcrvNqsWWnsOSX0f2TfVgTs=";
+              settingsSha256 = "sha256-5m6caud68Owy4WNqxlIQPXgEmbTe4kZV2vZyTWHWe+M=";
               persistencedSha256 = "";
               patches = [
-                (patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch)
-                (patch /nvidia/6.15/kernel-open-nvidia-Use-new-timer-functions-for-6.15.patch)
+                #(patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch)
+                #(patch /nvidia/6.15/kernel-open-nvidia-Use-new-timer-functions-for-6.15.patch)
                 (patch /nvidia/6.15/Workaround-nv_vm_flags_-calling-GPL-only-code.patch)
-                (patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
+                #(patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
               ];
             }).overrideAttrs
               (prev': {
                 # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
-                builder = patch /nvidia/builder.sh;
+                #builder = patch /nvidia/builder.sh;
 
                 passthru = prev'.passthru // {
                   open = prev'.passthru.open.overrideAttrs (prev'': {
                     patches = prev''.patches ++ [
-                      (patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
-                      (patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
+                      #(patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
+                      #(patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
                     ];
                   });
                 };
