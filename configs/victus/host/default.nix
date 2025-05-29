@@ -11,7 +11,7 @@
 {
   imports = [
     (module /cpu/amd.nix)
-    (import (module /gpu/nvidia.nix) { platform = "amd"; })
+    #(import (module /gpu/nvidia.nix) { platform = "amd"; })
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
   ];

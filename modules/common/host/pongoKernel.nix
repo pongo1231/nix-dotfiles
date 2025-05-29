@@ -34,7 +34,9 @@ in
                 */
 
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prev'.kernelPatches;
-                #ignoreConfigErrors = true;
+
+                ignoreConfigErrors = true;
+
                 argsOverride =
                   let
                     version = "6.15.0";
@@ -45,9 +47,10 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "261a4f63e9d9e8b3e79d6d9c2e8940ae9956e416";
-                      hash = "sha256-fHpKPPTAU2GuDwny2A1XiwziMBLzupL3GRf4IIe0j0E=";
+                      rev = "837c020a8212e2aaf4e54ca94866d4f364cc3ed7";
+                      hash = "sha256-WSsL1Pgxwjuaqr8UroRHkOMNmaXLwcegT0015svS20Q=";
                     };
+
                     #src = final.fetchzip {
                     #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
                     #    hash = "";
@@ -68,15 +71,9 @@ in
                     */
                   };
               }).overrideAttrs
-                /*
-                  (
-                  _:
-                */
-                {
+                (_: {
                   #hardeningDisable = [ "strictoverflow" ];
-                }
-            # )
-            ;
+                });
 
             xpadneo = prev'.xpadneo.overrideAttrs {
               src = final.fetchFromGitHub {
