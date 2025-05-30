@@ -110,6 +110,8 @@
   };
 
   services = {
+    speechd.enable = lib.mkForce false;
+
     udev.extraRules = import ./udev.nix { inherit config lib; };
 
     dbus = {
