@@ -1,0 +1,26 @@
+diff --git a/kernel-open/nvidia-uvm/uvm_ats_sva.c b/kernel-open/nvidia-uvm/uvm_ats_sva.c
+index f33fab03..884939c1 100644
+--- a/kernel-open/nvidia-uvm/uvm_ats_sva.c
++++ b/kernel-open/nvidia-uvm/uvm_ats_sva.c
+@@ -308,12 +308,6 @@ void uvm_ats_smmu_invalidate_tlbs(uvm_gpu_va_space_t *gpu_va_space, NvU64 addr,
+ 
+ NV_STATUS uvm_ats_sva_add_gpu(uvm_parent_gpu_t *parent_gpu)
+ {
+-    int ret;
+-
+-    ret = iommu_dev_enable_feature(&parent_gpu->pci_dev->dev, IOMMU_DEV_FEAT_SVA);
+-    if (ret)
+-        return errno_to_nv_status(ret);
+-
+     if (UVM_ATS_SMMU_WAR_REQUIRED())
+         return uvm_ats_smmu_war_init(parent_gpu);
+     else
+@@ -324,8 +318,6 @@ void uvm_ats_sva_remove_gpu(uvm_parent_gpu_t *parent_gpu)
+ {
+     if (UVM_ATS_SMMU_WAR_REQUIRED())
+         uvm_ats_smmu_war_deinit(parent_gpu);
+-
+-    iommu_dev_disable_feature(&parent_gpu->pci_dev->dev, IOMMU_DEV_FEAT_SVA);
+ }
+ 
+ NV_STATUS uvm_ats_sva_bind_gpu(uvm_gpu_va_space_t *gpu_va_space)

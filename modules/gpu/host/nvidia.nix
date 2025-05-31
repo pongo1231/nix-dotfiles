@@ -45,6 +45,7 @@
                       #(patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
                       #(patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
                       (patch /nvidia/6.16/dma_buf_attachment_is_dynamic.patch)
+                      (patch /nvidia/6.16/no_dev_disable_enable_feature.patch)
                     ];
                   });
                 };
