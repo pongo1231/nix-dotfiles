@@ -65,7 +65,6 @@
     enable = true;
     priority = 100;
     memoryPercent = 200;
-    algorithm = "lz4 zstd";
   };
 
   hardware.enableRedistributableFirmware = true;
