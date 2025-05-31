@@ -163,6 +163,8 @@
     };
   };
 
+  documentation.nixos.enable = false;
+
   environment = {
     # thanks to ElvishJerricco
     etc =
