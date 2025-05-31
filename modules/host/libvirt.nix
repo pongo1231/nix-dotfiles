@@ -36,10 +36,6 @@
     devices.persist-mouse1 = "usb-Rapoo_Rapoo_Gaming_Device_20231211-event-mouse";
   };
 
-  environment.systemPackages = with pkgs; [
-    libguestfs-with-appliance
-  ];
-
   system.activationScripts.ovmf_secure_boot.text = ''
     mkdir -p /var/run/libvirt/nix-ovmf
 
