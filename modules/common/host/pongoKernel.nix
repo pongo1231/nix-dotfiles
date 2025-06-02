@@ -113,7 +113,11 @@ in
 
       kernelModules = [ "adios" ];
 
-      kernel.sysctl."vm.workingset_protection" = 0;
+      kernel.sysctl = {
+        "vm.anon_min_ratio" = 15;
+        "vm.clean_low_ratio" = 15;
+        "vm.clean_min_ratio" = 1;
+      };
     };
 
     services.udev.extraRules = ''
