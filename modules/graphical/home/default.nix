@@ -15,18 +15,12 @@
         Fingerprinting = true;
       };
       DisablePocket = true;
-      DisplayBookmarksToolbar = "always";
-      Preferences = {
-        "gfx.webrender.all" = true;
-        "media.ffmpeg.vaapi.enabled" = true;
-        "browser.cache.disk.enable" = false;
-      };
+      DisplayBookmarksToolbar = "newtab";
+      Preferences."browser.cache.disk.enable" = false;
     };
   };
 
   home = {
-    sessionVariables.MOZ_ENABLE_WAYLAND = 1;
-
     file = {
       # Wrapper for running flatpak inside steam-session
       # Steam-rom-manager doesn't let us point to a non-existing file
