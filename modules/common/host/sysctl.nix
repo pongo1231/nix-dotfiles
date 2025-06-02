@@ -12,7 +12,7 @@
 
   # https://github.com/pop-os/default-settings/blob/master_noble/etc/sysctl.d/10-pop-default-settings.conf
   "vm.dirty_bytes" = 268435456;
-  "vm.dirty_background_bytes" = 67108864; # cachyos
+  "vm.dirty_background_bytes" = 134217728;
   "fs.inotify.max_user_instances" = 1024;
 
   "vm.compact_unevictable_allowed" = 1;
