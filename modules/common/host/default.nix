@@ -163,7 +163,11 @@
     };
   };
 
-  documentation.nixos.enable = false;
+  documentation = {
+    nixos.enable = false;
+
+    man.generateCaches = false;
+  };
 
   environment = {
     # thanks to ElvishJerricco
