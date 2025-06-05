@@ -1,5 +1,6 @@
 {
   inputs,
+  module,
   patch,
   config,
   pkgs,
@@ -9,6 +10,8 @@
 {
   imports = [
     inputs.jovian.nixosModules.default
+
+    (module /cpu/amd.nix)
 
     ./steam.nix
   ];
