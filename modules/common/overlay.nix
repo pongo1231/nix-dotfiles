@@ -79,6 +79,15 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
           hash = "sha256-XDtt664UxDiZoIHm+i+v2Tib/zpCGBKilrZET29mBwI=";
         };
       };
+
+      ryzenadj = prev.ryzenadj.overrideAttrs {
+        src = final.fetchFromGitHub {
+          owner = "FlyGoat";
+          repo = "RyzenAdj";
+          rev = "7aeb2f4869ee52ac161ee4cb4871e29113487885";
+          hash = "sha256-KE2dbGv4V3+ibyxJ/DHNnBOGzjAcZbGrC3cVGNDsTTQ=";
+        };
+      };
     })
   ];
 }
