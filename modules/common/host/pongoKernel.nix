@@ -39,16 +39,16 @@ in
 
                 argsOverride =
                   let
-                    version = "6.15.0";
+                    version = "6.16.0-rc1";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.15.0";
+                    modDirVersion = "6.16.0-rc1";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "f0f2258c33fb92d7e56868deafad0699db591671";
-                      hash = "sha256-G2YJ5HgwyndvUQ0TLqw3c4z1YqhpjHdModD/aFL9fgg=";
+                      rev = "718e63095c2bc233b7d58a4ba9887ba248dff923";
+                      hash = "sha256-fsul1Oc97gd+J4D9sm0kTzqCJM5s7uT5F1EQQJ90ydg=";
                     };
 
                     #src = final.fetchzip {
@@ -114,10 +114,9 @@ in
       kernelModules = [ "adios" ];
 
       kernel.sysctl = {
-        "vm.anon_min_ratio" = 15;
-        "vm.clean_low_ratio" = 15;
-        "vm.clean_min_ratio" = 1;
-        "vm.parallel_swap" = 2;
+        #"vm.anon_min_ratio" = 15;
+        #"vm.clean_low_ratio" = 15;
+        #"vm.clean_min_ratio" = 1;
       };
     };
 
