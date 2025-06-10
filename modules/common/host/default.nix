@@ -107,11 +107,12 @@
     };
 
     usbtop.enable = true;
+    dconf.enable = true;
+    direnv.enable = true;
   };
 
   services = {
     speechd.enable = lib.mkForce false;
-
     udev.extraRules = import ./udev.nix { inherit config lib; };
 
     dbus = {
@@ -134,11 +135,8 @@
     '';
 
     power-profiles-daemon.enable = true;
-
     fstrim.enable = true;
-
     envfs.enable = true;
-
     irqbalance.enable = true;
   };
 
@@ -204,7 +202,6 @@
     systemPackages = with pkgs; [
       home-manager
       pulseaudio
-      dconf
       ddcutil
       #snapper
       distrobox
@@ -212,7 +209,6 @@
       sshfs
       sops
       ssh-to-age
-      direnv
     ];
   };
 }

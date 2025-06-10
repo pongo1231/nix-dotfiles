@@ -4,6 +4,8 @@
   ...
 }:
 {
+  programs.kdeconnect.enable = true;
+
   services = {
     displayManager.sddm = {
       enable = lib.mkDefault true;
@@ -19,7 +21,6 @@
     with pkgs.kdePackages;
     [
       kcmutils
-      kdeconnect-kde
       sddm-kcm
       flatpak-kcm
       kate
