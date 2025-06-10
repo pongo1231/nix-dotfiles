@@ -1,4 +1,5 @@
 config: [
+  "preempt=full"
   "kvm.ignore_msrs=1"
   "ec_sys.write_support=1"
   "msr.allow_writes=on"

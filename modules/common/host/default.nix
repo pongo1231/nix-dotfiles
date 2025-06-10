@@ -16,7 +16,6 @@
     (module /common/overlay.nix)
     (module /common/sops.nix)
 
-    ./boot.nix
     ./users.nix
     ./bluetooth.nix
     ./pongoKernel.nix

@@ -25,8 +25,6 @@
     xpadneo.enable = true;
   };
 
-  pongo.boot.useFullPreempt = true;
-
   services = {
     xserver.xkb.layout = "de";
 
