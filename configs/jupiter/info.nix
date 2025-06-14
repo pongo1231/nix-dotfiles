@@ -1,4 +1,4 @@
 {
-  type = "graphical/gnome";
+  type = "graphical/plasma";
   host.pongoKernel.enable = true;
 }
