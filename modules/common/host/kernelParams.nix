@@ -1,4 +1,8 @@
 config: [
+  "quiet"
+  "splash"
+  "loglevel=3"
+  "rd.udev.log_level=3"
   "preempt=full"
   "kvm.ignore_msrs=1"
   "ec_sys.write_support=1"
