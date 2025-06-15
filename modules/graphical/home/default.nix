@@ -16,7 +16,10 @@
       };
       DisablePocket = true;
       DisplayBookmarksToolbar = "newtab";
-      Preferences."browser.cache.disk.enable" = false;
+      Preferences = {
+        "browser.cache.disk.enable" = false;
+        "widget.use-xdg-desktop-portal.file-picker" = 1;
+      };
     };
   };
 
