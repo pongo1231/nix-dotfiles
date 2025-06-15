@@ -8,4 +8,6 @@ config: [
   "transparent_hugepage=${if config.pongo.pongoKernel.enable then "defer" else "always"}"
   "transparent_hugepage_shmem=always"
   "transparent_hugepage_tmpfs=always"
+  "threadirqs"
+  "rcu_nocbs=0-N"
 ]

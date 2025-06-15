@@ -6,11 +6,6 @@
 }:
 {
   boot = {
-    kernelParams = [
-      "threadirqs"
-      "rcu_nocbs=0-N"
-    ];
-
     extraModulePackages = with config.boot.kernelPackages; [ ];
 
     plymouth.enable = lib.mkDefault true;
