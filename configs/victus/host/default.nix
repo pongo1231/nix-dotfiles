@@ -131,12 +131,16 @@
     };
   };
 
-  environment.systemPackages = with pkgs; [
-    virtiofsd
-    kde-rounded-corners
-    plasma-panel-colorizer
-    freerdp
-    inputs.winapps.packages.${system}.winapps
-    inputs.winapps.packages.${system}.winapps-launcher
-  ];
+  environment = {
+    sessionVariables.MESA_VK_DEVICE_SELECT = "1002:15bf!";
+
+    systemPackages = with pkgs; [
+      virtiofsd
+      kde-rounded-corners
+      plasma-panel-colorizer
+      freerdp
+      inputs.winapps.packages.${system}.winapps
+      inputs.winapps.packages.${system}.winapps-launcher
+    ];
+  };
 }
