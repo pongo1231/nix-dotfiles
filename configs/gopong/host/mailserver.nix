@@ -15,7 +15,7 @@ withSecrets "pongo" {
 
   mailserver = {
     enable = true;
-    stateVersion = 1;
+    stateVersion = 3;
     fqdn = "gopong.dev";
     domains = [ "gopong.dev" ];
     loginAccounts."pongo@gopong.dev" = {
