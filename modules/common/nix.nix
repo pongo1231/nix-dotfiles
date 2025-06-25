@@ -33,9 +33,11 @@ in
         }) inputs;
 
         extraOptions = ''
-          experimental-features = nix-command flakes
+          experimental-features = nix-command flakes auto-allocate-uids cgroups
           keep-outputs = true
           keep-derivations = true
+          auto-allocate-uids = true
+          use-cgroups = true
         '';
 
         settings = {
