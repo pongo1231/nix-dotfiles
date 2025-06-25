@@ -39,16 +39,16 @@ in
 
                 argsOverride =
                   let
-                    version = "6.16.0-rc2";
+                    version = "6.16.0-rc3";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.16.0-rc2";
+                    modDirVersion = "6.16.0-rc3";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "e861609064e7feeab21589fa16bccc02c06ef08a";
-                      hash = "sha256-MTZem2PKNWN5C8JcdKiH1J0f5Kqamf+1l1+kiZyDw6I=";
+                      rev = "3a6f2fd42f01a478b5c3514bd68304f5387d9d95";
+                      hash = "sha256-0nYSMHUY8buM3Ff1/SnDga0SuNWaYib7qU0gwcvzMZI=";
                     };
 
                     #src = final.fetchzip {
