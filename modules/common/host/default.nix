@@ -41,6 +41,11 @@
       timeout = lib.mkForce 0;
     };
 
+    tmp = {
+      useTmpfs = true;
+      tmpfsSize = "200%";
+    };
+
     kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
     kernel.sysctl = ./sysctl.nix;
