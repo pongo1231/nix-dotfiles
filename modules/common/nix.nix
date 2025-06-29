@@ -19,7 +19,7 @@ in
   config = {
     nix =
       {
-        package = lib.mkDefault pkgs.lixPackageSets.latest.lix;
+        package = lib.mkDefault inputs.nixpkgs2.legacyPackages.${system}.lixPackageSets.latest.lix;
 
         nixPath =
           if configInfo.type != "host" then
