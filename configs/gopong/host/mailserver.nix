@@ -4,10 +4,15 @@
   config,
   ...
 }:
-withSecrets "pongo" {
-  store = "gopong";
-  owner = config.users.users.postfix.name;
-} { "base/emailPassword" = { }; }
+withSecrets "pongo"
+  {
+    store = "gopong";
+    owner = config.users.users.postfix.name;
+  }
+  {
+    "emails/pongo" = { };
+    "emails/chaos" = { };
+  }
 // {
   imports = [
     inputs.mailserver.nixosModules.default
@@ -18,12 +23,18 @@ withSecrets "pongo" {
     stateVersion = 3;
     fqdn = "gopong.dev";
     domains = [ "gopong.dev" ];
-    loginAccounts."pongo@gopong.dev" = {
-      hashedPasswordFile = config.sops.secrets."base/emailPassword".path;
-      aliases = [
-        "admin@gopong.dev"
-        "no-reply@gopong.dev"
-      ];
+    loginAccounts = {
+      "pongo@gopong.dev" = {
+        hashedPasswordFile = config.sops.secrets."emails/pongo".path;
+        aliases = [
+          "admin@gopong.dev"
+          "no-reply@gopong.dev"
+        ];
+      };
+
+      "chaos@gopong.dev" = {
+        hashedPasswordFile = config.sops.secrets."emails/chaos".path;
+      };
     };
     certificateScheme = "acme";
   };
