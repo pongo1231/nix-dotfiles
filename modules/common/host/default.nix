@@ -129,7 +129,7 @@
     };
 
     journald.extraConfig = ''
-      SystemMaxUse=10M
+      RuntimeMaxUse=5M
       Storage=volatile
     '';
 
