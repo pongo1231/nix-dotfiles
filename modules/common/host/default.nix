@@ -128,10 +128,12 @@
       };
     };
 
-    journald.extraConfig = ''
-      RuntimeMaxUse=5M
-      Storage=volatile
-    '';
+    journald = {
+      storage = "volatile";
+      extraConfig = ''
+        RuntimeMaxUse=5M
+      '';
+    };
 
     power-profiles-daemon.enable = true;
     fstrim.enable = true;
