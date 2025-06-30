@@ -114,6 +114,7 @@
       lazyjj
       isd
       b4
+      nix-serve-ng
     ];
   };
 }
