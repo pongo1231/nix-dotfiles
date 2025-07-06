@@ -83,6 +83,8 @@ in
         options = [
           "noatime"
           "mode=0755"
+          "size=200%"
+          "huge=within_size"
         ];
       };
     };
