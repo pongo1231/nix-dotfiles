@@ -39,16 +39,16 @@ in
 
                 argsOverride =
                   let
-                    version = "6.16.0-git";
+                    version = "6.16.0-rc5";
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.16.0-rc4";
+                    modDirVersion = "6.16.0-rc5";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "7f24896c662745a5d9de76bd025324470d13537e";
-                      hash = "sha256-ivU6sjS/E0K+mBQvXnc7CU2KlPap8uVV9ZbkWGkZxyE=";
+                      rev = "f2de2c523cdeb8a201233f398837c7668e3953c3";
+                      hash = "sha256-TTGODDCxgjVXzNezOokzysfg8BIp1fAXka1d/loZ2Gg=";
                     };
 
                     #src = final.fetchzip {
@@ -100,7 +100,6 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
-            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             X86_64_VERSION 3
             AMD_PRIVATE_COLOR y
             LEDS_STEAMDECK m
