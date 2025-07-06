@@ -2,8 +2,6 @@
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
 
-    nixpkgs2.url = "github:pongo1231/nixpkgs/51374eaa1cc0906c61635c56555624783e58ce06";
-
     flake-utils.url = "github:numtide/flake-utils";
 
     home-manager = {
@@ -43,11 +41,6 @@
 
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    nix-be = {
-      url = "github:GuilloteauQ/nix-be/main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
