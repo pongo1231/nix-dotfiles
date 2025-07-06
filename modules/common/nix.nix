@@ -84,7 +84,7 @@ in
           "noatime"
           "mode=0755"
           "size=200%"
-          "huge=within_size"
+          "huge=always"
         ];
       };
     };
