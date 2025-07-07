@@ -15,8 +15,6 @@
     binfmt.emulatedSystems = [
       "aarch64-linux"
     ];
-
-    tmp.useTmpfs = lib.mkForce false;
   };
 
   system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
