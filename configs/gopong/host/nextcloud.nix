@@ -16,7 +16,7 @@ withSecrets "pongo"
   services = {
     nginx.virtualHosts."cloud.gopong.dev" = {
       forceSSL = true;
-      enableACME = true;
+      useACMEHost = "gopong.dev";
     };
 
     redis.servers."nextcloud" = {

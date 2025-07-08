@@ -6,7 +6,7 @@
   services = {
     nginx.virtualHosts."vault.gopong.dev" = {
       forceSSL = true;
-      enableACME = true;
+      useACMEHost = "gopong.dev";
       locations."/".proxyPass =
         "http://127.0.0.1:${toString config.services.vaultwarden.config.ROCKET_PORT}";
     };
