@@ -35,11 +35,11 @@ in
 
                 #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prev'.kernelPatches;
 
-                ignoreConfigErrors = true;
+                #ignoreConfigErrors = true;
 
                 argsOverride =
                   let
-                    version = "6.16.0-rc5";
+                    version = "6.16.0-git";
                   in
                   {
                     inherit version;
@@ -47,8 +47,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "d65a850e916aa9ac223117e5f8a96550fc154c26";
-                      hash = "sha256-AtA083daFd6E2IwP2MGxqs5pHBlfxdFH2rOy2xAx1MI=";
+                      rev = "21b353082a2c5873d3bc7211a672e70387a2c4e6";
+                      hash = "sha256-DHVHmo+dIhGD5KAUZp5+FFT7/rnpreyxUX1wkIYIKT4=";
                     };
 
                     #src = final.fetchzip {
