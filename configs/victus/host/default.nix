@@ -136,7 +136,6 @@
 
     systemPackages = with pkgs; [
       virtiofsd
-      kde-rounded-corners
       plasma-panel-colorizer
       freerdp
       inputs.winapps.packages.${system}.winapps
