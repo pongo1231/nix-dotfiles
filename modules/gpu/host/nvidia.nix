@@ -57,7 +57,12 @@
     open = true;
     prime =
       {
-        offload.enable = true;
+        offload = {
+          enable = true;
+          enableOffloadCmd = true;
+          offloadCmdMainProgram = "prime-run";
+        };
+        reverseSync.enable = true;
         nvidiaBusId = "PCI:1:0:0";
       }
       // lib.optionalAttrs (platform == "intel") { intelBusId = "PCI:0:2:0"; }
@@ -73,13 +78,4 @@
     options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0 NVreg_DynamicPowerManagement=0x02 NVreg_RegistryDwords=RMIntrLockingMode=1
     options nvidia_drm modeset=1
   '';
-
-  environment.systemPackages = [
-    (pkgs.writeShellScriptBin "prime-run" ''
-      export __NV_PRIME_RENDER_OFFLOAD=1
-      export __GLX_VENDOR_LIBRARY_NAME=nvidia
-      export __VK_LAYER_NV_optimus=NVIDIA_only
-      exec -a "$0" "$@"
-    '')
-  ];
 }
