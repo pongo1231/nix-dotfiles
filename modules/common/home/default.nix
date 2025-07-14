@@ -11,7 +11,7 @@
 }:
 {
   imports = [
-    inputs.nix-index-database.hmModules.nix-index
+    inputs.nix-index-database.homeModules.nix-index
 
     (module /common/nix.nix)
     (module /common/overlay.nix)

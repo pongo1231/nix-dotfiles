@@ -69,8 +69,8 @@
           });
       in
       {
-        package = lib.mkForce (patchMesa pkgs.mesa.drivers);
-        package32 = lib.mkForce (patchMesa pkgs.pkgsi686Linux.mesa.drivers);
+        package = lib.mkForce (patchMesa pkgs.mesa);
+        package32 = lib.mkForce (patchMesa pkgs.pkgsi686Linux.mesa);
       };
   };
 
