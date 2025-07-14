@@ -35,7 +35,8 @@ in
 
           extraOptions = ''
             experimental-features = nix-command flakes auto-allocate-uids cgroups
-            keep-derivations = false
+            keep-outputs = true
+            keep-derivations = true
             auto-allocate-uids = true
             use-cgroups = true
           '';
