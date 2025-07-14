@@ -18,13 +18,6 @@
 
   boot = {
     initrd = {
-      availableKernelModules = [
-        "nvme"
-        "xhci_pci"
-        "usbhid"
-        "sdhci_pci"
-      ];
-
       luks.devices = {
         root = {
           device = "/dev/disk/by-uuid/ac2b73ac-bae8-4345-8951-36a0ee38e2f1";
@@ -34,7 +27,18 @@
       };
 
       unl0kr.enable = true;
+
+      availableKernelModules = [
+        "nvme"
+        "xhci_pci"
+        "usbhid"
+        "sdhci_pci"
+      ];
     };
+
+    kernelModules = [
+      "ntsync"
+    ];
 
     plymouth.enable = false;
   };

@@ -35,6 +35,7 @@
       "vfio-pci"
       "kvmfr"
       "ec_sys"
+      "ntsync"
     ];
 
     kernelParams = [
