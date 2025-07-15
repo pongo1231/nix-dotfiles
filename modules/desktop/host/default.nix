@@ -43,5 +43,8 @@
     xdgOpenUsePortal = true;
   };
 
-  environment.systemPackages = with pkgs; [ systemdgenie ];
+  environment.systemPackages = with pkgs; [
+    systemdgenie
+    waypipe
+  ];
 }
