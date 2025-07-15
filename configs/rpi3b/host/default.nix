@@ -1,4 +1,5 @@
 {
+  pkgs,
   lib,
   ...
 }:
@@ -20,4 +21,6 @@
     networkmanager.enable = lib.mkForce false;
     wireless.iwd.enable = true;
   };
+
+  environment.systemPackages = with pkgs; [ btrfs-progs ];
 }
