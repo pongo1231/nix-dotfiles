@@ -48,6 +48,14 @@
     };
 
     nix-index-database.comma.enable = true;
+
+    tmux = {
+      enable = true;
+      clock24 = true;
+      extraConfig = ''
+        set -ga terminal-overrides ',xterm*:smcup@:rmcup@'
+      '';
+    };
   };
 
   xdg.configFile =
@@ -88,7 +96,6 @@
       nix-du
       graphviz
       nix-tree
-      tmux
       borgbackup
       gptfdisk
       iotop
