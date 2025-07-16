@@ -40,7 +40,6 @@
     packages = with pkgs; [
       vlc
       ffmpeg
-      protontricks
       appimage-run
       syncthing
       qbittorrent
