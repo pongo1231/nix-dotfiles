@@ -10,6 +10,7 @@
 {
   imports = [
     inputs.jovian.nixosModules.default
+    inputs.lsfg-vk.nixosModules.default
 
     (module /cpu/amd.nix)
 
@@ -94,6 +95,8 @@
       capSysAdmin = true;
       autoStart = false;
     };
+
+    lsfg-vk.enable = true;
   };
 
   /*
