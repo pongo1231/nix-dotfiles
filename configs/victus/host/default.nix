@@ -80,7 +80,7 @@
       device = "/dev/disk/by-uuid/e4c4c179-e254-46a3-b28a-acec2ce1775f";
       fsType = "btrfs";
       options = [
-        "compress-force=zstd:6"
+        "compress-force=zstd:1"
         "noatime"
       ];
     };

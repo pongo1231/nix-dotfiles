@@ -40,7 +40,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     fsType = "btrfs";
     options = [
       "noatime"
-      "compress-force=zstd:6"
+      "compress-force=zstd:1"
     ];
   };
 

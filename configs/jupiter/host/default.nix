@@ -49,7 +49,7 @@
       device = "/dev/disk/by-uuid/d685db49-ec70-4854-9949-4da35a09ad31";
       fsType = "btrfs";
       options = [
-        "compress-force=zstd:6"
+        "compress-force=zstd:1"
         "noatime"
       ];
     };
