@@ -44,7 +44,7 @@
     tmp = {
       useTmpfs = true;
       tmpfsSize = "200%";
-      tmpfsHugeMemoryPages = "always";
+      tmpfsHugeMemoryPages = "within_size";
     };
 
     kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;

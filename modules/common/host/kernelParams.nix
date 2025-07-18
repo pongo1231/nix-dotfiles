@@ -9,9 +9,9 @@ config: [
   "msr.allow_writes=on"
   "cgroup_no_v1=all"
   "mitigations=off"
-  "transparent_hugepage=always"
-  "transparent_hugepage_shmem=always"
-  "transparent_hugepage_tmpfs=always"
+  "transparent_hugepage=madvise"
+  "transparent_hugepage_shmem=within_size"
+  "transparent_hugepage_tmpfs=within_size"
   "threadirqs"
   "rcu_nocbs=0-N"
 ]
