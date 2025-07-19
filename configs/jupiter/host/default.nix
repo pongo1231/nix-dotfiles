@@ -111,7 +111,7 @@
     mangohud
     gamescope
     (pkgs.writeShellScriptBin "lsfg" ''
-      exec env ENABLE_LSFG=1 LSFG_PERF_MODE=1 "$@"
+      exec env LSFG_LEGACY=1 LSFG_PERF_MODE=1 "$@"
     '')
   ];
 }
