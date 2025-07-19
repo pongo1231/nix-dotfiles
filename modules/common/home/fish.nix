@@ -16,8 +16,8 @@
     shellInit = ''
       set async_prompt_functions fish_prompt
 
-      function __fish_command_not_found_handler --on-event fish_command_not_found
-          comma --ask "$@"
+      function fish_command_not_found
+          comma -- "$argv"
           return $argv
       end
 
