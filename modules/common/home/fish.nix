@@ -16,9 +16,9 @@
     shellInit = ''
       set async_prompt_functions fish_prompt
 
-      function fish_command_not_found
-        , $argv
-        return $status
+      function __fish_command_not_found_handler --on-event fish_command_not_found
+          comma --ask "$@"
+          return $argv
       end
 
       fish_add_path -maP ~/.local/bin
