@@ -118,7 +118,6 @@
       inputs.nix-alien.packages.${system}.nix-alien
       jj
       lazyjj
-      isd
       b4
       nix-serve-ng
     ];
