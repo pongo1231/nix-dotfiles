@@ -17,8 +17,6 @@
     ];
   };
 
-  system.build.installBootLoader = lib.mkForce "${pkgs.coreutils}/bin/true";
-
   networking.useNetworkd = lib.mkForce false;
 
   systemd.oomd.enable = lib.mkForce false;
@@ -32,13 +30,7 @@
     interop.register = true;
   };
 
-  hardware.graphics.extraPackages = with pkgs; [
-    mesa
-    libvdpau-va-gl
-    (libedit.overrideAttrs {
-      postInstall = ''ln -s $out/lib/libedit.so $out/lib/libedit.so.2'';
-    })
-  ];
+  hardware.graphics.enable = true;
 
   environment.systemPackages = [
     pkgs.wget # for vs code server
