@@ -116,13 +116,13 @@
       mangohud
       gamescope
       (pkgs.writeShellScriptBin "lsfg2x" ''
-        exec env LEGACY_LSFG=1 LSFG_PERFORMANCE_MODE=1 "$@"
+        exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=2 "$@"
       '')
       (pkgs.writeShellScriptBin "lsfg3x" ''
-        exec env LEGACY_LSFG=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=3 "$@"
+        exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=3 "$@"
       '')
       (pkgs.writeShellScriptBin "lsfg4x" ''
-        exec env LEGACY_LSFG=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=4 "$@"
+        exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=4 "$@"
       '')
     ];
   };
