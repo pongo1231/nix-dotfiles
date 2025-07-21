@@ -13,7 +13,7 @@ rec {
   modules =
     file:
     {
-      includeModulesInPath ? false,
+      includeAllModulesInPath ? false,
     }:
     let
       fileStr = builtins.toString file;
@@ -49,8 +49,8 @@ rec {
                     ++ lib.optionals (builtins.pathExists ./${x''}) [ x'' ]
                     ++ lib.optionals (
                       (
-                        ((!includeModulesInPath) && (x == splitLen - 1 && (!splitLastIsNixFile)))
-                        || (includeModulesInPath && (x != splitLen - 1 || (!splitLastIsNixFile)))
+                        ((!includeAllModulesInPath) && (x == splitLen - 1 && (!splitLastIsNixFile)))
+                        || (includeAllModulesInPath && (x != splitLen - 1 || (!splitLastIsNixFile)))
                       )
                       && builtins.pathExists ./${x''}/default.nix
                     ) [ "${x''}/default.nix" ]
