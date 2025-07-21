@@ -70,7 +70,15 @@ rec {
       foundModules = modules file { };
       foundModulesLen = builtins.length foundModules;
     in
-    if foundModulesLen == 1 then builtins.elemAt foundModules 0 else _: { imports = foundModules; };
+    if foundModulesLen == 1 then
+      builtins.elemAt foundModules 0
+    else
+      builtins.assertMsg (
+        if foundModulesLen == 0 then
+          "Module \"${file}\" not found"
+        else
+          "Ambiguous module \"${file}\": ${builtins.foldl' (acc: x: "${acc} \"${x}\"") "" foundModules}"
+      );
 
   patch = file: ./patches/${file};
   pkg = file: ./pkgs/${file};
