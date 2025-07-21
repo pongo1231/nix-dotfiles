@@ -295,11 +295,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1752956617,
-        "narHash": "sha256-fGAeF0//tXe2Q8t5CwQlcWZ4xvsiodWirnQZ/xlouHk=",
+        "lastModified": 1753100142,
+        "narHash": "sha256-NS7XP3usUr8/wa+fjhcqJfOJcePuGQl0L22vvjQN0ik=",
         "owner": "pabloaul",
         "repo": "lsfg-vk-flake",
-        "rev": "ec1b66adcb83276d60251b879f0f273e4eef823a",
+        "rev": "12763fb704c4d5dc24661eb4be8d3ffde04bea2e",
         "type": "github"
       },
       "original": {
