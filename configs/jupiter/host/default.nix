@@ -115,7 +115,7 @@
       steamdeck-firmware
       mangohud
       gamescope
-      (pkgs.writeShellScriptBin "lsfg" ''
+      (pkgs.writeShellScriptBin "lsfg2x" ''
         exec env LEGACY_LSFG=1 LSFG_PERFORMANCE_MODE=1 "$@"
       '')
       (pkgs.writeShellScriptBin "lsfg3x" ''
