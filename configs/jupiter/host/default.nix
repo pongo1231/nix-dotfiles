@@ -106,24 +106,18 @@
     };
   */
 
-  environment = {
-    sessionVariables = {
-      ENABLE_LSFG = 1;
-    };
-
-    systemPackages = with pkgs; [
-      steamdeck-firmware
-      mangohud
-      gamescope
-      (pkgs.writeShellScriptBin "lsfg2x" ''
-        exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=2 "$@"
-      '')
-      (pkgs.writeShellScriptBin "lsfg3x" ''
-        exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=3 "$@"
-      '')
-      (pkgs.writeShellScriptBin "lsfg4x" ''
-        exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=4 "$@"
-      '')
-    ];
-  };
+  environment.systemPackages = with pkgs; [
+    steamdeck-firmware
+    mangohud
+    gamescope
+    (pkgs.writeShellScriptBin "lsfg2x" ''
+      exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=2 "$@"
+    '')
+    (pkgs.writeShellScriptBin "lsfg3x" ''
+      exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=3 "$@"
+    '')
+    (pkgs.writeShellScriptBin "lsfg4x" ''
+      exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=4 "$@"
+    '')
+  ];
 }
