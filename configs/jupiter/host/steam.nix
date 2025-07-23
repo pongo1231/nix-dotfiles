@@ -10,11 +10,9 @@
   programs.steam.extest.enable = true;
 
   jovian = {
-    devices.steamdeck.enable = true;
-
-    steamos = {
-      enableVendorRadv = false;
-      enableMesaPatches = false;
+    devices.steamdeck = {
+      enable = true;
+      enableVendorDrivers = false;
     };
 
     steam = {
