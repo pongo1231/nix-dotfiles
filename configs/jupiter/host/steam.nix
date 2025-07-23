@@ -4,7 +4,7 @@
 }:
 {
   services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk[0-9]p[0-9]", ENV{ID_FS_USAGE}=="filesystem", RUN{program}+="${pkgs.systemd}/bin/systemd-mount -o noatime,compress-force=zstd:1,ssd_spread,commit=120 --no-block --automount=yes --collect $devnode /run/media/mmcblk0p1"
+    ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk[0-9]p[0-9]", ENV{ID_FS_USAGE}=="filesystem", RUN{program}+="${pkgs.systemd}/bin/systemd-mount -o noatime,compress-force=zstd:1 --no-block --automount=yes --collect $devnode /run/media/mmcblk0p1"
   '';
 
   programs.steam.extest.enable = true;
