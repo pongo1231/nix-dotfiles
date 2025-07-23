@@ -35,26 +35,25 @@ let
               ;
             inherit (inputs.nixpkgs) lib;
           };
-      modules =
-        [
-          (_: {
-            _module.args = specialArgs;
-          })
+      modules = [
+        (_: {
+          _module.args = specialArgs;
+        })
 
-          (import ./modules/common/home {
-            args = builtins.removeAttrs args [
-              "system"
-              "type"
-            ];
-          })
-        ]
-        ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeAllModulesInPath = true; })
-        ++ lib.optionals (config != null) [
-          config
-        ]
-        ++ lib.optionals (userConfig != null) [
-          userConfig
-        ];
+        (import ./modules/common/home {
+          args = builtins.removeAttrs args [
+            "system"
+            "type"
+          ];
+        })
+      ]
+      ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeAllModulesInPath = true; })
+      ++ lib.optionals (config != null) [
+        config
+      ]
+      ++ lib.optionals (userConfig != null) [
+        userConfig
+      ];
     in
     if isNixosModule then
       { ... }:

@@ -24,28 +24,27 @@ let
     lib.nixosSystem {
       inherit specialArgs;
 
-      modules =
-        [
-          (import ./modules/common/host {
-            args = builtins.removeAttrs args [
-              "system"
-              "type"
-            ];
-          })
+      modules = [
+        (import ./modules/common/host {
+          args = builtins.removeAttrs args [
+            "system"
+            "type"
+          ];
+        })
 
-          inputs.home-manager.nixosModules.home-manager
-          (import ./homeConfigs.nix inputs {
+        inputs.home-manager.nixosModules.home-manager
+        (import ./homeConfigs.nix inputs {
+          isNixosModule = true;
+          extraSpecialArgs = import ./specialArgs.nix {
+            prefix = "home";
             isNixosModule = true;
-            extraSpecialArgs = import ./specialArgs.nix {
-              prefix = "home";
-              isNixosModule = true;
-              inherit system inputs lib;
-            };
-            configs.${hostName} = { };
-          })
-        ]
-        ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeAllModulesInPath = true; })
-        ++ lib.optionals (config != null) [ config ];
+            inherit system inputs lib;
+          };
+          configs.${hostName} = { };
+        })
+      ]
+      ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeAllModulesInPath = true; })
+      ++ lib.optionals (config != null) [ config ];
     };
 in
 lib.mapAttrs

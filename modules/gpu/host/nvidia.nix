@@ -55,18 +55,17 @@
 
     modesetting.enable = true;
     open = true;
-    prime =
-      {
-        offload = {
-          enable = true;
-          enableOffloadCmd = true;
-          offloadCmdMainProgram = "prime-run";
-        };
-        reverseSync.enable = true;
-        nvidiaBusId = "PCI:1:0:0";
-      }
-      // lib.optionalAttrs (platform == "intel") { intelBusId = "PCI:0:2:0"; }
-      // lib.optionalAttrs (platform == "amd") { amdgpuBusId = "PCI:5:0:0"; };
+    prime = {
+      offload = {
+        enable = true;
+        enableOffloadCmd = true;
+        offloadCmdMainProgram = "prime-run";
+      };
+      reverseSync.enable = true;
+      nvidiaBusId = "PCI:1:0:0";
+    }
+    // lib.optionalAttrs (platform == "intel") { intelBusId = "PCI:0:2:0"; }
+    // lib.optionalAttrs (platform == "amd") { amdgpuBusId = "PCI:5:0:0"; };
     powerManagement = {
       enable = true;
       finegrained = true;

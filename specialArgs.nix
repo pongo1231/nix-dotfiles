@@ -93,16 +93,15 @@ rec {
     secrets: {
       sops.secrets = lib.mapAttrs' (name: value: {
         inherit name;
-        value =
-          {
-            sopsFile = ./secrets/${user}/${value.store or store}.yaml;
-          }
-          // lib.optionalAttrs (owner != null) { inherit owner; }
-          // lib.optionalAttrs (group != null) {
-            inherit group;
-            mode = "0440";
-          }
-          // builtins.removeAttrs value [ "store" ];
+        value = {
+          sopsFile = ./secrets/${user}/${value.store or store}.yaml;
+        }
+        // lib.optionalAttrs (owner != null) { inherit owner; }
+        // lib.optionalAttrs (group != null) {
+          inherit group;
+          mode = "0440";
+        }
+        // builtins.removeAttrs value [ "store" ];
       }) secrets;
     };
 }

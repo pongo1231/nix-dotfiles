@@ -8,51 +8,50 @@
   ...
 }:
 {
-  nix =
-    {
-      package = lib.mkDefault inputs.nix.packages.${system}.nix;
+  nix = {
+    package = lib.mkDefault inputs.nix.packages.${system}.nix;
 
-      nixPath =
-        if configInfo.type != "host" then
-          [ "${config.xdg.configHome}/nix/inputs" ]
-        else
-          [ "/etc/nix/inputs" ];
+    nixPath =
+      if configInfo.type != "host" then
+        [ "${config.xdg.configHome}/nix/inputs" ]
+      else
+        [ "/etc/nix/inputs" ];
 
-      registry = lib.mapAttrs' (name: flake: {
-        inherit name;
-        value.flake = flake;
-      }) inputs;
+    registry = lib.mapAttrs' (name: flake: {
+      inherit name;
+      value.flake = flake;
+    }) inputs;
 
-      extraOptions = ''
-        experimental-features = nix-command flakes auto-allocate-uids cgroups
-        keep-outputs = true
-        keep-derivations = true
-        auto-allocate-uids = true
-        use-cgroups = true
-      '';
+    extraOptions = ''
+      experimental-features = nix-command flakes auto-allocate-uids cgroups
+      keep-outputs = true
+      keep-derivations = true
+      auto-allocate-uids = true
+      use-cgroups = true
+    '';
 
-      settings = {
-        auto-optimise-store = true;
-        trusted-users = [
-          "root"
-          "@wheel"
-        ];
-        substituters = [
-          "https://cache.nixos.org"
-          "https://nix-community.cachix.org"
-          "https://pongo1231.cachix.org"
-        ];
-        trusted-public-keys = [
-          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-          "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
-          "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
-        ];
-      };
-    }
-    // lib.optionalAttrs (configInfo.type == "host") {
-      daemonCPUSchedPolicy = "idle";
-      daemonIOSchedClass = "idle";
+    settings = {
+      auto-optimise-store = true;
+      trusted-users = [
+        "root"
+        "@wheel"
+      ];
+      substituters = [
+        "https://cache.nixos.org"
+        "https://nix-community.cachix.org"
+        "https://pongo1231.cachix.org"
+      ];
+      trusted-public-keys = [
+        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+        "pongo1231.cachix.org-1:3B6q/T1NL/YPokIFY4lthjoI6vCMKiuYjTGY3gJtZPg="
+      ];
     };
+  }
+  // lib.optionalAttrs (configInfo.type == "host") {
+    daemonCPUSchedPolicy = "idle";
+    daemonIOSchedClass = "idle";
+  };
 
   nixpkgs =
     lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {

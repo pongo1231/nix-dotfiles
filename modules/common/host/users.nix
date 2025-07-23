@@ -45,7 +45,8 @@ in
             "kvm"
             "nginx"
           ];
-        } // cfg.defaultOverride;
+        }
+        // cfg.defaultOverride;
       };
     };
 }
