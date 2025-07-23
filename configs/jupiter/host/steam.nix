@@ -15,6 +15,8 @@
       enableVendorDrivers = false;
     };
 
+    steamos.enableAutoMountUdevRules = false;
+
     steam = {
       enable = true;
       autoStart = true;
