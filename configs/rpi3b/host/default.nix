@@ -17,7 +17,7 @@
     };
   };
 
-  nix.package = pkgs.nixVersions.latest;
+  nix.package = pkgs.nixVersions.git;
 
   networking = {
     networkmanager.enable = lib.mkForce false;
