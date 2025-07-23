@@ -47,8 +47,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "8187ec0d77e61c66d1be25a5ce174e97bb539282";
-                      hash = "sha256-3S4AeLRI2kctAvMiYC8A9CifaXSMgqkyU0/HpeKZun4=";
+                      rev = "d2f7023886b3ea805612a52ed13a97cc3ad6b071";
+                      hash = "sha256-0ODO+4FWYqcqktHiJAz2NY6GGUfgij0NdrTsSJyTcZM=";
                     };
 
                     #src = final.fetchzip {
@@ -106,6 +106,7 @@ in
             EXTCON_STEAMDECK m
             MFD_STEAMDECK m
             SENSORS_STEAMDECK m
+            BTRFS_EXPERIMENTAL y
           '';
         }
       ];
