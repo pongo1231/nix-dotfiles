@@ -17,8 +17,8 @@
       set async_prompt_functions fish_prompt
 
       function fish_command_not_found
-          comma -- "$argv"
-          return $argv
+          comma --ask -- $argv
+          return $status
       end
 
       fish_add_path -maP ~/.local/bin
