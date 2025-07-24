@@ -119,8 +119,6 @@
 
   environment.systemPackages = with pkgs; [
     steamdeck-firmware
-    mangohud
-    gamescope
     (pkgs.writeShellScriptBin "lsfg2x" ''
       exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=2 "$@"
     '')
