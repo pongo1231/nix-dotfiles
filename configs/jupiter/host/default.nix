@@ -58,6 +58,17 @@
       device = "/dev/disk/by-uuid/0573-D9FE";
       fsType = "vfat";
     };
+
+    "/run/media/mmcblk0p1" = {
+      device = "/dev/mmcblk0p1";
+      fsType = "btrfs";
+      options = [
+        "x-systemd.device-timeout=5"
+        "nofail"
+        "noatime"
+        "compress-force=zstd:1"
+      ];
+    };
   };
 
   hardware = {
