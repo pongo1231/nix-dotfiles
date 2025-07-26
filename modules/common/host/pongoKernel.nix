@@ -79,8 +79,8 @@ in
               src = final.fetchFromGitHub {
                 owner = "atar-axis";
                 repo = "xpadneo";
-                rev = "cd256807c5f916735ae18749c43d5b0bd73240fa";
-                hash = "sha256-TLtxpDYxatPV5VBssFX4kriEVy/GrQpq33j3/dVGxuE=";
+                rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
+                hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
               };
 
               #makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
