@@ -74,7 +74,7 @@
   };
 
   boot.extraModprobeConfig = ''
-    options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0 NVreg_DynamicPowerManagement=0x02 NVreg_RegistryDwords=RMIntrLockingMode=1
-    options nvidia_drm modeset=1
+    options nvidia NVreg_UsePageAttributeTable=1 NVreg_InitializeSystemMemoryAllocations=0 NVreg_EnablePCIeGen3=1 NVreg_RegistryDwords=RMIntrLockingMode=1
+    options nvidia_drm fbdev=0
   '';
 }
