@@ -59,12 +59,12 @@ in
                       in
                       {
                         inherit version;
-                        modDirVersion = "6.16.0-rc7";
+                        modDirVersion = "6.16.0";
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "171e8835bca4e6b25261d5d753e5c09bf7a5d134";
-                          hash = "sha256-T/lfzK6DYPX/nUI1oovLtyP6E93Owr4HcKY3kngTS8Q=";
+                          rev = "817675cc4681e0667fe3749b422e590b5d5ff1f1";
+                          hash = "sha256-9a6aNktScSShvJPs3aDQU0p3WmZCNp4k98WhFVwLeYw=";
                         };
 
                         #src = final.fetchzip {
@@ -118,7 +118,7 @@ in
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
           ''
-          + lib.optionalString (system == "x86_&4-linux") ''
+          + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
             AMD_PRIVATE_COLOR y
             LEDS_STEAMDECK m
