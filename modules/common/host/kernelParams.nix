@@ -3,7 +3,6 @@ config: [
   "splash"
   "loglevel=3"
   "rd.udev.log_level=3"
-  "preempt=full"
   "kvm.ignore_msrs=1"
   "ec_sys.write_support=1"
   "msr.allow_writes=on"
@@ -12,6 +11,4 @@ config: [
   "transparent_hugepage=${if config.pongo.pongoKernel.enable then "defer" else "madvise"}"
   "transparent_hugepage_shmem=within_size"
   "transparent_hugepage_tmpfs=within_size"
-  "threadirqs"
-  "rcu_nocbs=0-N"
 ]
