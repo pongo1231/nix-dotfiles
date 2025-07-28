@@ -8,7 +8,7 @@
   ...
 }:
 let
-  cfg = config.pongo;
+  cfg = config.pongo.pongoKernel;
 in
 {
   options.pongo.pongoKernel = {
@@ -23,13 +23,13 @@ in
     };
   };
 
-  config = lib.mkIf cfg.pongoKernel.enable {
+  config = lib.mkIf cfg.enable {
     nixpkgs.overlays = [
       (final: _: {
         linuxPackages_pongo =
           (
-            if cfg.pongoKernel.crossCompile != null then
-              inputs.nixpkgs.legacyPackages.${cfg.pongoKernel.crossCompile.host}.pkgsCross.${cfg.pongoKernel.crossCompile.target}.linuxPackages_testing
+            if cfg.crossCompile != null then
+              inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}.linuxPackages_testing
             else
               final.linuxPackages_testing
           ).extend
