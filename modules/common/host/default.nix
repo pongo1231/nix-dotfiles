@@ -137,9 +137,10 @@
     };
 
     power-profiles-daemon.enable = true;
+
     fstrim.enable = true;
+
     envfs.enable = true;
-    irqbalance.enable = true;
   };
 
   security.rtkit.enable = true;
@@ -158,10 +159,7 @@
 
     tmpfiles.rules = import ./tmpfiles.nix;
 
-    services = {
-      "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
-      irqbalance.serviceConfig.ProtectKernelTunables = "no"; # remove when fixed upstream
-    };
+    services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
   };
 
   documentation = {
