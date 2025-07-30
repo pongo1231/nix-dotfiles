@@ -565,6 +565,22 @@
         "type": "github"
       }
     },
+    "nixpkgs2": {
+      "locked": {
+        "lastModified": 1753505055,
+        "narHash": "sha256-jQKnNATDGDeuIeUf7r0yHnmirfYkYPHeF0N2Lv8rjPE=",
+        "owner": "pongo1231",
+        "repo": "nixpkgs",
+        "rev": "7be0239edbf0783ff959f94f9728db414be73002",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pongo1231",
+        "repo": "nixpkgs",
+        "rev": "7be0239edbf0783ff959f94f9728db414be73002",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
@@ -578,6 +594,7 @@
         "nix-index-database": "nix-index-database_2",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
+        "nixpkgs2": "nixpkgs2",
         "sops-nix": "sops-nix",
         "winapps": "winapps"
       }

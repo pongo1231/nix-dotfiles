@@ -1,4 +1,6 @@
 {
+  system,
+  inputs,
   module,
   pkgs,
   ...
@@ -20,7 +22,7 @@
     vesktop
     libreoffice
     gimp
-    audacity
+    inputs.nixpkgs2.legacyPackages.${system}.audacity
     remmina
     moonlight-qt
   ];
