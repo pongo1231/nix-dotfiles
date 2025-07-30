@@ -25,5 +25,11 @@
     inputs.nixpkgs2.legacyPackages.${system}.audacity
     remmina
     moonlight-qt
+    audacious
+    jamesdsp
+    nextcloud-client
+    syncthing
+    inputs.nixpkgs2.legacyPackages.${system}.thunderbird
+    darkly
   ];
 }
