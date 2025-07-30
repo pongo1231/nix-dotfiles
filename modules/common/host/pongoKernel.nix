@@ -29,9 +29,9 @@ in
         linuxPackages_pongo =
           (
             if cfg.crossCompile != null then
-              inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}.linuxPackages_testing
+              inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}.linuxPackages_testing
             else
-              final.linuxPackages_testing
+              inputs.nixpkgs2.legacyPackages.${system}.linuxPackages_testing
           ).extend
             (
               _: prev': {
