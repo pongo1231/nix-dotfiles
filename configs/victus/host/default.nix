@@ -18,7 +18,7 @@
   boot = {
     initrd = {
       luks.devices."root" = {
-        device = "/dev/disk/by-uuid/70a791df-646a-4684-81e3-4e943778296f";
+        device = "/dev/nvme0n1p2";
         allowDiscards = true;
         bypassWorkqueues = true;
       };
@@ -77,7 +77,7 @@
 
   fileSystems = {
     "/" = {
-      device = "/dev/disk/by-uuid/e4c4c179-e254-46a3-b28a-acec2ce1775f";
+      device = "/dev/mapper/root";
       fsType = "btrfs";
       options = [
         "compress-force=zstd:1"
@@ -86,7 +86,7 @@
     };
 
     "/boot" = {
-      device = "/dev/disk/by-uuid/7651-3774";
+      device = "/dev/nvme0n1p1";
       fsType = "vfat";
       options = [ "noatime" ];
     };

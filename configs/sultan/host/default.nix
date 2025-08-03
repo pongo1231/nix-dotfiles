@@ -25,9 +25,8 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
   ];
 
   fileSystems = {
-
     "/" = {
-      device = "/dev/disk/by-uuid/276ad042-e77a-44fb-bcaa-d6ecf0daf0b1";
+      device = "/dev/sda2";
       fsType = "btrfs";
       options = [
         "noatime"
@@ -36,7 +35,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     };
 
     "/boot" = {
-      device = "/dev/disk/by-uuid/AC1E-DA93";
+      device = "/dev/sda1";
       fsType = "vfat";
       options = [ "noatime" ];
     };
