@@ -5,6 +5,7 @@ keys:
   - &host_gopong age1l4sknz73q64rz2gy59d92twvs07p3tql4utx77fudxt0qsrl24nqqk4fqf
   - &host_jupiter age1ma0e5ap4pdqmz4qj7rttlrk56mcvka0tuvltgp7dcv73fu6q3q5qj99gun
   - &host_rpi3b age1tl35pllv9mu4nzk8hpa2uuul96njqrcttg4hw20902saf3uynueshux230
+  - &host_sultan age17rwt27929gj3htrx3lta7xgpxr742mdalqk7n57xprqeszawppaqa3u2rp
 
 creation_rules:
   - path_regex: secrets/pongo/default.yaml
@@ -15,9 +16,10 @@ creation_rules:
         - *host_gopong
         - *host_jupiter
         - *host_rpi3b
+        - *host_sultan
 
-  - path_regex: secrets/pongo/gopong.yaml
+  - path_regex: secrets/pongo/sultan.yaml
     key_groups:
       - age:
         - *admin_pongo
-        - *host_gopong
+        - *host_sultan
