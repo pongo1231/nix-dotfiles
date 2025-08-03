@@ -88,6 +88,7 @@
     "/boot" = {
       device = "/dev/disk/by-uuid/7651-3774";
       fsType = "vfat";
+      options = [ "noatime" ];
     };
   };
 

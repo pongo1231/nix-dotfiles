@@ -57,6 +57,7 @@
     "/boot" = {
       device = "/dev/disk/by-uuid/0573-D9FE";
       fsType = "vfat";
+      options = [ "noatime" ];
     };
 
     "/run/media/mmcblk0p1" = {
