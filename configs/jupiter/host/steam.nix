@@ -16,6 +16,7 @@
       autoStart = true;
       user = "pongo";
       desktopSession = "plasma";
+      environment."ENABLE_GAMESCOPE_WSI" = "0";
     };
 
     decky-loader = {
