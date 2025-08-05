@@ -23,15 +23,15 @@
         {
           nvidiaPackages.beta =
             (generic {
-              version = "570.153.02";
-              sha256_64bit = "sha256-FIiG5PaVdvqPpnFA5uXdblH5Cy7HSmXxp6czTfpd4bY=";
-              openSha256 = "sha256-2DpY3rgQjYFuPfTY4U/5TcrvNqsWWnsOSX0f2TfVgTs=";
-              settingsSha256 = "sha256-5m6caud68Owy4WNqxlIQPXgEmbTe4kZV2vZyTWHWe+M=";
+              version = "580.65.06";
+              sha256_64bit = "sha256-BLEIZ69YXnZc+/3POe1fS9ESN1vrqwFy6qGHxqpQJP8=";
+              openSha256 = "sha256-BKe6LQ1ZSrHUOSoV6UCksUE0+TIa0WcCHZv4lagfIgA=";
+              settingsSha256 = "sha256-9PWmj9qG/Ms8Ol5vLQD3Dlhuw4iaFtVHNC0hSyMCU24=";
               persistencedSha256 = "";
               patches = [
                 #(patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch)
                 #(patch /nvidia/6.15/kernel-open-nvidia-Use-new-timer-functions-for-6.15.patch)
-                (patch /nvidia/6.15/Workaround-nv_vm_flags_-calling-GPL-only-code.patch)
+                #(patch /nvidia/6.15/Workaround-nv_vm_flags_-calling-GPL-only-code.patch)
                 #(patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
               ];
             }).overrideAttrs
@@ -44,8 +44,8 @@
                     patches = prev''.patches ++ [
                       #(patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
                       #(patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
-                      (patch /nvidia/6.16/dma_buf_attachment_is_dynamic.patch)
-                      (patch /nvidia/6.16/no_dev_disable_enable_feature.patch)
+                      #(patch /nvidia/6.16/dma_buf_attachment_is_dynamic.patch)
+                      #(patch /nvidia/6.16/no_dev_disable_enable_feature.patch)
                     ];
                   });
                 };
