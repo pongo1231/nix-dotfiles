@@ -108,7 +108,18 @@
       autoStart = false;
     };
 
-    lsfg-vk.enable = true;
+    lsfg-vk = {
+      enable = true;
+      package = (pkgs.callPackage "${inputs.lsfg-vk}/lsfg-vk.nix" { }).overrideAttrs (prev: {
+        src = pkgs.fetchFromGitHub {
+          owner = "PancakeTAS";
+          repo = "lsfg-vk";
+          rev = "6d6ddcfaa65545befec74011e3743460b2d2b59f";
+          hash = "sha256-lU3xFoxo+MhAGUMaYzCF3UvQ3c77rRcYozi9RzYqvU8=";
+          fetchSubmodules = true;
+        };
+      });
+    };
   };
 
   /*
