@@ -11,4 +11,5 @@ config: [
   "transparent_hugepage=${if config.pongo.pongoKernel.enable then "defer" else "always"}"
   "transparent_hugepage_shmem=within_size"
   "transparent_hugepage_tmpfs=within_size"
+  "preempt=voluntary"
 ]
