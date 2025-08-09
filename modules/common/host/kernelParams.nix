@@ -8,7 +8,7 @@ config: [
   "msr.allow_writes=on"
   "cgroup_no_v1=all"
   "mitigations=off"
-  "transparent_hugepage=${if config.pongo.pongoKernel.enable then "defer" else "always"}"
+  "transparent_hugepage=always"
   "transparent_hugepage_shmem=within_size"
   "transparent_hugepage_tmpfs=within_size"
   "preempt=voluntary"
