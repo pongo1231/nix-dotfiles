@@ -26,6 +26,7 @@
       experimental-features = nix-command flakes auto-allocate-uids cgroups
       auto-allocate-uids = true
       use-cgroups = true
+      keep-outputs = true
     '';
 
     settings = {
