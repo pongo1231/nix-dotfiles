@@ -63,8 +63,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "15bd945d2dd3951f6e2d969c6843002ab625e65e";
-                          hash = "sha256-6Yhew9eYb7TPwCXlHbeQvnL4uF++Cma9LXsRy96x0Ic=";
+                          rev = "f05c6bcbed7d59150ed3c1132d49a4c643e507b2";
+                          hash = "sha256-J+C3GX68UGVb0KoCoJ260NpzedmT6LsIm7MyLcJoY94=";
                         };
 
                         #src = final.fetchzip {
