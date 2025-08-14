@@ -114,8 +114,8 @@
         src = pkgs.fetchFromGitHub {
           owner = "PancakeTAS";
           repo = "lsfg-vk";
-          rev = "e22d173999b0f333611a9333f0a709df8269d236";
-          hash = "sha256-KfD/UcDaxlUX/y7pP6hA4fwyfgRA7xjOjxvgY3UWHEg=";
+          rev = "0a6455a3815e4a417a54fd312987d2e2320f2684";
+          hash = "sha256-gt8IS+H24nFqqxo+I3kZHysMiyIQryYYOuMcB3DJmq0=";
           fetchSubmodules = true;
         };
       });
