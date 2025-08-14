@@ -117,6 +117,7 @@ in
           patch = null;
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
+            PREEMPT y
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3

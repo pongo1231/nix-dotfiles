@@ -37,14 +37,6 @@
       ];
     };
 
-    kernelModules = [
-      "ntsync"
-    ];
-
-    kernelParams = [
-      "rcu_nocbs=0-N"	
-    ];
-
     plymouth.enable = false;
   };
 
