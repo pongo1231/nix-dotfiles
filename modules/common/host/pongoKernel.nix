@@ -63,8 +63,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "d6545bdd0703f27dc531b2525fa4de51b598c7ae";
-                          hash = "sha256-kF1ygrT7wzpcx9/nmu2XWEUHydPdfF6Kzpjf+MkjPxk=";
+                          rev = "71818440ec65342ae0f7b293abac4f58aaf041e6";
+                          hash = "sha256-E70VyKHIlseg88nYvySUXb4TBIstyNjPDebbwWNNSlA=";
                         };
 
                         #src = final.fetchzip {
@@ -117,7 +117,7 @@ in
           patch = null;
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
-            PREEMPT y
+            PREEMPT_DYNAMIC y
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
