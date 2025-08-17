@@ -63,8 +63,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "71818440ec65342ae0f7b293abac4f58aaf041e6";
-                          hash = "sha256-E70VyKHIlseg88nYvySUXb4TBIstyNjPDebbwWNNSlA=";
+                          rev = "727b23fb729fe19a6f2a0d8f29e4c3816bcd500b";
+                          hash = "sha256-P8FjzJhV+uXTiFU1KMfYCsMF+MXOafLoZmIiEubOkVU=";
                         };
 
                         #src = final.fetchzip {
@@ -116,6 +116,7 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
           ''
