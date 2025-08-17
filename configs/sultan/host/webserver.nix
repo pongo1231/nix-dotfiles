@@ -47,6 +47,7 @@ _: {
         "habbo.gopong.dev"
         "cloud.gopong.dev"
         "vault.gopong.dev"
+        "collabora.gopong.dev"
       ];
     };
   };

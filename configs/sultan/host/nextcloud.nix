@@ -14,9 +14,20 @@ withSecrets "pongo"
   }
 // {
   services = {
-    nginx.virtualHosts."cloud.gopong.dev" = {
-      forceSSL = true;
-      useACMEHost = "gopong.dev";
+    nginx.virtualHosts = {
+      "cloud.gopong.dev" = {
+        forceSSL = true;
+        useACMEHost = "gopong.dev";
+      };
+
+      "collabora.gopong.dev" = {
+        forceSSL = true;
+        useACMEHost = "gopong.dev";
+        locations."/" = {
+          proxyPass = "https://gopong.dev:9980";
+          proxyWebsockets = true;
+        };
+      };
     };
 
     redis.servers."nextcloud" = {
@@ -39,6 +50,13 @@ withSecrets "pongo"
         memcached = false;
       };
     };
+  };
+
+  virtualisation.oci-containers.containers.collabora = {
+    image = "docker.io/collabora/code";
+    ports = [ "9980:9980" ];
+    autoStart = true;
+    environment.aliasgroup1 = "https://${config.services.nextcloud.hostName}:443";
   };
 
   environment.systemPackages = with pkgs; [ ffmpeg ];
