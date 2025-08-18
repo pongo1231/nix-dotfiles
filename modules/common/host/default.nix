@@ -149,6 +149,11 @@
   systemd = {
     network.wait-online.enable = false;
 
+    coredump.extraConfig = ''
+      Storage=none
+      ProcessSizeMax=0
+    '';
+
     oomd = {
       enable = true;
       enableRootSlice = true;
