@@ -36,19 +36,18 @@ in
             (
               _: prev': {
                 kernel =
-                  let
-                    pkgs' = inputs.nixpkgs2.legacyPackages.${system};
-                  in
                   (prev'.kernel.override {
-                    stdenv = pkgs'.llvmPackages_latest.stdenv.override (prev'': {
-                      cc = prev''.cc.override {
-                        bintools = pkgs'.llvmPackages_latest.bintools;
-                        extraBuildCommands = ''
-                          substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
-                          echo " -resource-dir=${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version}" >> $out/nix-support/cc-cflags
-                        '';
-                      };
-                    });
+                    /*
+                      stdenv = pkgs.llvmPackages.stdenv.override (prev'': {
+                        cc = prev''.cc.override {
+                          bintools = pkgs.llvmPackages.bintools;
+                          extraBuildCommands = ''
+                                            substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
+                            				  echo " -resource-dir=${pkgs.llvmPackages.libclang.lib}/lib/clang/${lib.versions.major pkgs.llvmPackages.libclang.version}" >> $out/nix-support/cc-cflags
+                            				  '';
+                        };
+                      });
+                    */
 
                     #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prev'.kernelPatches;
 
@@ -73,27 +72,26 @@ in
                         #    hash = "";
                         # };
 
-                        extraMakeFlags = [
-                          "LLVM=1"
-                          "LLVM_IAS=1"
-                        ];
+                        /*
+                          extraMakeFlags = [
+                            "LLVM=1"
+                            "LLVM_IAS=1"
+                          ];
 
-                        extraConfig = ''
-                          CC_IS_CLANG y
-                          LTO_CLANG y
-                          LTO_CLANG_THIN y
-                          LTO_CLANG_THIN_DIST y
-                        '';
+                          extraConfig = ''
+                            CC_IS_CLANG y
+                            LTO_CLANG y
+                            LTO_CLANG_THIN y
+                            LTO_CLANG_THIN_DIST y
+                          '';
+                        */
                       };
                   }).overrideAttrs
                     (_: {
-                      hardeningDisable = [
-                        "strictoverflow"
-                        "zerocallusedregs"
-                      ];
+                      #hardeningDisable = [ "strictoverflow" ];
                     });
 
-                xpadneo = prev'.xpadneo.overrideAttrs (prev'': {
+                xpadneo = prev'.xpadneo.overrideAttrs {
                   src = final.fetchFromGitHub {
                     owner = "atar-axis";
                     repo = "xpadneo";
@@ -101,10 +99,10 @@ in
                     hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
                   };
 
-                  makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
+                  #makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
 
-                  hardeningDisable = [ "strictoverflow" ];
-                });
+                  #hardeningDisable = [ "strictoverflow" ];
+                };
               }
             );
       })

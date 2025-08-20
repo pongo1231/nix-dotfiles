@@ -48,19 +48,21 @@
       with config.boot.kernelPackages;
       let
         llvmMod =
-          pkg:
-          pkg.overrideAttrs (
+          pkg: pkg
+        /*
+          .overrideAttrs (
             final: prev: {
-              inherit (kernel) stdenv;
 
-              makeFlags = (prev.makeFlags or [ ]) ++ [
-                "LLVM=1"
-                "CC=${final.stdenv.cc}/bin/clang"
-              ];
-
-              hardeningDisable = [ "strictoverflow" ];
+                inherit (kernel) stdenv;
+                makeFlags = (prev.makeFlags or [ ]) ++ [
+                  "LLVM=1"
+                  "CC=${final.stdenv.cc}/bin/clang"
+                ];
+                hardeningDisable = [ "strictoverflow" ];
             }
-          );
+          )
+        */
+        ;
       in
       [
         (llvmMod kvmfr)
