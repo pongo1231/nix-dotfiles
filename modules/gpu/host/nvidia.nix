@@ -23,16 +23,17 @@
         {
           nvidiaPackages.beta =
             (generic {
-              version = "580.65.06";
-              sha256_64bit = "sha256-BLEIZ69YXnZc+/3POe1fS9ESN1vrqwFy6qGHxqpQJP8=";
-              openSha256 = "sha256-BKe6LQ1ZSrHUOSoV6UCksUE0+TIa0WcCHZv4lagfIgA=";
-              settingsSha256 = "sha256-9PWmj9qG/Ms8Ol5vLQD3Dlhuw4iaFtVHNC0hSyMCU24=";
+              version = "580.76.05";
+              sha256_64bit = "sha256-IZvmNrYJMbAhsujB4O/4hzY8cx+KlAyqh7zAVNBdl/0=";
+              openSha256 = "sha256-xEPJ9nskN1kISnSbfBigVaO6Mw03wyHebqQOQmUg/eQ=";
+              settingsSha256 = "sha256-ll7HD7dVPHKUyp5+zvLeNqAb6hCpxfwuSyi+SAXapoQ=";
               persistencedSha256 = "";
               patches = [
                 #(patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch)
                 #(patch /nvidia/6.15/kernel-open-nvidia-Use-new-timer-functions-for-6.15.patch)
                 #(patch /nvidia/6.15/Workaround-nv_vm_flags_-calling-GPL-only-code.patch)
                 #(patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
+                (patch /nvidia/6.17/917.patch)
               ];
             }).overrideAttrs
               (prev': {
