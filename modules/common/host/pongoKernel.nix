@@ -116,6 +116,7 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
           ''
