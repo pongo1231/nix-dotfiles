@@ -40,27 +40,27 @@ in
               _: prev': {
                 kernel = (
                   prev'.kernel.override {
-                      buildPackages = pkgs.buildPackages // {
-                      	stdenv = pkgs.gcc15Stdenv;
-                      };
+                    buildPackages = pkgs.buildPackages // {
+                      stdenv = pkgs.gcc15Stdenv;
+                    };
 
-                      #ignoreConfigErrors = true;
+                    #ignoreConfigErrors = true;
 
-                      argsOverride =
-                        let
-                          version = "6.17.0-git";
-                        in
-                        {
-                          inherit version;
-                          modDirVersion = "6.17.0-rc2";
-                          src = final.fetchFromGitHub {
-                            owner = "pongo1231";
-                            repo = "linux";
-                            rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
-                            hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
-                          };
+                    argsOverride =
+                      let
+                        version = "6.17.0-git";
+                      in
+                      {
+                        inherit version;
+                        modDirVersion = "6.17.0-rc2";
+                        src = final.fetchFromGitHub {
+                          owner = "pongo1231";
+                          repo = "linux";
+                          rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
+                          hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
                         };
-                    }
+                      };
+                  }
                 );
 
                 xpadneo = prev'.xpadneo.overrideAttrs {
