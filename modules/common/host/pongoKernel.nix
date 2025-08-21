@@ -35,23 +35,9 @@ in
           ).extend
             (
               _: prev': {
-                kernel =
-                  (prev'.kernel.override {
+                kernel = (
+                  prev'.kernel.override {
                     stdenv = pkgs.gcc15Stdenv;
-
-                    /*
-                      stdenv = pkgs.llvmPackages.stdenv.override (prev'': {
-                        cc = prev''.cc.override {
-                          bintools = pkgs.llvmPackages.bintools;
-                          extraBuildCommands = ''
-                                            substituteInPlace "$out/nix-support/cc-cflags" --replace-fail " -nostdlibinc" ""
-                            				  echo " -resource-dir=${pkgs.llvmPackages.libclang.lib}/lib/clang/${lib.versions.major pkgs.llvmPackages.libclang.version}" >> $out/nix-support/cc-cflags
-                            				  '';
-                        };
-                      });
-                    */
-
-                    #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prev'.kernelPatches;
 
                     #ignoreConfigErrors = true;
 
@@ -68,30 +54,9 @@ in
                           rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
                           hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
                         };
-
-                        #src = final.fetchzip {
-                        #    url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-                        #    hash = "";
-                        # };
-
-                        /*
-                          extraMakeFlags = [
-                            "LLVM=1"
-                            "LLVM_IAS=1"
-                          ];
-
-                          extraConfig = ''
-                            CC_IS_CLANG y
-                            LTO_CLANG y
-                            LTO_CLANG_THIN y
-                            LTO_CLANG_THIN_DIST y
-                          '';
-                        */
                       };
-                  }).overrideAttrs
-                    (_: {
-                      #hardeningDisable = [ "strictoverflow" ];
-                    });
+                  }
+                );
 
                 xpadneo = prev'.xpadneo.overrideAttrs {
                   src = final.fetchFromGitHub {
@@ -100,10 +65,6 @@ in
                     rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
                     hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
                   };
-
-                  #makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
-
-                  #hardeningDisable = [ "strictoverflow" ];
                 };
               }
             );
@@ -134,12 +95,6 @@ in
       ];
 
       kernelModules = [ "adios" ];
-
-      kernel.sysctl = {
-        #"vm.anon_min_ratio" = 15;
-        #"vm.clean_low_ratio" = 15;
-        #"vm.clean_min_ratio" = 1;
-      };
     };
 
     services.udev.extraRules = ''
