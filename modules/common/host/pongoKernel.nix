@@ -37,6 +37,8 @@ in
               _: prev': {
                 kernel =
                   (prev'.kernel.override {
+                    stdenv = pkgs.gcc15Stdenv;
+
                     /*
                       stdenv = pkgs.llvmPackages.stdenv.override (prev'': {
                         cc = prev''.cc.override {
@@ -51,7 +53,7 @@ in
 
                     #kernelPatches = builtins.filter (x: !lib.hasPrefix "netfilter-typo-fix" x.name) prev'.kernelPatches;
 
-                    ignoreConfigErrors = true;
+                    #ignoreConfigErrors = true;
 
                     argsOverride =
                       let
@@ -63,8 +65,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "2a30cc96313cb9541abae64932cea73e2cd0ba4a";
-                          hash = "sha256-Tkf4hZcS1CFYyGQc1XWjsN4pU5YffhC4Zd21ifIjxGc=";
+                          rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
+                          hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
                         };
 
                         #src = final.fetchzip {
