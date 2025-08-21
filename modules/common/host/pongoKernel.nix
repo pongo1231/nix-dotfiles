@@ -34,28 +34,33 @@ in
               inputs.nixpkgs2.legacyPackages.${system}.linuxPackages_testing
           ).extend
             (
+              let
+                pkgs' = inputs.nixpkgs2.legacyPackages.${system};
+              in
               _: prev': {
                 kernel = (
                   prev'.kernel.override {
-                    stdenv = pkgs.gcc15Stdenv;
-
-                    #ignoreConfigErrors = true;
-
-                    argsOverride =
-                      let
-                        version = "6.17.0-git";
-                      in
-                      {
-                        inherit version;
-                        modDirVersion = "6.17.0-rc2";
-                        src = final.fetchFromGitHub {
-                          owner = "pongo1231";
-                          repo = "linux";
-                          rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
-                          hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
-                        };
+                      buildPackages = pkgs.buildPackages // {
+                      	stdenv = pkgs.gcc15Stdenv;
                       };
-                  }
+
+                      #ignoreConfigErrors = true;
+
+                      argsOverride =
+                        let
+                          version = "6.17.0-git";
+                        in
+                        {
+                          inherit version;
+                          modDirVersion = "6.17.0-rc2";
+                          src = final.fetchFromGitHub {
+                            owner = "pongo1231";
+                            repo = "linux";
+                            rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
+                            hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
+                          };
+                        };
+                    }
                 );
 
                 xpadneo = prev'.xpadneo.overrideAttrs {
