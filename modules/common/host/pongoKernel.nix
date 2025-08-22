@@ -73,8 +73,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "4bbe85b01f94fccf78e897068ae636fb29871d92";
-                          hash = "sha256-GxMQ81oDF2XSorqcStkjgkZ2HCR0Lr3OsBD4vhHh07Q=";
+                          rev = "fdea3747841cf67ab95a45cd3f4214b948de881d";
+                          hash = "sha256-YAMQu0NwXwkEZQ3bb+HMjeOOHggQLNKgDzP5QL0m2DY=";
                         };
 
                         extraMakeFlags = [
