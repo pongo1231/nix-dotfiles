@@ -44,10 +44,25 @@
       "kvmfr.static_size_mb=32"
     ];
 
-    extraModulePackages = with config.boot.kernelPackages; [
-      kvmfr
-      (callPackage (pkg /hp-omen-linux-module) { })
-    ];
+    extraModulePackages =
+      with config.boot.kernelPackages;
+      let
+        llvmMod =
+          pkg:
+          pkg.overrideAttrs (
+            final: prev: {
+
+              inherit (kernel) stdenv;
+              makeFlags = (prev.makeFlags or [ ]) ++ [ "LLVM=1" ];
+              hardeningDisable = [ "strictoverflow" ];
+            }
+          );
+      in
+      [
+        (llvmMod kvmfr)
+
+        (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
+      ];
 
     binfmt.emulatedSystems = [
       "aarch64-linux"
