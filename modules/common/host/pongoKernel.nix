@@ -88,12 +88,12 @@ in
                         '';
                       };
                   }).overrideAttrs
-                    (_: {
+                    {
                       hardeningDisable = [
                         "strictoverflow"
                         "zerocallusedregs"
                       ];
-                    });
+                    };
 
                 xpadneo = prev'.xpadneo.overrideAttrs (prev'': {
                   src = final.fetchFromGitHub {
