@@ -1,5 +1,5 @@
 {
-  "vm.swappiness" = 200;
+  "vm.swappiness" = 180;
   "vm.vfs_cache_pressure" = 50;
   "vm.dirty_bytes" = 268435456;
   "vm.page-cluster" = 0;
