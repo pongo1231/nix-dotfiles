@@ -25,91 +25,89 @@ in
 
   config = lib.mkIf cfg.enable {
     nixpkgs.overlays = [
-      (final: _: {
-        linuxPackages_pongo =
-          (
+      (
+        final: _:
+        let
+          pkgs' =
             if cfg.crossCompile != null then
-              inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}.linuxPackages_testing
+              inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
             else
-              inputs.nixpkgs2.legacyPackages.${system}.linuxPackages_testing
-          ).extend
-            (
-              let
-                pkgs' =
-                  if cfg.crossCompile != null then
-                    inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
-                  else
-                    inputs.nixpkgs2.legacyPackages.${system};
-              in
-              final': prev': {
-                kernel =
-                  let
-                    stdenv = pkgs'.llvmPackages_latest.stdenv.override {
-                      cc = pkgs'.llvmPackages_latest.clang.override {
-                        bintools = pkgs'.llvmPackages_latest.bintools;
-                        extraBuildCommands = ''
-                          substituteInPlace $out/nix-support/cc-cflags --replace-fail " -nostdlibinc" ""
-                          sed -i "1s;^;-B${pkgs'.llvmPackages_latest.libclang.lib}/lib -B${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version} -resource-dir=${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version} ;" $out/nix-support/cc-cflags
-                        '';
-                      };
+              inputs.nixpkgs2.legacyPackages.${system};
+        in
+        {
+          linuxPackages_pongo = pkgs'.linuxPackages_testing.extend (
+            final': prev': {
+              kernel =
+                let
+                  stdenv = pkgs'.llvmPackages_latest.stdenv.override {
+                    cc = pkgs'.llvmPackages_latest.clang.override {
+                      bintools = pkgs'.llvmPackages_latest.bintools;
+                      extraBuildCommands = ''
+                        substituteInPlace $out/nix-support/cc-cflags --replace-fail " -nostdlibinc" ""
+                        sed -i "1s;^;-B${pkgs'.llvmPackages_latest.libclang.lib}/lib -B${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version} -resource-dir=${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version} ;" $out/nix-support/cc-cflags
+                      '';
                     };
-                  in
-                  (prev'.kernel.override {
-                    buildPackages = pkgs'.buildPackages // {
-                      inherit stdenv;
-                    };
-
+                  };
+                in
+                (prev'.kernel.override {
+                  buildPackages = pkgs'.buildPackages // {
                     inherit stdenv;
-
-                    ignoreConfigErrors = true;
-
-                    argsOverride =
-                      let
-                        version = "6.17.0-git";
-                      in
-                      {
-                        inherit version;
-                        modDirVersion = "6.17.0-rc2";
-                        src = final.fetchFromGitHub {
-                          owner = "pongo1231";
-                          repo = "linux";
-                          rev = "fdea3747841cf67ab95a45cd3f4214b948de881d";
-                          hash = "sha256-YAMQu0NwXwkEZQ3bb+HMjeOOHggQLNKgDzP5QL0m2DY=";
-                        };
-
-                        extraMakeFlags = [
-                          "LLVM=1"
-                        ];
-
-                        extraConfig = ''
-                          LTO_CLANG y
-                          LTO_CLANG_THIN y
-                          LTO_CLANG_THIN_DIST y
-                        '';
-                      };
-                  }).overrideAttrs
-                    {
-                      hardeningDisable = [
-                        "strictoverflow"
-                        "zerocallusedregs"
-                      ];
-                    };
-
-                xpadneo = prev'.xpadneo.overrideAttrs (prev'': {
-                  src = final.fetchFromGitHub {
-                    owner = "atar-axis";
-                    repo = "xpadneo";
-                    rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
-                    hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
                   };
 
-                  makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
+                  inherit stdenv;
 
-                  hardeningDisable = [ "strictoverflow" ];
-                });
-              }
-            );
-      })
+                  ignoreConfigErrors = true;
+
+                  argsOverride =
+                    let
+                      version = "6.17.0-git";
+                    in
+                    {
+                      inherit version;
+                      modDirVersion = "6.17.0-rc2";
+                      src = final.fetchFromGitHub {
+                        owner = "pongo1231";
+                        repo = "linux";
+                        rev = "ee10f0cf67f39bbf043745e8669e3f32539cf39e";
+                        hash = "sha256-/ZqjH6DNye78XtzX15qABTuXrRTfOygNuJkEiZ0agkI=";
+                      };
+
+                      extraMakeFlags = [
+                        "LLVM=1"
+                      ];
+
+                      extraConfig = ''
+                        LTO_CLANG y
+                        LTO_CLANG_THIN y
+                        LTO_CLANG_THIN_DIST y
+                      '';
+                    };
+                }).overrideAttrs
+                  {
+                    hardeningDisable = [
+                      "strictoverflow"
+                      "zerocallusedregs"
+                    ];
+                  };
+
+              xpadneo = prev'.xpadneo.overrideAttrs (prev'': {
+                src = final.fetchFromGitHub {
+                  owner = "atar-axis";
+                  repo = "xpadneo";
+                  rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
+                  hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
+                };
+
+                makeFlags = prev''.makeFlags ++ [ "LLVM=1" ];
+
+                hardeningDisable = [ "strictoverflow" ];
+
+                patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
+              });
+            }
+          );
+        }
+      )
     ];
 
     boot = {
