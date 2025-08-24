@@ -7,6 +7,18 @@
   ...
 }:
 lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
+  /*
+    # https://search.nixos.org/options?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=system.replaceDependencies
+    system.replaceDependencies.replacements = [
+
+    ];
+
+    # https://github.com/hsjobeki/nixpkgs/blob/migrate-doc-comments/pkgs/build-support/replace-dependencies.nix#L35:C1
+    pkgs.replaceDependencies = [
+
+    ]
+  */
+
   nixpkgs.overlays = [
     (final: prev: {
       nbfc-linux = prev.nbfc-linux.overrideAttrs (prev: {
