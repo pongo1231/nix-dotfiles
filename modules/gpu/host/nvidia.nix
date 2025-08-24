@@ -13,7 +13,7 @@
   hardware.nvidia = {
     package =
       (config.boot.kernelPackages.extend (
-        final: _:
+        final: prev:
         let
           generic =
             args:
@@ -29,10 +29,6 @@
               settingsSha256 = "sha256-ll7HD7dVPHKUyp5+zvLeNqAb6hCpxfwuSyi+SAXapoQ=";
               persistencedSha256 = "";
               patches = [
-                #(patch /nvidia/6.15/Kbuild-Convert-EXTRA_CFLAGS-to-ccflags-y.patch)
-                #(patch /nvidia/6.15/kernel-open-nvidia-Use-new-timer-functions-for-6.15.patch)
-                #(patch /nvidia/6.15/Workaround-nv_vm_flags_-calling-GPL-only-code.patch)
-                #(patch /nvidia/6.15/nvidia-uvm-Use-__iowrite64_hi_lo.patch)
                 (patch /nvidia/6.17/917.patch)
               ];
             }).overrideAttrs
@@ -40,14 +36,18 @@
                 # patched builder.sh to not include some egl libraries to prevent apps from blocking nvidia_drm unloading
                 #builder = patch /nvidia/builder.sh;
 
+                makeFlags = prev'.makeFlags ++ final.kernel.extraMakeFlags;
+
                 passthru = prev'.passthru // {
                   open = prev'.passthru.open.overrideAttrs (prev'': {
-                    patches = prev''.patches ++ [
-                      #(patch /nvidia/6.15/nvidia-uvm-Use-page_pgmap.patch)
-                      #(patch /nvidia/6.15/nvidia-uvm-Convert-make_device_exclusive_range-to-ma.patch)
-                      #(patch /nvidia/6.16/dma_buf_attachment_is_dynamic.patch)
-                      #(patch /nvidia/6.16/no_dev_disable_enable_feature.patch)
-                    ];
+                    makeFlags =
+                      prev''.makeFlags
+                      ++ final.kernel.extraMakeFlags
+                      ++ [
+                        "CC=${pkgs.llvmPackages_latest.stdenv.cc}/bin/clang"
+                      ];
+
+                    NIX_CFLAGS_COMPILE = "-O3 -flto=thin -march=x86-64-v3 -Wno-error=unused-command-line-argument";
                   });
                 };
               });

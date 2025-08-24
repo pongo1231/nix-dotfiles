@@ -10,7 +10,7 @@
 {
   imports = [
     (module /cpu/amd.nix)
-    #(import (module /gpu/nvidia.nix) { platform = "amd"; })
+    (import (module /gpu/nvidia.nix) { platform = "amd"; })
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
   ];
@@ -47,21 +47,16 @@
     extraModulePackages =
       with config.boot.kernelPackages;
       let
-        llvmMod =
+        mod =
           pkg:
-          pkg.overrideAttrs (
-            final: prev: {
-
-              inherit (kernel) stdenv;
-              makeFlags = (prev.makeFlags or [ ]) ++ [ "LLVM=1" ];
-              hardeningDisable = [ "strictoverflow" ];
-            }
-          );
+          pkg.overrideAttrs (prev: {
+            makeFlags = prev.makeFlags ++ kernel.extraMakeFlags;
+          });
       in
       [
-        (llvmMod kvmfr)
+        (mod kvmfr)
 
-        (llvmMod (callPackage (pkg /hp-omen-linux-module) { }))
+        #(mod (callPackage (pkg /hp-omen-linux-module) { }))
       ];
 
     binfmt.emulatedSystems = [

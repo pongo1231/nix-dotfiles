@@ -15,7 +15,7 @@
 
     extraModulePackages = with config.boot.kernelPackages; [
       (ryzen-smu.overrideAttrs (
-        final: prev:
+        prev:
         let
           version = "0.1.7-git";
 
@@ -31,13 +31,10 @@
 
             inherit version src;
 
-            makeFlags = [
-              "LLVM=1"
-              "CC=${final.stdenv.cc}/bin/clang"
+            makeFlags = kernel.extraMakeFlags ++ [
+              "CC=${pkgs.llvmPackages_latest.stdenv.cc}/bin/clang"
               "-C userspace"
             ];
-
-            hardeningDisable = [ "strictoverflow" ];
 
             installPhase = ''
               runHook preInstall
@@ -49,14 +46,7 @@
         {
           inherit version src;
 
-          inherit (kernel) stdenv;
-
-          makeFlags = (prev.makeFlags or [ ]) ++ [
-            "LLVM=1"
-            "CC=${final.stdenv.cc}/bin/clang"
-          ];
-
-          hardeningDisable = [ "strictoverflow" ];
+          makeFlags = (prev.makeFlags or [ ]) ++ kernel.extraMakeFlags;
 
           installPhase = ''
             runHook preInstall
