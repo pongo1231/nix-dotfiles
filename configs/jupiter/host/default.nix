@@ -68,24 +68,7 @@
     };
   };
 
-  hardware = {
-    cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
-
-    graphics =
-      let
-        patchMesa =
-          mesa:
-          mesa.overrideAttrs (prev: {
-            patches = prev.patches ++ [
-              (patch /mesa/25.0.0/gamescope-limiter.patch)
-            ];
-          });
-      in
-      {
-        package = lib.mkForce (patchMesa pkgs.mesa);
-        package32 = lib.mkForce (patchMesa pkgs.pkgsi686Linux.mesa);
-      };
-  };
+  hardware.cpu.amd.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
   networking.hostId = "a1f92a1f";
 
