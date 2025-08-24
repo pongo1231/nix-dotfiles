@@ -41,7 +41,7 @@ in
                 let
                   stdenv = pkgs'.llvmPackages_latest.stdenv.override {
                     cc = pkgs'.llvmPackages_latest.clang.override {
-                      bintools = pkgs'.llvmPackages_latest.bintools;
+                      inherit (pkgs'.llvmPackages_latest) bintools;
                       extraBuildCommands = ''
                         substituteInPlace $out/nix-support/cc-cflags --replace-fail " -nostdlibinc" ""
                         sed -i "1s;^;-B${pkgs'.llvmPackages_latest.libclang.lib}/lib -B${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version} -resource-dir=${pkgs'.llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major pkgs'.llvmPackages_latest.libclang.version} ;" $out/nix-support/cc-cflags
