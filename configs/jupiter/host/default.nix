@@ -64,6 +64,7 @@
         "nofail"
         "noatime"
         "compress-force=zstd:1"
+        "autodefrag"
       ];
     };
   };
