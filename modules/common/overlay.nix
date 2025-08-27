@@ -83,15 +83,6 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
         };
       };
 
-      nix-tree = prev.nix-tree.overrideAttrs {
-        src = final.fetchFromGitHub {
-          owner = "utdemir";
-          repo = "nix-tree";
-          rev = "fdcac72b7261f32e2faf9866c5d759d38a19771a";
-          hash = "sha256-XDtt664UxDiZoIHm+i+v2Tib/zpCGBKilrZET29mBwI=";
-        };
-      };
-
       ryzenadj = prev.ryzenadj.overrideAttrs {
         src = final.fetchFromGitHub {
           owner = "FlyGoat";
