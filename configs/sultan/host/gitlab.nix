@@ -11,6 +11,7 @@ withSecrets "pongo"
   }
   {
     "gitlab/rootPassword" = { };
+    "gitlab/emailPassword" = { };
     "gitlab/dbPassword" = { };
     "gitlab/secret" = { };
     "gitlab/otpSecret" = { };
@@ -29,10 +30,18 @@ withSecrets "pongo"
 
     gitlab = {
       enable = true;
-      smtp.enable = true;
+      host = "git.gopong.dev";
+      smtp = {
+        enable = true;
+        domain = "gopong.dev";
+        address = "gopong.dev";
+        username = "pongo@gopong.dev";
+        passwordFile = config.sops.secrets."gitlab/emailPassword".path;
+      };
       statePath = "/var/lib/gitlab";
       initialRootPasswordFile = config.sops.secrets."gitlab/rootPassword".path;
       databasePasswordFile = config.sops.secrets."gitlab/dbPassword".path;
+      initialRootEmail = "admin@gopong.dev";
       secrets = {
         secretFile = config.sops.secrets."gitlab/secret".path;
         otpFile = config.sops.secrets."gitlab/otpSecret".path;

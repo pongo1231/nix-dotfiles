@@ -11,6 +11,7 @@ withSecrets "pongo"
   }
   {
     "discourse/adminPassword" = { };
+    "discourse/emailPassword" = { };
     "discourse/secretKeyBase" = { };
   }
 // {
@@ -26,13 +27,11 @@ withSecrets "pongo"
     };
     secretKeyBaseFile = config.sops.secrets."discourse/secretKeyBase".path;
     database.ignorePostgresqlVersion = true;
-    mail = {
-      outgoing = {
-        serverAddress = "gopong.dev";
-        port = 25;
-        domain = "gopong.dev";
-      };
-      notificationEmailAddress = "no-reply@gopong.dev";
+    mail.outgoing = {
+      serverAddress = "gopong.dev";
+      domain = "gopong.dev";
+      username = "pongo@gopong.dev";
+      passwordFile = config.sops.secrets."discourse/emailPassword".path;
     };
   };
 }
