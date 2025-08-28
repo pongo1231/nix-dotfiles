@@ -3,9 +3,11 @@
 
   host.pongoKernel = {
     enable = true;
-    crossCompile = {
-      host = "x86_64-linux";
-      target = "aarch64-multiplatform";
-    };
+    /*
+      crossCompile = {
+        host = "x86_64-linux";
+        target = "aarch64-multiplatform";
+      };
+    */
   };
 }
