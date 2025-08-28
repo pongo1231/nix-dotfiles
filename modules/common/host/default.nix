@@ -25,7 +25,7 @@
   pongo = args;
 
   system = {
-    stateVersion = "22.05";
+    stateVersion = "25.11";
 
     rebuild.enableNg = true;
   };
