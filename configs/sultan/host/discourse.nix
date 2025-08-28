@@ -1,6 +1,7 @@
 {
   withSecrets,
   config,
+  pkgs,
   ...
 }:
 withSecrets "pongo"
