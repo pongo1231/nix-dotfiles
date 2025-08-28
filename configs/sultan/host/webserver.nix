@@ -49,6 +49,7 @@ _: {
         "vault.gopong.dev"
         "collabora.gopong.dev"
         "git.gopong.dev"
+        "paste.gopong.dev"
       ];
     };
   };
