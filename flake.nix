@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
-    nixpkgs2.follows = "nixpkgs";
+    nixpkgs2.url = "github:pongo1231/nixpkgs/8c0d8f6dad6812f9e97a0c6b53add052d9509540";
 
     flake-utils.url = "github:numtide/flake-utils";
 
@@ -26,7 +26,7 @@
     };
 
     mailserver = {
-      url = "gitlab:simple-nixos-mailserver/nixos-mailserver";
+      url = "https://gitlab.com/simple-nixos-mailserver/nixos-mailserver/-/archive/master/nixos-mailserver-master.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
