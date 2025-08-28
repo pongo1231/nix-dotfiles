@@ -48,6 +48,7 @@ _: {
         "cloud.gopong.dev"
         "vault.gopong.dev"
         "collabora.gopong.dev"
+        "git.gopong.dev"
       ];
     };
   };

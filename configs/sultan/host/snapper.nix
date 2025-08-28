@@ -8,6 +8,7 @@ _: {
           "/var/lib/nextcloud"
           "/var/lib/bitwarden_rs"
           "/var/vmail"
+          "/var/lib/gitlab"
         ];
       in
       builtins.listToAttrs (

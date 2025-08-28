@@ -6,7 +6,7 @@
 }:
 withSecrets "pongo"
   {
-    store = "sultan";
+    store = "sultan.yaml";
     owner = config.users.users.nextcloud.name;
   }
   {

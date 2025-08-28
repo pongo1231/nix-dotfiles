@@ -86,7 +86,7 @@ rec {
   withSecrets =
     user:
     {
-      store ? "default",
+      store ? "default.yaml",
       owner ? null,
       group ? null,
     }:
@@ -94,7 +94,14 @@ rec {
       sops.secrets = lib.mapAttrs' (name: value: {
         inherit name;
         value = {
-          sopsFile = ./secrets/${user}/${value.store or store}.yaml;
+          sopsFile = ./secrets/${user}/${value.store or store};
+          format =
+            if lib.hasSuffix ".yaml" store then
+              "yaml"
+            else if lib.hasSuffix ".json" store then
+              "json"
+            else
+              "binary";
         }
         // lib.optionalAttrs (owner != null) { inherit owner; }
         // lib.optionalAttrs (group != null) {

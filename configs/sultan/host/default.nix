@@ -14,6 +14,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./nextcloud.nix
     ./vaultwarden.nix
     #./discourse.nix
+    ./gitlab.nix
   ];
 
   boot.initrd.availableKernelModules = [

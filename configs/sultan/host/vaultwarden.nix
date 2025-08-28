@@ -1,8 +1,19 @@
 {
+  withSecrets,
   config,
   ...
 }:
-{
+withSecrets "pongo"
+  {
+    store = "sultan-vaultwarden.env";
+    owner = config.users.users.vaultwarden.name;
+  }
+  {
+    "vaultwarden" = {
+      key = "";
+    };
+  }
+// {
   services = {
     nginx.virtualHosts."vault.gopong.dev" = {
       forceSSL = true;
@@ -13,6 +24,7 @@
 
     vaultwarden = {
       enable = true;
+      environmentFile = config.sops.secrets."vaultwarden".path;
       config = {
         DOMAIN = "https://vault.gopong.dev";
         SIGNUPS_ALLOWED = false;

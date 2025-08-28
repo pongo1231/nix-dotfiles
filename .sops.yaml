@@ -23,3 +23,9 @@ creation_rules:
       - age:
         - *admin_pongo
         - *host_sultan
+
+  - path_regex: secrets/pongo/sultan-vaultwarden.env
+    key_groups:
+      - age:
+        - *admin_pongo
+        - *host_sultan

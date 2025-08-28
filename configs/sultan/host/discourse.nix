@@ -5,14 +5,12 @@
 }:
 withSecrets "pongo"
   {
-    store = "sultan";
+    store = "sultan.yaml";
     owner = config.users.users.discourse.name;
   }
   {
-    "discourse/adminPassword" = {
-    };
-    "discourse/secretKeyBase" = {
-    };
+    "discourse/adminPassword" = { };
+    "discourse/secretKeyBase" = { };
   }
 // {
   services.discourse = {
