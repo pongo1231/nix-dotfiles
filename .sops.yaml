@@ -18,13 +18,7 @@ creation_rules:
         - *host_rpi3b
         - *host_sultan
 
-  - path_regex: secrets/pongo/sultan.yaml
-    key_groups:
-      - age:
-        - *admin_pongo
-        - *host_sultan
-
-  - path_regex: secrets/pongo/sultan-vaultwarden.env
+  - path_regex: secrets/pongo/sultan/
     key_groups:
       - age:
         - *admin_pongo

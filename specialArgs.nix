@@ -100,6 +100,10 @@ rec {
               "yaml"
             else if lib.hasSuffix ".json" store then
               "json"
+            else if lib.hasSuffix ".ini" store then
+              "ini"
+            else if lib.hasSuffix ".env" store then
+              "dotenv"
             else
               "binary";
         }

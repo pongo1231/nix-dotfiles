@@ -6,7 +6,7 @@
 }:
 withSecrets "pongo"
   {
-    store = "sultan.yaml";
+    store = "sultan/default.yaml";
     owner = config.users.users.discourse.name;
   }
   {

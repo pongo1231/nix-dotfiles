@@ -50,6 +50,7 @@ _: {
         "collabora.gopong.dev"
         "git.gopong.dev"
         "paste.gopong.dev"
+        "pic.gopong.dev"
       ];
     };
   };

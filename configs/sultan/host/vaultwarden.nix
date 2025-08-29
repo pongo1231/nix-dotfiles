@@ -5,7 +5,7 @@
 }:
 withSecrets "pongo"
   {
-    store = "sultan-vaultwarden.env";
+    store = "sultan/vaultwarden.env";
     owner = config.users.users.vaultwarden.name;
   }
   {
