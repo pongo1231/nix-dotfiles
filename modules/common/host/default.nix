@@ -184,11 +184,6 @@
         hosts.mode = "0644";
       };
 
-    extraOutputsToInstall = [
-      "dev"
-      "info"
-    ];
-
     sessionVariables = {
       GTK_USE_PORTAL = 1;
 
