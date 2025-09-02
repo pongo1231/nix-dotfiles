@@ -17,4 +17,9 @@ config: [
   "irqaffinity=0"
   "rcutree.enable_rcu_lazy=1"
   "rcutree.nohz_full_patience_delay=1000"
+  "log_buf_len=4M"
+  "amdgpu.lockup_timeout=5000,10000,10000,5000"
+  "ttm.pages_min=2097152"
+  "amdgpu.sched_hw_submission=4"
+  "audit=0"
 ]
