@@ -65,12 +65,12 @@ in
                       in
                       {
                         inherit version;
-                        modDirVersion = "6.17.0-rc2";
+                        modDirVersion = "6.17.0-rc4";
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "3e5bfdc17896bf8728445464da017b6ce9f1126a";
-                          hash = "sha256-jZieJJYiI+m+xahjhNJiRnD0Kw8I8LJLrsVVd0M7Huw=";
+                          rev = "ef0d9f37c594b4a4694c730eea3216187956d762";
+                          hash = "sha256-fYhASJXcgSYEBtcRJDlyTV++FIOCq9CTHsjJ3ndHEws=";
                         };
                       };
 
