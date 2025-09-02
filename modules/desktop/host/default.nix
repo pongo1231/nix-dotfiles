@@ -59,10 +59,6 @@
             (prev: {
               NIX_CFLAGS_COMPILE = "-O3 -flto=thin";
 
-              patches = (prev.patches or [ ]) ++ [
-                (patch /mesa/25.0.0/gamescope-limiter.patch)
-              ];
-
               outputs = lib.filter (x: x != "spirv2dxil") prev.outputs;
             });
       in
