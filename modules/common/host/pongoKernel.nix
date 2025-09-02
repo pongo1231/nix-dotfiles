@@ -45,9 +45,9 @@ in
               {
                 kernel =
                   let
-                    stdenv = pkgs'.stdenvAdapters.overrideInStdenv pkgs'.llvmPackages_latest.stdenv [
-                      pkgs'.llvmPackages_latest.llvm
-                      pkgs'.llvmPackages_latest.lld
+                    stdenv = pkgs'.stdenvAdapters.overrideInStdenv pkgs'.llvmPackages_21.stdenv [
+                      pkgs'.llvmPackages_21.llvm
+                      pkgs'.llvmPackages_21.lld
                     ];
                   in
                   prev'.kernel.override {
@@ -76,7 +76,7 @@ in
 
                     extraMakeFlags =
                       let
-                        llvmPkgs = pkgs'.llvmPackages_latest;
+                        llvmPkgs = pkgs'.llvmPackages_21;
                       in
                       [
                         "LLVM=1"

@@ -44,7 +44,7 @@
                       prev''.makeFlags
                       ++ final.kernel.extraMakeFlags
                       ++ [
-                        "CC=${pkgs.llvmPackages_latest.stdenv.cc}/bin/clang"
+                        "CC=${pkgs.llvmPackages_21.stdenv.cc}/bin/clang"
                       ];
 
                     NIX_CFLAGS_COMPILE = "-O3 -flto=thin -march=x86-64-v3 -Wno-error=unused-command-line-argument";

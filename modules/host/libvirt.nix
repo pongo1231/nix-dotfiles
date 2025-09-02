@@ -12,9 +12,9 @@
           (pkgs.qemu.override (
             prev:
             let
-              stdenv = prev.buildPackages.llvmPackages_latest.stdenv.override {
-                cc = prev.buildPackages.llvmPackages_latest.clang.override {
-                  inherit (prev.buildPackages.llvmPackages_latest) bintools;
+              stdenv = prev.buildPackages.llvmPackages_21.stdenv.override {
+                cc = prev.buildPackages.llvmPackages_21.clang.override {
+                  inherit (prev.buildPackages.llvmPackages_21) bintools;
                 };
               };
             in
