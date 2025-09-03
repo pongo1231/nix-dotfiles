@@ -31,10 +31,8 @@
 
     settings = {
       auto-optimise-store = true;
-      trusted-users = [
-        "root"
-        "@wheel"
-      ];
+      allowed-users = [ "@users" ];
+      trusted-users = [ "@wheel" ];
       substituters = [
         "https://cache.nixos.org"
         "https://nix-community.cachix.org"

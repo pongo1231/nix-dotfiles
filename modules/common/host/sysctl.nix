@@ -8,7 +8,6 @@
   "kernel.nmi_watchdog" = 0;
   "kernel.printk" = "3 3 3 3";
   "kernel.kptr_restrict" = 2;
-  "kernel.kexec_load_disabled" = 1;
   "net.core.netdev_max_backlog" = 4096;
   "vm.watermark_boost_factor" = 0;
   "vm.watermark_scale_factor" = 200;

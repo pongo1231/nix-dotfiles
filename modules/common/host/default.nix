@@ -118,6 +118,7 @@
     dbus = {
       enable = true;
       implementation = "broker";
+      apparmor = "enabled";
     };
 
     openssh = {
@@ -142,7 +143,16 @@
     envfs.enable = true;
   };
 
-  security.rtkit.enable = true;
+  security = {
+    protectKernelImage = true;
+
+    apparmor = {
+      enable = true;
+      killUnconfinedConfinables = true;
+    };
+
+    rtkit.enable = true;
+  };
 
   virtualisation.podman.enable = true;
 

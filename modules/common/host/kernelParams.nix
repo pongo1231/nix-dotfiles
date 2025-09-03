@@ -4,10 +4,8 @@ config: [
   "loglevel=3"
   "rd.udev.log_level=3"
   "kvm.ignore_msrs=1"
-  "ec_sys.write_support=1"
   "msr.allow_writes=on"
   "cgroup_no_v1=all"
-  "mitigations=off"
   "transparent_hugepage=always"
   "transparent_hugepage_shmem=always"
   "transparent_hugepage_tmpfs=always"
@@ -21,5 +19,7 @@ config: [
   "amdgpu.lockup_timeout=5000,10000,10000,5000"
   "ttm.pages_min=2097152"
   "amdgpu.sched_hw_submission=4"
-  "audit=0"
+
+  # Hardening
+  "panic=-1"
 ]

@@ -21,6 +21,11 @@ in
       type = lib.types.nullOr lib.types.attrs;
       default = null;
     };
+
+    enableHardening = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -86,15 +91,19 @@ in
                         "LD=${llvmPkgs.lld}/bin/ld.lld"
                       ];
 
-                    structuredExtraConfig = with lib.kernel; {
-                      CC_IS_CLANG = lib.mkForce yes;
-                      LTO = lib.mkForce yes;
-                      LTO_CLANG = lib.mkForce yes;
-                      LTO_CLANG_THIN = lib.mkForce yes;
-                      LTO_CLANG_THIN_DIST = lib.mkForce yes;
-                    };
-
-                    defconfig = "defconfig LLVM=1";
+                    structuredExtraConfig =
+                      with lib.kernel;
+                      {
+                        LTO_CLANG_THIN_DIST = lib.mkForce yes;
+                      }
+                      // lib.optionalAttrs cfg.enableHardening {
+                        CFI_CLANG = lib.mkForce yes;
+                        #UBSAN = lib.mkForce yes;
+                        #UBSAN_TRAP = lib.mkForce yes;
+                        #UBSAN_BOUNDS = lib.mkForce yes;
+                        #UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
+                        #SECURITY_SAFESETID = lib.mkForce yes;
+                      };
                   };
 
                 xpadneo = prev'.xpadneo.overrideAttrs (
@@ -124,7 +133,6 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
-            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
           ''
