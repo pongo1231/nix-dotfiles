@@ -20,6 +20,7 @@
     devices.steamdeck = {
       enable = true;
       enableVendorDrivers = false;
+      enableKernelPatches = false;
     };
 
     steam = {
