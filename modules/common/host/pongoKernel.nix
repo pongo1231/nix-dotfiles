@@ -69,8 +69,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "12c81349fd1bc32c767a6fa23892d21eed83d1a0";
-                          hash = "sha256-QmSg0OF+A+Y2jeKYO1Mj6HW2PUHaum8Y/O9qWtup9ak=";
+                          rev = "9048bebbe43048ea8df1d218f0d36b3509976513";
+                          hash = "sha256-YHbDhpW0VBG5WK5JnCEdBpYBdoGuYFu1R8zRNSPLRaI=";
                         };
                       };
 
