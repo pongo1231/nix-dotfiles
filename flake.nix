@@ -51,7 +51,7 @@
     };
 
     nix = {
-      url = "github:NixOS/nix";
+      url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

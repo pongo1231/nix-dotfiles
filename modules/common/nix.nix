@@ -7,10 +7,13 @@
   lib,
   ...
 }:
-{
+lib.optionalAttrs (configInfo.type == "host") {
+  imports = [
+    inputs.nix.nixosModules.default
+  ];
+}
+// {
   nix = {
-    package = lib.mkDefault inputs.nix.packages.${system}.nix;
-
     nixPath =
       if configInfo.type != "host" then
         [ "${config.xdg.configHome}/nix/inputs" ]
@@ -23,10 +26,12 @@
     }) inputs;
 
     extraOptions = ''
-      experimental-features = nix-command flakes auto-allocate-uids cgroups
+      experimental-features = nix-command flakes auto-allocate-uids cgroups parallel-eval
       auto-allocate-uids = true
       use-cgroups = true
       keep-outputs = true
+      lazy-trees = true
+      eval-cores = 0
     '';
 
     settings = {
