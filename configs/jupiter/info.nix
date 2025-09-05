@@ -1,8 +1,5 @@
 {
   type = "graphical/plasma";
 
-  host.pongoKernel = {
-    enable = true;
-    enableHardening = false;
-  };
+  host.pongoKernel.enable = true;
 }
