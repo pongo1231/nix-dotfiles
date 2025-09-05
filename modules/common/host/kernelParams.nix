@@ -22,4 +22,6 @@ config: [
 
   # Hardening
   "panic=-1"
+  "randomize_kstack_offset=on"
+  "efi=disable_early_pci_dma"
 ]
