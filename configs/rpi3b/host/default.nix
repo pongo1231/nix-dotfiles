@@ -17,8 +17,6 @@
     };
   };
 
-  nix.package = pkgs.nixVersions.git;
-
   networking = {
     networkmanager.enable = lib.mkForce false;
     wireless.iwd.enable = true;
