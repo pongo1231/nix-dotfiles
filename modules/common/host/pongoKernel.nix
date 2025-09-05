@@ -98,11 +98,12 @@ in
                       }
                       // lib.optionalAttrs cfg.enableHardening {
                         CFI_CLANG = lib.mkForce yes;
-                        #UBSAN = lib.mkForce yes;
-                        #UBSAN_TRAP = lib.mkForce yes;
-                        #UBSAN_BOUNDS = lib.mkForce yes;
-                        #UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
-                        #SECURITY_SAFESETID = lib.mkForce yes;
+                        UBSAN = lib.mkForce yes;
+                        UBSAN_TRAP = lib.mkForce yes;
+                        UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
+                        UBSAN_SHIFT = lib.mkForce no;
+                        UBSAN_BOOL = lib.mkForce no;
+                        UBSAN_ENUM = lib.mkForce no;
                       };
                   };
 
