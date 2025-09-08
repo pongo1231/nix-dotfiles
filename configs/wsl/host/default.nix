@@ -17,8 +17,6 @@
     ];
   };
 
-  networking.useNetworkd = lib.mkForce false;
-
   systemd.oomd.enable = lib.mkForce false;
 
   wsl = {
