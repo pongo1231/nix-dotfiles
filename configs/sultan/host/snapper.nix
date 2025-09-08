@@ -12,6 +12,7 @@ _: {
           "/var/lib/gitlab"
           "/var/lib/haste-server"
           "/var/lib/picsur"
+          "/var/lib/fmd-server"
         ];
       in
       builtins.listToAttrs (

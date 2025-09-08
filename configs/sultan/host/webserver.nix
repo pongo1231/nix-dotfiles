@@ -51,6 +51,7 @@ _: {
         "git.gopong.dev"
         "paste.gopong.dev"
         "pic.gopong.dev"
+        "fmd.gopong.dev"
       ];
     };
   };

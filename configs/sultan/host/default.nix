@@ -17,6 +17,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./gitlab.nix
     ./hastebin.nix
     ./picsur.nix
+    ./findmydevice.nix
   ];
 
   boot.initrd.availableKernelModules = [

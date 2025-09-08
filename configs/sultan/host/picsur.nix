@@ -4,11 +4,15 @@
   ...
 }:
 withSecrets "pongo" { store = "sultan/picsur.env"; } {
-  "picsur" = {
-    key = "";
-  };
+  "picsur".key = "";
 }
 // {
+  services.nginx.virtualHosts."pic.gopong.dev" = {
+    forceSSL = true;
+    useACMEHost = "gopong.dev";
+    locations."/".proxyPass = "http://localhost:11098";
+  };
+
   virtualisation.oci-containers.containers = {
     picsur = {
       image = "ghcr.io/caramelfur/picsur";
@@ -31,11 +35,5 @@ withSecrets "pongo" { store = "sultan/picsur.env"; } {
         "/var/lib/picsur/postgresql:/var/lib/postgresql/data"
       ];
     };
-  };
-
-  services.nginx.virtualHosts."pic.gopong.dev" = {
-    forceSSL = true;
-    useACMEHost = "gopong.dev";
-    locations."/".proxyPass = "http://localhost:11098";
   };
 }
