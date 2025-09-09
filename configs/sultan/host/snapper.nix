@@ -13,6 +13,7 @@ _: {
           "/var/lib/haste-server"
           "/var/lib/picsur"
           "/var/lib/fmd-server"
+          "/var/lib/mollysocket"
         ];
       in
       builtins.listToAttrs (

@@ -52,6 +52,7 @@ _: {
         "paste.gopong.dev"
         "pic.gopong.dev"
         "fmd.gopong.dev"
+        "molly.gopong.dev"
       ];
     };
   };
