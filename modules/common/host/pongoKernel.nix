@@ -103,8 +103,6 @@ in
                         UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
                         UBSAN_BOOL = lib.mkForce no;
                         UBSAN_ENUM = lib.mkForce no;
-                        RANDSTRUCT = lib.mkForce yes;
-                        RANDSTRUCT_FULL = lib.mkForce yes;
                       };
                   };
 
