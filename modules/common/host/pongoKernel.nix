@@ -70,12 +70,12 @@ in
                       in
                       {
                         inherit version;
-                        modDirVersion = "6.17.0-rc4";
+                        modDirVersion = "6.17.0-rc5";
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "9048bebbe43048ea8df1d218f0d36b3509976513";
-                          hash = "sha256-YHbDhpW0VBG5WK5JnCEdBpYBdoGuYFu1R8zRNSPLRaI=";
+                          rev = "465e0411f07fe5a28365ec4cb4ea604509997422";
+                          hash = "sha256-VVwirWAy3Xm9HTJXm1qKZ3hm2mNYY39rCH7nNMICLt8=";
                         };
                       };
 
@@ -101,9 +101,10 @@ in
                         UBSAN = lib.mkForce yes;
                         UBSAN_TRAP = lib.mkForce yes;
                         UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
-                        UBSAN_SHIFT = lib.mkForce no;
                         UBSAN_BOOL = lib.mkForce no;
                         UBSAN_ENUM = lib.mkForce no;
+                        RANDSTRUCT = lib.mkForce yes;
+                        RANDSTRUCT_FULL = lib.mkForce yes;
                       };
                   };
 
@@ -134,6 +135,7 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
           ''
@@ -149,6 +151,8 @@ in
       ];
 
       kernelModules = [ "adios" ];
+
+      kernel.randstructSeed = "damnthissucks";
     };
 
     services.udev.extraRules = ''
