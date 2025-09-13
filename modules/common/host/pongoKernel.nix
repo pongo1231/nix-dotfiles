@@ -74,8 +74,8 @@ in
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "465e0411f07fe5a28365ec4cb4ea604509997422";
-                          hash = "sha256-VVwirWAy3Xm9HTJXm1qKZ3hm2mNYY39rCH7nNMICLt8=";
+                          rev = "d452e31a001c52bd8916e07d6d2bf20393c133c6";
+                          hash = "sha256-bEVTq0IkH/pqqkpVXU36ormEXXxHadyi5M3uaACKH9o=";
                         };
                       };
 
@@ -101,6 +101,7 @@ in
                         UBSAN = lib.mkForce yes;
                         UBSAN_TRAP = lib.mkForce yes;
                         UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
+                        UBSAN_SHIFT = lib.mkForce no;
                         UBSAN_BOOL = lib.mkForce no;
                         UBSAN_ENUM = lib.mkForce no;
                       };
@@ -133,7 +134,6 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
-            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
           ''
