@@ -1,4 +1,5 @@
-config: [
+config:
+[
   "quiet"
   "splash"
   "loglevel=3"
@@ -19,9 +20,16 @@ config: [
   "amdgpu.lockup_timeout=5000,10000,10000,5000"
   "ttm.pages_min=2097152"
   "amdgpu.sched_hw_submission=4"
-
-  # Hardening
-  "panic=-1"
-  "randomize_kstack_offset=on"
-  "efi=disable_early_pci_dma"
+  "split_lock_detect=off"
 ]
+++ (
+  if !config.pongo.pongoKernel.enableHardening then
+    [ ]
+  else
+    [
+      # Hardening
+      "panic=-1"
+      "randomize_kstack_offset=on"
+      "efi=disable_early_pci_dma"
+    ]
+)
