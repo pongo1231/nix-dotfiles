@@ -45,6 +45,7 @@
     kernelParams = [
       "modprobe.blacklist=nouveau"
       "kvmfr.static_size_mb=32"
+      "i915.enable_dpcd_backlight=1"
     ];
 
     extraModulePackages =
@@ -103,6 +104,13 @@
       nssmdns4 = true;
       openFirewall = true;
     };
+
+    asusd = {
+      enable = true;
+      enableUserService = true;
+    };
+
+    supergfxd.enable = true;
   };
 
   environment = {
