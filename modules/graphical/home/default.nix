@@ -18,6 +18,9 @@
       DisplayBookmarksToolbar = "newtab";
       Preferences = {
         "widget.use-xdg-desktop-portal.file-picker" = 1;
+        "browser.tabs.unloadOnLowMemory" = true;
+        "browser.low_commit_space_threshold_percent" = 100;
+        "browser.tabs.min_inactive_duration_before_unload" = 3600000;
       };
     };
   };
