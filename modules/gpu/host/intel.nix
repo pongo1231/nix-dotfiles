@@ -3,26 +3,29 @@
   ...
 }:
 {
-  boot.kernelParams = [
-    "i915.enable_guc=3"
-    "i915.enable_fbc=1"
-    "i915.enable_gvt=1"
-    "i915.enable_psr=1"
-    "i915.fastboot=1"
+  boot = {
+    kernelParams = [
+      "i915.mitigations=off"
+    ];
+
+    kernel.sysctl = {
+      "dev.i915.perf_stream_paranoid" = 0;
+    };
+  };
+
+  hardware.graphics.extraPackages = with pkgs; [
+    intel-media-driver
+    vpl-gpu-rt
+
   ];
 
-  environment.sessionVariables.LIBVA_DRIVER_NAME = "iHD";
+  environment = {
+    sessionVariables = {
+      LIBVA_DRIVER_NAME = "iHD";
+    };
 
-  hardware.graphics = {
-    extraPackages = with pkgs; [
-      intel-media-driver
-      vaapiIntel
-      libvdpau-va-gl
-    ];
-    extraPackages32 = with pkgs.pkgsi686Linux; [
-      intel-media-driver
-      vaapiIntel
-      libvdpau-va-gl
+    systemPackages = with pkgs; [
+      intel-gpu-tools
     ];
   };
 }
