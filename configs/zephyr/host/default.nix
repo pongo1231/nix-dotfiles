@@ -10,6 +10,7 @@
 {
   imports = [
     (module /cpu/intel.nix)
+    (module /gpu/intel.nix)
     (import (module /gpu/nvidia.nix) { platform = "intel"; })
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
