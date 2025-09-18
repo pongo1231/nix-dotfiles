@@ -7,12 +7,7 @@
   lib,
   ...
 }:
-lib.optionalAttrs (configInfo.type == "host") {
-  imports = [
-    inputs.nix.nixosModules.default
-  ];
-}
-// {
+{
   nix = {
     nixPath =
       if configInfo.type != "host" then
@@ -26,12 +21,10 @@ lib.optionalAttrs (configInfo.type == "host") {
     }) inputs;
 
     extraOptions = ''
-      experimental-features = nix-command flakes auto-allocate-uids cgroups parallel-eval
+      experimental-features = nix-command flakes auto-allocate-uids cgroups
       auto-allocate-uids = true
       use-cgroups = true
       keep-outputs = true
-      lazy-trees = true
-      eval-cores = 0
     '';
 
     settings = {
@@ -53,6 +46,9 @@ lib.optionalAttrs (configInfo.type == "host") {
   // lib.optionalAttrs (configInfo.type == "host") {
     daemonCPUSchedPolicy = "idle";
     daemonIOSchedClass = "idle";
+  }
+  // lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
+    package = pkgs.nixVersions.latest;
   };
 
   nixpkgs =
