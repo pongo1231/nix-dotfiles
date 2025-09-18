@@ -43,6 +43,7 @@
 
               galliumDrivers = [
                 "radeonsi"
+                "iris"
                 "virgl"
                 "zink"
                 "llvmpipe"
@@ -50,6 +51,7 @@
 
               vulkanDrivers = [
                 "amd"
+                "intel"
                 "gfxstream"
                 "swrast"
                 "virtio"

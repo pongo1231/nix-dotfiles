@@ -29,7 +29,7 @@
               settingsSha256 = "sha256-lx1WZHsW7eKFXvi03dAML6BoC5glEn63Tuiz3T867nY=";
               persistencedSha256 = "";
               patches = [
-                #(patch /nvidia/6.17/917.patch)
+
               ];
             }).overrideAttrs
               (prev': {
@@ -40,14 +40,21 @@
 
                 passthru = prev'.passthru // {
                   open = prev'.passthru.open.overrideAttrs (prev'': {
+                    patches = [
+                      (pkgs.fetchpatch {
+                        url = "https://gist.githubusercontent.com/sharkautarch/4e63bbdcb27aafb0bc755f35cf77e69a/raw/d2f7a22c21b9dce2c6da0710ffc8868c13c002df/0002-workaround-kcfi-issues.patch";
+                        hash = "sha256-PoMcu6KZcjx1F9ciaBM5VJNPD8bLsihFVruAtjXJgWI=";
+                      })
+                    ];
+
                     makeFlags =
                       prev''.makeFlags
                       ++ final.kernel.extraMakeFlags
                       ++ [
-                        "CC=${pkgs.llvmPackages_21.stdenv.cc}/bin/clang"
+                        #"CC=${pkgs.llvmPackages_20.stdenv.cc}/bin/clang"
                       ];
 
-                    NIX_CFLAGS_COMPILE = "-O3 -flto=thin -march=x86-64-v3 -Wno-error=unused-command-line-argument";
+                    NIX_CFLAGS_COMPILE = "-O3 -flto=thin -march=x86-64-v3 -fsanitize=kcfi -Wno-error=unused-command-line-argument";
                   });
                 };
               });
