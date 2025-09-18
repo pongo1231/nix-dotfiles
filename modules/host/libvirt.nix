@@ -9,7 +9,7 @@
       enable = true;
       qemu = {
         package =
-          (pkgs.qemu.override (
+          (pkgs.qemu_kvm.override (
             prev:
             let
               stdenv = prev.buildPackages.llvmPackages_21.stdenv.override {
