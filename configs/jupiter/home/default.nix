@@ -4,10 +4,6 @@
   ...
 }:
 {
-  imports = [
-    (import (module /gpu) [ "amd" ])
-  ];
-
   home = {
     file = {
       "pcsx2.sh" = {

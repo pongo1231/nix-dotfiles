@@ -13,6 +13,7 @@
     inputs.lsfg-vk.nixosModules.default
 
     (module /cpu/amd.nix)
+    (import (module /gpu) [ "amd" ])
 
     ./steam.nix
   ];
