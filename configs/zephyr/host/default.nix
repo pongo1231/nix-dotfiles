@@ -57,6 +57,8 @@
           pkg:
           pkg.overrideAttrs (prev: {
             makeFlags = prev.makeFlags ++ kernel.extraMakeFlags;
+
+            NIX_CFLAGS_COMPILE = "-O3 -flto=thin -march=x86-64-v3";
           });
       in
       [
