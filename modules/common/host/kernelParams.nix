@@ -7,6 +7,7 @@ config:
   "kvm.ignore_msrs=1"
   "msr.allow_writes=on"
   "cgroup_no_v1=all"
+  "transparent_hugepage=always"
   "transparent_hugepage_shmem=within_size"
   "transparent_hugepage_tmpfs=within_size"
   "preempt=full"
