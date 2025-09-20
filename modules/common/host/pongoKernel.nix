@@ -70,12 +70,12 @@ in
                       in
                       {
                         inherit version;
-                        modDirVersion = "6.17.0-rc5";
+                        modDirVersion = "6.17.0-rc6";
                         src = final.fetchFromGitHub {
                           owner = "pongo1231";
                           repo = "linux";
-                          rev = "d452e31a001c52bd8916e07d6d2bf20393c133c6";
-                          hash = "sha256-bEVTq0IkH/pqqkpVXU36ormEXXxHadyi5M3uaACKH9o=";
+                          rev = "d7b10f714f59a3e096b292823b300ec2956d86a7";
+                          hash = "sha256-7jXjAgk3HtAsudvr0zZroi2cuE5RigZKRU+ixcG4en0=";
                         };
                       };
 
@@ -134,6 +134,7 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
           ''
