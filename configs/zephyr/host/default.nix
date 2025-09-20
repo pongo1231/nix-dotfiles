@@ -40,14 +40,11 @@
 
     kernelModules = [
       "vfio-pci"
-      "kvmfr"
-      "ec_sys"
       "ntsync"
     ];
 
     kernelParams = [
       "modprobe.blacklist=nouveau"
-      "kvmfr.static_size_mb=32"
       #"i915.force_probe=!7d51"
       #"xe.force_probe=7d51"
       "i915.enable_dpcd_backlight=1"
