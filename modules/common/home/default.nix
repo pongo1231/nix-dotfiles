@@ -120,6 +120,9 @@
       #lazyjj
       b4
       nix-serve-ng
+      ps_mem
+      procps
+      smem
     ];
   };
 }
