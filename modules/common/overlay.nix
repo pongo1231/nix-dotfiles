@@ -41,18 +41,20 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
         '';
       });
 
-      /*virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
-        qemu = final.callPackage (pkg /qemu_7) {
-          inherit (final.darwin.apple_sdk.frameworks)
-            CoreServices
-            Cocoa
-            Hypervisor
-            vmnet
-            ;
-          inherit (final.darwin.stubs) rez setfile;
-          inherit (final.darwin) sigtool;
+      /*
+        virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
+          qemu = final.callPackage (pkg /qemu_7) {
+            inherit (final.darwin.apple_sdk.frameworks)
+              CoreServices
+              Cocoa
+              Hypervisor
+              vmnet
+              ;
+            inherit (final.darwin.stubs) rez setfile;
+            inherit (final.darwin) sigtool;
+          };
         };
-      };*/
+      */
 
       distrobox = prev.distrobox.overrideAttrs {
         version = "git";
