@@ -13,5 +13,5 @@
   "vm.watermark_scale_factor" = 200;
   "kernel.sysrq" = 1;
   "vm.compact_unevictable_allowed" = 1;
-  "vm.compaction_proactiveness" = 0;
+  "vm.compaction_proactiveness" = 20;
 }
