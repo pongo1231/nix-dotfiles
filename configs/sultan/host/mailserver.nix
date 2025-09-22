@@ -23,6 +23,9 @@ withSecrets "pongo"
     stateVersion = 3;
     fqdn = "gopong.dev";
     domains = [ "gopong.dev" ];
+    mailDirectory = "/var/lib/vmail";
+    sieveDirectory = "/var/lib/sieve";
+    certificateDirectory = "/var/lib/certs";
     loginAccounts = {
       "pongo@gopong.dev" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
