@@ -49,7 +49,15 @@
 
     kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
-    kernel.sysctl = ./sysctl.nix;
+    kernel = {
+      sysctl = ./sysctl.nix;
+
+      sysfs.module.zswap.parameters = {
+        enabled = true;
+        shrinker_enabled = true;
+        max_pool_percent = 50;
+      };
+    };
 
     initrd.systemd.enable = true;
 
@@ -59,13 +67,6 @@
       options snd_hda_intel power_save=1
       options kvm_amd avic=1 force_avic=1
     '';
-  };
-
-  zramSwap = {
-    enable = true;
-    priority = 100;
-    memoryPercent = 200;
-    algorithm = "zstd(level=1)";
   };
 
   hardware.enableRedistributableFirmware = true;
@@ -135,6 +136,8 @@
         RuntimeMaxUse=5M
       '';
     };
+
+    swapspace.enable = true;
 
     power-profiles-daemon.enable = true;
 
