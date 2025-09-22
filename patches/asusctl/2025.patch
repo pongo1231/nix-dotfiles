@@ -1,0 +1,42 @@
+---
+ rog-slash/src/data.rs | 4 ++--
+ rog-slash/src/usb.rs  | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/rog-slash/src/data.rs b/rog-slash/src/data.rs
+index 317f5c7..de89f09 100644
+--- a/rog-slash/src/data.rs
++++ b/rog-slash/src/data.rs
+@@ -24,7 +24,7 @@ impl SlashType {
+         match self {
+             SlashType::GA403 => PROD_ID1,
+             SlashType::GA605 => PROD_ID2,
+-            SlashType::GU605 => PROD_ID1,
++            SlashType::GU605 => PROD_ID2,
+             SlashType::Unsupported => 0,
+         }
+     }
+@@ -33,7 +33,7 @@ impl SlashType {
+         match self {
+             SlashType::GA403 => PROD_ID1_STR,
+             SlashType::GA605 => PROD_ID2_STR,
+-            SlashType::GU605 => PROD_ID1_STR,
++            SlashType::GU605 => PROD_ID2_STR,
+             SlashType::Unsupported => "",
+         }
+     }
+diff --git a/rog-slash/src/usb.rs b/rog-slash/src/usb.rs
+index 74183df..55fed76 100644
+--- a/rog-slash/src/usb.rs
++++ b/rog-slash/src/usb.rs
+@@ -54,7 +54,7 @@ pub const fn report_id(slash_type: SlashType) -> u8 {
+     match slash_type {
+         SlashType::GA403 => REPORT_ID_193B,
+         SlashType::GA605 => REPORT_ID_19B6,
+-        SlashType::GU605 => REPORT_ID_193B,
++        SlashType::GU605 => REPORT_ID_19B6,
+         SlashType::Unsupported => REPORT_ID_19B6,
+     }
+ }
+--
+2.50.1

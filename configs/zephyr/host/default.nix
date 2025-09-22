@@ -3,6 +3,7 @@
   inputs,
   module,
   pkg,
+  patch,
   config,
   pkgs,
   ...
@@ -112,6 +113,11 @@
     asusd = {
       enable = true;
       enableUserService = true;
+      package = pkgs.asusctl.overrideAttrs (prev: {
+        patches = (prev.patches or [ ]) ++ [
+          (patch /asusctl/2025.patch)
+        ];
+      });
     };
   };
 
