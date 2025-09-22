@@ -4,16 +4,7 @@ _: {
     configs =
       let
         subvols = [
-          "/var/lib/postgresql"
-          "/var/lib/nextcloud"
-          "/var/lib/bitwarden_rs"
-          "/var/vmail"
-          "/var/lib/discourse"
-          "/var/lib/gitlab"
-          "/var/lib/haste-server"
-          "/var/lib/picsur"
-          "/var/lib/fmd-server"
-          "/var/lib/mollysocket"
+          "/var/lib"
         ];
       in
       builtins.listToAttrs (
