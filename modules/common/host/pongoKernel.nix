@@ -39,73 +39,25 @@ in
               inputs.nixpkgs2.legacyPackages.${system}
           ).linuxPackages_testing.extend
             (
-              final': prev':
-              let
-                pkgs' =
-                  if cfg.crossCompile != null then
-                    inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}
-                  else
-                    inputs.nixpkgs2.legacyPackages.${system};
-              in
-              {
-                kernel =
-                  let
-                    stdenv = pkgs'.stdenvAdapters.overrideInStdenv pkgs'.llvmPackages_21.stdenv [
-                      pkgs'.llvmPackages_21.llvm
-                      pkgs'.llvmPackages_21.lld
-                    ];
-                  in
-                  prev'.kernel.override {
-                    buildPackages = pkgs'.buildPackages // {
-                      inherit stdenv;
+              final': prev': {
+                kernel = prev'.kernel.override {
+                  ignoreConfigErrors = true;
+
+                  argsOverride =
+                    let
+                      version = "6.17.0-git";
+                    in
+                    {
+                      inherit version;
+                      modDirVersion = "6.17.0-rc7";
+                      src = final.fetchFromGitHub {
+                        owner = "pongo1231";
+                        repo = "linux";
+                        rev = "1009b70198a9860173364e0f908a0a9671c9b0ac";
+                        hash = "sha256-Dp5XG5NWxAGp1zQi/praoYuQp3UqKb3X+x7ZwLPdcAs=";
+                      };
                     };
-
-                    inherit stdenv;
-
-                    ignoreConfigErrors = true;
-
-                    argsOverride =
-                      let
-                        version = "6.17.0-git";
-                      in
-                      {
-                        inherit version;
-                        modDirVersion = "6.17.0-rc7";
-                        src = final.fetchFromGitHub {
-                          owner = "pongo1231";
-                          repo = "linux";
-                          rev = "1009b70198a9860173364e0f908a0a9671c9b0ac";
-                          hash = "sha256-Dp5XG5NWxAGp1zQi/praoYuQp3UqKb3X+x7ZwLPdcAs=";
-                        };
-                      };
-
-                    extraMakeFlags =
-                      let
-                        llvmPkgs = pkgs'.llvmPackages_21;
-                      in
-                      [
-                        "LLVM=1"
-                        "CC=${llvmPkgs.clang-unwrapped}/bin/clang"
-                        "AR=${llvmPkgs.llvm}/bin/llvm-ar"
-                        "NM=${llvmPkgs.llvm}/bin/llvm-nm"
-                        "LD=${llvmPkgs.lld}/bin/ld.lld"
-                      ];
-
-                    structuredExtraConfig =
-                      with lib.kernel;
-                      {
-                        LTO_CLANG_THIN_DIST = lib.mkForce yes;
-                      }
-                      // lib.optionalAttrs cfg.enableHardening {
-                        CFI_CLANG = lib.mkForce yes;
-                        UBSAN = lib.mkForce yes;
-                        UBSAN_TRAP = lib.mkForce yes;
-                        UBSAN_LOCAL_BOUNDS = lib.mkForce yes;
-                        UBSAN_SHIFT = lib.mkForce no;
-                        UBSAN_BOOL = lib.mkForce no;
-                        UBSAN_ENUM = lib.mkForce no;
-                      };
-                  };
+                };
 
                 xpadneo = prev'.xpadneo.overrideAttrs (
                   final'': prev'': {
@@ -115,8 +67,6 @@ in
                       rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
                       hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
                     };
-
-                    makeFlags = prev''.makeFlags ++ final'.kernel.extraMakeFlags;
 
                     patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
                   }
@@ -149,8 +99,6 @@ in
       ];
 
       kernelModules = [ "adios" ];
-
-      kernel.randstructSeed = "damnthissucks";
     };
 
     services.udev.extraRules = ''

@@ -51,7 +51,7 @@
 
                     makeFlags = prev''.makeFlags ++ final.kernel.extraMakeFlags;
 
-                    NIX_CFLAGS_COMPILE = "-Wno-error=unused-command-line-argument";
+                    #NIX_CFLAGS_COMPILE = "-Wno-error=unused-command-line-argument";
                   });
                 };
               });

@@ -32,7 +32,7 @@
             inherit version src;
 
             makeFlags = kernel.extraMakeFlags ++ [
-              "CC=${pkgs.llvmPackages_21.stdenv.cc}/bin/clang"
+              #"CC=${pkgs.llvmPackages_21.stdenv.cc}/bin/clang"
               "-C userspace"
             ];
 
