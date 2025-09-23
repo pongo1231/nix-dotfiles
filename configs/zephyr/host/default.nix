@@ -46,9 +46,9 @@
 
     kernelParams = [
       "modprobe.blacklist=nouveau"
-      #"i915.force_probe=!7d51"
-      #"xe.force_probe=7d51"
-      "i915.enable_dpcd_backlight=1"
+      "i915.force_probe=!7d51"
+      "xe.force_probe=7d51"
+      "xe.enable_dpcd_backlight=1"
     ];
 
     extraModulePackages =
