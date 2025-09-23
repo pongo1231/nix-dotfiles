@@ -49,14 +49,9 @@
                       ];
                     */
 
-                    makeFlags =
-                      prev''.makeFlags
-                      ++ final.kernel.extraMakeFlags
-                      ++ [
-                        #"CC=${pkgs.llvmPackages_21.stdenv.cc}/bin/clang"
-                      ];
+                    makeFlags = prev''.makeFlags ++ final.kernel.extraMakeFlags;
 
-                    NIX_CFLAGS_COMPILE = "-O3 -flto=thin -march=x86-64-v3 -Wno-error=unused-command-line-argument";
+                    NIX_CFLAGS_COMPILE = "-Wno-error=unused-command-line-argument";
                   });
                 };
               });
