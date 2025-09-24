@@ -19,6 +19,7 @@ config:
   "ttm.pages_min=2097152"
   "amdgpu.sched_hw_submission=4"
   "split_lock_detect=off"
+  "panic=-1"
 ]
 ++ (
   if !config.pongo.pongoKernel.enableHardening then
@@ -26,7 +27,6 @@ config:
   else
     [
       # Hardening
-      "panic=-1"
       "randomize_kstack_offset=on"
       "efi=disable_early_pci_dma"
     ]
