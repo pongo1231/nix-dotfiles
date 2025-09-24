@@ -120,7 +120,12 @@
   };
 
   environment = {
-    sessionVariables.MESA_VK_DEVICE_SELECT = "8086:7d51!";
+    sessionVariables = {
+      MESA_VK_DEVICE_SELECT = "8086:7d51!";
+      KWIN_DRM_ALLOW_INTEL_COLORSPACE = 1;
+      KWIN_DRM_ALLOW_NVIDIA_COLORSPACE = 1;
+      KWIN_FORCE_ASSUME_HDR_SUPPORT = 1;
+    };
 
     systemPackages = with pkgs; [
       virtiofsd
