@@ -35,7 +35,8 @@
       grub.enable = lib.mkDefault false;
       systemd-boot = {
         enable = true;
-        configurationLimit = 10;
+        editor = false;
+        consoleMode = "max";
       };
       efi.canTouchEfiVariables = true;
       timeout = lib.mkForce 0;
