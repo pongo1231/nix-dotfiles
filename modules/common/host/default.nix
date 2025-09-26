@@ -131,13 +131,6 @@
       };
     };
 
-    journald = {
-      storage = "volatile";
-      extraConfig = ''
-        RuntimeMaxUse=5M
-      '';
-    };
-
     swapspace.enable = true;
 
     power-profiles-daemon.enable = true;
