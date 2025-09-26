@@ -37,6 +37,14 @@
         "sd_mod"
         "rtsx_pci_sdmmc"
       ];
+
+      prepend = [
+        "${./ssdt-sound.cpio}"
+      ];
+    };
+
+    loader.systemd-boot = {
+      extraFiles."EFI/acpi/ssdt-sound.cpio" = ./ssdt-sound.cpio;
     };
 
     kernelModules = [
