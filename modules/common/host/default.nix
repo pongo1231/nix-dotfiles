@@ -69,7 +69,7 @@
     '';
   };
 
-  hardware.enableRedistributableFirmware = true;
+  hardware.enableAllFirmware = true;
 
   networking = {
     inherit hostName;
