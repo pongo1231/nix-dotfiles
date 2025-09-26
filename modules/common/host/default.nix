@@ -138,6 +138,16 @@
     fstrim.enable = true;
 
     envfs.enable = true;
+
+    udisks2.settings."udisks2.conf".defaults = {
+      btrfs_defaults = "noatime,compress-force=zstd:1";
+      ext4_defaults = "noatime";
+      xfs_defaults = "noatime";
+      f2fs_defaults = "noatime";
+      vfat_defaults = "noatime";
+      exfat_defaults = "noatime";
+      ntfs3_defaults = "noatime";
+    };
   };
 
   security = {
