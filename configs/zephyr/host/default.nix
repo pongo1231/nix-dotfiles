@@ -43,10 +43,6 @@
       ];
     };
 
-    loader.systemd-boot = {
-      extraFiles."EFI/acpi/ssdt-sound.cpio" = ./ssdt-sound.cpio;
-    };
-
     kernelModules = [
       "vfio-pci"
       "ntsync"
