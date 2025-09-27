@@ -140,13 +140,13 @@
     envfs.enable = true;
 
     udisks2.settings."udisks2.conf".defaults = {
-      btrfs_defaults = "noatime,compress-force=zstd:1";
-      ext4_defaults = "noatime";
-      xfs_defaults = "noatime";
-      f2fs_defaults = "noatime";
-      vfat_defaults = "noatime";
-      exfat_defaults = "noatime";
-      ntfs3_defaults = "noatime";
+      btrfs_defaults = "noatime,lazytime,compress-force=zstd:1";
+      ext4_defaults = "noatime,lazytime";
+      xfs_defaults = "noatime,lazytime";
+      f2fs_defaults = "noatime,lazytime";
+      vfat_defaults = "noatime,lazytime";
+      exfat_defaults = "noatime,lazytime";
+      ntfs3_defaults = "noatime,lazytime";
     };
   };
 

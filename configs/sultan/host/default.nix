@@ -35,6 +35,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
       fsType = "btrfs";
       options = [
         "noatime"
+        "lazytime"
         "compress-force=zstd:1"
       ];
     };
@@ -42,7 +43,10 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     "/boot" = {
       device = "/dev/sda1";
       fsType = "vfat";
-      options = [ "noatime" ];
+      options = [
+        "noatime"
+        "lazytime"
+      ];
     };
   };
 

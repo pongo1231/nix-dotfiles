@@ -69,15 +69,19 @@
       device = "/dev/mapper/root";
       fsType = "btrfs";
       options = [
-        "compress-force=zstd:1"
         "noatime"
+        "lazytime"
+        "compress-force=zstd:1"
       ];
     };
 
     "/boot" = {
       device = "/dev/nvme0n1p1";
       fsType = "vfat";
-      options = [ "noatime" ];
+      options = [
+        "noatime"
+        "lazytime"
+      ];
     };
   };
 

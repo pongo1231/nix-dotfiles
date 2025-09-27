@@ -7,7 +7,10 @@
   fileSystems."/" = {
     device = "/dev/mmcblk0p2";
     fsType = "ext4";
-    options = [ "noatime" ];
+    options = [
+      "noatime"
+      "lazytime"
+    ];
   };
 
   boot = {

@@ -33,6 +33,7 @@
     fsType = "btrfs";
     options = [
       "noatime"
+      "lazytime"
       "compress-force=zstd:1"
     ];
   };
