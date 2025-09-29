@@ -125,6 +125,8 @@
         ];
       });
     };
+
+    supergfxd.enable = false;
   };
 
   environment = {
