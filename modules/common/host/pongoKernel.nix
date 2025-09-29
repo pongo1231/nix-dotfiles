@@ -45,16 +45,16 @@ in
 
                   argsOverride =
                     let
-                      version = "6.17.0-git";
+                      version = "6.17.0";
                     in
                     {
                       inherit version;
-                      modDirVersion = "6.17.0-rc7";
+                      modDirVersion = "6.17.0";
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "d2c8d00d9df9293e2e5a65773494f355b8792d08";
-                        hash = "sha256-9JpJlAbGIlsceEmIbbiuW8RmH0lhfV9CzPR0gqJ9CYo=";
+                        rev = "e0ae253c25b4a331dd9c3ca02d458766c25c2c87";
+                        hash = "sha256-c7b4wBuTxaH+tgEaLYOfFhV2VvwtKnhG2IBfy6gkkVA=";
                       };
                     };
                 };
