@@ -38,7 +38,7 @@
     bc
     (pkgs.writeScriptBin "zswapstatus" ''
       #!${pkgs.stdenv.shell}
-      sudo ${./zswapstatus.sh}
+      sudo sh ${./zswapstatus.sh}
     '')
   ];
 }
