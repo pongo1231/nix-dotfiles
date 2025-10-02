@@ -20,14 +20,8 @@ config:
   "amdgpu.sched_hw_submission=4"
   "split_lock_detect=off"
   "panic=-1"
+
+  # Hardening
+  "randomize_kstack_offset=on"
+  "efi=disable_early_pci_dma"
 ]
-++ (
-  if !config.pongo.pongoKernel.enableHardening then
-    [ ]
-  else
-    [
-      # Hardening
-      "randomize_kstack_offset=on"
-      "efi=disable_early_pci_dma"
-    ]
-)
