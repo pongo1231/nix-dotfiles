@@ -43,7 +43,7 @@ let
           configs.${hostName} = { };
         })
       ]
-      ++ lib.optionals (type != null) (specialArgs.modules /${type} { includeAllModulesInPath = true; })
+      ++ lib.optionals (type != null) (specialArgs.modules /${type})
       ++ lib.optionals (config != null) [ config ];
     };
 in

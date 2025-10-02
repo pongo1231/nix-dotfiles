@@ -12,9 +12,6 @@ rec {
 
   modules =
     file:
-    {
-      includeAllModulesInPath ? false,
-    }:
     let
       fileStr = builtins.toString file;
       splitFile = lib.splitString "/" fileStr;
@@ -48,11 +45,7 @@ rec {
                     acc''
                     ++ lib.optionals (builtins.pathExists ./${x''}) [ x'' ]
                     ++ lib.optionals (
-                      (
-                        ((!includeAllModulesInPath) && (x == splitLen - 1 && (!splitLastIsNixFile)))
-                        || (includeAllModulesInPath && (x != splitLen - 1 || (!splitLastIsNixFile)))
-                      )
-                      && builtins.pathExists ./${x''}/default.nix
+                      (x != splitLen - 1 || !splitLastIsNixFile) && builtins.pathExists ./${x''}/default.nix
                     ) [ "${x''}/default.nix" ]
                   ) [ ] paths
               )
@@ -67,13 +60,13 @@ rec {
   module =
     file:
     let
-      foundModules = modules file { };
+      foundModules = modules file;
       foundModulesLen = builtins.length foundModules;
     in
     if foundModulesLen == 1 then
       builtins.elemAt foundModules 0
     else
-      builtins.assertMsg (
+      abort (
         if foundModulesLen == 0 then
           "Module \"${file}\" not found"
         else
