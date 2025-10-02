@@ -127,6 +127,8 @@
     };
 
     supergfxd.enable = false;
+
+    howdy.enable = true;
   };
 
   environment = {
