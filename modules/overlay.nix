@@ -57,12 +57,12 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       */
 
       distrobox = prev.distrobox.overrideAttrs {
-        version = "git";
+        version = "1.9-git";
         src = final.fetchFromGitHub {
           owner = "89luca89";
           repo = "distrobox";
-          rev = "9e9192409af3d442884d676db7c5214b34f1afdc";
-          hash = "sha256-1VPTybGtP3EqrNFZthJM8nwHRHpUfL29/lwJIBNZ/U8=";
+          rev = "d753b355a6df44659f3fab971ababa4d6465079f";
+          hash = "sha256-SzPfUfbAqhidN8rj2InD4np6O/ogoqVlAA5RAN8ASGY=";
         };
       };
 
