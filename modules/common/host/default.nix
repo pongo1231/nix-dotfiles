@@ -12,8 +12,6 @@
 }:
 {
   imports = [
-    inputs.run0-sudo-shim.nixosModules.default
-
     (module /nix.nix)
     (module /overlay.nix)
     (module /sops.nix)
@@ -168,8 +166,6 @@
     };
 
     rtkit.enable = true;
-
-    run0-sudo-shim.enable = true;
   };
 
   virtualisation.podman.enable = true;
