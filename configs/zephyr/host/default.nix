@@ -10,8 +10,8 @@
 }:
 {
   imports = [
-	inputs.run0-sudo-shim.nixosModules.default
-  
+    inputs.run0-sudo-shim.nixosModules.default
+
     (module /cpu/intel.nix)
     (import (module /gpu) [
       "intel"

@@ -1,5 +1,4 @@
-config:
-[
+config: [
   "quiet"
   "splash"
   "loglevel=3"
