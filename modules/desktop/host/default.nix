@@ -32,6 +32,8 @@
     seatd.enable = true;
 
     fwupd.enable = true;
+
+    tuned.enable = true;
   };
 
   virtualisation.waydroid.enable = true;

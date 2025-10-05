@@ -140,8 +140,6 @@
 
     swapspace.enable = true;
 
-    tuned.enable = true;
-
     fstrim.enable = true;
 
     envfs.enable = true;
