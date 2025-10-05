@@ -140,7 +140,10 @@
 
     swapspace.enable = true;
 
-    power-profiles-daemon.enable = true;
+    tuned = {
+      enable = true;
+      settings.dynamic_tuning = true;
+    };
 
     fstrim.enable = true;
 
