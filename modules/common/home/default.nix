@@ -93,10 +93,7 @@
       file
       gdu
       e2fsprogs
-      nix-du
-      graphviz
       nix-tree
-      borgbackup
       gptfdisk
       iotop
       micro
@@ -104,7 +101,6 @@
       pstree
       nvd
       manix
-      nixd
       deadnix
       nixos-generators
       nix-melt
@@ -116,8 +112,6 @@
       nix-output-monitor
       reptyr
       inputs.nix-alien.packages.${system}.nix-alien
-      jj
-      #lazyjj
       b4
       nix-serve-ng
       ps_mem
