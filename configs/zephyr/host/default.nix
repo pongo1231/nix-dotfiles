@@ -10,8 +10,6 @@
 }:
 {
   imports = [
-    inputs.run0-sudo-shim.nixosModules.default
-
     (module /cpu/intel.nix)
     (import (module /gpu) [
       "intel"
@@ -97,8 +95,6 @@
   };
 
   hardware.cpu.intel.updateMicrocode = config.hardware.enableRedistributableFirmware;
-
-  security.run0-sudo-shim.enable = true;
 
   services = {
     udev.extraRules = ''
