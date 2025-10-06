@@ -33,7 +33,7 @@
 
     fwupd.enable = true;
 
-    tuned.enable = true;
+    power-profiles-daemon.enable = true;
   };
 
   virtualisation.waydroid.enable = true;
