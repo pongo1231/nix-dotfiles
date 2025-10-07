@@ -6,6 +6,7 @@
   boot = {
     kernelParams = [
       "i915.mitigations=off"
+      "xe.mitigations=off"
     ];
 
     kernel.sysctl = {
