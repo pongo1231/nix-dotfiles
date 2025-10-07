@@ -86,6 +86,8 @@ in
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
+            CACHY n
+            ZRAM_MEMORY_TRACKING y
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
