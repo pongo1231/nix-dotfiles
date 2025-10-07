@@ -41,6 +41,11 @@ in
             (
               final': prev': {
                 kernel = prev'.kernel.override {
+                  buildPackages = pkgs.buildPackages // {
+                    stdenv = pkgs.gcc15Stdenv;
+                  };
+                  stdenv = pkgs.gcc15Stdenv;
+
                   ignoreConfigErrors = true;
 
                   argsOverride =
