@@ -53,6 +53,7 @@
       #"i915.force_probe=!7d51"
       #"xe.force_probe=7d51"
       "i915.enable_dpcd_backlight=1"
+      "irqaffinity=14,15"
     ];
 
     extraModulePackages =
