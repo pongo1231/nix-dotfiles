@@ -14,9 +14,6 @@ config: [
   "rcu_nocbs=0-N"
   "rcutree.enable_rcu_lazy=1"
   "log_buf_len=4M"
-  "amdgpu.lockup_timeout=5000,10000,10000,5000"
-  "ttm.pages_min=2097152"
-  "amdgpu.sched_hw_submission=4"
   "split_lock_detect=off"
   "panic=-1"
 
