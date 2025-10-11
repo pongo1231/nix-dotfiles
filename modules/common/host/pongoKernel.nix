@@ -50,7 +50,7 @@ in
 
                   argsOverride =
                     let
-                      version = "6.17.0";
+                      version = "6.18-git";
                     in
                     {
                       inherit version;
@@ -58,8 +58,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "f1ab0a8dbc1a370168792623d4bbb110f15161e0";
-                        hash = "sha256-24BoX3cJGCsS8UlBFE3jVIQMf+8KyDAxWVmDTPjt6+E=";
+                        rev = "31ffa68ba3a1615fc457691c1791363d0def8932";
+                        hash = "sha256-s5zst+37VKmuG6sb8qfbe4mp4FnhtzCrWL11/OT9bHk=";
                       };
                     };
                 };

@@ -40,14 +40,9 @@
 
                 passthru = prev'.passthru // {
                   open = prev'.passthru.open.overrideAttrs (prev'': {
-                    /*
-                      patches = [
-                        (pkgs.fetchpatch {
-                          url = "https://gist.githubusercontent.com/sharkautarch/4e63bbdcb27aafb0bc755f35cf77e69a/raw/d2f7a22c21b9dce2c6da0710ffc8868c13c002df/0002-workaround-kcfi-issues.patch";
-                          hash = "sha256-PoMcu6KZcjx1F9ciaBM5VJNPD8bLsihFVruAtjXJgWI=";
-                        })
-                      ];
-                    */
+                    patches = [
+                      (patch /nvidia/6.18/fix-6.18-build.patch)
+                    ];
 
                     makeFlags = prev''.makeFlags ++ final.kernel.extraMakeFlags;
 
