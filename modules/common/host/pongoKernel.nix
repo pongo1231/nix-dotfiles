@@ -46,7 +46,7 @@ in
                   };
                   stdenv = pkgs.gcc15Stdenv;
 
-                  ignoreConfigErrors = true;
+                  #ignoreConfigErrors = true;
 
                   argsOverride =
                     let
@@ -58,8 +58,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "7591a1b5ca1a89f3f772a6bc5e321fdca45114f5";
-                        hash = "sha256-qbccRKO9rdKlPnBWyMIC7eyurwyRqSnwJPoeKZfCc0Q=";
+                        rev = "f1ab0a8dbc1a370168792623d4bbb110f15161e0";
+                        hash = "sha256-24BoX3cJGCsS8UlBFE3jVIQMf+8KyDAxWVmDTPjt6+E=";
                       };
                     };
                 };
@@ -91,8 +91,8 @@ in
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
-            CACHY n
             ZRAM_MEMORY_TRACKING y
+            TCG_TPM2_HMAC n
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
