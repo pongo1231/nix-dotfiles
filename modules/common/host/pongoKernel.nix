@@ -54,12 +54,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "6.17.0";
+                      modDirVersion = "6.18.0-rc1";
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "31ffa68ba3a1615fc457691c1791363d0def8932";
-                        hash = "sha256-s5zst+37VKmuG6sb8qfbe4mp4FnhtzCrWL11/OT9bHk=";
+                        rev = "440f09b7965905843483ef6443db634c2b95d7ac";
+                        hash = "sha256-nl3TTBSL1OVu+GAbLftnZx0MMU/A5z5MhZxQY2eybjI=";
                       };
                     };
                 };
@@ -108,8 +108,8 @@ in
       kernelModules = [ "adios" ];
     };
 
-    services.udev.extraRules = ''
+    /*services.udev.extraRules = ''
       ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]|sd[a-z]*|mmcblk[0-9]*", ATTR{queue/scheduler}="adios"
-    '';
+    '';*/
   };
 }
