@@ -6,6 +6,10 @@
   ...
 }:
 {
+  imports = [
+    ./mesa_git.nix
+  ];
+
   boot = {
     extraModulePackages = with config.boot.kernelPackages; [ ];
 
@@ -13,7 +17,10 @@
   };
 
   hardware = {
-    graphics.enable = true;
+    graphics = {
+      enable = true;
+      enable32Bit = true;
+    };
 
     xpadneo.enable = true;
   };
