@@ -8,6 +8,17 @@
     libvirtd = {
       enable = true;
       qemu = {
+        package =
+          (pkgs.qemu_kvm.override {
+            buildPackages = pkgs.buildPackages // {
+              stdenv = pkgs.gcc15Stdenv;
+            };
+            stdenv = pkgs.gcc15Stdenv;
+          }).overrideAttrs
+            {
+              NIX_CFLAGS_COMPILE = "-O3 -march=x86-64-v3";
+            };
+
         verbatimConfig = ''
           cgroup_device_acl = [
             "/dev/null", "/dev/full", "/dev/zero",
