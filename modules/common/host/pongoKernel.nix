@@ -58,8 +58,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "c53c109e79d328bd72e813f22f5690c06ac58ab3";
-                        hash = "sha256-77qRCp+jlIV3Qj+0sACg3gc2yiA26wpetWBzQSgVTnE=";
+                        rev = "fca62d871c2195d213babf7613a148cf6b91420e";
+                        hash = "sha256-johYxhFymspi/WWsx9JFB7Hseo2oJ/daLkcyNjUvOVk=";
                       };
                     };
                 };
@@ -93,6 +93,7 @@ in
             PREEMPT_DYNAMIC y
             ZRAM_MEMORY_TRACKING y
             TCG_TPM2_HMAC n
+            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
@@ -108,10 +109,8 @@ in
       kernelModules = [ "adios" ];
     };
 
-    /*
-      services.udev.extraRules = ''
-        ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]|sd[a-z]*|mmcblk[0-9]*", ATTR{queue/scheduler}="adios"
-      '';
-    */
+    services.udev.extraRules = ''
+      ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]|sd[a-z]*|mmcblk[0-9]*", ATTR{queue/scheduler}="adios"
+    '';
   };
 }
