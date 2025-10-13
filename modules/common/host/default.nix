@@ -51,7 +51,7 @@
     kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
 
     kernel = {
-      sysctl = ./sysctl.nix;
+      sysctl = import ./sysctl.nix config;
 
       sysfs.module.zswap.parameters = {
         enabled = true;
