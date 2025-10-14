@@ -16,7 +16,7 @@
             stdenv = pkgs.gcc15Stdenv;
           }).overrideAttrs
             {
-              NIX_CFLAGS_COMPILE = "-O3 -march=x86-64-v3";
+              NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
             };
 
         verbatimConfig = ''
