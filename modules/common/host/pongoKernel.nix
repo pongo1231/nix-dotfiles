@@ -46,7 +46,7 @@ in
                   };
                   stdenv = pkgs.gcc15Stdenv;
 
-                  #ignoreConfigErrors = true;
+                  ignoreConfigErrors = true;
 
                   argsOverride =
                     let

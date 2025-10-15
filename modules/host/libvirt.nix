@@ -28,11 +28,6 @@
           ]
         '';
 
-        ovmf = {
-          enable = true;
-          packages = [ pkgs.OVMFFull.fd ];
-        };
-
         swtpm.enable = true;
 
         vhostUserPackages = [ pkgs.virtiofsd ];

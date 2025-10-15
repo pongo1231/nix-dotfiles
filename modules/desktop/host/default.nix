@@ -51,7 +51,7 @@
   };
 
   environment.systemPackages = with pkgs; [
-    systemdgenie
+    #systemdgenie
     waypipe
   ];
 }
