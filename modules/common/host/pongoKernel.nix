@@ -58,8 +58,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "e23e44e3e6317ece57431a2741ad93c98798a832";
-                        hash = "sha256-d0tsjgaaYmKKpOM56MjTt2dHILVRO4hfaGD3HmxvNbQ=";
+                        rev = "d4e5a3f494de4b48cdd32e6148601939d94e3ab5";
+                        hash = "sha256-SZbjx2ETj8FN5bpiOu2pFja4w2d4FtErfo82ic99k9A=";
                       };
                     };
                 };
@@ -92,7 +92,6 @@ in
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
             ZRAM_MEMORY_TRACKING y
-            TCG_TPM2_HMAC n
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
