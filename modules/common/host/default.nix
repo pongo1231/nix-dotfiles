@@ -48,7 +48,7 @@
       tmpfsHugeMemoryPages = "within_size";
     };
 
-    kernelPackages = lib.mkDefault pkgs.linuxPackages_latest;
+    kernelPackages = lib.mkDefault pkgs.linuxPackages_testing;
 
     kernel = {
       sysctl = import ./sysctl.nix config;
