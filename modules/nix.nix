@@ -20,6 +20,8 @@
       value.flake = flake;
     }) inputs;
 
+    package = lib.mkForce pkgs.lixPackageSets.git.lix;
+
     extraOptions = ''
       experimental-features = nix-command flakes auto-allocate-uids cgroups
       auto-allocate-uids = true
