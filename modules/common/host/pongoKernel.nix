@@ -46,7 +46,7 @@ in
                   };
                   stdenv = pkgs.gcc15Stdenv;
 
-                  ignoreConfigErrors = true;
+                  #ignoreConfigErrors = true;
 
                   argsOverride =
                     let
@@ -58,8 +58,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "d4e5a3f494de4b48cdd32e6148601939d94e3ab5";
-                        hash = "sha256-SZbjx2ETj8FN5bpiOu2pFja4w2d4FtErfo82ic99k9A=";
+                        rev = "55aa6a8eb2ff739e31194bc82444eb6d48b06052";
+                        hash = "sha256-Bro5tUbQGXmm6dnQSbmnMLOTbQmNCj9a7vgHbeyfGu4=";
                       };
                     };
                 };
