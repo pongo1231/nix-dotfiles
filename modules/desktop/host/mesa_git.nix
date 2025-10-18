@@ -36,5 +36,7 @@
       })
     ];
 
+  chaotic.mesa-git.extraPackages = with pkgs; [ intel-media-driver ];
+
   chaotic.mesa-git.enable = true;
 }
