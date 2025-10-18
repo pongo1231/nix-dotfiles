@@ -3,7 +3,7 @@
 
   host = {
     pongoKernel = {
-      #enable = true;
+      enable = true;
       /*
         crossCompile = {
           host = "x86_64-linux";
