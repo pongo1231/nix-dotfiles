@@ -22,7 +22,7 @@ in
       default = null;
     };
 
-    enableHardening = lib.mkOption {
+    enableBORE = lib.mkOption {
       type = lib.types.bool;
       default = false;
     };
@@ -107,6 +107,8 @@ in
       kernelParams = [ "vmscape=on" ];
 
       kernelModules = [ "adios" ];
+
+      kernel.sysctl."kernel.sched_bore" = cfg.enableBORE;
     };
 
     services.udev.extraRules = ''
