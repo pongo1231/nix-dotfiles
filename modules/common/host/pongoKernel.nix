@@ -46,7 +46,7 @@ in
                   };
                   stdenv = pkgs.gcc15Stdenv;
 
-                  #ignoreConfigErrors = true;
+                  ignoreConfigErrors = true;
 
                   argsOverride =
                     let
@@ -58,8 +58,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "55aa6a8eb2ff739e31194bc82444eb6d48b06052";
-                        hash = "sha256-Bro5tUbQGXmm6dnQSbmnMLOTbQmNCj9a7vgHbeyfGu4=";
+                        rev = "40b167e8c1da85a0a5353500e5a4cfebfde65e68";
+                        hash = "sha256-14iWmtBrjVOEAxmCaMOf9Jc6h4PzNJ2T9MVMQ/QAKTk=";
                       };
                     };
                 };
@@ -103,6 +103,14 @@ in
           '';
         }
       ];
+
+      kernelParams = [ "vmscape=on" ];
+
+      kernelModules = [ "adios" ];
     };
+
+    services.udev.extraRules = ''
+      ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]|sd[a-z]*|mmcblk[0-9]*", ATTR{queue/scheduler}="adios"
+    '';
   };
 }

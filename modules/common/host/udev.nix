@@ -5,7 +5,8 @@
 ''
   # auto enable runtime pm for all pci devices
   SUBSYSTEM=="pci", ATTR{power/control}="auto"
-
+''
++ lib.optionalString (!config.pongo.pongoKernel.enable) ''
   # BFQ is recommended for slow storage such as rotational block devices and SD cards.
   ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
   ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="mmcblk?", ATTR{queue/scheduler}="bfq"
