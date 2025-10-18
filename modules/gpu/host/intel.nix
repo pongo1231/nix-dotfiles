@@ -15,10 +15,7 @@
   };
 
   hardware = {
-    graphics.extraPackages = with pkgs; [
-      intel-media-driver
-      vpl-gpu-rt
-    ];
+    graphics.extraPackages = with pkgs; [ intel-media-driver ];
 
     intel-gpu-tools.enable = true;
   };
