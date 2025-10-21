@@ -37,7 +37,7 @@ withSecrets "pongo"
 
     nextcloud = {
       enable = true;
-      package = pkgs.nextcloud31;
+      package = pkgs.nextcloud32;
       hostName = "cloud.gopong.dev";
       https = true;
       config = {
