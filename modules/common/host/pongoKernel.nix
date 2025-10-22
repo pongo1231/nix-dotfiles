@@ -39,12 +39,16 @@ in
               inputs.nixpkgs2.legacyPackages.${system}
           ).linuxPackages_testing.extend
             (
-              final': prev': {
+              final': prev':
+              let
+                pkgs' = inputs.nixpkgs2.legacyPackages.${system};
+              in
+              {
                 kernel = prev'.kernel.override {
-                  buildPackages = pkgs.buildPackages // {
-                    stdenv = pkgs.gcc15Stdenv;
+                  buildPackages = pkgs'.buildPackages // {
+                    stdenv = pkgs'.gcc15Stdenv;
                   };
-                  stdenv = pkgs.gcc15Stdenv;
+                  stdenv = pkgs'.gcc15Stdenv;
 
                   ignoreConfigErrors = true;
 
