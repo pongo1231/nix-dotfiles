@@ -3,7 +3,7 @@
   config,
   ...
 }:
-withSecrets "pongo" { store = "sultan/mollysocket.env"; } {
+withSecrets "pongo" { store = "gopong/mollysocket.env"; } {
   "mollysocket".key = "";
 }
 // {

@@ -3,7 +3,7 @@
   config,
   ...
 }:
-withSecrets "pongo" { store = "sultan/findmydevice.env"; } {
+withSecrets "pongo" { store = "gopong/findmydevice.env"; } {
   "findmydevice".key = "";
 }
 // {

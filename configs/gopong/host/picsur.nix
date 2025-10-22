@@ -3,7 +3,7 @@
   config,
   ...
 }:
-withSecrets "pongo" { store = "sultan/picsur.env"; } {
+withSecrets "pongo" { store = "gopong/picsur.env"; } {
   "picsur".key = "";
 }
 // {

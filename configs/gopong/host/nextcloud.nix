@@ -6,7 +6,7 @@
 }:
 withSecrets "pongo"
   {
-    store = "sultan/default.yaml";
+    store = "gopong/default.yaml";
     owner = config.users.users.nextcloud.name;
   }
   {
