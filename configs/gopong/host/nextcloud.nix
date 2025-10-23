@@ -24,7 +24,7 @@ withSecrets "pongo"
         forceSSL = true;
         useACMEHost = "gopong.dev";
         locations."/" = {
-          proxyPass = "https://gopong.dev:9980";
+          proxyPass = "https://localhost:9980";
           proxyWebsockets = true;
         };
       };

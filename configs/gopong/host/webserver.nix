@@ -21,16 +21,16 @@ _: {
       "chaos.gopong.dev" = {
         forceSSL = true;
         useACMEHost = "gopong.dev";
-        locations."/".proxyPass = "https://gopong.dev:9907";
+        locations."/".proxyPass = "http://localhost:9907";
         extraConfig = ''
           client_max_body_size 50M;
         '';
       };
 
-      "habbo.gopong.dev" = {
+      "hotel.gopong.dev" = {
         forceSSL = true;
         useACMEHost = "gopong.dev";
-        locations."/".proxyPass = "https://gopong.dev:8081";
+        locations."/".proxyPass = "http://localhost:8081";
       };
     };
 
@@ -53,7 +53,7 @@ _: {
       group = "nginx";
       extraDomainNames = [
         "chaos.gopong.dev"
-        "habbo.gopong.dev"
+        "hotel.gopong.dev"
         "cloud.gopong.dev"
         "vault.gopong.dev"
         "collabora.gopong.dev"

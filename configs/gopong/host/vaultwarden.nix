@@ -19,7 +19,7 @@ withSecrets "pongo"
       forceSSL = true;
       useACMEHost = "gopong.dev";
       locations."/".proxyPass =
-        "http://127.0.0.1:${toString config.services.vaultwarden.config.ROCKET_PORT}";
+        "http://localhost:${toString config.services.vaultwarden.config.ROCKET_PORT}";
     };
 
     vaultwarden = {
