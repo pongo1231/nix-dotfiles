@@ -69,4 +69,8 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     };
   };
 
+  services.beesd.filesystems."-" = {
+    spec = "/";
+    extraOptions = [ "-c 1" ];
+  };
 }
