@@ -145,7 +145,7 @@
     envfs.enable = true;
 
     udisks2.settings."udisks2.conf".defaults = {
-      btrfs_defaults = "noatime,lazytime,compress-force=zstd:1";
+      btrfs_defaults = "noatime,lazytime,compress-force=zstd";
       ext4_defaults = "noatime,lazytime";
       xfs_defaults = "noatime,lazytime";
       f2fs_defaults = "noatime,lazytime";

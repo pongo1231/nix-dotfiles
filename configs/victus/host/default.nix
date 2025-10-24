@@ -70,7 +70,7 @@
       options = [
         "noatime"
         "lazytime"
-        "compress-force=zstd:1"
+        "compress-force=zstd"
       ];
     };
 

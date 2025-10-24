@@ -48,7 +48,7 @@
       options = [
         "noatime"
         "lazytime"
-        "compress-force=zstd:1"
+        "compress-force=zstd"
       ];
     };
 
@@ -69,7 +69,7 @@
         "nofail"
         "noatime"
         "lazytime"
-        "compress-force=zstd:1"
+        "compress-force=zstd"
         "autodefrag"
       ];
     };
