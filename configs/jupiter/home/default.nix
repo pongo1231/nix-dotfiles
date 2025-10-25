@@ -32,7 +32,7 @@
     };
 
     packages = with pkgs; [
-      #pcsx2
+      pcsx2
       ppsspp
       xemu
       heroic
