@@ -37,10 +37,12 @@
     git = {
       enable = true;
 
-      userName = "pongo1231";
-      userEmail = "pongo@gopong.dev";
+      settings = {
+        user = {
+          name = "pongo1231";
+          email = "pongo@gopong.dev";
+        };
 
-      extraConfig = {
         pull.rebase = true;
         am.threeWay = true;
         core.fileMode = false;
