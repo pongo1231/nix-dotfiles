@@ -50,8 +50,6 @@
     xdgOpenUsePortal = true;
   };
 
-  pongo.pongoKernel.enableBORE = true;
-
   environment.systemPackages = with pkgs; [
     #systemdgenie
     waypipe

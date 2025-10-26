@@ -21,11 +21,6 @@ in
       type = lib.types.nullOr lib.types.attrs;
       default = null;
     };
-
-    enableBORE = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -62,8 +57,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "005d8d302944ea304a8f0ab1af3daa033cdec57c";
-                        hash = "sha256-NTTB70jOEGTgau2RTeN1JqVja028rDPMcQ7x+loZ8oQ=";
+                        rev = "91549d621fa230a93d3b2baf6ee600d08c582101";
+                        hash = "sha256-f49lWmZGOY3kqYCnyulII5BjjYM+Oj4HzZAQpkh5Rvo=";
                       };
                     };
                 };
@@ -109,14 +104,6 @@ in
       ];
 
       kernelParams = [ "vmscape=on" ];
-
-      kernelModules = [ "adios" ];
-
-      kernel.sysctl."kernel.sched_bore" = cfg.enableBORE;
     };
-
-    services.udev.extraRules = ''
-      ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]|sd[a-z]*|mmcblk[0-9]*", ATTR{queue/scheduler}="adios"
-    '';
   };
 }
