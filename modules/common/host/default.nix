@@ -34,11 +34,11 @@
     loader = {
       grub.enable = lib.mkDefault false;
       systemd-boot = {
-        enable = true;
+        enable = lib.mkDefault true;
         editor = false;
         consoleMode = "max";
       };
-      efi.canTouchEfiVariables = true;
+      efi.canTouchEfiVariables = lib.mkDefault true;
       timeout = lib.mkForce 0;
     };
 
