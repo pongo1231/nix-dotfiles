@@ -38,7 +38,7 @@ _: {
         extraConfig = ''
           autoindex on;
         '';
-        root = "/srv/http/tf";
+        root = "/srv/http/fastdl";
       };
     };
   };
