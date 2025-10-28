@@ -32,14 +32,14 @@ _: {
         useACMEHost = "gopong.dev";
         locations."/".proxyPass = "http://localhost:8081";
       };
-    };
 
-    virtualHosts."tf.gopong.dev" = {
-      rejectSSL = true;
-      extraConfig = ''
-        autoindex on;
-      '';
-      root = "/srv/http/tf";
+      "fastdl.gopong.dev" = {
+        rejectSSL = true;
+        extraConfig = ''
+          autoindex on;
+        '';
+        root = "/srv/http/tf";
+      };
     };
   };
 
