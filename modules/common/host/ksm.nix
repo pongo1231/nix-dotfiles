@@ -19,11 +19,6 @@ in
       type = lib.types.bool;
       default = false;
     };
-
-    patchSystemd = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -35,39 +30,9 @@ in
       ];
     }
     // lib.optionalAttrs cfg.forceAllProcesses {
-      package = lib.mkDefault (
-        if (!cfg.patchSystemd) then
-          pkgs.systemd
-        else
-          pkgs.systemd.overrideAttrs (prev: {
-            patches = prev.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
-          })
-      );
-
-      # https://github.com/CachyOS/CachyOS-PKGBUILDS/blob/master/cachyos-ksm-settings/PKGBUILD
-      services = {
-        "display-manager".serviceConfig = {
-          MemoryKSM = true;
-        };
-        "gdm".serviceConfig = {
-          MemoryKSM = true;
-        };
-        "sddm".serviceConfig = {
-          MemoryKSM = true;
-        };
-        "lightdm".serviceConfig = {
-          MemoryKSM = true;
-        };
-        "ly".serviceConfig = {
-          MemoryKSM = true;
-        };
-        "user@".serviceConfig = {
-          MemoryKSM = true;
-        };
-        "getty@".serviceConfig = {
-          MemoryKSM = true;
-        };
-      };
+      package = pkgs.systemd.overrideAttrs (prev: {
+        patches = prev.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
+      });
     };
 
     environment.systemPackages = with pkgs; [ ksmwrap ];
