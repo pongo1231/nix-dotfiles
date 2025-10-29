@@ -2,6 +2,7 @@
   args,
 }:
 {
+  system,
   inputs,
   hostName,
   module,
@@ -226,16 +227,21 @@
       DXVK_NVAPI_DRS_SETTINGS = "0x10E41E01=1,0x10E41E02=1,0x10E41E03=1,0x10E41DF3=0xffffff,0x10E41DF7=0xffffff";
     };
 
-    systemPackages = with pkgs; [
-      home-manager
-      pulseaudio
-      ddcutil
-      #snapper
-      distrobox
-      udp-reverse-tunnel
-      sshfs
-      sops
-      ssh-to-age
-    ];
+    systemPackages =
+      with pkgs;
+      [
+        home-manager
+        pulseaudio
+        ddcutil
+        #snapper
+        distrobox
+        udp-reverse-tunnel
+        sshfs
+        sops
+        ssh-to-age
+      ]
+      ++ lib.optionals (system == "x86_64-linux") [
+        scx.full
+      ];
   };
 }
