@@ -93,6 +93,15 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
           hash = "sha256-KE2dbGv4V3+ibyxJ/DHNnBOGzjAcZbGrC3cVGNDsTTQ=";
         };
       };
+
+      extra-container = prev.extra-container.overrideAttrs {
+        src = final.fetchFromGitHub {
+          owner = "erikarvstedt";
+          repo = "extra-container";
+          rev = "ae2966fbdedd466c29b9a5d6f11cadad02e1fdd0";
+          hash = "sha256-PIt0w/R3wGaAIlI1zPU4heLq7sxrWF6MgWzTEIVCplg=";
+        };
+      };
     })
   ];
 }
