@@ -11,6 +11,7 @@ config: [
   "transparent_hugepage_tmpfs=within_size"
   "preempt=full"
   "threadirqs"
+  "nohz_full=all"
   "rcu_nocbs=0-N"
   "rcutree.enable_rcu_lazy=1"
   "log_buf_len=4M"
