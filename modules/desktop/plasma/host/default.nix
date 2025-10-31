@@ -36,7 +36,7 @@
 
         # for KDE info center
         clinfo
-        glxinfo
+        mesa-demos
         vulkan-tools
         wayland-utils
         aha
