@@ -88,6 +88,8 @@
     };
 
     firewall.enable = false;
+
+    nftables.enable = true;
   };
 
   time.timeZone = "Europe/Berlin";
