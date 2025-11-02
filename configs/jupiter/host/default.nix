@@ -106,6 +106,20 @@
         };
       });
     };
+
+    beesd.filesystems = {
+      "-" = {
+        spec = "/";
+        hashTableSizeMB = 512;
+        extraOptions = [ "-c 1" ];
+      };
+
+      "mmcblk0p1" = {
+        spec = "/run/media/mmcblk0p1";
+        hashTableSizeMB = 256;
+        extraOptions = [ "-c 1" ];
+      };
+    };
   };
 
   /*
