@@ -128,6 +128,11 @@
     supergfxd.enable = false;
 
     howdy.enable = true;
+
+    beesd.filesystems."-" = {
+      spec = "/";
+      extraOptions = [ "-c 1" ];
+    };
   };
 
   environment = {
