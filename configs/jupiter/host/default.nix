@@ -38,6 +38,8 @@
       ];
     };
 
+    kernelParams = [ "mitigations=off" ];
+
     plymouth.enable = false;
   };
 
