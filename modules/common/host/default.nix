@@ -215,6 +215,7 @@
       MOZ_ENABLE_WAYLAND = 1;
 
       NIXPKGS_ALLOW_UNFREE = 1;
+      NIXPKGS_ALLOW_INSECURE = 1;
 
       DXVK_LOG_LEVEL = "none";
       VKD3D_DEBUG = "none";
