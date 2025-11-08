@@ -135,6 +135,8 @@
     };
   };
 
+  systemd.services.enable-ksm.script = "${pkgs.util-linux}/bin/taskset -pc 14,15 $(${pkgs.procps}/bin/pgrep -x ksmd)";
+
   environment = {
     sessionVariables = {
       MESA_VK_DEVICE_SELECT = "8086:7d51!";
