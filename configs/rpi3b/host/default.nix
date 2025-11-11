@@ -13,13 +13,17 @@
     ];
   };
 
-  boot.loader = {
-    systemd-boot.enable = lib.mkForce false;
-    generic-extlinux-compatible.enable = true;
+  boot = {
+    loader = {
+      systemd-boot.enable = false;
+      generic-extlinux-compatible.enable = true;
+    };
+
+    kernelParams = [ "mitigations=off" ];
   };
 
   networking = {
-    networkmanager.enable = lib.mkForce false;
+    networkmanager.enable = false;
     wireless.iwd.enable = true;
   };
 

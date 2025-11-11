@@ -80,7 +80,7 @@
     useNetworkd = true;
 
     networkmanager = {
-      enable = true;
+      enable = lib.mkDefault true;
       wifi = {
         backend = "iwd";
         powersave = true;
