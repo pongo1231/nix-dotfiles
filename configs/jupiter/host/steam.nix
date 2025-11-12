@@ -11,6 +11,14 @@
           substituteInPlace scripts/00-gamescope/displays/valve.steamdeck.lcd.lua --replace-fail "        60" "        60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70"
         '';
       });
+
+      steam = prev.steam.override {
+        extraEnv = {
+          LSFG_LEGACY = "1";
+          LSFG_PERFORMANCE_MODE = "1";
+          LSFG_MULTIPLIER = "2";
+        };
+      };
     })
   ];
 
@@ -60,10 +68,7 @@
         xorg.xprop
       ];
 
-      extraPythonPackages =
-        pythonPackages: with pythonPackages; [
-          click
-        ];
+      extraPythonPackages = pythonPackages: with pythonPackages; [ click ];
     };
   };
 }
