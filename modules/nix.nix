@@ -64,3 +64,15 @@
       hostPlatform.system = system;
     };
 }
+// lib.optionalAttrs (configInfo.type == "host") {
+  fileSystems."/nix/var/nix/builds" = {
+    fsType = "tmpfs";
+    options = [
+      "noatime"
+      "lazytime"
+      "mode=0755"
+      "size=200%"
+      "huge=within_size"
+    ];
+  };
+}
