@@ -71,7 +71,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
 
   services.beesd.filesystems."-" = {
     spec = "/";
-    hashTableSizeMB = 256;
+    hashTableSizeMB = 128;
     extraOptions = [ "-c 1" ];
   };
 }

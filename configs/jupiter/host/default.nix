@@ -112,13 +112,13 @@
     beesd.filesystems = {
       "-" = {
         spec = "/";
-        hashTableSizeMB = 512;
+        hashTableSizeMB = 256;
         extraOptions = [ "-c 1" ];
       };
 
       "mmcblk0p1" = {
         spec = "/run/media/mmcblk0p1";
-        hashTableSizeMB = 256;
+        hashTableSizeMB = 128;
         extraOptions = [ "-c 1" ];
       };
     };
