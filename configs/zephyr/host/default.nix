@@ -22,7 +22,7 @@
   boot = {
     initrd = {
       luks.devices."root" = {
-        device = "/dev/nvme0n1p2";
+        device = "/dev/disk/by-partlabel/NixOS";
         allowDiscards = true;
         bypassWorkqueues = true;
       };
@@ -89,6 +89,18 @@
       options = [
         "noatime"
         "lazytime"
+      ];
+    };
+
+    "/run/media/ssd2" = {
+      device = "/dev/disk/by-partlabel/SSD2";
+      fsType = "btrfs";
+      options = [
+        "x-systemd.device-timeout=5"
+        "nofail"
+        "noatime"
+        "lazytime"
+        "compress-force=zstd"
       ];
     };
   };
