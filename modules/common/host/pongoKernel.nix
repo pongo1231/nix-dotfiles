@@ -53,12 +53,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "6.18.0-rc5";
+                      modDirVersion = "6.18.0-rc6";
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "5b96badc611b5d13c8ac13143aea29e5a2d39b2c";
-                        hash = "sha256-z/0vRJ8MdqPUtsqLFVTZIdfdFKm+C6OnB9GY1mhnqzM=";
+                        rev = "87fb66ffa2597a5ae08d39ab7f1e147feff0279b";
+                        hash = "sha256-3L6l7MPFdmyTxxnyHfw5Onk+O37w6/LP6W9Mwrj3dTE=";
                       };
                     };
                 };
