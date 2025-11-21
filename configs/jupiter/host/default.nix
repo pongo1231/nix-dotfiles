@@ -38,6 +38,8 @@
       ];
     };
 
+    kernelModules = [ "ntsync" ];
+
     kernelParams = [ "mitigations=off" ];
 
     plymouth.enable = false;
