@@ -10,7 +10,6 @@
 {
   imports = [
     inputs.jovian.nixosModules.default
-    inputs.lsfg-vk.nixosModules.default
 
     (module /cpu/amd.nix)
     (import (module /gpu) [ "amd" ])
@@ -96,19 +95,6 @@
       package = pkgs.sunshine;
       capSysAdmin = true;
       autoStart = false;
-    };
-
-    lsfg-vk = {
-      enable = true;
-      package = (pkgs.callPackage "${inputs.lsfg-vk}/lsfg-vk.nix" { }).overrideAttrs (prev: {
-        src = pkgs.fetchFromGitHub {
-          owner = "PancakeTAS";
-          repo = "lsfg-vk";
-          rev = "0a6455a3815e4a417a54fd312987d2e2320f2684";
-          hash = "sha256-gt8IS+H24nFqqxo+I3kZHysMiyIQryYYOuMcB3DJmq0=";
-          fetchSubmodules = true;
-        };
-      });
     };
 
     beesd.filesystems = {

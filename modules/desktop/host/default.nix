@@ -1,4 +1,5 @@
 {
+  inputs,
   patch,
   config,
   pkgs,
@@ -7,6 +8,8 @@
 }:
 {
   imports = [
+    inputs.lsfg-vk.nixosModules.default
+
     ./mesa_git.nix
   ];
 
@@ -41,6 +44,19 @@
     fwupd.enable = true;
 
     power-profiles-daemon.enable = true;
+
+    lsfg-vk = {
+      enable = true;
+      package = (pkgs.callPackage "${inputs.lsfg-vk}/lsfg-vk.nix" { }).overrideAttrs (prev: {
+        src = pkgs.fetchFromGitHub {
+          owner = "PancakeTAS";
+          repo = "lsfg-vk";
+          rev = "ff1a0f72a7d6d08b84d58b7b4dc5f05c9f904f98";
+          hash = "sha256-d1x90BUgQAHPn0yK8K833lvmeleQyTi2MmWy3vKW+v4=";
+          fetchSubmodules = true;
+        };
+      });
+    };
   };
 
   virtualisation.waydroid.enable = true;
