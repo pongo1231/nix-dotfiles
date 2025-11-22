@@ -39,15 +39,18 @@
       };
     };
 
-    packages = with pkgs; [
-      vlc
-      ffmpeg
-      appimage-run
-      syncthing
-      qbittorrent
-      weston
-      looking-glass-client
-      virt-manager
-    ];
+    packages =
+      with pkgs;
+      [
+        vlc
+        ffmpeg
+        appimage-run
+        syncthing
+        qbittorrent
+        weston
+        looking-glass-client
+        virt-manager
+      ]
+      ++ (import ../lsfgScripts.nix pkgs);
   };
 }
