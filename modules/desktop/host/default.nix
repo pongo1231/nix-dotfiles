@@ -66,8 +66,11 @@
     xdgOpenUsePortal = true;
   };
 
-  environment.systemPackages = with pkgs; [
-    #systemdgenie
-    waypipe
-  ];
+  environment.systemPackages =
+    with pkgs;
+    [
+      #systemdgenie
+      waypipe
+    ]
+    ++ (import ../lsfgScripts.nix pkgs);
 }
