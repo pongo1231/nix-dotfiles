@@ -23,6 +23,24 @@
               inherit stdenv;
             };
             inherit stdenv;
+
+            galliumDrivers = [
+              "d3d12"
+              "iris"
+              "llvmpipe"
+              "radeonsi"
+              "virgl"
+              "zink"
+            ];
+
+            vulkanDrivers = [
+              "amd"
+              "gfxstream"
+              "intel"
+              "microsoft-experimental"
+              "swrast"
+              "virtio"
+            ];
           }
         )).overrideAttrs
           {
