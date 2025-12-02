@@ -61,8 +61,8 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
         src = final.fetchFromGitHub {
           owner = "89luca89";
           repo = "distrobox";
-          rev = "63ead4190f56759d3828273781f1800f1dfa0156";
-          hash = "sha256-ejX50gHOymZJ04bCMLIUUEp9d7633ubiDm++DsD2lL8=";
+          rev = "91d2d77106e41bafdebb0b347eb5716822272217";
+          hash = "sha256-Uqvj9xlf9KW7mkPfk+b9mQnl+qNNCcO2oWCb3kG7fHY=";
         };
       };
 
