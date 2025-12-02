@@ -29,7 +29,10 @@
               settingsSha256 = "sha256-YvzWO1U3am4Nt5cQ+b5IJ23yeWx5ud1HCu1U0KoojLY=";
               persistencedSha256 = "";
               patches = [
-
+                (patch /nvidia/6.19/fix-build.patch)
+              ];
+              patchesOpen = [
+                (patch /nvidia/6.18/fix-6.18-build.patch)
               ];
             }).overrideAttrs
               (prev': {
@@ -40,10 +43,6 @@
 
                 passthru = prev'.passthru // {
                   open = prev'.passthru.open.overrideAttrs (prev'': {
-                    patches = [
-                      (patch /nvidia/6.18/fix-6.18-build.patch)
-                    ];
-
                     makeFlags = prev''.makeFlags ++ final.kernel.extraMakeFlags;
 
                     #NIX_CFLAGS_COMPILE = "-Wno-error=unused-command-line-argument";

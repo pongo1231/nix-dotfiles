@@ -1,0 +1,147 @@
+diff --git a/kernel/common/inc/nv-time.h b/kernel/common/inc/nv-time.h
+index 3d14f9bd..73fd880a 100644
+--- a/kernel/common/inc/nv-time.h
++++ b/kernel/common/inc/nv-time.h
+@@ -82,7 +82,7 @@ static inline NV_STATUS nv_sleep_us(unsigned int us)
+     ktime_get_raw_ts64(&tm1);
+ #endif
+ 
+-    if (in_irq() && (us > NV_MAX_ISR_DELAY_US))
++    if (in_hardirq() && (us > NV_MAX_ISR_DELAY_US))
+         return NV_ERR_GENERIC;
+ 
+     mdelay_safe_msec = us / 1000;
+@@ -127,7 +127,7 @@ static inline NV_STATUS nv_sleep_ms(unsigned int ms)
+     tm_start = tm_aux;
+ #endif
+ 
+-    if (in_irq() && (ms > NV_MAX_ISR_DELAY_MS))
++    if (in_hardirq() && (ms > NV_MAX_ISR_DELAY_MS))
+     {
+         return NV_ERR_GENERIC;
+     }
+diff --git a/kernel/conftest.sh b/kernel/conftest.sh
+index cfa38712..8a7384d5 100755
+--- a/kernel/conftest.sh
++++ b/kernel/conftest.sh
+@@ -1591,7 +1591,7 @@ compile_test() {
+                 drm_atomic_helper_legacy_gamma_set();
+             }"
+ 
+-            compile_check_conftest "$CODE" "NV_DRM_ATOMIC_HELPER_LEGACY_GAMMA_SET_PRESENT" "" "functions"
++            #compile_check_conftest "$CODE" "NV_DRM_ATOMIC_HELPER_LEGACY_GAMMA_SET_PRESENT" "" "functions"
+         ;;
+ 
+         drm_plane_create_color_properties)
+@@ -2371,7 +2371,7 @@ compile_test() {
+                 drm_mode_connector_attach_encoder();
+             }"
+ 
+-            compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_FUNCS_HAVE_MODE_IN_NAME" "" "functions"
++            #compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_FUNCS_HAVE_MODE_IN_NAME" "" "functions"
+         ;;
+ 
+         drm_connector_has_vrr_capable_property)
+@@ -3075,10 +3075,12 @@ compile_test() {
+ 
+             if [ -f conftest$$.o ]; then
+                 rm -f conftest$$.o
+-                echo "#define NV_DRM_CRTC_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
+-            else
+-                echo "#undef NV_DRM_CRTC_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
++                #echo "#define NV_DRM_CRTC_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
++            #else
++                #echo "#undef NV_DRM_CRTC_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
+             fi
++
++            echo "#define NV_DRM_CRTC_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
+         ;;
+ 
+         drm_gem_object_vmap_has_map_arg)
+@@ -3251,10 +3253,12 @@ compile_test() {
+ 
+             if [ -f conftest$$.o ]; then
+                 rm -f conftest$$.o
+-                echo "#define NV_DRM_PLANE_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
+-            else
+-                echo "#undef NV_DRM_PLANE_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
++                #echo "#define NV_DRM_PLANE_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
++            #else
++                #echo "#undef NV_DRM_PLANE_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
+             fi
++
++            echo "#define NV_DRM_PLANE_ATOMIC_CHECK_HAS_ATOMIC_STATE_ARG" | append_conftest "types"
+         ;;
+ 
+         ib_peer_memory_symbols)
+@@ -4416,7 +4420,8 @@ compile_test() {
+                 return 0;
+             }"
+ 
+-            compile_check_conftest "$CODE" "NV_DRM_MODE_CREATE_DP_COLORSPACE_PROPERTY_HAS_SUPPORTED_COLORSPACES_ARG" "" "types"
++            #compile_check_conftest "$CODE" "NV_DRM_MODE_CREATE_DP_COLORSPACE_PROPERTY_HAS_SUPPORTED_COLORSPACES_ARG" "" "types"
++            echo "#define NV_DRM_MODE_CREATE_DP_COLORSPACE_PROPERTY_HAS_SUPPORTED_COLORSPACES_ARG" | append_conftest "types"
+         ;;
+ 
+         drm_syncobj_features_present)
+@@ -4803,10 +4808,12 @@ compile_test() {
+             if [ -f conftest$$.o ]; then
+                 rm -f conftest$$.o
+ 
+-                echo "#define NV_ASSIGN_STR_ARGUMENT_COUNT 1" | append_conftest "functions"
+-            else
+-                echo "#define NV_ASSIGN_STR_ARGUMENT_COUNT 2" | append_conftest "functions"
++                #echo "#define NV_ASSIGN_STR_ARGUMENT_COUNT 1" | append_conftest "functions"
++            #else
++                #echo "#define NV_ASSIGN_STR_ARGUMENT_COUNT 2" | append_conftest "functions"
+             fi
++
++            echo "#define NV_ASSIGN_STR_ARGUMENT_COUNT 1" | append_conftest "functions"
+         ;;
+ 
+         drm_driver_has_date)
+@@ -4853,7 +4860,8 @@ compile_test() {
+                 .mode_valid = conftest_drm_connector_mode_valid,
+             };"
+ 
+-            compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_HELPER_FUNCS_MODE_VALID_HAS_CONST_MODE_ARG" "" "types"
++            #compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_HELPER_FUNCS_MODE_VALID_HAS_CONST_MODE_ARG" "" "types"
++            echo "#define NV_DRM_CONNECTOR_HELPER_FUNCS_MODE_VALID_HAS_CONST_MODE_ARG" | append_conftest "types"
+         ;;
+ 
+         memory_device_coherent_present)
+diff --git a/kernel/nvidia/nv-backlight.c b/kernel/nvidia/nv-backlight.c
+index a4f2d040..8cf3010a 100644
+--- a/kernel/nvidia/nv-backlight.c
++++ b/kernel/nvidia/nv-backlight.c
+@@ -38,7 +38,7 @@ NV_STATUS NV_API_CALL nv_get_tegra_brightness_level
+     nv_linux_state_t *nvl = NV_GET_NVL_FROM_NV_STATE(nv);
+     struct backlight_device *bd;
+ 
+-    bd = get_backlight_device_by_name(nvl->backlight.device_name);
++    bd = backlight_device_get_by_name(nvl->backlight.device_name);
+     if (bd == NULL)
+     {
+         nv_printf(NV_DBG_ERRORS, "Unable to get backlight device\n");
+@@ -63,7 +63,7 @@ NV_STATUS NV_API_CALL nv_set_tegra_brightness_level
+     nv_linux_state_t *nvl = NV_GET_NVL_FROM_NV_STATE(nv);
+     struct backlight_device *bd;
+ 
+-    bd = get_backlight_device_by_name(nvl->backlight.device_name);
++    bd = backlight_device_get_by_name(nvl->backlight.device_name);
+     if (bd == NULL)
+     {
+         nv_printf(NV_DBG_ERRORS, "Unable to get backlight device\n");
+diff --git a/kernel/nvidia/os-interface.c b/kernel/nvidia/os-interface.c
+index 835e329d..bb3243de 100644
+--- a/kernel/nvidia/os-interface.c
++++ b/kernel/nvidia/os-interface.c
+@@ -371,7 +371,7 @@ NvBool NV_API_CALL os_semaphore_may_sleep(void)
+ 
+ NvBool NV_API_CALL os_is_isr(void)
+ {
+-    return (in_irq());
++    return (in_hardirq());
+ }
+ 
+ // return TRUE if the caller is the super-user
