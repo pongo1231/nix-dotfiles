@@ -73,7 +73,6 @@
         "noatime"
         "lazytime"
         "compress-force=zstd"
-        "autodefrag"
       ];
     };
   };
