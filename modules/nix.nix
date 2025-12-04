@@ -20,8 +20,6 @@
       value.flake = flake;
     }) inputs;
 
-    package = lib.mkForce pkgs.lixPackageSets.git.lix;
-
     extraOptions = ''
       experimental-features = nix-command flakes auto-allocate-uids cgroups
       auto-allocate-uids = true
@@ -50,7 +48,7 @@
     daemonIOSchedClass = "idle";
   }
   // lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
-    package = pkgs.nixVersions.latest;
+    package = pkgs.lixPackageSets.latest.lix;
   };
 
   nixpkgs =
