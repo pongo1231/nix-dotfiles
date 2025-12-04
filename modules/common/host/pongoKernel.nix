@@ -57,8 +57,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "pongo1231";
                         repo = "linux";
-                        rev = "9c27e266a2d045f1fb4216b7a79a7eae0ab0a856";
-                        hash = "sha256-pLo6n94o5MM4cy3uqlqE7vQerCyRs+dNMA5uEYbVczQ=";
+                        rev = "19a79f1d38bb976fc1c1b0ae860ff3152d83d2bf";
+                        hash = "sha256-Oz8sxx9IpxUOaqVUHjYEw5IiGa4SB9lMkecVU+GkjKw=";
                       };
                     };
                 };
@@ -91,6 +91,7 @@ in
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC y
             ZRAM_MEMORY_TRACKING y
+            RSEQ_SLICE_EXTENSION y
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
