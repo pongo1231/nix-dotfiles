@@ -27,7 +27,6 @@ let
       modules = [
         (import ./modules/common/host {
           args = builtins.removeAttrs args [
-            "system"
             "type"
           ];
         })
