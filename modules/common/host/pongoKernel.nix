@@ -27,56 +27,54 @@ in
     nixpkgs.overlays = [
       (final: prev: {
         linuxPackages_pongo =
-          (
-            if cfg.crossCompile != null then
-              inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
-            else
-              inputs.nixpkgs2.legacyPackages.${system}
-          ).linuxPackages_testing.extend
-            (
-              final': prev':
-              let
-                pkgs' = inputs.nixpkgs2.legacyPackages.${system};
-              in
-              {
-                kernel = prev'.kernel.override {
-                  buildPackages = pkgs'.buildPackages // {
-                    stdenv = pkgs'.gcc15Stdenv;
-                  };
-                  stdenv = pkgs'.gcc15Stdenv;
-
-                  ignoreConfigErrors = true;
-
-                  argsOverride =
-                    let
-                      version = "6.19-git";
-                    in
-                    {
-                      inherit version;
-                      modDirVersion = "6.18.0";
-                      src = final.fetchFromGitHub {
-                        owner = "pongo1231";
-                        repo = "linux";
-                        rev = "19a79f1d38bb976fc1c1b0ae860ff3152d83d2bf";
-                        hash = "sha256-Oz8sxx9IpxUOaqVUHjYEw5IiGa4SB9lMkecVU+GkjKw=";
-                      };
-                    };
+          let
+            pkgs' =
+              if cfg.crossCompile != null then
+                inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
+              else
+                inputs.nixpkgs2.legacyPackages.${system};
+          in
+          pkgs'.linuxPackages_testing.extend (
+            final': prev': {
+              kernel = prev'.kernel.override {
+                buildPackages = pkgs'.buildPackages // {
+                  stdenv = pkgs'.pkgsBuildBuild.gcc15Stdenv;
                 };
+                stdenv = pkgs'.gcc15Stdenv;
+                pkgsBuildBuild = pkgs'.pkgsBuildBuild;
 
-                xpadneo = prev'.xpadneo.overrideAttrs (
-                  final'': prev'': {
-                    src = pkgs.fetchFromGitHub {
-                      owner = "atar-axis";
-                      repo = "xpadneo";
-                      rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
-                      hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
+                ignoreConfigErrors = true;
+
+                argsOverride =
+                  let
+                    version = "6.19-git";
+                  in
+                  {
+                    inherit version;
+                    modDirVersion = "6.18.0";
+                    src = final.fetchFromGitHub {
+                      owner = "pongo1231";
+                      repo = "linux";
+                      rev = "19a79f1d38bb976fc1c1b0ae860ff3152d83d2bf";
+                      hash = "sha256-Oz8sxx9IpxUOaqVUHjYEw5IiGa4SB9lMkecVU+GkjKw=";
                     };
+                  };
+              };
 
-                    patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
-                  }
-                );
-              }
-            );
+              xpadneo = prev'.xpadneo.overrideAttrs (
+                final'': prev'': {
+                  src = pkgs.fetchFromGitHub {
+                    owner = "atar-axis";
+                    repo = "xpadneo";
+                    rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
+                    hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
+                  };
+
+                  patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
+                }
+              );
+            }
+          );
       })
     ];
 
