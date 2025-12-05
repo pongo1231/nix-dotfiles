@@ -55,8 +55,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "19a79f1d38bb976fc1c1b0ae860ff3152d83d2bf";
-                      hash = "sha256-Oz8sxx9IpxUOaqVUHjYEw5IiGa4SB9lMkecVU+GkjKw=";
+                      rev = "d64039ec55150bb24d26f04402ca232cf421cfc2";
+                      hash = "sha256-8gr+ei8BJXUVrH0kGaPZkCMRF0X4w+KzW9aCRzWn2Nw=";
                     };
                   };
               };
@@ -90,6 +90,7 @@ in
             PREEMPT_DYNAMIC y
             ZRAM_MEMORY_TRACKING y
             RSEQ_SLICE_EXTENSION y
+            DRM_NOVA n
           ''
           + lib.optionalString (system == "x86_64-linux") ''
             X86_64_VERSION 3
