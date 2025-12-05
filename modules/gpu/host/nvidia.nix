@@ -23,16 +23,16 @@
         {
           nvidiaPackages.beta =
             (generic {
-              version = "580.105.08";
-              sha256_64bit = "sha256-2cboGIZy8+t03QTPpp3VhHn6HQFiyMKMjRdiV2MpNHU=";
-              openSha256 = "sha256-FGmMt3ShQrw4q6wsk8DSvm96ie5yELoDFYinSlGZcwQ=";
-              settingsSha256 = "sha256-YvzWO1U3am4Nt5cQ+b5IJ23yeWx5ud1HCu1U0KoojLY=";
+              version = "590.44.01";
+              sha256_64bit = "sha256-VbkVaKwElaazojfxkHnz/nN/5olk13ezkw/EQjhKPms=";
+              openSha256 = "sha256-ft8FEnBotC9Bl+o4vQA1rWFuRe7gviD/j1B8t0MRL/o=";
+              settingsSha256 = "sha256-wVf1hku1l5OACiBeIePUMeZTWDQ4ueNvIk6BsW/RmF4=";
               persistencedSha256 = "";
               patches = [
                 (patch /nvidia/6.19/fix-build.patch)
               ];
               patchesOpen = [
-                (patch /nvidia/6.18/fix-6.18-build.patch)
+                #(patch /nvidia/6.18/fix-6.18-build.patch)
               ];
             }).overrideAttrs
               (prev': {
