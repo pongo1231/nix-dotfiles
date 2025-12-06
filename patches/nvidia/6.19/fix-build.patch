@@ -145,3 +145,68 @@ index 835e329d..bb3243de 100644
  }
  
  // return TRUE if the caller is the super-user
+diff --git a/kernel/common/inc/nv-mm.h b/kernel/common/inc/nv-mm.h
+index faeb8445..c1d6b7a7 100644
+--- a/kernel/common/inc/nv-mm.h
++++ b/kernel/common/inc/nv-mm.h
+@@ -202,7 +202,7 @@ static inline void nv_vm_flags_set(struct vm_area_struct *vma, vm_flags_t flags)
+ {
+ #if !NV_CAN_CALL_VMA_START_WRITE
+     nv_vma_start_write(vma);
+-    ACCESS_PRIVATE(vma, __vm_flags) |= flags;
++    vma_flags_set_word(&vma->flags, flags);
+ #elif defined(NV_VM_AREA_STRUCT_HAS_CONST_VM_FLAGS)
+     vm_flags_set(vma, flags);
+ #else
+@@ -214,7 +214,7 @@ static inline void nv_vm_flags_clear(struct vm_area_struct *vma, vm_flags_t flag
+ {
+ #if !NV_CAN_CALL_VMA_START_WRITE
+     nv_vma_start_write(vma);
+-    ACCESS_PRIVATE(vma, __vm_flags) &= ~flags;
++    vma_flags_clear_word(&vma->flags, flags);
+ #elif defined(NV_VM_AREA_STRUCT_HAS_CONST_VM_FLAGS)
+     vm_flags_clear(vma, flags);
+ #else
+diff --git a/kernel/nvidia-drm/nvidia-drm-helper.h b/kernel/nvidia-drm/nvidia-drm-helper.h
+index a297b943..c340156d 100644
+--- a/kernel/nvidia-drm/nvidia-drm-helper.h
++++ b/kernel/nvidia-drm/nvidia-drm-helper.h
+@@ -196,7 +196,7 @@ int nv_drm_atomic_helper_disable_all(struct drm_device *dev,
+        for ((__i) = 0;                                                      \
+             (__i) < (__state)->num_connector &&                             \
+             ((connector) = (__state)->connectors[__i].ptr,                  \
+-            (connector_state) = (__state)->connectors[__i].state, 1);       \
++            (connector_state) = (__state)->connectors[__i].state_to_destroy, 1);       \
+             (__i)++)                                                        \
+                for_each_if (connector)
+ #else
+@@ -223,7 +223,7 @@ int nv_drm_atomic_helper_disable_all(struct drm_device *dev,
+        for ((__i) = 0;                                                \
+             (__i) < (__state)->dev->mode_config.num_crtc &&           \
+             ((crtc) = (__state)->crtcs[__i].ptr,                      \
+-            (crtc_state) = (__state)->crtcs[__i].state, 1);           \
++            (crtc_state) = (__state)->crtcs[__i].state_to_destroy, 1);           \
+             (__i)++)                                                  \
+                for_each_if (crtc_state)
+ #else
+@@ -248,7 +248,7 @@ int nv_drm_atomic_helper_disable_all(struct drm_device *dev,
+        for ((__i) = 0;                                                   \
+             (__i) < (__state)->dev->mode_config.num_total_plane &&       \
+             ((plane) = (__state)->planes[__i].ptr,                       \
+-            (plane_state) = (__state)->planes[__i].state, 1);            \
++            (plane_state) = (__state)->planes[__i].state_to_destroy, 1);            \
+             (__i)++)                                                     \
+                for_each_if (plane_state)
+ #else
+diff --git a/kernel/nvidia-drm/nvidia-drm-priv.h b/kernel/nvidia-drm/nvidia-drm-priv.h
+index 703725c3..9aa19d73 100644
+--- a/kernel/nvidia-drm/nvidia-drm-priv.h
++++ b/kernel/nvidia-drm/nvidia-drm-priv.h
+@@ -33,6 +33,7 @@
+ 
+ #include <drm/drm_device.h>
+ #include <drm/drm_gem.h>
++#include <drm/drm_print.h>
+ 
+ #include "nvidia-drm-os-interface.h"
+ 

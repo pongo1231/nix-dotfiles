@@ -32,7 +32,7 @@
                 (patch /nvidia/6.19/fix-build.patch)
               ];
               patchesOpen = [
-                #(patch /nvidia/6.18/fix-6.18-build.patch)
+                (patch /nvidia/6.19/fix-open-build.patch)
               ];
             }).overrideAttrs
               (prev': {

@@ -1,0 +1,121 @@
+diff --git a/kernel-open/conftest.sh b/kernel-open/conftest.sh
+index 024281bd..401eacfc 100755
+--- a/kernel-open/conftest.sh
++++ b/kernel-open/conftest.sh
+@@ -3991,7 +3991,8 @@ compile_test() {
+                 return offsetof(struct vm_area_struct, __vm_flags);
+             }"
+ 
+-            compile_check_conftest "$CODE" "NV_VM_AREA_STRUCT_HAS_CONST_VM_FLAGS" "" "types"
++            #compile_check_conftest "$CODE" "NV_VM_AREA_STRUCT_HAS_CONST_VM_FLAGS" "" "types"
++            echo "#define NV_VM_AREA_STRUCT_HAS_CONST_VM_FLAGS" | append_conftest "types"
+         ;;
+ 
+         drm_driver_has_dumb_destroy)
+diff --git a/kernel-open/nvidia-uvm/uvm_hmm.c b/kernel-open/nvidia-uvm/uvm_hmm.c
+index 9b676f97..e8e54e34 100644
+--- a/kernel-open/nvidia-uvm/uvm_hmm.c
++++ b/kernel-open/nvidia-uvm/uvm_hmm.c
+@@ -2140,7 +2140,7 @@ static void fill_dst_pfn(uvm_va_block_t *va_block,
+ 
+         UVM_ASSERT(!page_count(dpage));
+         UVM_ASSERT(!dpage->zone_device_data);
+-        zone_device_page_init(dpage);
++        zone_device_page_init(dpage, 0);
+         dpage->zone_device_data = gpu_chunk;
+         atomic64_inc(&va_block->hmm.va_space->hmm.allocated_page_count);
+     }
+diff --git a/kernel-open/nvidia-uvm/uvm_pmm_gpu.c b/kernel-open/nvidia-uvm/uvm_pmm_gpu.c
+index 4eeecd01..e859492e 100644
+--- a/kernel-open/nvidia-uvm/uvm_pmm_gpu.c
++++ b/kernel-open/nvidia-uvm/uvm_pmm_gpu.c
+@@ -410,7 +410,7 @@ static void chunk_pin(uvm_pmm_gpu_t *pmm, uvm_gpu_chunk_t *chunk)
+ 
+     // The PMM list_lock must be held, but calling uvm_assert_spinlock_locked()
+     // is not possible here due to the absence of the UVM context pointer in
+-    // the interrupt context when called from devmem_page_free().
++    // the interrupt context when called from devmem_folio_free().
+ 
+     UVM_ASSERT(chunk->state != UVM_PMM_GPU_CHUNK_STATE_TEMP_PINNED);
+     chunk->state = UVM_PMM_GPU_CHUNK_STATE_TEMP_PINNED;
+@@ -2999,8 +2999,10 @@ static bool uvm_pmm_gpu_check_orphan_pages(uvm_pmm_gpu_t *pmm)
+     return ret;
+ }
+ 
+-static void devmem_page_free(struct page *page)
++static void devmem_folio_free(struct folio *folio)
+ {
++	struct page *page = &folio->page;
++
+     uvm_gpu_chunk_t *chunk = uvm_pmm_devmem_page_to_chunk(page);
+     uvm_gpu_t *gpu = uvm_gpu_chunk_get_gpu(chunk);
+ 
+@@ -3060,7 +3062,7 @@ static vm_fault_t devmem_fault_entry(struct vm_fault *vmf)
+ 
+ static const struct dev_pagemap_ops uvm_pmm_devmem_ops =
+ {
+-    .page_free = devmem_page_free,
++    .folio_free = devmem_folio_free,
+     .migrate_to_ram = devmem_fault_entry,
+ };
+ 
+@@ -3142,30 +3144,31 @@ static void *devmem_reuse_pagemap(unsigned long size) { return NULL; }
+ #endif // UVM_IS_CONFIG_HMM()
+ 
+ #if (UVM_CDMM_PAGES_SUPPORTED() || defined(CONFIG_PCI_P2PDMA)) && defined(NV_STRUCT_PAGE_HAS_ZONE_DEVICE_DATA)
+-static void device_p2p_page_free_wake(struct nv_kref *ref)
++static void device_p2p_folio_free_wake(struct nv_kref *ref)
+ {
+     uvm_device_p2p_mem_t *p2p_mem = container_of(ref, uvm_device_p2p_mem_t, refcount);
+     wake_up(&p2p_mem->waitq);
+ }
+ 
+-static void device_p2p_page_free(struct page *page)
++static void device_p2p_folio_free(struct folio *folio)
+ {
++	struct page *page = &folio->page;
+     uvm_device_p2p_mem_t *p2p_mem = page->zone_device_data;
+ 
+     page->zone_device_data = NULL;
+-    nv_kref_put(&p2p_mem->refcount, device_p2p_page_free_wake);
++    nv_kref_put(&p2p_mem->refcount, device_p2p_folio_free_wake);
+ }
+ #endif
+ 
+ #if UVM_CDMM_PAGES_SUPPORTED()
+-static void device_coherent_page_free(struct page *page)
++static void device_coherent_folio_free(struct folio *folio)
+ {
+-    device_p2p_page_free(page);
++    device_p2p_folio_free(folio);
+ }
+ 
+ static const struct dev_pagemap_ops uvm_device_coherent_pgmap_ops =
+ {
+-    .page_free = device_coherent_page_free,
++    .folio_free = device_coherent_folio_free,
+ };
+ 
+ static NV_STATUS uvm_pmm_cdmm_init(uvm_parent_gpu_t *parent_gpu)
+@@ -3302,7 +3305,7 @@ static bool uvm_pmm_gpu_check_orphan_pages(uvm_pmm_gpu_t *pmm)
+ 
+ static const struct dev_pagemap_ops uvm_device_p2p_pgmap_ops =
+ {
+-    .page_free = device_p2p_page_free,
++    .folio_free = device_p2p_folio_free,
+ };
+ 
+ void uvm_pmm_gpu_device_p2p_init(uvm_parent_gpu_t *parent_gpu)
+diff --git a/kernel-open/nvidia/nv-pci.c b/kernel-open/nvidia/nv-pci.c
+index 7892742f..10d074f6 100644
+--- a/kernel-open/nvidia/nv-pci.c
++++ b/kernel-open/nvidia/nv-pci.c
+@@ -244,7 +244,7 @@ static int nv_resize_pcie_bars(struct pci_dev *pci_dev) {
+ 
+ resize:
+     /* Attempt to resize BAR1 to the largest supported size */
+-    r = pci_resize_resource(pci_dev, NV_GPU_BAR1, requested_size);
++    r = pci_resize_resource(pci_dev, NV_GPU_BAR1, requested_size, 0);
+ 
+     if (r) {
+         if (r == -ENOSPC)
