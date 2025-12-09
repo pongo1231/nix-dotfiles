@@ -210,3 +210,16 @@ index 703725c3..9aa19d73 100644
  
  #include "nvidia-drm-os-interface.h"
  
+diff --git a/kernel/nvidia/nv-dma.c b/kernel/nvidia/nv-dma.c
+index ff399de1..9bb79c73 100644
+--- a/kernel/nvidia/nv-dma.c
++++ b/kernel/nvidia/nv-dma.c
+@@ -729,7 +729,7 @@ static NvBool nv_dma_use_map_resource
+ #endif
+     }
+ 
+-    return (ops->map_resource != NULL);
++    return (ops->map_phys != NULL);
+ }
+ 
+ /* DMA-map a peer device's C2C aperture for peer access. */
