@@ -55,24 +55,26 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "62690cc2057dabb9d9c5629e6cfc40950b8a66eb";
-                      hash = "sha256-rSssxhj5fbJv0qovOaP3sEoAAjj3EmSIRgkGqqJnK1A=";
+                      rev = "56d0f6c6b77561a31f8eda07d99677003c7545b4";
+                      hash = "sha256-ZX+WUNRbyZOtn5wrckjGf7cYL3U7PnhV+44/Fn44VgM=";
                     };
                   };
               };
 
-              xpadneo = prev'.xpadneo.overrideAttrs (
-                final'': prev'': {
-                  src = pkgs.fetchFromGitHub {
-                    owner = "atar-axis";
-                    repo = "xpadneo";
-                    rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
-                    hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
-                  };
+              /*
+                xpadneo = prev'.xpadneo.overrideAttrs (
+                  final'': prev'': {
+                    src = pkgs.fetchFromGitHub {
+                      owner = "atar-axis";
+                      repo = "xpadneo";
+                      rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
+                      hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
+                    };
 
-                  patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
-                }
-              );
+                    patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
+                  }
+                );
+              */
             }
           );
       })
