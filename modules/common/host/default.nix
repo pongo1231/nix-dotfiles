@@ -25,11 +25,7 @@
 
   pongo = args;
 
-  system = {
-    stateVersion = "25.11";
-
-    rebuild.enableNg = true;
-  };
+  system.stateVersion = "25.11";
 
   boot = {
     loader = {

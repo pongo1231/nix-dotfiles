@@ -132,7 +132,7 @@
       enableUserService = true;
       package = pkgs.asusctl.overrideAttrs (prev: {
         patches = (prev.patches or [ ]) ++ [
-          (patch /asusctl/2025.patch)
+          #(patch /asusctl/2025.patch)
         ];
       });
     };
