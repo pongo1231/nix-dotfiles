@@ -36,9 +36,4 @@
 
     spiceUSBRedirection.enable = true;
   };
-
-  services.persistent-evdev = {
-    enable = true;
-    devices.persist-mouse1 = "usb-Rapoo_Rapoo_Gaming_Device_20231211-event-mouse";
-  };
 }
