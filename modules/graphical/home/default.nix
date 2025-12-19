@@ -48,7 +48,6 @@
         syncthing
         qbittorrent
         weston
-        looking-glass-client
         virt-manager
       ]
       ++ (import ../lsfgScripts.nix pkgs);
