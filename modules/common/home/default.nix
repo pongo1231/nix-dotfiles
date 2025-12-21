@@ -119,6 +119,7 @@
       ps_mem
       procps
       smem
+      borgbackup
     ];
   };
 }
