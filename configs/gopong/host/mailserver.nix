@@ -25,7 +25,6 @@ withSecrets "pongo"
     domains = [ "gopong.dev" ];
     mailDirectory = "/var/lib/vmail";
     sieveDirectory = "/var/lib/sieve";
-    certificateDirectory = "/var/lib/certs";
     loginAccounts = {
       "pongo@gopong.dev" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
@@ -39,6 +38,7 @@ withSecrets "pongo"
         hashedPasswordFile = config.sops.secrets."emails/chaos".path;
       };
     };
-    certificateScheme = "acme";
+
+    x509.useACMEHost = "gopong.dev";
   };
 }
