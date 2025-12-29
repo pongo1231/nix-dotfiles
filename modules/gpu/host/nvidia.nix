@@ -23,13 +23,13 @@
         {
           nvidiaPackages.beta =
             (generic {
-              version = "590.44.01";
-              sha256_64bit = "sha256-VbkVaKwElaazojfxkHnz/nN/5olk13ezkw/EQjhKPms=";
-              openSha256 = "sha256-ft8FEnBotC9Bl+o4vQA1rWFuRe7gviD/j1B8t0MRL/o=";
-              settingsSha256 = "sha256-wVf1hku1l5OACiBeIePUMeZTWDQ4ueNvIk6BsW/RmF4=";
+              version = "590.48.01";
+              sha256_64bit = "sha256-ueL4BpN4FDHMh/TNKRCeEz3Oy1ClDWto1LO/LWlr1ok=";
+              openSha256 = "sha256-hECHfguzwduEfPo5pCDjWE/MjtRDhINVr4b1awFdP44=";
+              settingsSha256 = "sha256-NWsqUciPa4f1ZX6f0By3yScz3pqKJV1ei9GvOF8qIEE=";
               persistencedSha256 = "";
               patches = [
-                (patch /nvidia/6.19/fix-build.patch)
+                #(patch /nvidia/6.19/fix-build.patch)
               ];
               patchesOpen = [
                 (patch /nvidia/6.19/fix-open-build.patch)
