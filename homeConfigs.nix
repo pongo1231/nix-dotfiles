@@ -13,11 +13,10 @@ let
 
   commonConfig =
     {
+      hostName,
       user,
       system ? "x86_64-linux",
       type ? null,
-      config ? null,
-      userConfig ? null,
       args,
     }:
     let
@@ -48,11 +47,12 @@ let
         })
       ]
       ++ lib.optionals (type != null) (specialArgs.modules /${type})
-      ++ lib.optionals (config != null) [
-        config
+      ++ lib.optionals (builtins.pathExists ./modules/common/home/${user}) [
+        ./modules/common/home/${user}
       ]
-      ++ lib.optionals (userConfig != null) [
-        userConfig
+      ++ lib.optionals (builtins.pathExists ./configs/${hostName}/home) [ ./configs/${hostName}/home ]
+      ++ lib.optionals (builtins.pathExists ./configs/${hostName}/home/users/${user}) [
+        ./configs/${hostName}/home/users/${user}
       ];
     in
     if isNixosModule then
@@ -88,19 +88,13 @@ let
       // {
         "${user}${lib.optionalString (!isNixosModule && hostName != user) "@${hostName}"}" = commonConfig (
           {
-            inherit user args;
+            inherit hostName user args;
           }
           // lib.optionalAttrs (args ? system) {
             inherit (args) system;
           }
           // lib.optionalAttrs (args ? type) {
             inherit (args) type;
-          }
-          // lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/home) {
-            config = ./configs/${hostName}/home;
-          }
-          // lib.optionalAttrs (builtins.pathExists ./configs/${hostName}/home/users/${user}) {
-            userConfig = ./configs/${hostName}/home/users/${user};
           }
         );
       }
