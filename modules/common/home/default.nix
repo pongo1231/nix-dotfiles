@@ -17,7 +17,6 @@
     (module /overlay.nix)
     (module /sops.nix)
 
-    ./fish.nix
     ./helpers.nix
     ./suspender.nix
   ];
@@ -39,11 +38,6 @@
       lfs.enable = true;
 
       settings = {
-        user = {
-          name = "pongo1231";
-          email = "pongo@gopong.dev";
-        };
-
         pull.rebase = true;
         am.threeWay = true;
         core.fileMode = false;
