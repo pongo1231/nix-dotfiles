@@ -78,6 +78,7 @@ let
         in
         lib.optionalAttrs (info ? system) { inherit (info) system; }
         // lib.optionalAttrs (info ? type) { inherit (info) type; }
+        // lib.optionalAttrs (info ? users) { inherit (info) users; }
         // lib.optionalAttrs (info ? home) info.home;
     in
     acc
@@ -103,8 +104,7 @@ let
           }
         );
       }
-    ) { } commonUsers
-    // lib.optionalAttrs (args ? users) args.users
+    ) { } (commonUsers ++ lib.optionals (args ? users) args.users)
   ) { } (if configs != null then configs else builtins.readDir ./configs);
 in
 if isNixosModule then
