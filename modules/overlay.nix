@@ -3,21 +3,24 @@
   configInfo,
   patch,
   pkg,
+  config,
+  pkgs,
   lib,
   ...
 }:
 lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
-  /*
-    # https://search.nixos.org/options?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=system.replaceDependencies
-    system.replaceDependencies.replacements = [
+  # https://search.nixos.org/options?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=system.replaceDependencies
+  system.replaceDependencies.replacements = lib.optionals config.pongo.ksm.forceAllProcesses [
+    {
+      oldDependency = pkgs.systemd;
+      newDependency = pkgs.systemd.overrideAttrs (prev: {
+        patches = prev.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
+      });
+    }
+  ];
 
-    ];
-
-    # https://github.com/hsjobeki/nixpkgs/blob/migrate-doc-comments/pkgs/build-support/replace-dependencies.nix#L35:C1
-    pkgs.replaceDependencies = [
-
-    ]
-  */
+  # https://github.com/NixOS/nixpkgs/blob/a80ba52593f87d41a21d84c4e37f077c3604ca6a/pkgs/build-support/replace-dependencies.nix#L7
+  #pkgs.replaceDependencies = [ ];
 
   nixpkgs.overlays = [
     (final: prev: {

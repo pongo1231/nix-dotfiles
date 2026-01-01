@@ -1,5 +1,4 @@
 {
-  patch,
   config,
   pkgs,
   lib,
@@ -28,11 +27,6 @@ in
       tmpfiles.rules = [
         "w /sys/kernel/mm/ksm/advisor_mode - - - - scan-time"
       ];
-    }
-    // lib.optionalAttrs cfg.forceAllProcesses {
-      package = pkgs.systemd.overrideAttrs (prev: {
-        patches = prev.patches ++ [ (patch /systemd/memoryksm-on-by-default.patch) ];
-      });
     };
 
     environment.systemPackages = with pkgs; [ ksmwrap ];
