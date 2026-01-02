@@ -169,8 +169,6 @@
       virtiofsd
       plasma-panel-colorizer
       freerdp
-      inputs.winapps.packages.${system}.winapps
-      inputs.winapps.packages.${system}.winapps-launcher
     ];
   };
 }
