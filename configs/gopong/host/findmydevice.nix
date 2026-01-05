@@ -14,7 +14,7 @@ withSecrets "pongo" { store = "gopong/findmydevice.env"; } {
   };
 
   virtualisation.oci-containers.containers.fmd = {
-    image = "registry.gitlab.com/fmd-foss/fmd-server:v0.11.0";
+    image = "registry.gitlab.com/fmd-foss/fmd-server:0-distroless";
     ports = [ "127.0.0.1:27091:8080" ];
     autoStart = true;
     volumes = [ "/var/lib/fmd-server/db:/var/lib/fmd-server/db" ];
