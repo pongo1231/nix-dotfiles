@@ -14,9 +14,9 @@
 
       steam = prev.steam.override {
         extraEnv = {
-          LSFG_LEGACY = "1";
-          LSFG_PERFORMANCE_MODE = "1";
-          LSFG_MULTIPLIER = "2";
+          LSFGVK_ENV = "1";
+          LSFGVK_PERFORMANCE_MODE = "1";
+          LSFGVK_MULTIPLIER = "2";
         };
       };
     })

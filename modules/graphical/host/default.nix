@@ -51,10 +51,18 @@
         src = pkgs.fetchFromGitHub {
           owner = "PancakeTAS";
           repo = "lsfg-vk";
-          rev = "ff1a0f72a7d6d08b84d58b7b4dc5f05c9f904f98";
-          hash = "sha256-d1x90BUgQAHPn0yK8K833lvmeleQyTi2MmWy3vKW+v4=";
+          rev = "e1f89cc1daed469cd6e1a21a18e5816fea9ec9fb";
+          hash = "sha256-9f1epUbJNr8yaUfWNcVth88UfGP1kRX6+yOcA/60XL8=";
           fetchSubmodules = true;
         };
+
+        postPatch = ''
+          #substituteInPlace lsfg-vk-layer/VkLayer_LSFGVK_frame_generation.json.in --replace-fail "liblsfg-vk.so" "$out/lib/liblsfg-vk.so"
+        '';
+
+        cmakeFlags = [
+          (lib.cmakeFeature "LSFGVK_LAYER_LIBRARY_PATH" "${placeholder "out"}/lib/liblsfg-vk-layer.so")
+        ];
       });
     };
   };

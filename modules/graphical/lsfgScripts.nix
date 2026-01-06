@@ -1,14 +1,14 @@
 pkgs: [
   (pkgs.writeShellScriptBin "lsfg1x" ''
-    	  exec env LSFG_LEGACY=0 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=1 "$@"
+    	  exec env DISABLE_LSFGVK=1 LSFGVK_PERFORMANCE_MODE=1 LSFGVK_MULTIPLIER=1 "$@"
     	'')
   (pkgs.writeShellScriptBin "lsfg2x" ''
-    	  exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=2 "$@"
+    	  exec env LSFGVK_ENV=1 LSFGVK_PERFORMANCE_MODE=1 LSFGVK_MULTIPLIER=2 "$@"
     	'')
   (pkgs.writeShellScriptBin "lsfg3x" ''
-    	  exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=3 "$@"
+    	  exec env LSFGVK_ENV=1 LSFGVK_PERFORMANCE_MODE=1 LSFGVK_MULTIPLIER=3 "$@"
     	'')
   (pkgs.writeShellScriptBin "lsfg4x" ''
-    	  exec env LSFG_LEGACY=1 LSFG_PERFORMANCE_MODE=1 LSFG_MULTIPLIER=4 "$@"
+    	  exec env LSFGVK_ENV=1 LSFGVK_PERFORMANCE_MODE=1 LSFGVK_MULTIPLIER=4 "$@"
     	'')
 ]
