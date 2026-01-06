@@ -17,6 +17,7 @@
           LSFGVK_ENV = "1";
           LSFGVK_PERFORMANCE_MODE = "1";
           LSFGVK_MULTIPLIER = "2";
+          LSFGVK_FLOW_SCALE = "0.85";
         };
       };
     })
