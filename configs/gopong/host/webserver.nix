@@ -34,11 +34,13 @@ _: {
       };
 
       "fastdl.gopong.dev" = {
-        rejectSSL = true;
+        addSSL = true;
+        useACMEHost = "gopong.dev";
+        root = "/srv/http/fastdl";
         extraConfig = ''
           autoindex on;
+          sub_filter '</body>' '<div class="footer">FastDL server for DuckyServers.<br>Also available for public use.<br>sv_downloadurl "http://fastdl.gopong.dev/game/"</div></body>';
         '';
-        root = "/srv/http/fastdl";
       };
     };
   };
@@ -55,6 +57,7 @@ _: {
         "chaos.gopong.dev"
         "hotel.gopong.dev"
         "cloud.gopong.dev"
+        "fastdl.gopong.dev"
         "vault.gopong.dev"
         "collabora.gopong.dev"
         "git.gopong.dev"
