@@ -1,5 +1,7 @@
 {
+  system,
   withSecrets,
+  inputs,
   config,
   pkgs,
   ...
@@ -17,7 +19,7 @@ withSecrets "pongo"
 // {
   services.discourse = {
     enable = true;
-    package = pkgs.discourse;
+    package = inputs.nixpkgs3.legacyPackages.${system}.discourse;
     hostname = "discourse.gopong.dev";
     admin = {
       email = "admin@gopong.dev";

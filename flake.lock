@@ -483,6 +483,22 @@
         "type": "github"
       }
     },
+    "nixpkgs3": {
+      "locked": {
+        "lastModified": 1767025521,
+        "narHash": "sha256-1HMmBww9SlCjEqdHDm+1poLPcCGI1CQQQ/iVhYBLZQY=",
+        "owner": "pongo1231",
+        "repo": "nixpkgs",
+        "rev": "bfeb2fb512cebbf38cdaa6ad7a6d311f861c5487",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pongo1231",
+        "repo": "nixpkgs",
+        "rev": "bfeb2fb512cebbf38cdaa6ad7a6d311f861c5487",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "chaotic": "chaotic",
@@ -500,6 +516,7 @@
         "nixpkgs2": [
           "nixpkgs"
         ],
+        "nixpkgs3": "nixpkgs3",
         "sops-nix": "sops-nix"
       }
     },
