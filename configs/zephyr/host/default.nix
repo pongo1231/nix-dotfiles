@@ -37,10 +37,6 @@
         "sd_mod"
         "rtsx_pci_sdmmc"
       ];
-
-      prepend = [
-        "${./ssdt-sound.cpio}"
-      ];
     };
 
     kernelModules = [
