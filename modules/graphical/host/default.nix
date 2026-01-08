@@ -10,7 +10,7 @@
   imports = [
     inputs.lsfg-vk.nixosModules.default
 
-    ./mesa_git.nix
+    ./mesa.nix
   ];
 
   boot = {

@@ -1,0 +1,484 @@
+diff --git a/src/amd/compiler/aco_interface.h b/src/amd/compiler/aco_interface.h
+index 57c75306bf4..48a279d61cf 100644
+--- a/src/amd/compiler/aco_interface.h
++++ b/src/amd/compiler/aco_interface.h
+@@ -18,9 +18,6 @@
+ extern "C" {
+ #endif
+ 
+-/* Special launch size to indicate this dispatch is a 1D dispatch converted into a 2D one */
+-#define ACO_RT_CONVERTED_2D_LAUNCH_SIZE -1u
+-
+ struct ac_shader_config;
+ struct aco_shader_info;
+ struct aco_vs_prolog_info;
+diff --git a/src/amd/compiler/instruction_selection/aco_select_rt_prolog.cpp b/src/amd/compiler/instruction_selection/aco_select_rt_prolog.cpp
+index ddf24b935e1..1c1b8c1beed 100644
+--- a/src/amd/compiler/instruction_selection/aco_select_rt_prolog.cpp
++++ b/src/amd/compiler/instruction_selection/aco_select_rt_prolog.cpp
+@@ -60,10 +60,7 @@ select_rt_prolog(Program* program, ac_shader_config* config,
+       in_scratch_offset = get_arg_reg(in_args, in_args->scratch_offset);
+    struct ac_arg arg_id = options->gfx_level >= GFX11 ? in_args->local_invocation_ids_packed
+                                                       : in_args->local_invocation_id_x;
+-   PhysReg in_local_ids[2] = {
+-      get_arg_reg(in_args, arg_id),
+-      get_arg_reg(in_args, arg_id).advance(4),
+-   };
++   PhysReg in_local_id = get_arg_reg(in_args, arg_id);
+ 
+    /* Outputs:
+     * Callee shader PC:            s[0-1]
+@@ -91,15 +88,31 @@ select_rt_prolog(Program* program, ac_shader_config* config,
+    PhysReg out_record_ptr = get_arg_reg(out_args, out_args->rt.shader_record);
+ 
+    /* Temporaries: */
++   PhysReg tmp_wg_start_x = PhysReg{num_sgprs};
++   num_sgprs++;
++   PhysReg tmp_wg_start_y = PhysReg{num_sgprs};
++   num_sgprs++;
++   PhysReg tmp_swizzle_bound_y = PhysReg{num_sgprs};
++   num_sgprs++;
++   PhysReg tmp_oob_condition = PhysReg{num_sgprs};
++   num_sgprs++;
++   PhysReg tmp_wg_id_y;
++   if (program->gfx_level >= GFX12) {
++      tmp_wg_id_y = PhysReg{num_sgprs};
++      num_sgprs++;
++   } else {
++      tmp_wg_id_y = in_wg_id_y;
++   }
+    num_sgprs = align(num_sgprs, 2);
+    PhysReg tmp_raygen_sbt = PhysReg{num_sgprs};
+    num_sgprs += 2;
+    PhysReg tmp_ring_offsets = PhysReg{num_sgprs};
+    num_sgprs += 2;
+-   PhysReg tmp_wg_id_x_times_size = PhysReg{num_sgprs};
+-   num_sgprs++;
+ 
+-   PhysReg tmp_invocation_idx = PhysReg{256 + num_vgprs++};
++   PhysReg tmp_swizzled_id_x = PhysReg{256 + num_vgprs++};
++   PhysReg tmp_swizzled_id_y = PhysReg{256 + num_vgprs++};
++   PhysReg tmp_swizzled_id_shifted_x = PhysReg{256 + num_vgprs++};
++   PhysReg tmp_swizzled_id_shifted_y = PhysReg{256 + num_vgprs++};
+ 
+    /* Confirm some assumptions about register aliasing */
+    assert(in_ring_offsets == out_uniform_shader_addr);
+@@ -113,7 +126,7 @@ select_rt_prolog(Program* program, ac_shader_config* config,
+           get_arg_reg(out_args, out_args->rt.traversal_shader_addr));
+    assert(in_launch_size_addr == out_launch_size_x);
+    assert(in_stack_base == out_launch_size_z);
+-   assert(in_local_ids[0] == out_launch_ids[0]);
++   assert(in_local_id == out_launch_ids[0]);
+ 
+    /* <gfx9 reads in_scratch_offset at the end of the prolog to write out the scratch_offset
+     * arg. Make sure no other outputs have overwritten it by then.
+@@ -154,28 +167,148 @@ select_rt_prolog(Program* program, ac_shader_config* config,
+    }
+ 
+    /* calculate ray launch ids */
+-   if (options->gfx_level >= GFX11) {
+-      /* Thread IDs are packed in VGPR0, 10 bits per component. */
+-      bld.vop3(aco_opcode::v_bfe_u32, Definition(in_local_ids[1], v1), Operand(in_local_ids[0], v1),
+-               Operand::c32(10u), Operand::c32(3u));
+-      bld.vop2(aco_opcode::v_and_b32, Definition(in_local_ids[0], v1), Operand::c32(0x7),
+-               Operand(in_local_ids[0], v1));
+-   }
+-   /* Do this backwards to reduce some RAW hazards on GFX11+ */
+    if (options->gfx_level >= GFX12) {
+       bld.vop2_e64(aco_opcode::v_lshrrev_b32, Definition(out_launch_ids[2], v1), Operand::c32(16),
+                    Operand(in_wg_id_y, s1));
+-      bld.vop3(aco_opcode::v_mad_u32_u16, Definition(out_launch_ids[1], v1),
+-               Operand(in_wg_id_y, s1), Operand::c32(program->workgroup_size == 32 ? 4 : 8),
+-               Operand(in_local_ids[1], v1));
++      bld.sop2(aco_opcode::s_pack_ll_b32_b16, Definition(tmp_wg_id_y, s1), Operand(in_wg_id_y, s1),
++               Operand::c32(0));
+    } else {
+       bld.vop1(aco_opcode::v_mov_b32, Definition(out_launch_ids[2], v1), Operand(in_wg_id_z, s1));
+-      bld.vop3(aco_opcode::v_mad_u32_u24, Definition(out_launch_ids[1], v1),
+-               Operand(in_wg_id_y, s1), Operand::c32(program->workgroup_size == 32 ? 4 : 8),
+-               Operand(in_local_ids[1], v1));
+    }
++
++   /* Swizzle ray launch IDs. We dispatch a 1D 32x1/64x1 workgroup natively. Many games dispatch
++    * rays in a 2D grid and write RT results to an image indexed by the x/y launch ID.
++    * In image space, a 1D workgroup maps to a 32/64-pixel wide line, which is inefficient for two
++    * reasons:
++    * - Image data is usually arranged on a Z-order curve, a long line makes for inefficient
++    *   memory access patterns.
++    * - Each wave working on a "line" in image space may increase divergence. It's better to trace
++    *   rays in a small square, since that makes it more likely all rays hit the same or similar
++    *   objects.
++    *
++    * It turns out arranging rays along a Z-order curve is best for both image access patterns and
++    * ray divergence. Since image data is swizzled along a Z-order curve as well, swizzling the
++    * launch ID should result in each lane accessing whole cachelines at once. For traced rays,
++    * the Z-order curve means that each quad is arranged in a 2x2 square in image space as well.
++    * Since the RT unit processes 4 lanes at a time, reducing divergence per quad may result in
++    * better RT unit utilization (for example by the RT unit being able to skip the quad entirely
++    * if all 4 lanes are inactive).
++    *
++    * To swizzle along a Z-order curve, treat the 1D lane ID as a morton code. Then, do the inverse
++    * of morton code generation (i.e. deinterleaving the bits) to recover the x-y
++    * coordinates on the Z-order curve.
++    */
++
++   /* Deinterleave bits - odd bits go to tmp_swizzled_id_x, even ones to tmp_swizzled_id_y */
++   bld.vop2(aco_opcode::v_and_b32, Definition(tmp_swizzled_id_x, v1), Operand::c32(0x55),
++            Operand(in_local_id, v1));
++   bld.vop2(aco_opcode::v_and_b32, Definition(tmp_swizzled_id_y, v1), Operand::c32(0xaa),
++            Operand(in_local_id, v1));
++   bld.vop2(aco_opcode::v_lshrrev_b32, Definition(tmp_swizzled_id_y, v1), Operand::c32(1),
++            Operand(tmp_swizzled_id_y, v1));
++
++   /* The deinterleaved bits are currently padded with a zero between each bit, like so:
++    * 0 A 0 B 0 C 0 D
++    * Compact the deinterleaved bits by factor 2 to remove the padding, resulting in
++    * A B C D
++    */
++   bld.vop2(aco_opcode::v_lshrrev_b32, Definition(tmp_swizzled_id_shifted_x, v1), Operand::c32(1),
++            Operand(tmp_swizzled_id_x, v1));
++   bld.vop2(aco_opcode::v_lshrrev_b32, Definition(tmp_swizzled_id_shifted_y, v1), Operand::c32(1),
++            Operand(tmp_swizzled_id_y, v1));
++   bld.vop2(aco_opcode::v_or_b32, Definition(tmp_swizzled_id_x, v1), Operand(tmp_swizzled_id_x, v1),
++            Operand(tmp_swizzled_id_shifted_x, v1));
++   bld.vop2(aco_opcode::v_or_b32, Definition(tmp_swizzled_id_y, v1), Operand(tmp_swizzled_id_y, v1),
++            Operand(tmp_swizzled_id_shifted_y, v1));
++   bld.vop2(aco_opcode::v_and_b32, Definition(tmp_swizzled_id_x, v1), Operand::c32(0x33u),
++            Operand(tmp_swizzled_id_x, v1));
++   bld.vop2(aco_opcode::v_and_b32, Definition(tmp_swizzled_id_y, v1), Operand::c32(0x33u),
++            Operand(tmp_swizzled_id_y, v1));
++
++   bld.vop2(aco_opcode::v_lshrrev_b32, Definition(tmp_swizzled_id_shifted_x, v1), Operand::c32(2),
++            Operand(tmp_swizzled_id_x, v1));
++   bld.vop2(aco_opcode::v_lshrrev_b32, Definition(tmp_swizzled_id_shifted_y, v1), Operand::c32(2),
++            Operand(tmp_swizzled_id_y, v1));
++   bld.vop2(aco_opcode::v_or_b32, Definition(tmp_swizzled_id_x, v1), Operand(tmp_swizzled_id_x, v1),
++            Operand(tmp_swizzled_id_shifted_x, v1));
++   bld.vop2(aco_opcode::v_or_b32, Definition(tmp_swizzled_id_y, v1), Operand(tmp_swizzled_id_y, v1),
++            Operand(tmp_swizzled_id_shifted_y, v1));
++   bld.vop2(aco_opcode::v_and_b32, Definition(tmp_swizzled_id_x, v1), Operand::c32(0x0Fu),
++            Operand(tmp_swizzled_id_x, v1));
++   bld.vop2(aco_opcode::v_and_b32, Definition(tmp_swizzled_id_y, v1), Operand::c32(0x0Fu),
++            Operand(tmp_swizzled_id_y, v1));
++
++   /* Fix up the workgroup IDs after converting from 32x1/64x1 to 8x4/8x8. The X dimension of the
++    * workgroup size gets divided by 4/8, while the Y dimension gets multiplied by the same amount.
++    * Rearrange the workgroups to make up for that, by rounding the Y component of the workgroup ID
++    * to the nearest multiple of 4/8. The remainder gets added to the X dimension, to make up for
++    * the fact we divided the X component of the ID.
++    */
++   uint32_t workgroup_size_log2 = util_logbase2(program->workgroup_size);
++   bld.sop2(aco_opcode::s_lshl_b32, Definition(tmp_wg_start_x, s1), Definition(scc, s1),
++            Operand(in_wg_id_x, s1), Operand::c32(workgroup_size_log2));
++
++   /* unsigned y_remainder = tmp_wg_id_y % wg_height
++    * We use tmp_wg_start_y to store y_rem, and overwrite it later with the real wg_start_y.
++    */
++   uint32_t workgroup_width_log2 = 3u;
++   uint32_t workgroup_height_mask = program->workgroup_size == 32 ? 0x3u : 0x7u;
++   bld.sop2(aco_opcode::s_and_b32, Definition(tmp_wg_start_y, s1), Definition(scc, s1),
++            Operand(tmp_wg_id_y, s1), Operand::c32(workgroup_height_mask));
++   /* wg_start_x += y_remainder * workgroup_width (workgroup_width == 8) */
++   bld.sop2(aco_opcode::s_lshl_b32, Definition(tmp_wg_start_y, s1), Definition(scc, s1),
++            Operand(tmp_wg_start_y, s1), Operand::c32(workgroup_width_log2));
++   bld.sop2(aco_opcode::s_add_u32, Definition(tmp_wg_start_x, s1), Definition(scc, s1),
++            Operand(tmp_wg_start_x, s1), Operand(tmp_wg_start_y, s1));
++   /* wg_start_y = ROUND_DOWN_TO(in_wg_y, workgroup_height) */
++   bld.sop2(aco_opcode::s_and_b32, Definition(tmp_wg_start_y, s1), Definition(scc, s1),
++            Operand(tmp_wg_id_y, s1), Operand::c32(~workgroup_height_mask));
++
++   bld.vop2(aco_opcode::v_add_u32, Definition(tmp_swizzled_id_x, v1), Operand(tmp_wg_start_x, s1),
++            Operand(tmp_swizzled_id_x, v1));
++   bld.vop2(aco_opcode::v_add_u32, Definition(tmp_swizzled_id_y, v1), Operand(tmp_wg_start_y, s1),
++            Operand(tmp_swizzled_id_y, v1));
++
++   /* We can only swizzle launch IDs if we run a full workgroup, and the resulting launch IDs
++    * won't exceed the launch size. Calculate unswizzled launch IDs here to fall back to them
++    * if the swizzled launch IDs are out of bounds.
++    */
++   bld.vop1(aco_opcode::v_mov_b32, Definition(out_launch_ids[1], v1), Operand(tmp_wg_id_y, s1));
+    bld.vop3(aco_opcode::v_mad_u32_u24, Definition(out_launch_ids[0], v1), Operand(in_wg_id_x, s1),
+-            Operand::c32(8), Operand(in_local_ids[0], v1));
++            Operand::c32(program->workgroup_size), Operand(in_local_id, v1));
++
++   /* Round the launch size down to the nearest multiple of workgroup_height. If the workgroup ID
++    * exceeds this, then the swizzled IDs' Y component will exceed the Y launch size and we have to
++    * fall back to unswizzled IDs.
++    */
++   bld.sop2(aco_opcode::s_and_b32, Definition(tmp_swizzle_bound_y, s1), Definition(scc, s1),
++            Operand(out_launch_size_y, s1), Operand::c32(~workgroup_height_mask));
++   /* If we are only running a partial workgroup, swizzling would yield a wrong result. */
++   if (program->gfx_level >= GFX8) {
++      bld.sopc(Builder::WaveSpecificOpcode::s_cmp_lg, Definition(scc, s1), Operand(exec, bld.lm),
++               Operand::c32_or_c64(-1u, program->workgroup_size == 64));
++   } else {
++      /* Write the XOR result to vcc because it's currently unused and a convenient register (always
++       * the same size as exec). We only care about the value of scc, i.e. if the result is nonzero
++       * (vcc is about to be overwritten anyway).
++       */
++      bld.sop2(Builder::WaveSpecificOpcode::s_xor, Definition(vcc, bld.lm),
++               Definition(scc, s1), Operand(exec, bld.lm),
++               Operand::c32_or_c64(-1u, program->workgroup_size == 64));
++   }
++   bld.sop2(Builder::s_cselect, Definition(vcc, bld.lm),
++            Operand::c32_or_c64(-1u, program->wave_size == 64),
++            Operand::c32_or_c64(0u, program->wave_size == 64), Operand(scc, s1));
++   bld.sopc(aco_opcode::s_cmp_ge_u32, Definition(scc, s1), Operand(tmp_wg_id_y, s1),
++            Operand(tmp_swizzle_bound_y, s1));
++   bld.sop2(Builder::s_cselect, Definition(vcc, bld.lm),
++            Operand::c32_or_c64(-1u, program->wave_size == 64),
++            Operand(vcc, bld.lm), Operand(scc, s1));
++
++   bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[0], v1),
++            Operand(tmp_swizzled_id_x, v1), Operand(out_launch_ids[0], v1), Operand(vcc, bld.lm));
++   bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[1], v1),
++            Operand(tmp_swizzled_id_y, v1), Operand(out_launch_ids[1], v1), Operand(vcc, bld.lm));
+ 
+    /* calculate shader record ptr: SBT + RADV_RT_HANDLE_SIZE */
+    if (options->gfx_level < GFX9) {
+@@ -188,38 +321,6 @@ select_rt_prolog(Program* program, ac_shader_config* config,
+    bld.vop1(aco_opcode::v_mov_b32, Definition(out_record_ptr.advance(4), v1),
+             Operand(tmp_raygen_sbt.advance(4), s1));
+ 
+-   /* For 1D dispatches converted into 2D ones, we need to fix up the launch IDs.
+-    * Calculating the 1D launch ID is: id = local_invocation_index + (wg_id.x * wg_size).
+-    * tmp_wg_id_x_times_size now holds wg_id.x * wg_size.
+-    */
+-   bld.sop2(aco_opcode::s_lshl_b32, Definition(tmp_wg_id_x_times_size, s1), Definition(scc, s1),
+-            Operand(in_wg_id_x, s1), Operand::c32(program->workgroup_size == 32 ? 5 : 6));
+-
+-   /* Calculate and add local_invocation_index */
+-   bld.vop3(aco_opcode::v_mbcnt_lo_u32_b32, Definition(tmp_invocation_idx, v1), Operand::c32(-1u),
+-            Operand(tmp_wg_id_x_times_size, s1));
+-   if (program->wave_size == 64) {
+-      if (program->gfx_level <= GFX7)
+-         bld.vop2(aco_opcode::v_mbcnt_hi_u32_b32, Definition(tmp_invocation_idx, v1),
+-                  Operand::c32(-1u), Operand(tmp_invocation_idx, v1));
+-      else
+-         bld.vop3(aco_opcode::v_mbcnt_hi_u32_b32_e64, Definition(tmp_invocation_idx, v1),
+-                  Operand::c32(-1u), Operand(tmp_invocation_idx, v1));
+-   }
+-
+-   /* Make fixup operations a no-op if this is not a converted 2D dispatch. */
+-   bld.sopc(aco_opcode::s_cmp_lg_u32, Definition(scc, s1),
+-            Operand::c32(ACO_RT_CONVERTED_2D_LAUNCH_SIZE), Operand(out_launch_size_y, s1));
+-   bld.sop2(Builder::s_cselect, Definition(vcc, bld.lm),
+-            Operand::c32_or_c64(-1u, program->wave_size == 64),
+-            Operand::c32_or_c64(0, program->wave_size == 64), Operand(scc, s1));
+-   bld.sop2(aco_opcode::s_cselect_b32, Definition(out_launch_size_y, s1),
+-            Operand(out_launch_size_y, s1), Operand::c32(1), Operand(scc, s1));
+-   bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[0], v1),
+-            Operand(tmp_invocation_idx, v1), Operand(out_launch_ids[0], v1), Operand(vcc, bld.lm));
+-   bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[1], v1), Operand::zero(),
+-            Operand(out_launch_ids[1], v1), Operand(vcc, bld.lm));
+-
+    if (options->gfx_level < GFX9) {
+       /* write scratch/ring offsets to outputs, if needed */
+       bld.sop1(aco_opcode::s_mov_b32,
+diff --git a/src/amd/vulkan/nir/radv_nir_lower_ray_queries.c b/src/amd/vulkan/nir/radv_nir_lower_ray_queries.c
+index 9043429dc69..52054403b23 100644
+--- a/src/amd/vulkan/nir/radv_nir_lower_ray_queries.c
++++ b/src/amd/vulkan/nir/radv_nir_lower_ray_queries.c
+@@ -302,14 +302,16 @@ lower_rq_initialize(nir_builder *b, nir_intrinsic_instr *instr, struct ray_query
+    rq_store(b, rq, trav_bvh_base, bvh_base);
+ 
+    if (vars->shared_stack) {
++      nir_def *stack_idx = nir_load_local_invocation_index(b);
+       if (radv_use_bvh_stack_rtn(pdev)) {
+          uint32_t workgroup_size =
+             b->shader->info.workgroup_size[0] * b->shader->info.workgroup_size[1] * b->shader->info.workgroup_size[2];
+-         nir_def *addr = radv_build_bvh_stack_rtn_addr(b, pdev, workgroup_size, vars->shared_base, vars->stack_entries);
++         nir_def *addr =
++            radv_build_bvh_stack_rtn_addr(b, stack_idx, pdev, workgroup_size, vars->shared_base, vars->stack_entries);
+          rq_store(b, rq, trav_stack, addr);
+          rq_store(b, rq, trav_stack_low_watermark, addr);
+       } else {
+-         nir_def *base_offset = nir_imul_imm(b, nir_load_local_invocation_index(b), sizeof(uint32_t));
++         nir_def *base_offset = nir_imul_imm(b, stack_idx, sizeof(uint32_t));
+          base_offset = nir_iadd_imm(b, base_offset, vars->shared_base);
+          rq_store(b, rq, trav_stack, base_offset);
+          rq_store(b, rq, trav_stack_low_watermark, base_offset);
+diff --git a/src/amd/vulkan/nir/radv_nir_rt_common.c b/src/amd/vulkan/nir/radv_nir_rt_common.c
+index d6416be12c3..b89a3a16f44 100644
+--- a/src/amd/vulkan/nir/radv_nir_rt_common.c
++++ b/src/amd/vulkan/nir/radv_nir_rt_common.c
+@@ -20,12 +20,11 @@ radv_use_bvh_stack_rtn(const struct radv_physical_device *pdevice)
+ }
+ 
+ nir_def *
+-radv_build_bvh_stack_rtn_addr(nir_builder *b, const struct radv_physical_device *pdev, uint32_t workgroup_size,
++radv_build_bvh_stack_rtn_addr(nir_builder *b, nir_def *stack_idx, const struct radv_physical_device *pdev, uint32_t workgroup_size,
+                               uint32_t stack_base, uint32_t max_stack_entries)
+ {
+    assert(stack_base % 4 == 0);
+ 
+-   nir_def *stack_idx = nir_load_local_invocation_index(b);
+    /* RDNA3's ds_bvh_stack_rtn instruction uses a special encoding for the stack address.
+     * Bits 0-17 encode the current stack index (set to 0 initially)
+     * Bits 18-31 encodes the stack base in multiples of 4
+diff --git a/src/amd/vulkan/nir/radv_nir_rt_common.h b/src/amd/vulkan/nir/radv_nir_rt_common.h
+index fa1cbf76480..c2bd561e683 100644
+--- a/src/amd/vulkan/nir/radv_nir_rt_common.h
++++ b/src/amd/vulkan/nir/radv_nir_rt_common.h
+@@ -17,8 +17,8 @@ struct radv_physical_device;
+ 
+ bool radv_use_bvh_stack_rtn(const struct radv_physical_device *pdevice);
+ 
+-nir_def *radv_build_bvh_stack_rtn_addr(nir_builder *b, const struct radv_physical_device *pdev, uint32_t workgroup_size,
+-                                       uint32_t stack_base, uint32_t max_stack_entries);
++nir_def *radv_build_bvh_stack_rtn_addr(nir_builder *b, nir_def *stack_idx, const struct radv_physical_device *pdev,
++                                       uint32_t workgroup_size, uint32_t stack_base, uint32_t max_stack_entries);
+ 
+ nir_def *build_addr_to_node(struct radv_device *device, nir_builder *b, nir_def *addr, nir_def *flags);
+ 
+diff --git a/src/amd/vulkan/nir/radv_nir_rt_stage_common.c b/src/amd/vulkan/nir/radv_nir_rt_stage_common.c
+index e8e27894e27..af13bc7e930 100644
+--- a/src/amd/vulkan/nir/radv_nir_rt_stage_common.c
++++ b/src/amd/vulkan/nir/radv_nir_rt_stage_common.c
+@@ -219,7 +219,7 @@ radv_nir_lower_hit_attribs(nir_shader *shader, nir_variable **hit_attribs, uint3
+          nir_def *offset;
+          if (!hit_attribs)
+             offset = nir_imul_imm(
+-               &b, nir_iadd_imm(&b, nir_load_local_invocation_index(&b), nir_intrinsic_base(intrin) * workgroup_size),
++               &b, nir_iadd_imm(&b, nir_load_subgroup_invocation(&b), nir_intrinsic_base(intrin) * workgroup_size),
+                sizeof(uint32_t));
+ 
+          if (intrin->intrinsic == nir_intrinsic_load_hit_attrib_amd) {
+diff --git a/src/amd/vulkan/nir/radv_nir_rt_traversal_shader.c b/src/amd/vulkan/nir/radv_nir_rt_traversal_shader.c
+index 403aa4d717c..cd2775ce6cb 100644
+--- a/src/amd/vulkan/nir/radv_nir_rt_traversal_shader.c
++++ b/src/amd/vulkan/nir/radv_nir_rt_traversal_shader.c
+@@ -1042,11 +1042,11 @@ radv_build_traversal(struct radv_device *device, struct radv_ray_tracing_pipelin
+    nir_def *root_bvh_base = nir_iadd(b, params->accel_struct, nir_u2u64(b, bvh_offset));
+    root_bvh_base = build_addr_to_node(device, b, root_bvh_base, params->cull_mask_and_flags);
+ 
+-   nir_def *stack_idx = nir_load_local_invocation_index(b);
++   nir_def *stack_idx = nir_load_subgroup_invocation(b);
+    uint32_t stack_stride;
+ 
+    if (radv_use_bvh_stack_rtn(pdev)) {
+-      stack_idx = radv_build_bvh_stack_rtn_addr(b, pdev, pdev->rt_wave_size, 0, MAX_STACK_ENTRY_COUNT);
++      stack_idx = radv_build_bvh_stack_rtn_addr(b, stack_idx, pdev, pdev->rt_wave_size, 0, MAX_STACK_ENTRY_COUNT);
+       stack_stride = 1;
+    } else {
+       stack_idx = nir_imul_imm(b, stack_idx, sizeof(uint32_t));
+@@ -1143,8 +1143,7 @@ radv_build_traversal_shader(struct radv_device *device, struct radv_ray_tracing_
+     * invalid variable modes.*/
+    nir_builder b = radv_meta_nir_init_shader(device, MESA_SHADER_INTERSECTION, "rt_traversal");
+    b.shader->info.internal = false;
+-   b.shader->info.workgroup_size[0] = 8;
+-   b.shader->info.workgroup_size[1] = pdev->rt_wave_size == 64 ? 8 : 4;
++   b.shader->info.workgroup_size[0] = pdev->rt_wave_size;
+    b.shader->info.api_subgroup_size = pdev->rt_wave_size;
+    b.shader->info.max_subgroup_size = pdev->rt_wave_size;
+    b.shader->info.min_subgroup_size = pdev->rt_wave_size;
+diff --git a/src/amd/vulkan/radv_cmd_buffer.c b/src/amd/vulkan/radv_cmd_buffer.c
+index 382a57701bd..6f8b107c30c 100644
+--- a/src/amd/vulkan/radv_cmd_buffer.c
++++ b/src/amd/vulkan/radv_cmd_buffer.c
+@@ -13895,17 +13895,6 @@ radv_after_trace_rays(struct radv_cmd_buffer *cmd_buffer, bool dgc)
+    radv_cmd_buffer_after_draw(cmd_buffer, RADV_CMD_FLAG_CS_PARTIAL_FLUSH, dgc);
+ }
+ 
+-static void
+-radv_rt_dispatch(struct radv_cmd_buffer *cmd_buffer, const struct radv_dispatch_info *info)
+-{
+-   struct radv_ray_tracing_pipeline *rt_pipeline = cmd_buffer->state.rt_pipeline;
+-   const struct radv_shader *rt_prolog = cmd_buffer->state.rt_prolog;
+-
+-   radv_before_trace_rays(cmd_buffer, rt_pipeline);
+-   radv_emit_dispatch_packets(cmd_buffer, rt_prolog, info);
+-   radv_after_trace_rays(cmd_buffer, false);
+-}
+-
+ VKAPI_ATTR void VKAPI_CALL
+ radv_CmdDispatchBase(VkCommandBuffer commandBuffer, uint32_t base_x, uint32_t base_y, uint32_t base_z, uint32_t x,
+                      uint32_t y, uint32_t z)
+@@ -14059,11 +14048,7 @@ radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2K
+       radv_trace_trace_rays(cmd_buffer, tables, indirect_va);
+ 
+    struct radv_shader *rt_prolog = cmd_buffer->state.rt_prolog;
+-
+-   /* Since the workgroup size is 8x4 (or 8x8), 1D dispatches can only fill 8 threads per wave at most. To increase
+-    * occupancy, it's beneficial to convert to a 2D dispatch in these cases. */
+-   if (tables && tables->height == 1 && tables->width >= cmd_buffer->state.rt_prolog->info.cs.block_size[0])
+-      tables->height = ACO_RT_CONVERTED_2D_LAUNCH_SIZE;
++   struct radv_ray_tracing_pipeline *rt_pipeline = cmd_buffer->state.rt_pipeline;
+ 
+    struct radv_dispatch_info info = {0};
+    info.unaligned = true;
+@@ -14079,24 +14064,10 @@ radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2K
+       sbt_va = indirect_va;
+    }
+ 
+-   uint32_t remaining_ray_count = 0;
+-
+    if (mode == radv_rt_mode_direct) {
+       info.blocks[0] = tables->width;
+       info.blocks[1] = tables->height;
+       info.blocks[2] = tables->depth;
+-
+-      if (tables->height == ACO_RT_CONVERTED_2D_LAUNCH_SIZE) {
+-         /* We need the ray count for the 2D dispatch to be a multiple of the y block size for the division to work, and
+-          * a multiple of the x block size because the invocation offset must be a multiple of the block size when
+-          * dispatching the remaining rays. Fortunately, the x block size is itself a multiple of the y block size, so
+-          * we only need to ensure that the ray count is a multiple of the x block size. */
+-         remaining_ray_count = tables->width % rt_prolog->info.cs.block_size[0];
+-
+-         uint32_t ray_count = tables->width - remaining_ray_count;
+-         info.blocks[0] = ray_count / rt_prolog->info.cs.block_size[1];
+-         info.blocks[1] = rt_prolog->info.cs.block_size[1];
+-      }
+    } else
+       info.indirect_va = launch_size_va;
+ 
+@@ -14126,28 +14097,9 @@ radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2K
+ 
+    assert(cs->b->cdw <= cdw_max);
+ 
+-   radv_rt_dispatch(cmd_buffer, &info);
+-
+-   if (remaining_ray_count) {
+-      info.blocks[0] = remaining_ray_count;
+-      info.blocks[1] = 1;
+-      info.offsets[0] = tables->width - remaining_ray_count;
+-
+-      /* Reset the ray launch size so the prolog doesn't think this is a converted dispatch */
+-      tables->height = 1;
+-      radv_upload_trace_rays_params(cmd_buffer, tables, mode, &launch_size_va, NULL);
+-      if (ray_launch_size_addr_offset) {
+-         radeon_begin(cs);
+-         if (pdev->info.gfx_level >= GFX12) {
+-            gfx12_push_64bit_pointer(ray_launch_size_addr_offset, launch_size_va);
+-         } else {
+-            radeon_emit_64bit_pointer(ray_launch_size_addr_offset, launch_size_va);
+-         }
+-         radeon_end();
+-      }
+-
+-      radv_rt_dispatch(cmd_buffer, &info);
+-   }
++   radv_before_trace_rays(cmd_buffer, rt_pipeline);
++   radv_emit_dispatch_packets(cmd_buffer, rt_prolog, &info);
++   radv_after_trace_rays(cmd_buffer, false);
+ 
+    radv_resume_conditional_rendering(cmd_buffer);
+ }
+diff --git a/src/amd/vulkan/radv_shader.c b/src/amd/vulkan/radv_shader.c
+index e0baf284484..9d4bb3422a6 100644
+--- a/src/amd/vulkan/radv_shader.c
++++ b/src/amd/vulkan/radv_shader.c
+@@ -3424,11 +3424,10 @@ radv_create_rt_prolog(struct radv_device *device)
+    info.workgroup_size = info.wave_size;
+    info.user_data_0 = R_00B900_COMPUTE_USER_DATA_0;
+    info.type = RADV_SHADER_TYPE_RT_PROLOG;
+-   info.cs.block_size[0] = 8;
+-   info.cs.block_size[1] = pdev->rt_wave_size == 64 ? 8 : 4;
++   info.cs.block_size[0] = pdev->rt_wave_size;
++   info.cs.block_size[1] = 1;
+    info.cs.block_size[2] = 1;
+    info.cs.uses_thread_id[0] = true;
+-   info.cs.uses_thread_id[1] = true;
+    for (unsigned i = 0; i < 3; i++)
+       info.cs.uses_block_id[i] = true;
+ 
