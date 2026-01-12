@@ -33,13 +33,8 @@ in
           linger = true;
           extraGroups = [
             "wheel"
-            "input"
             "libvirtd"
             "networkmanager"
-            "podman"
-            "video"
-            "tty"
-            "dialout"
             "seat"
             "libvirt"
             "kvm"
