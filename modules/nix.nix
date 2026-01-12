@@ -21,12 +21,16 @@
     }) inputs;
 
     extraOptions = ''
-      experimental-features = nix-command flakes auto-allocate-uids cgroups
+      experimental-features = nix-command flakes ${
+        lib.optionalString (configInfo.type == "host") "auto-allocate-uids cgroups"
+      }
+    ''
+    + lib.optionalString (configInfo.type == "host") ''
       auto-allocate-uids = true
       use-cgroups = true
     '';
 
-    settings = {
+    settings = lib.optionalAttrs (configInfo.type == "host") {
       auto-optimise-store = true;
       allowed-users = [ "@users" ];
       trusted-users = [ "@wheel" ];
