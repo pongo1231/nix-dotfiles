@@ -33,12 +33,12 @@
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "c939744d2daafb6d62a1aeec1d101aefe2fe67c7";
-            sha256 = "sha256-RRITa1mU9NCZzAcekx7D1L+AroyWvrYEuIsC7HzL8Gc=";
+            rev = "8ed244755420e59758af893f934eb6c438627377";
+            sha256 = "sha256-PnYDW16lUWqxvK4FDsoWkZZ6Opc/a0cLBxmEdgLTyhI=";
           };
 
-          patches = prev.patches ++ [
-            (patch /mesa/26/radv-rt-1d-dispatch.patch)
+          patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches ++ [
+            (patch /mesa/26/trav_separate_compilation_ra.patch)
           ];
 
           NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
