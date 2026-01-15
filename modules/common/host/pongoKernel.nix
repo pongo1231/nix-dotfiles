@@ -51,12 +51,12 @@ in
                   in
                   {
                     inherit version;
-                    modDirVersion = "6.19.0-rc4";
+                    modDirVersion = "6.19.0-rc5";
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "b64ba8696c8cf979a15dd9ef8b0bbdc399d829e8";
-                      hash = "sha256-1EgwzyibeIGfUpeqb7qDwrNcjKz591KqFMj0bKnqYLY=";
+                      rev = "c7e1b2d831ea8f2b70be23d8f46af4b89fec955d";
+                      hash = "sha256-DhR8O4U5naoHduIKpuhIkJ3MhOrEc4bc+FXyKNJQCFo=";
                     };
                   };
               };
@@ -89,7 +89,8 @@ in
           patch = null;
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
-            PREEMPT_DYNAMIC y
+            PREEMPT_DYNAMIC n
+            PREEMPT y
             ZRAM_MEMORY_TRACKING y
             RSEQ_SLICE_EXTENSION y
             DRM_NOVA n
