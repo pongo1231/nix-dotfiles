@@ -15,14 +15,14 @@ withSecrets "pongo"
 // {
   services = {
     nginx.virtualHosts = {
-      "cloud.gopong.dev" = {
+      "cloud.${config.networking.fqdn}" = {
         forceSSL = true;
-        useACMEHost = "gopong.dev";
+        useACMEHost = config.networking.fqdn;
       };
 
-      "collabora.gopong.dev" = {
+      "collabora.${config.networking.fqdn}" = {
         forceSSL = true;
-        useACMEHost = "gopong.dev";
+        useACMEHost = config.networking.fqdn;
         locations."/" = {
           proxyPass = "https://localhost:9980";
           proxyWebsockets = true;
@@ -38,7 +38,7 @@ withSecrets "pongo"
     nextcloud = {
       enable = true;
       package = pkgs.nextcloud32;
-      hostName = "cloud.gopong.dev";
+      hostName = "cloud.${config.networking.fqdn}";
       https = true;
       config = {
         adminpassFile = config.sops.secrets."nextcloud/adminPassword".path;

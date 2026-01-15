@@ -7,9 +7,9 @@ withSecrets "pongo" { store = "gopong/findmydevice.env"; } {
   "findmydevice".key = "";
 }
 // {
-  services.nginx.virtualHosts."fmd.gopong.dev" = {
+  services.nginx.virtualHosts."fmd.${config.networking.fqdn}" = {
     forceSSL = true;
-    useACMEHost = "gopong.dev";
+    useACMEHost = config.networking.fqdn;
     locations."/".proxyPass = "http://localhost:27091";
   };
 

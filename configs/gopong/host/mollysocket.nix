@@ -8,9 +8,9 @@ withSecrets "pongo" { store = "gopong/mollysocket.env"; } {
 }
 // {
   services = {
-    nginx.virtualHosts."molly.gopong.dev" = {
+    nginx.virtualHosts."molly.${config.networking.fqdn}" = {
       forceSSL = true;
-      useACMEHost = "gopong.dev";
+      useACMEHost = config.networking.fqdn;
       locations."/".proxyPass = "http://localhost:${toString config.services.mollysocket.settings.port}";
     };
 
@@ -19,7 +19,7 @@ withSecrets "pongo" { store = "gopong/mollysocket.env"; } {
       environmentFile = config.sops.secrets."mollysocket".path;
       settings = {
         port = 29154;
-        allowed_endpoints = [ "https://cloud.gopong.dev" ];
+        allowed_endpoints = [ "https://cloud.${config.networking.fqdn}" ];
       };
     };
   };

@@ -51,7 +51,11 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ];
   };
 
-  networking.networkmanager.enable = lib.mkForce false;
+  networking = {
+    fqdn = "gopong.dev";
+
+    networkmanager.enable = lib.mkForce false;
+  };
 
   users.users = {
     stuff = {

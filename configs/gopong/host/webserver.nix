@@ -1,4 +1,5 @@
-_: {
+{ config, ... }:
+{
   services.nginx = {
     enable = true;
     recommendedOptimisation = true;
@@ -9,33 +10,33 @@ _: {
     virtualHosts = {
       "_" = {
         rejectSSL = true;
-        globalRedirect = "gopong.dev";
+        globalRedirect = config.networking.fqdn;
       };
 
-      "gopong.dev" = {
+      "${config.networking.fqdn}" = {
         forceSSL = true;
-        useACMEHost = "gopong.dev";
+        useACMEHost = config.networking.fqdn;
         root = "/srv/http";
       };
 
-      "chaos.gopong.dev" = {
+      "chaos.${config.networking.fqdn}" = {
         forceSSL = true;
-        useACMEHost = "gopong.dev";
+        useACMEHost = config.networking.fqdn;
         locations."/".proxyPass = "http://localhost:9907";
         extraConfig = ''
           client_max_body_size 50M;
         '';
       };
 
-      "hotel.gopong.dev" = {
+      "hotel.${config.networking.fqdn}" = {
         forceSSL = true;
-        useACMEHost = "gopong.dev";
+        useACMEHost = config.networking.fqdn;
         locations."/".proxyPass = "http://localhost:8081";
       };
 
-      "fastdl.gopong.dev" = {
+      "fastdl.${config.networking.fqdn}" = {
         addSSL = true;
-        useACMEHost = "gopong.dev";
+        useACMEHost = config.networking.fqdn;
         root = "/srv/http/fastdl";
         extraConfig = ''
           autoindex on;
@@ -48,23 +49,23 @@ _: {
   security.acme = {
     acceptTerms = true;
     defaults = {
-      email = "pongo@gopong.dev";
+      email = "pongo@${config.mailserver.fqdn}";
       webroot = "/var/lib/acme/acme-challenge";
     };
-    certs."gopong.dev" = {
+    certs."${config.networking.fqdn}" = {
       group = "nginx";
       extraDomainNames = [
-        "chaos.gopong.dev"
-        "hotel.gopong.dev"
-        "cloud.gopong.dev"
-        "fastdl.gopong.dev"
-        "vault.gopong.dev"
-        "collabora.gopong.dev"
-        "git.gopong.dev"
-        "paste.gopong.dev"
-        "pic.gopong.dev"
-        "fmd.gopong.dev"
-        "molly.gopong.dev"
+        "chaos.${config.networking.fqdn}"
+        "hotel.${config.networking.fqdn}"
+        "cloud.${config.networking.fqdn}"
+        "fastdl.${config.networking.fqdn}"
+        "vault.${config.networking.fqdn}"
+        "collabora.${config.networking.fqdn}"
+        "git.${config.networking.fqdn}"
+        "paste.${config.networking.fqdn}"
+        "pic.${config.networking.fqdn}"
+        "fmd.${config.networking.fqdn}"
+        "molly.${config.networking.fqdn}"
       ];
     };
   };

@@ -15,9 +15,9 @@ withSecrets "pongo"
   }
 // {
   services = {
-    nginx.virtualHosts."vault.gopong.dev" = {
+    nginx.virtualHosts."vault.${config.networking.fqdn}" = {
       forceSSL = true;
-      useACMEHost = "gopong.dev";
+      useACMEHost = config.networking.fqdn;
       locations."/".proxyPass =
         "http://localhost:${toString config.services.vaultwarden.config.ROCKET_PORT}";
     };
@@ -26,15 +26,15 @@ withSecrets "pongo"
       enable = true;
       environmentFile = config.sops.secrets."vaultwarden".path;
       config = {
-        DOMAIN = "https://vault.gopong.dev";
+        DOMAIN = "https://vault.${config.networking.fqdn}";
         SIGNUPS_ALLOWED = false;
         ROCKET_ADDRESS = "127.0.0.1";
         ROCKET_PORT = 8222;
         SMTP_HOST = "127.0.0.1";
         SMTP_PORT = 25;
         SMTP_SSL = false;
-        SMTP_FROM = "no-reply@gopong.dev";
-        SMTP_FROM_NAME = "gopong.dev Vaultwarden Server";
+        SMTP_FROM = "no-reply@${config.mailserver.fqdn}";
+        SMTP_FROM_NAME = "${config.networking.fqdn} Vaultwarden Server";
       };
     };
   };

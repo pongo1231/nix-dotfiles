@@ -21,24 +21,24 @@ withSecrets "pongo"
   mailserver = {
     enable = true;
     stateVersion = 3;
-    fqdn = "gopong.dev";
-    domains = [ "gopong.dev" ];
+    fqdn = config.networking.fqdn;
+    domains = [ config.mailserver.fqdn ];
     mailDirectory = "/var/lib/vmail";
     sieveDirectory = "/var/lib/sieve";
     loginAccounts = {
-      "pongo@gopong.dev" = {
+      "pongo@${config.mailserver.fqdn}" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
         aliases = [
-          "admin@gopong.dev"
-          "no-reply@gopong.dev"
+          "admin@${config.mailserver.fqdn}"
+          "no-reply@${config.mailserver.fqdn}"
         ];
       };
 
-      "chaos@gopong.dev" = {
+      "chaos@${config.mailserver.fqdn}" = {
         hashedPasswordFile = config.sops.secrets."emails/chaos".path;
       };
     };
 
-    x509.useACMEHost = "gopong.dev";
+    x509.useACMEHost = config.mailserver.fqdn;
   };
 }

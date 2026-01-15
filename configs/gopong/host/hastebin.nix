@@ -4,9 +4,9 @@
 }:
 {
   services = {
-    nginx.virtualHosts."paste.gopong.dev" = {
+    nginx.virtualHosts."paste.${config.networking.fqdn}" = {
       forceSSL = true;
-      useACMEHost = "gopong.dev";
+      useACMEHost = config.networking.fqdn;
       locations."/".proxyPass = "http://localhost:${toString config.services.haste-server.settings.port}";
     };
 

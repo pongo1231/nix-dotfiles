@@ -22,26 +22,26 @@ withSecrets "pongo"
   }
 // {
   services = {
-    nginx.virtualHosts."git.gopong.dev" = {
+    nginx.virtualHosts."git.${config.networking.fqdn}" = {
       forceSSL = true;
-      useACMEHost = "gopong.dev";
+      useACMEHost = config.networking.fqdn;
       locations."/".proxyPass = "http://unix:/run/gitlab/gitlab-workhorse.socket";
     };
 
     gitlab = {
       enable = true;
-      host = "git.gopong.dev";
+      host = "git.${config.networking.fqdn}";
       smtp = {
         enable = true;
-        domain = "gopong.dev";
-        address = "gopong.dev";
-        username = "pongo@gopong.dev";
+        domain = "${config.networking.fqdn}";
+        address = "${config.networking.fqdn}";
+        username = "pongo@${config.mailserver.fqdn}";
         passwordFile = config.sops.secrets."gitlab/emailPassword".path;
       };
       statePath = "/var/lib/gitlab";
       initialRootPasswordFile = config.sops.secrets."gitlab/rootPassword".path;
       databasePasswordFile = config.sops.secrets."gitlab/dbPassword".path;
-      initialRootEmail = "admin@gopong.dev";
+      initialRootEmail = "admin@${config.mailserver.fqdn}";
       secrets = {
         secretFile = config.sops.secrets."gitlab/secret".path;
         otpFile = config.sops.secrets."gitlab/otpSecret".path;

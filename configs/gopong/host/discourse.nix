@@ -20,9 +20,9 @@ withSecrets "pongo"
   services.discourse = {
     enable = true;
     package = inputs.nixpkgs3.legacyPackages.${system}.discourse;
-    hostname = "discourse.gopong.dev";
+    hostname = "discourse.${config.networking.fqdn}";
     admin = {
-      email = "admin@gopong.dev";
+      email = "admin@${config.mailserver.fqdn}";
       username = "root";
       fullName = "Root";
       passwordFile = config.sops.secrets."discourse/adminPassword".path;
@@ -30,9 +30,9 @@ withSecrets "pongo"
     secretKeyBaseFile = config.sops.secrets."discourse/secretKeyBase".path;
     database.ignorePostgresqlVersion = true;
     mail.outgoing = {
-      serverAddress = "gopong.dev";
-      domain = "gopong.dev";
-      username = "pongo@gopong.dev";
+      serverAddress = config.mailserver.fqdn;
+      domain = config.mailserver.fqdn;
+      username = "no-reply@${config.mailserver.fqdn}";
       passwordFile = config.sops.secrets."discourse/emailPassword".path;
     };
   };
