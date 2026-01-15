@@ -55,8 +55,8 @@ in
                     src = final.fetchFromGitHub {
                       owner = "pongo1231";
                       repo = "linux";
-                      rev = "c7e1b2d831ea8f2b70be23d8f46af4b89fec955d";
-                      hash = "sha256-DhR8O4U5naoHduIKpuhIkJ3MhOrEc4bc+FXyKNJQCFo=";
+                      rev = "4c8717e8dc32a3af03f19e30fcc98945eba7a3de";
+                      hash = "sha256-mkgT36dmXAjJ2L0P4cg6EKCs1MPo4igdCbAZ2V/Acjc=";
                     };
                   };
               };
@@ -90,6 +90,7 @@ in
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
             PREEMPT_DYNAMIC n
+            PREEMPT_VOLUNTARY n
             PREEMPT y
             ZRAM_MEMORY_TRACKING y
             RSEQ_SLICE_EXTENSION y
