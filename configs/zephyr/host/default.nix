@@ -6,6 +6,7 @@
   patch,
   config,
   pkgs,
+  lib,
   ...
 }:
 {
@@ -151,7 +152,16 @@
     };
   };
 
-  systemd.services.enable-ksm.script = "${pkgs.util-linux}/bin/taskset -pc 14,15 $(${pkgs.procps}/bin/pgrep -x ksmd)";
+  systemd.services = {
+    "enable-ksm".script =
+      "${pkgs.util-linux}/bin/taskset -pc 14,15 $(${pkgs.procps}/bin/pgrep -x ksmd)";
+  }
+  // lib.mapAttrs' (
+    name: fs:
+    lib.nameValuePair "beesd@${name}" {
+      serviceConfig.AllowedCPUs = "14,15";
+    }
+  ) config.services.beesd.filesystems;
 
   environment = {
     sessionVariables = {
