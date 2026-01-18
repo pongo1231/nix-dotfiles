@@ -150,6 +150,18 @@
         extraOptions = [ "-c 1" ];
       };
     };
+
+    keyd = {
+      enable = true;
+      keyboards.laptop = {
+        ids = [
+          "0b05:19b6:85a3e4e4"
+        ];
+        settings.main = {
+          "leftshift+leftmeta+f23" = "S-f10";
+        };
+      };
+    };
   };
 
   systemd.services = {
