@@ -1,0 +1,60 @@
+--- a/hw/display/virtio-gpu-gl.c
++++ b/hw/display/virtio-gpu-gl.c
+@@ -159,5 +159,6 @@ static Property virtio_gpu_gl_properties
+                     VIRTIO_GPU_FLAG_STATS_ENABLED, false),
+     DEFINE_PROP_BIT("venus", VirtIOGPU, parent_obj.conf.flags,
+                     VIRTIO_GPU_FLAG_VENUS_ENABLED, false),
++    DEFINE_PROP_CHR("chardev0", VirtIOGPU, parent_obj.conf.dev),
+ };
+ 
+--- a/hw/display/virtio-gpu-virgl.c
++++ b/hw/display/virtio-gpu-virgl.c
+@@ -19,6 +19,9 @@
+ #include "hw/virtio/virtio-gpu.h"
+ #include "hw/virtio/virtio-gpu-bswap.h"
+ #include "hw/virtio/virtio-gpu-pixman.h"
++#include "chardev/char-socket.h"
++#include "qapi/error.h"
++#include "qemu/sockets.h"
+ 
+ #include "ui/egl-helpers.h"
+ 
+@@ -1030,6 +1033,18 @@ static int virgl_make_context_current(vo
+                                    qctx);
+ }
+ 
++static int virgl_get_server_fd(void *opaque, uint32_t version)
++{
++    VirtIOGPU *g = opaque;
++    Error* err = NULL;
++    SocketChardev *s = SOCKET_CHARDEV(g->parent_obj.conf.dev.chr);
++    int fd = socket_connect(s->addr, &err);
++    if (err)
++        fd = -1;
++    error_propagate(NULL, err);
++    return fd;
++}
++
+ static struct virgl_renderer_callbacks virtio_gpu_3d_cbs = {
+     .version             = 1,
+     .write_fence         = virgl_write_fence,
+@@ -1111,6 +1126,9 @@ int virtio_gpu_virgl_init(VirtIOGPU *g)
+ #if VIRGL_VERSION_MAJOR >= 1
+     if (virtio_gpu_venus_enabled(g->parent_obj.conf)) {
+         flags |= VIRGL_RENDERER_VENUS | VIRGL_RENDERER_RENDER_SERVER;
++        if (g->parent_obj.conf.dev.chr) {
++            virtio_gpu_3d_cbs.get_server_fd = virgl_get_server_fd;
++        }
+     }
+ #endif
+ 
+--- a/include/hw/virtio/virtio-gpu.h
++++ b/include/hw/virtio/virtio-gpu.h
+@@ -125,6 +125,7 @@ struct virtio_gpu_base_conf {
+     uint32_t xres;
+     uint32_t yres;
+     uint64_t hostmem;
++    CharBackend dev;
+     VirtIOGPUOutputList *outputs;
+ };
+ 
