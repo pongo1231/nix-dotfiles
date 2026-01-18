@@ -19,6 +19,7 @@
 
     ./helpers.nix
     ./suspender.nix
+    ./micro.nix
   ];
 
   home = {
@@ -92,8 +93,6 @@
       nix-tree
       gptfdisk
       iotop
-      micro
-      xclip # for micro
       pstree
       nvd
       manix
