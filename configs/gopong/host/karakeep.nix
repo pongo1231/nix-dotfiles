@@ -27,6 +27,7 @@ withSecrets "pongo"
         DISABLE_SIGNUPS = "true";
         EMAIL_VERIFICATION_REQUIRED = "true";
         SMTP_HOST = config.mailserver.fqdn;
+        SMTP_USER = "no-reply@gopong.dev";
         SMTP_FROM = "no-reply@${config.mailserver.fqdn}";
         NEXTAUTH_URL = "https://karakeep.${config.networking.fqdn}";
       };

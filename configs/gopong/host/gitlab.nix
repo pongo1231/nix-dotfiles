@@ -35,7 +35,7 @@ withSecrets "pongo"
         enable = true;
         domain = "${config.networking.fqdn}";
         address = "${config.networking.fqdn}";
-        username = "pongo@${config.mailserver.fqdn}";
+        username = "no-reply@${config.mailserver.fqdn}";
         passwordFile = config.sops.secrets."gitlab/emailPassword".path;
       };
       statePath = "/var/lib/gitlab";

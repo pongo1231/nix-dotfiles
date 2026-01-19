@@ -49,7 +49,7 @@
   security.acme = {
     acceptTerms = true;
     defaults = {
-      email = "pongo@${config.mailserver.fqdn}";
+      email = "admin@${config.mailserver.fqdn}";
       webroot = "/var/lib/acme/acme-challenge";
     };
     certs."${config.networking.fqdn}" = {

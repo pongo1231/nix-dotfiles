@@ -31,6 +31,7 @@ withSecrets "pongo"
         SMTP_HOST = "gopong.dev";
         SMTP_PORT = 465;
         SMTP_SECURITY = "force_tls";
+        SMTP_USERNAME = "no-reply@gopong.dev";
         SMTP_FROM = "no-reply@${config.mailserver.fqdn}";
       };
     };

@@ -11,6 +11,7 @@ withSecrets "pongo"
   }
   {
     "emails/pongo" = { };
+    "emails/no-reply" = { };
     "emails/chaos" = { };
   }
 // {
@@ -29,10 +30,11 @@ withSecrets "pongo"
     loginAccounts = {
       "pongo@${config.mailserver.fqdn}" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
-        aliases = [
-          "admin@${config.mailserver.fqdn}"
-          "no-reply@${config.mailserver.fqdn}"
-        ];
+        aliases = [ "admin@${config.mailserver.fqdn}" ];
+      };
+
+      "no-reply@${config.mailserver.fqdn}" = {
+        hashedPasswordFile = config.sops.secrets."emails/no-reply".path;
       };
 
       "chaos@${config.mailserver.fqdn}" = {

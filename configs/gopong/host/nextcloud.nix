@@ -67,6 +67,7 @@ lib.mkMerge [
           "mail_smtphost" = "${config.mailserver.fqdn}";
           "mail_smtpport" = 465;
           "mail_smtpauth" = true;
+          "mail_smtpname" = "no-reply@gopong.dev";
           "mail_smtpsecure" = "ssl";
         };
 
