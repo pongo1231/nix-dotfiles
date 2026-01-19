@@ -54,19 +54,24 @@
     };
     certs."${config.networking.fqdn}" = {
       group = "nginx";
-      extraDomainNames = [
-        "chaos.${config.networking.fqdn}"
-        "hotel.${config.networking.fqdn}"
-        "cloud.${config.networking.fqdn}"
-        "fastdl.${config.networking.fqdn}"
-        "vault.${config.networking.fqdn}"
-        "collabora.${config.networking.fqdn}"
-        "git.${config.networking.fqdn}"
-        "paste.${config.networking.fqdn}"
-        "pic.${config.networking.fqdn}"
-        "fmd.${config.networking.fqdn}"
-        "molly.${config.networking.fqdn}"
-      ];
+      extraDomainNames =
+        let
+          fqdn = config.networking.fqdn;
+        in
+        [
+          "chaos.${fqdn}"
+          "hotel.${fqdn}"
+          "cloud.${fqdn}"
+          "fastdl.${fqdn}"
+          "vault.${fqdn}"
+          "collabora.${fqdn}"
+          "git.${fqdn}"
+          "paste.${fqdn}"
+          "pic.${fqdn}"
+          "fmd.${fqdn}"
+          "molly.${fqdn}"
+          "karakeep.${fqdn}"
+        ];
     };
   };
 

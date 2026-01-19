@@ -20,6 +20,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./picsur.nix
     ./findmydevice.nix
     ./mollysocket.nix
+    ./karakeep.nix
   ];
 
   boot = {
