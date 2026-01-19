@@ -9,9 +9,7 @@ withSecrets "pongo"
     owner = config.users.users.vaultwarden.name;
   }
   {
-    "vaultwarden" = {
-      key = "";
-    };
+    "vaultwarden".key = "";
   }
 // {
   services = {
@@ -30,11 +28,10 @@ withSecrets "pongo"
         SIGNUPS_ALLOWED = false;
         ROCKET_ADDRESS = "127.0.0.1";
         ROCKET_PORT = 8222;
-        SMTP_HOST = "127.0.0.1";
-        SMTP_PORT = 25;
-        SMTP_SSL = false;
+        SMTP_HOST = "gopong.dev";
+        SMTP_PORT = 465;
+        SMTP_SECURITY = "force_tls";
         SMTP_FROM = "no-reply@${config.mailserver.fqdn}";
-        SMTP_FROM_NAME = "${config.networking.fqdn} Vaultwarden Server";
       };
     };
   };
