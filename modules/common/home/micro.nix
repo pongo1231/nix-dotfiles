@@ -2,6 +2,7 @@
 {
   programs.micro = {
     enable = true;
+    package = pkgs.micro-with-xclip;
 
     settings = {
       tabstospaces = true;
