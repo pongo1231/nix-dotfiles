@@ -113,6 +113,8 @@
       procps
       smem
       borgbackup
+      dix
+      nurl
     ];
   };
 }
