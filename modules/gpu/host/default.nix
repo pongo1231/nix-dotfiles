@@ -1,7 +1,5 @@
 gpus:
 {
-  system,
-  inputs,
   lib,
   pkgs,
   ...

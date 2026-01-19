@@ -1,10 +1,8 @@
 {
   inputs,
   module,
-  patch,
   config,
   pkgs,
-  lib,
   ...
 }:
 {

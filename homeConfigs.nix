@@ -27,7 +27,6 @@ let
           import ./specialArgs.nix {
             prefix = "home";
             inherit
-              system
               inputs
               isNixosModule
               user

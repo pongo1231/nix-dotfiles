@@ -106,7 +106,7 @@
       git-extras
       nix-output-monitor
       reptyr
-      inputs.nix-alien.packages.${system}.nix-alien
+      inputs.nix-alien.packages.${pkgs.stdenv.hostPlatform.system}.nix-alien
       b4
       nix-serve-ng
       ps_mem

@@ -1,5 +1,4 @@
 {
-  system,
   inputs,
   module,
   pkgs,
@@ -22,14 +21,14 @@
     vesktop
     libreoffice
     gimp
-    inputs.nixpkgs2.legacyPackages.${system}.audacity
+    inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.audacity
     remmina
     moonlight-qt
     audacious
     jamesdsp
     nextcloud-client
     syncthing
-    inputs.nixpkgs2.legacyPackages.${system}.thunderbird
+    inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.thunderbird
     darkly
   ];
 }

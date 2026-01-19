@@ -14,7 +14,6 @@ let
         prefix = "host";
         isNixosModule = true;
         inherit
-          system
           inputs
           lib
           hostName
@@ -31,6 +30,13 @@ let
             "type"
           ];
         })
+
+        (
+          { ... }:
+          {
+            nixpkgs.hostPlatform.system = system;
+          }
+        )
 
         inputs.home-manager.nixosModules.home-manager
         (import ./homeConfigs.nix inputs {

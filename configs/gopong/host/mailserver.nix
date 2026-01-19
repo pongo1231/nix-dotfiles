@@ -21,7 +21,7 @@ withSecrets "pongo"
   mailserver = {
     enable = true;
     stateVersion = 3;
-    fqdn = config.networking.fqdn;
+    inherit (config.networking) fqdn;
     domains = [ config.mailserver.fqdn ];
     mailDirectory = "/var/lib/vmail";
     sieveDirectory = "/var/lib/sieve";

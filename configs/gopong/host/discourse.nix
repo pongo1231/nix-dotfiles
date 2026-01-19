@@ -1,5 +1,4 @@
 {
-  system,
   withSecrets,
   inputs,
   config,
@@ -19,7 +18,7 @@ withSecrets "pongo"
 // {
   services.discourse = {
     enable = true;
-    package = inputs.nixpkgs3.legacyPackages.${system}.discourse;
+    package = inputs.nixpkgs3.legacyPackages.${pkgs.stdenv.hostPlatform.system}.discourse;
     hostname = "discourse.${config.networking.fqdn}";
     admin = {
       email = "admin@${config.mailserver.fqdn}";

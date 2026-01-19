@@ -1,5 +1,4 @@
 {
-  system,
   inputs,
   configInfo,
   config,
@@ -54,16 +53,12 @@
     package = pkgs.lixPackageSets.latest.lix;
   };
 
-  nixpkgs =
-    lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
-      config = {
-        allowUnfree = true;
-        nvidia.acceptLicense = true;
-      };
-    }
-    // lib.optionalAttrs (configInfo.type == "host") {
-      hostPlatform.system = system;
+  nixpkgs = lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
+    config = {
+      allowUnfree = true;
+      nvidia.acceptLicense = true;
     };
+  };
 }
 // lib.optionalAttrs (configInfo.type == "host") {
   fileSystems."/nix/var/nix/b" = {

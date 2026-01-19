@@ -1,5 +1,4 @@
 {
-  inputs,
   patch,
   pkgs,
   lib,
@@ -9,7 +8,7 @@
   hardware.graphics = {
     enable = true;
     package =
-      (pkgs.mesa.override ({
+      (pkgs.mesa.override {
         galliumDrivers = [
           "d3d12"
           "iris"
@@ -27,7 +26,7 @@
           "swrast"
           "virtio"
         ];
-      })).overrideAttrs
+      }).overrideAttrs
         (prev: {
           src = pkgs.fetchFromGitLab {
             domain = "gitlab.freedesktop.org";

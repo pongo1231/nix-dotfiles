@@ -2,7 +2,6 @@
   args,
 }:
 {
-  system,
   inputs,
   hostName,
   module,
@@ -239,7 +238,7 @@
         sops
         ssh-to-age
       ]
-      ++ lib.optionals (system == "x86_64-linux") [
+      ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         scx.full
       ];
   };

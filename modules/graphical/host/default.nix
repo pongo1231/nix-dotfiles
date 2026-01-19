@@ -1,6 +1,5 @@
 {
   inputs,
-  patch,
   config,
   pkgs,
   lib,

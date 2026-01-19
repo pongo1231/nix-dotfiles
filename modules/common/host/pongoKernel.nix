@@ -1,7 +1,5 @@
 {
   inputs,
-  system,
-  patch,
   config,
   pkgs,
   lib,
@@ -32,7 +30,7 @@ in
               if cfg.crossCompile != null then
                 inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
               else
-                inputs.nixpkgs2.legacyPackages.${system};
+                inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system};
           in
           pkgs'.linuxPackages_testing.extend (
             final': prev': {
@@ -41,7 +39,7 @@ in
                   stdenv = pkgs'.pkgsBuildBuild.gcc15Stdenv;
                 };
                 stdenv = pkgs'.gcc15Stdenv;
-                pkgsBuildBuild = pkgs'.pkgsBuildBuild;
+                inherit (pkgs') pkgsBuildBuild;
 
                 ignoreConfigErrors = true;
 
@@ -60,21 +58,6 @@ in
                     };
                   };
               };
-
-              /*
-                xpadneo = prev'.xpadneo.overrideAttrs (
-                  final'': prev'': {
-                    src = pkgs.fetchFromGitHub {
-                      owner = "atar-axis";
-                      repo = "xpadneo";
-                      rev = "a16acb03e7be191d47ebfbc8ca1d5223422dac3e";
-                      hash = "sha256-4eOP6qAkD7jGOqaZPOB5/pdoqixl2Jy2iSVvK2caE80=";
-                    };
-
-                    patches = (prev''.patches or [ ]) ++ [ (patch /xpadneo/6.17/ida_alloc_and_free.patch) ];
-                  }
-                );
-              */
             }
           );
       })
@@ -96,7 +79,7 @@ in
             RSEQ_SLICE_EXTENSION y
             DRM_NOVA n
           ''
-          + lib.optionalString (system == "x86_64-linux") ''
+          + lib.optionalString (pkgs.stdenv.hostPlatform.system == "x86_64-linux") ''
             X86_64_VERSION 3
             AMD_PRIVATE_COLOR y
             LEDS_STEAMDECK m
