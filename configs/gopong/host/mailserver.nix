@@ -25,6 +25,7 @@ withSecrets "pongo"
     domains = [ config.mailserver.fqdn ];
     mailDirectory = "/var/lib/vmail";
     sieveDirectory = "/var/lib/sieve";
+    enableSubmission = true;
     loginAccounts = {
       "pongo@${config.mailserver.fqdn}" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
