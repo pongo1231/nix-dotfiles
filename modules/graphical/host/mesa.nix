@@ -28,12 +28,14 @@
         ];
       }).overrideAttrs
         (prev: {
+          version = "26.0-git";
+
           src = pkgs.fetchFromGitLab {
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "8ed244755420e59758af893f934eb6c438627377";
-            sha256 = "sha256-PnYDW16lUWqxvK4FDsoWkZZ6Opc/a0cLBxmEdgLTyhI=";
+            rev = "1c98532e15bdbf8c3ae953b1cd6bc4a59c9a2cea";
+            hash = "sha256-9ZPySI8L1oAA9XvQtl2JeLk7OM04lF5nR+MEnVddATo=";
           };
 
           patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches ++ [
