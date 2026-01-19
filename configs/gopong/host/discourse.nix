@@ -20,19 +20,28 @@ withSecrets "pongo"
     enable = true;
     package = inputs.nixpkgs3.legacyPackages.${pkgs.stdenv.hostPlatform.system}.discourse;
     hostname = "discourse.${config.networking.fqdn}";
+
     admin = {
       email = "admin@${config.mailserver.fqdn}";
       username = "root";
       fullName = "Root";
       passwordFile = config.sops.secrets."discourse/adminPassword".path;
     };
+
     secretKeyBaseFile = config.sops.secrets."discourse/secretKeyBase".path;
     database.ignorePostgresqlVersion = true;
-    mail.outgoing = {
-      serverAddress = config.mailserver.fqdn;
-      domain = config.mailserver.fqdn;
-      username = "no-reply@${config.mailserver.fqdn}";
-      passwordFile = config.sops.secrets."discourse/emailPassword".path;
+
+    mail = {
+      notificationEmailAddress = "no-reply@${config.mailserver.fqdn}";
+
+      outgoing = {
+        serverAddress = config.mailserver.fqdn;
+        port = 465;
+        forceTLS = true;
+        domain = config.mailserver.fqdn;
+        username = "no-reply@${config.mailserver.fqdn}";
+        passwordFile = config.sops.secrets."discourse/emailPassword".path;
+      };
     };
   };
 }
