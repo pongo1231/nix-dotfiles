@@ -101,11 +101,6 @@
 
     extra-container.enable = true;
 
-    nix-ld = {
-      enable = true;
-      libraries = pkgs.steam-run-free.args.multiPkgs pkgs;
-    };
-
     usbtop.enable = true;
     dconf.enable = true;
     direnv.enable = true;
@@ -139,8 +134,6 @@
     swapspace.enable = true;
 
     fstrim.enable = true;
-
-    envfs.enable = true;
 
     udisks2.settings."udisks2.conf".defaults = {
       btrfs_defaults = "noatime,lazytime,compress-force=zstd";
