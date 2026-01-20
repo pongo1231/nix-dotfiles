@@ -144,6 +144,8 @@
       exfat_defaults = "noatime,lazytime";
       ntfs3_defaults = "noatime,lazytime";
     };
+
+    ntpd-rs.enable = true;
   };
 
   security = {
