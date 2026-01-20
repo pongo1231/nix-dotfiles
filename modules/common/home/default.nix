@@ -55,6 +55,12 @@
     };
   };
 
+  services.ssh-agent = {
+    enable = true;
+    enableBashIntegration = true;
+    enableFishIntegration = true;
+  };
+
   xdg.configFile =
     (lib.mapAttrs' (name: flake: {
       name = "nix/inputs/${name}";
