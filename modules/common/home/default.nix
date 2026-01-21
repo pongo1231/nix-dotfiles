@@ -120,7 +120,6 @@
       smem
       borgbackup
       dix
-      nurl
     ];
   };
 }
