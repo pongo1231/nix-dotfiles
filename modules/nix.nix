@@ -57,7 +57,7 @@
       "noatime"
       "lazytime"
       "mode=0755"
-      "size=200%"
+      "size=100G"
       "huge=within_size"
     ];
   };
