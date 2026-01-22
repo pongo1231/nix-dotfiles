@@ -31,6 +31,7 @@ withSecrets "pongo"
       "pongo@${config.mailserver.fqdn}" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
         aliases = [ "admin@${config.mailserver.fqdn}" ];
+        catchAll = [ config.mailserver.fqdn ];
       };
 
       "no-reply@${config.mailserver.fqdn}" = {
