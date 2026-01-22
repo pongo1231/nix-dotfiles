@@ -21,6 +21,7 @@
         "browser.tabs.unloadOnLowMemory" = true;
         "browser.low_commit_space_threshold_percent" = 100;
         "browser.tabs.min_inactive_duration_before_unload" = 3600000;
+        "identity.sync.tokenserver.uri" = "https://firefox-syncserver.gopong.dev/1.0/sync/1.5";
       };
     };
   };
