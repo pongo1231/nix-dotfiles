@@ -21,6 +21,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./findmydevice.nix
     ./mollysocket.nix
     ./karakeep.nix
+    ./firefox-syncserver.nix
   ];
 
   boot = {

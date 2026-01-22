@@ -71,6 +71,7 @@
           "fmd.${fqdn}"
           "molly.${fqdn}"
           "karakeep.${fqdn}"
+          "firefox-syncserver.${fqdn}"
         ];
     };
   };
