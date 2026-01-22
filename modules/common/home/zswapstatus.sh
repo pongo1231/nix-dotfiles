@@ -10,7 +10,7 @@ settings_dir="/sys/module/zswap/parameters"
 statistics_dir="/sys/kernel/debug/zswap"
 
 # Array of zswap settings
-settings=("accept_threshold_percent" "compressor" "enabled" "max_pool_percent" "zpool")
+settings=("accept_threshold_percent" "compressor" "enabled" "max_pool_percent")
 
 # Array of zswap statistics
 statistics=("pool_limit_hit" "pool_total_size" "reject_alloc_fail" "reject_compress_poor" "reject_kmemcache_fail" "reject_reclaim_fail" "stored_pages")
