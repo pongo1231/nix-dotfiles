@@ -7,11 +7,7 @@ withSecrets "pongo" { store = "gopong/findmydevice.env"; } {
   "findmydevice".key = "";
 }
 // {
-  services.nginx.virtualHosts."fmd.${config.networking.fqdn}" = {
-    forceSSL = true;
-    useACMEHost = config.networking.fqdn;
-    locations."/".proxyPass = "http://localhost:27091";
-  };
+  gopong.virtualHosts."fmd".locations."/".proxyPass = "http://localhost:27091";
 
   virtualisation.oci-containers.containers.fmd = {
     image = "registry.gitlab.com/fmd-foss/fmd-server:0-distroless";

@@ -14,7 +14,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./mailserver.nix
     ./nextcloud.nix
     ./vaultwarden.nix
-    ./discourse.nix
+    #./discourse.nix
     ./gitlab.nix
     ./hastebin.nix
     ./picsur.nix
@@ -54,7 +54,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
   };
 
   networking = {
-    fqdn = "gopong.dev";
+    fqdn = "pongxyz.com";
 
     networkmanager.enable = lib.mkForce false;
   };

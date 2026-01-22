@@ -1,79 +1,109 @@
-{ config, ... }:
 {
-  services.nginx = {
-    enable = true;
-    recommendedOptimisation = true;
-    recommendedTlsSettings = true;
-    recommendedProxySettings = true;
-    recommendedGzipSettings = true;
-
-    virtualHosts = {
-      "_" = {
-        rejectSSL = true;
-        globalRedirect = config.networking.fqdn;
-      };
-
-      "${config.networking.fqdn}" = {
-        forceSSL = true;
-        useACMEHost = config.networking.fqdn;
-        root = "/srv/http";
-      };
-
-      "chaos.${config.networking.fqdn}" = {
-        forceSSL = true;
-        useACMEHost = config.networking.fqdn;
-        locations."/".proxyPass = "http://localhost:9907";
-        extraConfig = ''
-          client_max_body_size 50M;
-        '';
-      };
-
-      "hotel.${config.networking.fqdn}" = {
-        forceSSL = true;
-        useACMEHost = config.networking.fqdn;
-        locations."/".proxyPass = "http://localhost:8081";
-      };
-
-      "fastdl.${config.networking.fqdn}" = {
-        addSSL = true;
-        useACMEHost = config.networking.fqdn;
-        root = "/srv/http/fastdl";
-        extraConfig = ''
-          autoindex on;
-          sub_filter '</body>' '<div class="footer">FastDL server for DuckyServers.<br>Also available for public use.<br>sv_downloadurl "http://fastdl.gopong.dev/game/"</div></body>';
-        '';
-      };
+  config,
+  lib,
+  ...
+}:
+let
+  cfg = config.gopong;
+  domains = [
+    config.networking.fqdn
+    "gopong.dev"
+  ];
+in
+{
+  options = {
+    gopong.virtualHosts = lib.mkOption {
+      type = lib.types.attrs;
+      default = [ ];
     };
   };
 
-  security.acme = {
-    acceptTerms = true;
-    defaults = {
-      email = "admin@${config.mailserver.fqdn}";
-      webroot = "/var/lib/acme/acme-challenge";
+  config = {
+    services.nginx = {
+      enable = true;
+      recommendedOptimisation = true;
+      recommendedTlsSettings = true;
+      recommendedProxySettings = true;
+      recommendedGzipSettings = true;
+
+      virtualHosts = {
+        "_" = {
+          rejectSSL = true;
+          globalRedirect = config.networking.fqdn;
+        };
+      }
+      // lib.foldl' (
+        acc: domain:
+        acc
+        //
+          lib.mapAttrs'
+            (name: val: {
+              name = "${name}${if name == "" then "" else "."}${domain}";
+              value = {
+                forceSSL = true;
+                useACMEHost = domain;
+              }
+              // val;
+            })
+            (
+              cfg.virtualHosts
+              // {
+                "" = {
+                  useACMEHost = domain;
+                  root = "/srv/http";
+                };
+
+                "chaos" = {
+                  useACMEHost = domain;
+                  locations."/".proxyPass = "http://localhost:9907";
+                  extraConfig = ''
+                    client_max_body_size 50M;
+                  '';
+                };
+
+                "hotel" = {
+                  useACMEHost = domain;
+                  locations."/".proxyPass = "http://localhost:8081";
+                };
+
+                "fastdl" = {
+                  forceSSL = false;
+                  addSSL = true;
+                  useACMEHost = domain;
+                  root = "/srv/http/fastdl";
+                  extraConfig = ''
+                    autoindex on;
+                    sub_filter '</body>' '<div class="footer">FastDL server for DuckyServers.<br>Also available for public use.<br>sv_downloadurl "http://fastdl.${config.networking.fqdn}/game/"</div></body>';
+                  '';
+                };
+              }
+            )
+      ) { } domains;
     };
-    certs."${config.networking.fqdn}" = {
-      group = "nginx";
-      extraDomainNames =
-        let
-          fqdn = config.networking.fqdn;
-        in
-        [
-          "chaos.${fqdn}"
-          "hotel.${fqdn}"
-          "cloud.${fqdn}"
-          "fastdl.${fqdn}"
-          "vault.${fqdn}"
-          "collabora.${fqdn}"
-          "git.${fqdn}"
-          "paste.${fqdn}"
-          "pic.${fqdn}"
-          "fmd.${fqdn}"
-          "molly.${fqdn}"
-          "karakeep.${fqdn}"
-          "firefox-syncserver.${fqdn}"
+    security.acme = {
+      acceptTerms = true;
+      defaults = {
+        email = "admin@${config.mailserver.fqdn}";
+        webroot = "/var/lib/acme/acme-challenge";
+      };
+      certs = lib.genAttrs domains (domain: {
+        group = "nginx";
+        extraDomainNames = [
+          "chaos.${domain}"
+          "hotel.${domain}"
+          "cloud.${domain}"
+          "fastdl.${domain}"
+          "vault.${domain}"
+          "collabora.${domain}"
+          "git.${domain}"
+          "paste.${domain}"
+          "pic.${domain}"
+          "fmd.${domain}"
+          "molly.${domain}"
+          "karakeep.${domain}"
+          "firefox-syncserver.${domain}"
         ];
+      });
     };
   };
-
 }

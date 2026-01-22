@@ -23,15 +23,25 @@ withSecrets "pongo"
     enable = true;
     stateVersion = 3;
     inherit (config.networking) fqdn;
-    domains = [ config.mailserver.fqdn ];
+    domains = [
+      config.mailserver.fqdn
+      "gopong.dev"
+    ];
     mailDirectory = "/var/lib/vmail";
     sieveDirectory = "/var/lib/sieve";
     enableSubmission = true;
     loginAccounts = {
       "pongo@${config.mailserver.fqdn}" = {
         hashedPasswordFile = config.sops.secrets."emails/pongo".path;
-        aliases = [ "admin@${config.mailserver.fqdn}" ];
-        catchAll = [ config.mailserver.fqdn ];
+        aliases = [
+          "admin@${config.mailserver.fqdn}"
+          "pongo@gopong.dev"
+          "admin@gopong.dev"
+        ];
+        catchAll = [
+          config.mailserver.fqdn
+          "gopong.dev"
+        ];
       };
 
       "no-reply@${config.mailserver.fqdn}" = {

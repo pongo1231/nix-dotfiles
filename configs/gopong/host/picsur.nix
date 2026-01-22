@@ -7,11 +7,7 @@ withSecrets "pongo" { store = "gopong/picsur.env"; } {
   "picsur".key = "";
 }
 // {
-  services.nginx.virtualHosts."pic.${config.networking.fqdn}" = {
-    forceSSL = true;
-    useACMEHost = config.networking.fqdn;
-    locations."/".proxyPass = "http://localhost:11098";
-  };
+  gopong.virtualHosts."pic".locations."/".proxyPass = "http://localhost:11098";
 
   virtualisation.oci-containers.containers = {
     picsur = {

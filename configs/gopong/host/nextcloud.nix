@@ -67,8 +67,9 @@ lib.mkMerge [
           "mail_smtphost" = "${config.mailserver.fqdn}";
           "mail_smtpport" = 465;
           "mail_smtpauth" = true;
-          "mail_smtpname" = "no-reply@gopong.dev";
+          "mail_smtpname" = "no-reply@${config.mailserver.fqdn}";
           "mail_smtpsecure" = "ssl";
+          "trusted_domains" = [ "cloud.gopong.dev" ];
         };
 
         secretFile = config.sops.secrets."nextcloudfile".path;
