@@ -27,7 +27,8 @@
       fish_add_path -maP ~/.local/bin
     '';
 
-    plugins =
+    /*
+      plugins =
       let
         plugins = with pkgs.fishPlugins; [
           fzf-fish
@@ -49,5 +50,6 @@
           }
         ]
       ) [ ] plugins;
+    */
   };
 }
