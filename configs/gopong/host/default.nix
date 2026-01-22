@@ -54,7 +54,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
   };
 
   networking = {
-    fqdn = "pongxyz.com";
+    fqdn = "ecmec.eu";
 
     networkmanager.enable = lib.mkForce false;
   };
