@@ -11,6 +11,7 @@ withSecrets "pongo"
   }
   {
     "emails/pongo" = { };
+    "emails/ec" = { };
     "emails/no-reply" = { };
     "emails/chaos" = { };
   }
@@ -42,6 +43,10 @@ withSecrets "pongo"
           config.mailserver.fqdn
           "gopong.dev"
         ];
+      };
+
+      "ec@${config.mailserver.fqdn}" = {
+        hashedPasswordFile = config.sops.secrets."emails/ec".path;
       };
 
       "no-reply@${config.mailserver.fqdn}" = {
