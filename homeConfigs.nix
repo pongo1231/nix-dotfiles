@@ -5,13 +5,65 @@ inputs:
   configs ? null,
 }:
 let
+  inherit (inputs.nixpkgs) lib;
+
   commonUsers = [
     "pongo"
   ];
 
-  inherit (inputs.nixpkgs) lib;
+  configsDir = ./configs;
 
-  commonConfig =
+  dirEntries = if configs != null then configs else builtins.readDir configsDir;
+
+  hostNames = builtins.attrNames dirEntries;
+
+  mkSpecialArgs =
+    user:
+    if extraSpecialArgs != null then
+      extraSpecialArgs // { inherit user; }
+    else
+      import ./specialArgs.nix {
+        prefix = "home";
+        inherit
+          inputs
+          isNixosModule
+          user
+          ;
+        inherit (inputs.nixpkgs) lib;
+      };
+
+  mkModules =
+    {
+      hostName,
+      user,
+      type ? null,
+      args,
+    }:
+    let
+      specialArgs = mkSpecialArgs user;
+
+      userModulePath = ./modules/common/home/users/${user};
+      hostHomePath = configsDir + "/${hostName}/home";
+      hostUserHomePath = configsDir + "/${hostName}/home/users/${user}";
+    in
+    [
+      (_: {
+        _module.args = specialArgs;
+      })
+
+      (import ./modules/common/home {
+        args = builtins.removeAttrs args [
+          "system"
+          "type"
+        ];
+      })
+    ]
+    ++ lib.optionals (type != null) (specialArgs.modules /${type})
+    ++ lib.optionals (builtins.pathExists userModulePath) [ userModulePath ]
+    ++ lib.optionals (builtins.pathExists hostHomePath) [ hostHomePath ]
+    ++ lib.optionals (builtins.pathExists hostUserHomePath) [ hostUserHomePath ];
+
+  mkHomeConfig =
     {
       hostName,
       user,
@@ -20,39 +72,15 @@ let
       args,
     }:
     let
-      specialArgs =
-        if extraSpecialArgs != null then
-          extraSpecialArgs // { inherit user; }
-        else
-          import ./specialArgs.nix {
-            prefix = "home";
-            inherit
-              inputs
-              isNixosModule
-              user
-              ;
-            inherit (inputs.nixpkgs) lib;
-          };
-      modules = [
-        (_: {
-          _module.args = specialArgs;
-        })
-
-        (import ./modules/common/home {
-          args = builtins.removeAttrs args [
-            "system"
-            "type"
-          ];
-        })
-      ]
-      ++ lib.optionals (type != null) (specialArgs.modules /${type})
-      ++ lib.optionals (builtins.pathExists ./modules/common/home/users/${user}) [
-        ./modules/common/home/users/${user}
-      ]
-      ++ lib.optionals (builtins.pathExists ./configs/${hostName}/home) [ ./configs/${hostName}/home ]
-      ++ lib.optionals (builtins.pathExists ./configs/${hostName}/home/users/${user}) [
-        ./configs/${hostName}/home/users/${user}
-      ];
+      specialArgs = mkSpecialArgs user;
+      modules = mkModules {
+        inherit
+          hostName
+          user
+          type
+          args
+          ;
+      };
     in
     if isNixosModule then
       { ... }:
@@ -68,37 +96,42 @@ let
         inherit modules;
       };
 
-  users = lib.foldlAttrs (
-    acc: hostName: _:
+  mkUserKey =
+    hostName: user: user + lib.optionalString (!isNixosModule && hostName != user) ("@" + hostName);
+
+  usersForHost =
+    hostName:
     let
+      info = import (configsDir + "/${hostName}/info.nix");
+
       args =
-        let
-          info = import ./configs/${hostName}/info.nix;
-        in
         lib.optionalAttrs (info ? system) { inherit (info) system; }
         // lib.optionalAttrs (info ? type) { inherit (info) type; }
         // lib.optionalAttrs (info ? users) { inherit (info) users; }
         // lib.optionalAttrs (info ? home) info.home;
+
+      hostUsers = commonUsers ++ lib.optionals (args ? users) args.users;
+
+      mkOne =
+        user:
+        let
+          key = mkUserKey hostName user;
+          cfg = mkHomeConfig (
+            {
+              inherit hostName user args;
+            }
+            // lib.optionalAttrs (args ? system) { inherit (args) system; }
+            // lib.optionalAttrs (args ? type) { inherit (args) type; }
+          );
+        in
+        {
+          name = key;
+          value = cfg;
+        };
     in
-    acc
-    // builtins.foldl' (
-      acc': user:
-      acc'
-      // {
-        "${user}${lib.optionalString (!isNixosModule && hostName != user) "@${hostName}"}" = commonConfig (
-          {
-            inherit hostName user args;
-          }
-          // lib.optionalAttrs (args ? system) {
-            inherit (args) system;
-          }
-          // lib.optionalAttrs (args ? type) {
-            inherit (args) type;
-          }
-        );
-      }
-    ) { } (commonUsers ++ lib.optionals (args ? users) args.users)
-  ) { } (if configs != null then configs else builtins.readDir ./configs);
+    map mkOne hostUsers;
+
+  users = builtins.listToAttrs (builtins.concatLists (map usersForHost hostNames));
 in
 if isNixosModule then
   {

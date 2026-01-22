@@ -1,7 +1,16 @@
 inputs:
 let
   inherit (inputs.nixpkgs) lib;
-  commonSystem =
+
+  configsDir = ./configs;
+
+  dirEntries = builtins.readDir configsDir;
+
+  hostNames = builtins.filter (name: !(builtins.pathExists (configsDir + "/${name}/.homeonly"))) (
+    builtins.attrNames dirEntries
+  );
+
+  mkSystem =
     {
       hostName,
       config ? null,
@@ -52,37 +61,33 @@ let
       ++ lib.optionals (type != null) (specialArgs.modules /${type})
       ++ lib.optionals (config != null) [ config ];
     };
-in
-lib.mapAttrs
-  (
-    name: _:
-    commonSystem (
-      let
-        args =
-          let
-            info = import ./configs/${name}/info.nix;
-          in
-          lib.optionalAttrs (info ? system) { inherit (info) system; }
-          // lib.optionalAttrs (info ? type) { inherit (info) type; }
-          // lib.optionalAttrs (info ? host) info.host;
-      in
+
+  mkHost =
+    name:
+    let
+      hostDir = configsDir + "/${name}";
+      hostInfo = import (hostDir + "/info.nix");
+
+      args =
+        lib.optionalAttrs (hostInfo ? system) { inherit (hostInfo) system; }
+        // lib.optionalAttrs (hostInfo ? type) { inherit (hostInfo) type; }
+        // lib.optionalAttrs (hostInfo ? host) hostInfo.host;
+
+      configPath = hostDir + "/host";
+    in
+    mkSystem (
       {
         hostName = name;
         inherit args;
       }
-      // lib.optionalAttrs (args ? system) {
-        inherit (args) system;
-      }
-      // lib.optionalAttrs (args ? type) {
-        inherit (args) type;
-      }
-      // lib.optionalAttrs (builtins.pathExists ./configs/${name}/host) {
-        config = ./configs/${name}/host;
-      }
-    )
-  )
-  (
-    lib.filterAttrs (name: _: !(builtins.pathExists ./configs/${name}/.homeonly)) (
-      builtins.readDir ./configs
-    )
-  )
+      // lib.optionalAttrs (args ? system) { inherit (args) system; }
+      // lib.optionalAttrs (args ? type) { inherit (args) type; }
+      // lib.optionalAttrs (builtins.pathExists configPath) { config = configPath; }
+    );
+in
+builtins.listToAttrs (
+  map (name: {
+    name = name;
+    value = mkHost name;
+  }) hostNames
+)
