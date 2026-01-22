@@ -46,8 +46,8 @@ let
         })
       ]
       ++ lib.optionals (type != null) (specialArgs.modules /${type})
-      ++ lib.optionals (builtins.pathExists ./modules/common/home/${user}) [
-        ./modules/common/home/${user}
+      ++ lib.optionals (builtins.pathExists ./modules/common/home/users/${user}) [
+        ./modules/common/home/users/${user}
       ]
       ++ lib.optionals (builtins.pathExists ./configs/${hostName}/home) [ ./configs/${hostName}/home ]
       ++ lib.optionals (builtins.pathExists ./configs/${hostName}/home/users/${user}) [
