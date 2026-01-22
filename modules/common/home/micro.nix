@@ -8,6 +8,7 @@
       tabstospaces = true;
       ftoptions = false;
       tabmovement = true;
+      tabsize = 2;
     };
   };
 
