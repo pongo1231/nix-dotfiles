@@ -29,6 +29,8 @@
         device = "nodev";
       };
     };
+
+    kernelParams = [ "mitigations=off" ];
   };
 
   fileSystems = {
