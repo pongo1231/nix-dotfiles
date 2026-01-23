@@ -4,6 +4,6 @@
 
   programs.git.settings.user = {
     name = "pongo1231";
-    email = "pongo@gopong.dev";
+    email = "pongo@ecmec.eu";
   };
 }
