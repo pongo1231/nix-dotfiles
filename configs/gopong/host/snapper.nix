@@ -4,6 +4,7 @@ _: {
     configs =
       let
         subvols = [
+          "/home"
           "/var/lib"
         ];
       in
