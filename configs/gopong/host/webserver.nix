@@ -26,59 +26,63 @@ in
       recommendedProxySettings = true;
       recommendedGzipSettings = true;
 
-      virtualHosts = {
-        "_" = {
-          rejectSSL = true;
-          globalRedirect = config.networking.fqdn;
-        };
-      }
-      // lib.foldl' (
-        acc: domain:
-        acc
-        //
-          lib.mapAttrs'
-            (name: val: {
-              name = "${name}${if name == "" then "" else "."}${domain}";
-              value = {
-                forceSSL = true;
-                useACMEHost = domain;
-              }
-              // val;
-            })
-            (
-              cfg.virtualHosts
-              // {
-                "" = {
+      virtualHosts =
+        let
+          root = "/var/lib/www";
+        in
+        {
+          "_" = {
+            rejectSSL = true;
+            globalRedirect = config.networking.fqdn;
+          };
+        }
+        // lib.foldl' (
+          acc: domain:
+          acc
+          //
+            lib.mapAttrs'
+              (name: val: {
+                name = "${name}${if name == "" then "" else "."}${domain}";
+                value = {
+                  forceSSL = true;
                   useACMEHost = domain;
-                  root = "/srv/http";
-                };
+                }
+                // val;
+              })
+              (
+                cfg.virtualHosts
+                // {
+                  "" = {
+                    useACMEHost = domain;
+                    inherit root;
+                  };
 
-                "chaos" = {
-                  useACMEHost = domain;
-                  locations."/".proxyPass = "http://localhost:9907";
-                  extraConfig = ''
-                    client_max_body_size 50M;
-                  '';
-                };
+                  "chaos" = {
+                    useACMEHost = domain;
+                    locations."/".proxyPass = "http://localhost:9907";
+                    extraConfig = ''
+                      client_max_body_size 50M;
+                    '';
+                  };
 
-                "hotel" = {
-                  useACMEHost = domain;
-                  locations."/".proxyPass = "http://localhost:8081";
-                };
+                  "hotel" = {
+                    useACMEHost = domain;
+                    locations."/".proxyPass = "http://localhost:8081";
+                  };
 
-                "fastdl" = {
-                  forceSSL = false;
-                  addSSL = true;
-                  useACMEHost = domain;
-                  root = "/srv/http/fastdl";
-                  extraConfig = ''
-                    autoindex on;
-                    sub_filter '</body>' '<div class="footer">FastDL server for DuckyServers.<br>Also available for public use.<br>sv_downloadurl "http://fastdl.${config.networking.fqdn}/game/"</div></body>';
-                  '';
-                };
-              }
-            )
-      ) { } domains;
+                  "fastdl" = {
+                    forceSSL = false;
+                    addSSL = true;
+                    useACMEHost = domain;
+                    root = "${root}/fastdl";
+                    extraConfig = ''
+                      autoindex on;
+                      sub_filter '</body>' '<div class="footer">FastDL server for DuckyServers.<br>Also available for public use.<br>sv_downloadurl "http://fastdl.${config.networking.fqdn}/game/"</div></body>';
+                    '';
+                  };
+                }
+              )
+        ) { } domains;
     };
     security.acme = {
       acceptTerms = true;
