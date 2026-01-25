@@ -158,6 +158,8 @@
     };
 
     rtkit.enable = true;
+
+    sudo-rs.enable = true;
   };
 
   virtualisation.podman.enable = true;

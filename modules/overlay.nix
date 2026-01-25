@@ -8,10 +8,62 @@
 }:
 lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
   # https://search.nixos.org/options?channel=unstable&from=0&size=50&sort=relevance&type=packages&query=system.replaceDependencies
-  #system.replaceDependencies.replacements = [];
+  system.replaceDependencies.replacements =
+    let
+      coreutils-full-name =
+        "coreuutils-full"
+        + builtins.concatStringsSep "" (
+          builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils-full.version)
+        );
+      coreutils-name =
+        "coreuutils"
+        + builtins.concatStringsSep "" (
+          builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils.version)
+        );
+      findutils-name =
+        "finduutils"
+        + builtins.concatStringsSep "" (
+          builtins.genList (_: "_") (builtins.stringLength pkgs.findutils.version)
+        );
+      diffutils-name =
+        "diffuutils"
+        + builtins.concatStringsSep "" (
+          builtins.genList (_: "_") (builtins.stringLength pkgs.diffutils.version)
+        );
+    in
+    [
+      {
+        oldDependency = pkgs.coreutils-full;
+        newDependency = pkgs.symlinkJoin {
+          name = coreutils-full-name;
+          paths = [ pkgs.uutils-coreutils-noprefix ];
+        };
+      }
+      {
+        oldDependency = pkgs.coreutils;
+        newDependency = pkgs.symlinkJoin {
+          name = coreutils-name;
+          paths = [ pkgs.uutils-coreutils-noprefix ];
+        };
+      }
+      {
+        oldDependency = pkgs.findutils;
+        newDependency = pkgs.symlinkJoin {
+          name = findutils-name;
+          paths = [ pkgs.uutils-findutils ];
+        };
+      }
+      {
+        oldDependency = pkgs.diffutils;
+        newDependency = pkgs.symlinkJoin {
+          name = diffutils-name;
+          paths = [ pkgs.uutils-diffutils ];
+        };
+      }
+    ];
 
   # https://github.com/NixOS/nixpkgs/blob/a80ba52593f87d41a21d84c4e37f077c3604ca6a/pkgs/build-support/replace-dependencies.nix#L7
-  #pkgs.replaceDependencies = [ ];
+  #pkgs.replaceDependencies = { };
 
   nixpkgs.overlays = [
     (final: prev: {
