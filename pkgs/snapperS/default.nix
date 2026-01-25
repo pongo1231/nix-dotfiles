@@ -2,7 +2,7 @@
   lib,
   stdenv,
   fetchurl,
-  python,
+  python2,
   snapper,
   python3Packages,
 }:
@@ -18,7 +18,7 @@ stdenv.mkDerivation {
   };
 
   buildInputs = [
-    python
+    python2
     python3Packages.wrapPython
   ];
 
@@ -30,6 +30,9 @@ stdenv.mkDerivation {
       in
       {
         inherit pname version;
+
+        pyproject = true;
+        build-system = [ python3Packages.setuptools ];
 
         src = python3Packages.fetchPypi {
           inherit pname version;

@@ -150,6 +150,8 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
           hash = "sha256-PIt0w/R3wGaAIlI1zPU4heLq7sxrWF6MgWzTEIVCplg=";
         };
       };
+
+      snapperS = final.callPackage (pkg /snapperS) { };
     })
   ];
 }

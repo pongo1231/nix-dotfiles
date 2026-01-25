@@ -2,6 +2,7 @@
   withSecrets,
   module,
   config,
+  pkgs,
   lib,
   ...
 }:
@@ -9,7 +10,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
 // {
   imports = [
     (module /snapper.nix)
-  
+
     ./webserver.nix
     ./postgresql.nix
     ./webserver.nix
@@ -80,4 +81,6 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     hashTableSizeMB = 128;
     extraOptions = [ "-c 1" ];
   };
+
+  environment.systemPackages = with pkgs; [ snapperS ];
 }

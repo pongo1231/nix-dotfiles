@@ -179,6 +179,7 @@
       virtiofsd
       plasma-panel-colorizer
       freerdp
+      snapperS
     ];
   };
 }
