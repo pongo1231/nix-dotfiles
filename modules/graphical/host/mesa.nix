@@ -20,7 +20,7 @@
 
         vulkanDrivers = [
           "amd"
-          "gfxstream"
+          #"gfxstream"
           "intel"
           "microsoft-experimental"
           "swrast"
@@ -34,13 +34,11 @@
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "ca1d59d813972911a3a523713445ced7d758713e";
-            hash = "sha256-eQtdaMpO9kZJUxPnAnQx3kuGzCkOQBsvoPAOPcIoJy4=";
+            rev = "5a3b0ce461247a3164c6c58df1d6a701db1baa83";
+            hash = "sha256-BgtQPwqzJxLPpeYQMD14a9MgXYEvedV0/88stibg2DM=";
           };
 
-          patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches ++ [
-            (patch /mesa/26/trav_separate_compilation_ra.patch)
-          ];
+          patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches;
 
           NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
         });
