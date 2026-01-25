@@ -14,6 +14,7 @@
     ])
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
+    (module /snapper.nix)
   ];
 
   boot = {

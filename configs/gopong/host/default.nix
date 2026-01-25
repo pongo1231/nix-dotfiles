@@ -1,5 +1,6 @@
 {
   withSecrets,
+  module,
   config,
   lib,
   ...
@@ -7,7 +8,8 @@
 withSecrets "pongo" { } { "base/userPassword" = { }; }
 // {
   imports = [
-    ./snapper.nix
+    (module /snapper.nix)
+  
     ./webserver.nix
     ./postgresql.nix
     ./webserver.nix
