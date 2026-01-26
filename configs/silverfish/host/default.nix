@@ -41,9 +41,16 @@
 
   networking.networkmanager.enable = false;
 
-  services.beesd.filesystems."-" = {
-    spec = "/";
-    hashTableSizeMB = 32;
-    extraOptions = [ "-c 1" ];
+  services = {
+    beesd.filesystems."-" = {
+      spec = "/";
+      hashTableSizeMB = 32;
+      extraOptions = [ "-c 1" ];
+    };
+
+    scx = {
+      enable = true;
+      scheduler = "scx_lavd";
+    };
   };
 }
