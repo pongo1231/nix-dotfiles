@@ -39,6 +39,8 @@
     ];
   };
 
+  networking.networkmanager.enable = false;
+
   services.beesd.filesystems."-" = {
     spec = "/";
     hashTableSizeMB = 32;
