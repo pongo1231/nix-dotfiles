@@ -38,4 +38,10 @@
       "compress-force=zstd"
     ];
   };
+
+  services.beesd.filesystems."-" = {
+    spec = "/";
+    hashTableSizeMB = 32;
+    extraOptions = [ "-c 1" ];
+  };
 }
