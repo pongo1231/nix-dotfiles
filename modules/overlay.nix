@@ -1,6 +1,5 @@
 {
   configInfo,
-  inputs,
   patch,
   pkg,
   pkgs,
@@ -103,22 +102,14 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
         };
       */
 
-      distrobox = final.replaceDependencies {
-        drv = prev.distrobox.overrideAttrs {
-          version = "1.9-git";
-          src = final.fetchFromGitHub {
-            owner = "89luca89";
-            repo = "distrobox";
-            rev = "/2995df501b31338f6b83de876ab50bed9826c9d9";
-            hash = "sha256-h03KfZbRjTiBs7jATqofxFEnEiY2EOqGgnHHNoC4WII=";
-          };
+      distrobox = prev.distrobox.overrideAttrs {
+        version = "1.9-git";
+        src = final.fetchFromGitHub {
+          owner = "89luca89";
+          repo = "distrobox";
+          rev = "/2995df501b31338f6b83de876ab50bed9826c9d9";
+          hash = "sha256-h03KfZbRjTiBs7jATqofxFEnEiY2EOqGgnHHNoC4WII=";
         };
-        replacements = [
-          {
-            oldDependency = final.coreutils;
-            newDependency = inputs.nixpkgs.legacyPackages.${final.stdenv.hostPlatform.system}.coreutils;
-          }
-        ];
       };
 
       ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
