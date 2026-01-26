@@ -9,7 +9,7 @@
 withSecrets "pongo" { } { "base/userPassword" = { }; }
 // {
   imports = [
-    (module /snapper.nix)
+    (import (module /snapper.nix) { })
 
     ./webserver.nix
     ./postgresql.nix

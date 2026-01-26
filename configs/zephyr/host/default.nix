@@ -14,7 +14,7 @@
     ])
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
-    (module /snapper.nix)
+    (import (module /snapper.nix) { additionalSubvols = [ "/run/media/ssd2" ]; })
   ];
 
   boot = {

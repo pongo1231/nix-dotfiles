@@ -1,4 +1,8 @@
-_: {
+{
+  additionalSubvols ? [ ],
+}:
+{ ... }:
+{
   services.snapper = {
     persistentTimer = true;
     configs =
@@ -6,7 +10,8 @@ _: {
         subvols = [
           "/home"
           "/var/lib"
-        ];
+        ]
+        ++ additionalSubvols;
       in
       builtins.listToAttrs (
         builtins.map (x: {
