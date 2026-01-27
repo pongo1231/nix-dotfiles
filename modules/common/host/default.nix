@@ -147,6 +147,12 @@
     };
 
     ntpd-rs.enable = true;
+  }
+  // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
+    scx = {
+      enable = true;
+      scheduler = "scx_lavd";
+    };
   };
 
   security = {
