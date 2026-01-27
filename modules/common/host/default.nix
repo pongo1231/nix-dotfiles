@@ -105,6 +105,7 @@
     dconf.enable = true;
     direnv.enable = true;
     nix-ld.enable = true;
+    mosh.enable = true;
   };
 
   services = {

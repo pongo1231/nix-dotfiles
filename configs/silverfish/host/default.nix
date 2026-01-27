@@ -46,6 +46,4 @@
     hashTableSizeMB = 32;
     extraOptions = [ "-c 1" ];
   };
-
-  programs.mosh.enable = true;
 }
