@@ -154,6 +154,8 @@
         };
       };
     };
+
+    scx.scheduler = "scx_bpfland";
   };
 
   systemd.services = {

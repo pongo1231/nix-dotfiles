@@ -152,7 +152,7 @@
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
     scx = {
       enable = true;
-      scheduler = "scx_lavd";
+      scheduler = lib.mkDefault "scx_lavd";
     };
   };
 
