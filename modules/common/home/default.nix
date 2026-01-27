@@ -120,6 +120,7 @@
       smem
       borgbackup
       dix
+      mosh
     ];
   };
 }
