@@ -152,6 +152,13 @@ lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       };
 
       snapperS = final.callPackage (pkg /snapperS) { };
+
+      mosh = prev.mosh.overrideAttrs (prev: {
+        postPatch = (prev.postPatch or "") + ''
+          substituteInPlace src/frontend/stmclient.h --replace-fail "if ( predict_mode )" "if ( false )"
+          substituteInPlace src/frontend/terminaloverlay.h --replace-fail "display_preference( Adaptive )" "display_preference( Experimental )"
+        '';
+      });
     })
   ];
 }
