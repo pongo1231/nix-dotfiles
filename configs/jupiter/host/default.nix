@@ -39,6 +39,39 @@
 
     kernelParams = [ "mitigations=off" ];
 
+    extraModulePackages = with config.boot.kernelPackages; [
+      (stdenv.mkDerivation (final: {
+        pname = "steamdeck-dkms";
+        version = "git";
+
+        src = pkgs.fetchFromGitHub {
+          owner = "firlin123";
+          repo = "steamdeck-dkms";
+          rev = "dbbc4e398be5a8219f209222056a1d70ec9cea32";
+          hash = "sha256-uRsfwIFxoJ291aNRoSepehwQUmvNeLnjt86xj3PoEvU=";
+        };
+
+        sourceRoot = "source";
+
+        nativeBuildInputs = kernel.moduleBuildDependencies;
+
+        makeFlags = [
+          "KERNEL_DIR=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
+        ];
+
+        installPhase = ''
+          runHook preInstall
+
+          install steamdeck.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/mfd
+          install steamdeck_hwmon.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/hwmon
+          install steamdeck_leds.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/leds
+          install steamdeck_extcon.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/extcon
+
+          runHook postInstall
+        '';
+      }))
+    ];
+
     plymouth.enable = false;
   };
 
