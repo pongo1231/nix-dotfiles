@@ -1,3 +1,1 @@
-{
-  host.pongoKernel.enable = true;
-}
+{ }
