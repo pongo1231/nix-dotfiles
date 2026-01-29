@@ -6,7 +6,7 @@
   lib,
   ...
 }:
-{
+lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
   system.replaceDependencies.replacements =
     let
       coreutils-full-name =
@@ -60,8 +60,7 @@
         };
       }
     ];
-}
-// lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
+
   # https://github.com/NixOS/nixpkgs/blob/a80ba52593f87d41a21d84c4e37f077c3604ca6a/pkgs/build-support/replace-dependencies.nix#L7
   #pkgs.replaceDependencies = { };
 
