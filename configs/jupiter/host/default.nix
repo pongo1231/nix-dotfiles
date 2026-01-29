@@ -103,7 +103,7 @@
         "nofail"
         "noatime"
         "lazytime"
-        "compress-force=zstd"
+        "compress-force=zstd:6"
       ];
     };
   };
