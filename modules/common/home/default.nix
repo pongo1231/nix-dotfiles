@@ -20,6 +20,7 @@
     ./helpers.nix
     ./suspender.nix
     ./micro.nix
+    ./replaceDependencies.nix
   ];
 
   home = {
