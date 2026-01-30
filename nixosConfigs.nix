@@ -33,7 +33,7 @@ let
       inherit specialArgs;
 
       modules = [
-        (import ./modules/common/host {
+        (import ./common/host {
           args = builtins.removeAttrs args [
             "system"
             "type"

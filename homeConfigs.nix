@@ -42,7 +42,7 @@ let
     let
       specialArgs = mkSpecialArgs user;
 
-      userModulePath = ./modules/common/home/users/${user};
+      userModulePath = ./common/home/users/${user};
       hostHomePath = configsDir + "/${hostName}/home";
       hostUserHomePath = configsDir + "/${hostName}/home/users/${user}";
     in
@@ -51,7 +51,7 @@ let
         _module.args = specialArgs;
       })
 
-      (import ./modules/common/home {
+      (import ./common/home {
         args = builtins.removeAttrs args [
           "system"
           "type"
