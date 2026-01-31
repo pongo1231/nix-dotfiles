@@ -149,10 +149,7 @@
 
     ntpd-rs.enable = true;
 
-    kmscon = {
-      enable = true;
-      hwRender = true;
-    };
+    kmscon.enable = true;
   }
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
     scx = {

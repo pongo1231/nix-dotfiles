@@ -64,6 +64,8 @@
         ];
       });
     };
+
+    kmscon.hwRender = true;
   };
 
   virtualisation.waydroid.enable = true;
