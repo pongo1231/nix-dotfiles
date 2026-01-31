@@ -7,14 +7,17 @@
   virtualisation = {
     libvirtd = {
       enable = true;
-      package = pkgs.libvirt.overrideAttrs (prev: {
-        patches = (prev.patches or [ ]) ++ [
-          (patch /libvirt/libvirt-11.0.0-venus2.patch)
-        ];
-      });
+      /*
+        package = pkgs.libvirt.overrideAttrs (prev: {
+          patches = (prev.patches or [ ]) ++ [
+            (patch /libvirt/libvirt-11.0.0-venus2.patch)
+          ];
+        });
+      */
 
       qemu = {
-        package =
+        /*
+          package =
           (pkgs.qemu_kvm.override {
             buildPackages = pkgs.buildPackages // {
               stdenv = pkgs.gcc15Stdenv;
@@ -28,6 +31,7 @@
 
               NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
             });
+        */
 
         verbatimConfig = ''
           cgroup_device_acl = [
