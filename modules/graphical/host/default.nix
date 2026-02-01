@@ -50,8 +50,8 @@
         src = pkgs.fetchFromGitHub {
           owner = "PancakeTAS";
           repo = "lsfg-vk";
-          rev = "e1f89cc1daed469cd6e1a21a18e5816fea9ec9fb";
-          hash = "sha256-9f1epUbJNr8yaUfWNcVth88UfGP1kRX6+yOcA/60XL8=";
+          rev = "d9cdcf8ba78b2e104eda3a8d66673c4b30a9fb71";
+          hash = "sha256-j8zAI72f4uF0JuVFOqnXrgNd/MHYhi9hOEzt07ftV94=";
           fetchSubmodules = true;
         };
 
