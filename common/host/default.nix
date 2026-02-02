@@ -244,6 +244,7 @@
         sshfs
         sops
         ssh-to-age
+        podman-compose
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         scx.full
