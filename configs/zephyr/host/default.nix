@@ -15,6 +15,7 @@
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
     (import (module /snapper.nix) { additionalSubvols = [ "/run/media/ssd2" ]; })
+    (module /printing.nix)
   ];
 
   boot = {
@@ -111,14 +112,6 @@
       package = pkgs.sunshine;
       capSysAdmin = true;
       autoStart = false;
-    };
-
-    printing.enable = true;
-
-    avahi = {
-      enable = true;
-      nssmdns4 = true;
-      openFirewall = true;
     };
 
     asusd = {
