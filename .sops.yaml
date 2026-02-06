@@ -1,24 +1,26 @@
 keys:
   - &admin_pongo age1gvfnvnea09c8nqg7jf6m6e04e0kz0w4w4fvms00226cf7806sa2szcm46s
 
-  - &host_victus age1gvfnvnea09c8nqg7jf6m6e04e0kz0w4w4fvms00226cf7806sa2szcm46s
+  - &host_zephyr age1gvfnvnea09c8nqg7jf6m6e04e0kz0w4w4fvms00226cf7806sa2szcm46s
   - &host_gopong age1l4sknz73q64rz2gy59d92twvs07p3tql4utx77fudxt0qsrl24nqqk4fqf
   - &host_jupiter age1ma0e5ap4pdqmz4qj7rttlrk56mcvka0tuvltgp7dcv73fu6q3q5qj99gun
   - &host_rpi3b age1tl35pllv9mu4nzk8hpa2uuul96njqrcttg4hw20902saf3uynueshux230
   - &host_starfish age1525qyyhynpsqq9uee9yqhkt02kqnmpm8w4nyaw5wraewwrlycdjqg800wp
   - &host_silverfish age1f9y45fnympaytza0q59xzpqtqm6ac8uwxe55vc37xdllpwdacq6sy3wv3h
+  - &host_wsl age1v5smpsnjafylktdmxga6kmjtwawcd8veeq7my88ltdfss9x2nfaqq70ske
 
 creation_rules:
   - path_regex: secrets/pongo/default.yaml
     key_groups:
       - age:
         - *admin_pongo
-        - *host_victus
+        - *host_zephyr
         - *host_gopong
         - *host_jupiter
         - *host_rpi3b
         - *host_starfish
         - *host_silverfish
+        - *host_wsl
 
   - path_regex: secrets/pongo/gopong/
     key_groups:
