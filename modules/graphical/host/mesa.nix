@@ -42,6 +42,5 @@
 
           NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
         });
-    extraPackages = with pkgs; [ intel-media-driver ];
   };
 }
