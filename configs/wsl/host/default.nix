@@ -30,7 +30,8 @@
 
   hardware.graphics.enable = true;
 
-  environment.systemPackages = [
-    pkgs.wget # for vs code server
+  environment.systemPackages = with pkgs; [
+    wget # for vs code server
+    btrfs-progs
   ];
 }
