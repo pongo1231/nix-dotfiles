@@ -18,7 +18,7 @@
     (module /sops.nix)
 
     ./helpers.nix
-    ./suspender.nix
+    #./suspender.nix
     ./micro.nix
     ./replaceDependencies.nix
   ];
