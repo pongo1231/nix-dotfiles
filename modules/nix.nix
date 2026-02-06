@@ -20,13 +20,7 @@
     }) inputs;
 
     extraOptions = ''
-      experimental-features = nix-command flakes ${
-        lib.optionalString (configInfo.type == "host") "auto-allocate-uids cgroups"
-      }
-    ''
-    + lib.optionalString (configInfo.type == "host") ''
-      auto-allocate-uids = true
-      use-cgroups = true
+      experimental-features = nix-command flakes
     '';
 
     settings = lib.optionalAttrs (configInfo.type == "host") {
