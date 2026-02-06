@@ -77,7 +77,7 @@
   fonts.fontconfig.enable = false;
 
   home = {
-    stateVersion = "22.05";
+    stateVersion = "25.11";
 
     packages = with pkgs; [
       sops
