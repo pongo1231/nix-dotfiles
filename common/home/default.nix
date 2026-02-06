@@ -79,6 +79,8 @@
   home = {
     stateVersion = "25.11";
 
+    sessionVariables.EDITOR = "micro";
+
     packages = with pkgs; [
       sops
       ssh-to-age
