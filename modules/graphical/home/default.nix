@@ -50,6 +50,7 @@
         qbittorrent
         weston
         virt-manager
+        waypipe
       ]
       ++ (import ../lsfgScripts.nix pkgs);
   };

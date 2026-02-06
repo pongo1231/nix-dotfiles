@@ -79,7 +79,6 @@
     with pkgs;
     [
       #systemdgenie
-      waypipe
     ]
     ++ (import ../lsfgScripts.nix pkgs);
 }
