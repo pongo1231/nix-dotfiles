@@ -7,7 +7,7 @@ index 9b676f97..e8e54e34 100644
          UVM_ASSERT(!page_count(dpage));
          UVM_ASSERT(!dpage->zone_device_data);
 -        zone_device_page_init(dpage);
-+        zone_device_page_init(dpage, 0);
++        zone_device_page_init(dpage, page_pgmap(dpage), 0);
          dpage->zone_device_data = gpu_chunk;
          atomic64_inc(&va_block->hmm.va_space->hmm.allocated_page_count);
      }

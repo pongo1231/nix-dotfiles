@@ -6,8 +6,7 @@
   home.packages = [
     (
       let
-        inherit (pkgs) xdotool;
-        inherit (pkgs.xorg) xprop;
+        inherit (pkgs) xdotool xprop;
       in
       pkgs.writeScriptBin "x11_suspendapp" ''
         #!${pkgs.stdenv.shell}
