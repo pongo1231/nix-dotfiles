@@ -63,15 +63,17 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
   };
 
   users.users = {
-    stuff = {
+    habbo = {
       isNormalUser = true;
-      hashedPasswordFile = config.sops.secrets."base/userPassword".path;
+      uid = 1001;
+      hashedPassword = "$y$j9T$okA7Iq1HvpZz9jhUnm4kz.$yX/qF3P.WElXbCAZph5p/qSQ7BDOaX4j4l/3bh3ZjyB";
       linger = true;
     };
 
-    habbo = {
+    stuff = {
       isNormalUser = true;
-      hashedPassword = "$y$j9T$okA7Iq1HvpZz9jhUnm4kz.$yX/qF3P.WElXbCAZph5p/qSQ7BDOaX4j4l/3bh3ZjyB";
+      uid = 1002;
+      hashedPasswordFile = config.sops.secrets."base/userPassword".path;
       linger = true;
     };
   };
