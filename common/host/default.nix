@@ -168,7 +168,13 @@
 
     rtkit.enable = true;
 
-    sudo-rs.enable = true;
+    sudo-rs = {
+      enable = true;
+      execWheelOnly = true;
+      extraConfig = ''
+        Defaults timestamp_timeout=1
+      '';
+    };
   };
 
   virtualisation.podman.enable = true;
