@@ -24,7 +24,12 @@
 
   pongo = args;
 
-  system.stateVersion = "25.11";
+  system = {
+    stateVersion = "25.11";
+    
+    nixos-init.enable = true;
+    etc.overlay.enable = true;
+  };
 
   boot = {
     loader = {
@@ -150,6 +155,8 @@
     ntpd-rs.enable = true;
 
     kmscon.enable = true;
+
+    userborn.enable = true;
   }
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
     scx = {
