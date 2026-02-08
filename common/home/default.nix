@@ -1,6 +1,4 @@
-{
-  args,
-}:
+args:
 {
   inputs,
   user,
@@ -22,6 +20,8 @@
     ./micro.nix
     ./replaceDependencies.nix
   ];
+
+  pongo = args;
 
   home = {
     username = user;

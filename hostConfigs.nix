@@ -33,12 +33,7 @@ let
       inherit specialArgs;
 
       modules = [
-        (import ./common/host {
-          args = builtins.removeAttrs args [
-            "system"
-            "type"
-          ];
-        })
+        (import ./common/host args)
 
         (
           { ... }:
@@ -66,22 +61,25 @@ let
     name:
     let
       hostDir = configsDir + "/${name}";
-      hostInfo = import (hostDir + "/info.nix");
 
-      args =
-        lib.optionalAttrs (hostInfo ? system) { inherit (hostInfo) system; }
-        // lib.optionalAttrs (hostInfo ? type) { inherit (hostInfo) type; }
-        // lib.optionalAttrs (hostInfo ? host) hostInfo.host;
+      hostInfo = import (hostDir + "/info.nix");
 
       configPath = hostDir + "/host";
     in
     mkSystem (
       {
         hostName = name;
-        inherit args;
+        args =
+          removeAttrs hostInfo [
+            "system"
+            "type"
+            "host"
+            "home"
+          ]
+          // lib.optionalAttrs (hostInfo ? host) hostInfo.host;
       }
-      // lib.optionalAttrs (args ? system) { inherit (args) system; }
-      // lib.optionalAttrs (args ? type) { inherit (args) type; }
+      // lib.optionalAttrs (hostInfo ? system) { inherit (hostInfo) system; }
+      // lib.optionalAttrs (hostInfo ? type) { inherit (hostInfo) type; }
       // lib.optionalAttrs (builtins.pathExists configPath) { config = configPath; }
     );
 in

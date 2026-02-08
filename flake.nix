@@ -63,7 +63,7 @@
       formatter = inputs.nixpkgs.legacyPackages.${system}.nixfmt-tree;
     })
     // {
-      nixosConfigurations = import ./nixosConfigs.nix inputs;
+      nixosConfigurations = import ./hostConfigs.nix inputs;
       homeConfigurations = import ./homeConfigs.nix inputs { };
     };
 }

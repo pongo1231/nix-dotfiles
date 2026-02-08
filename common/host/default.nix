@@ -1,6 +1,4 @@
-{
-  args,
-}:
+args:
 {
   inputs,
   hostName,

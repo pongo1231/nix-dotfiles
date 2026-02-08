@@ -51,12 +51,7 @@ let
         _module.args = specialArgs;
       })
 
-      (import ./common/home {
-        args = builtins.removeAttrs args [
-          "system"
-          "type"
-        ];
-      })
+      (import ./common/home args)
     ]
     ++ lib.optionals (type != null) (specialArgs.modules /${type})
     ++ lib.optionals (builtins.pathExists userModulePath) [ userModulePath ]
@@ -102,15 +97,9 @@ let
   usersForHost =
     hostName:
     let
-      info = import (configsDir + "/${hostName}/info.nix");
+      homeInfo = import (configsDir + "/${hostName}/info.nix");
 
-      args =
-        lib.optionalAttrs (info ? system) { inherit (info) system; }
-        // lib.optionalAttrs (info ? type) { inherit (info) type; }
-        // lib.optionalAttrs (info ? users) { inherit (info) users; }
-        // lib.optionalAttrs (info ? home) info.home;
-
-      hostUsers = commonUsers ++ lib.optionals (args ? users) args.users;
+      homeUsers = commonUsers ++ lib.optionals (homeInfo ? users) homeInfo.users;
 
       mkOne =
         user:
@@ -118,10 +107,19 @@ let
           key = mkUserKey hostName user;
           cfg = mkHomeConfig (
             {
-              inherit hostName user args;
+              inherit hostName user;
+              args =
+                removeAttrs homeInfo [
+                  "system"
+                  "type"
+                  "users"
+                  "host"
+                  "home"
+                ]
+                // lib.optionalAttrs (homeInfo ? home) homeInfo.home;
             }
-            // lib.optionalAttrs (args ? system) { inherit (args) system; }
-            // lib.optionalAttrs (args ? type) { inherit (args) type; }
+            // lib.optionalAttrs (homeInfo ? system) { inherit (homeInfo) system; }
+            // lib.optionalAttrs (homeInfo ? type) { inherit (homeInfo) type; }
           );
         in
         {
@@ -129,7 +127,7 @@ let
           value = cfg;
         };
     in
-    map mkOne hostUsers;
+    map mkOne homeUsers;
 
   users = builtins.listToAttrs (builtins.concatLists (map usersForHost hostNames));
 in
