@@ -27,22 +27,26 @@ in
         mutableUsers = false;
         defaultUserShell = pkgs.fish;
 
-        users.${if cfg.defaultOverride ? name then cfg.defaultOverride.user else "pongo"} = {
-          isNormalUser = true;
-          uid = 1000;
-          hashedPasswordFile = config.sops.secrets."base/userPassword".path;
-          linger = true;
-          extraGroups = [
-            "wheel"
-            "libvirtd"
-            "networkmanager"
-            "seat"
-            "libvirt"
-            "kvm"
-            "nginx"
-          ];
-        }
-        // cfg.defaultOverride;
+        users = {
+          root.hashedPasswordFile = config.sops.secrets."base/userPassword".path;
+
+          "${if cfg.defaultOverride ? name then cfg.defaultOverride.user else "pongo"}" = {
+            isNormalUser = true;
+            uid = 1000;
+            hashedPasswordFile = config.sops.secrets."base/userPassword".path;
+            linger = true;
+            extraGroups = [
+              "wheel"
+              "libvirtd"
+              "networkmanager"
+              "seat"
+              "libvirt"
+              "kvm"
+              "nginx"
+            ];
+          }
+          // cfg.defaultOverride;
+        };
       };
 
       environment.etc =
