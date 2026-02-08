@@ -12,9 +12,9 @@
 }:
 {
   imports = [
-    (module /nix.nix)
-    (module /overlay.nix)
-    (module /sops.nix)
+    ../nix.nix
+    ../overlay.nix
+    ../sops.nix
 
     ./users.nix
     ./bluetooth.nix

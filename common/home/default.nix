@@ -13,9 +13,9 @@
   imports = [
     inputs.nix-index-database.homeModules.nix-index
 
-    (module /nix.nix)
-    (module /overlay.nix)
-    (module /sops.nix)
+    ../nix.nix
+    ../overlay.nix
+    ../sops.nix
 
     ./helpers.nix
     #./suspender.nix
