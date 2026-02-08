@@ -213,14 +213,14 @@
   };
 
   environment = {
-    # thanks to ElvishJerricco
     etc =
+      # thanks to ElvishJerricco
       (lib.mapAttrs' (name: flake: {
         name = "nix/inputs/${name}";
-        value.source = flake.outPath;
+        value.source = flake;
       }) inputs)
-      # allow imperative edits to /etc/hosts
       // {
+        # allow imperative edits to /etc/hosts
         hosts.mode = "0644";
       };
 
