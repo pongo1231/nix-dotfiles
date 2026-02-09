@@ -116,7 +116,7 @@ let
                   "host"
                   "home"
                 ]
-                // lib.optionalAttrs (homeInfo ? home) removeAttrs homeInfo.home [ "users" ];
+                // lib.optionalAttrs (homeInfo ? home) (removeAttrs homeInfo.home [ "users" ]);
             }
             // lib.optionalAttrs (homeInfo ? system) { inherit (homeInfo) system; }
             // lib.optionalAttrs (homeInfo ? type) { inherit (homeInfo) type; }
