@@ -99,7 +99,8 @@ let
     let
       homeInfo = import (configsDir + "/${hostName}/info.nix");
 
-      homeUsers = commonUsers ++ lib.optionals (homeInfo ? users) homeInfo.users;
+      homeUsers =
+        commonUsers ++ lib.optionals (homeInfo ? home && homeInfo.home ? users) homeInfo.home.users;
 
       mkOne =
         user:
@@ -112,11 +113,10 @@ let
                 removeAttrs homeInfo [
                   "system"
                   "type"
-                  "users"
                   "host"
                   "home"
                 ]
-                // lib.optionalAttrs (homeInfo ? home) homeInfo.home;
+                // lib.optionalAttrs (homeInfo ? home) removeAttrs homeInfo.home [ "users" ];
             }
             // lib.optionalAttrs (homeInfo ? system) { inherit (homeInfo) system; }
             // lib.optionalAttrs (homeInfo ? type) { inherit (homeInfo) type; }

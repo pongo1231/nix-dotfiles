@@ -1,5 +1,5 @@
 {
-  users = [
+  home.users = [
     "stuff"
     "habbo"
   ];
