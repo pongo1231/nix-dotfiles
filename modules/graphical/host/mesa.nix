@@ -38,7 +38,12 @@
             hash = "sha256-qfDAdAHIAKyMCUubQjIDQhdwT87QWsnnF9uOcCQbQ74=";
           };
 
-          patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches;
+          patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches ++ [
+            (pkgs.fetchpatch {
+              url = "https://gitlab.com/evlaV/mesa/-/commit/e682bb001fc4e85ab191c1557692ebad5a4ee8af.patch";
+              hash = "sha256-E5GItsdehLHxkgSUPQgfZxv67/+YVoTyMDr1738hq9Y=";
+            })
+          ];
 
           NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
         });
