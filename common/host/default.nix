@@ -156,9 +156,9 @@ args:
     userborn.enable = true;
   }
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
-    scx = {
+    scx-loader = {
       enable = true;
-      scheduler = lib.mkDefault "scx_lavd";
+      settings.default_sched = lib.mkDefault "scx_lavd";
     };
   };
 
@@ -257,7 +257,7 @@ args:
         podman-compose
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
-        scx.full
+        #scx.full
       ];
   };
 }

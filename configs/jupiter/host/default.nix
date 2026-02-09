@@ -140,6 +140,8 @@
         extraOptions = [ "-c 1" ];
       };
     };
+
+    scx.enable = false;
   };
 
   /*
