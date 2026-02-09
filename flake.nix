@@ -55,6 +55,11 @@
       url = "github:taj-ny/kwin-effects-forceblur";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nix-direnv = {
+      url = "github:nix-community/nix-direnv";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
