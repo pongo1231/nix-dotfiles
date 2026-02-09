@@ -5,6 +5,7 @@
   config,
   pkgs,
   lib,
+  nixosConfig ? null,
   ...
 }:
 let
@@ -16,159 +17,171 @@ in
     default = true;
   };
 
-  config = lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
-    system.replaceDependencies.replacements =
-      let
-        coreutils-full-name =
-          "coreuutils-full"
-          + builtins.concatStringsSep "" (
-            builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils-full.version)
-          );
-        coreutils-name =
-          "coreuutils"
-          + builtins.concatStringsSep "" (
-            builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils.version)
-          );
-        findutils-name =
-          "finduutils"
-          + builtins.concatStringsSep "" (
-            builtins.genList (_: "_") (builtins.stringLength pkgs.findutils.version)
-          );
-        diffutils-name =
-          "diffuutils"
-          + builtins.concatStringsSep "" (
-            builtins.genList (_: "_") (builtins.stringLength pkgs.diffutils.version)
-          );
-      in
-      lib.optionals (cfg.enableUutils) [
-        {
-          oldDependency = pkgs.coreutils-full;
-          newDependency = pkgs.symlinkJoin {
-            name = coreutils-full-name;
-            paths = [ pkgs.uutils-coreutils-noprefix ];
-          };
-        }
-        {
-          oldDependency = pkgs.coreutils;
-          newDependency = pkgs.symlinkJoin {
-            name = coreutils-name;
-            paths = [ pkgs.uutils-coreutils-noprefix ];
-          };
-        }
-        {
-          oldDependency = pkgs.findutils;
-          newDependency = pkgs.symlinkJoin {
-            name = findutils-name;
-            paths = [ pkgs.uutils-findutils ];
-          };
-        }
-        {
-          oldDependency = pkgs.diffutils;
-          newDependency = pkgs.symlinkJoin {
-            name = diffutils-name;
-            paths = [ pkgs.uutils-diffutils ];
-          };
-        }
-      ];
-
+  config = lib.mkMerge [
+    {
+      system.replaceDependencies.replacements =
+        let
+          coreutils-full-name =
+            "coreuutils-full"
+            + builtins.concatStringsSep "" (
+              builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils-full.version)
+            );
+          coreutils-name =
+            "coreuutils"
+            + builtins.concatStringsSep "" (
+              builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils.version)
+            );
+          findutils-name =
+            "finduutils"
+            + builtins.concatStringsSep "" (
+              builtins.genList (_: "_") (builtins.stringLength pkgs.findutils.version)
+            );
+          diffutils-name =
+            "diffuutils"
+            + builtins.concatStringsSep "" (
+              builtins.genList (_: "_") (builtins.stringLength pkgs.diffutils.version)
+            );
+        in
+        lib.optionals
+          (
+            cfg.enableUutils
+            && (
+              configInfo.type == "host"
+              || !configInfo.isNixosModule
+              || (configInfo.type == "home" && !nixosConfig.pongo.overlay.enableUutils)
+            )
+          )
+          [
+            {
+              oldDependency = pkgs.coreutils-full;
+              newDependency = pkgs.symlinkJoin {
+                name = coreutils-full-name;
+                paths = [ pkgs.uutils-coreutils-noprefix ];
+              };
+            }
+            {
+              oldDependency = pkgs.coreutils;
+              newDependency = pkgs.symlinkJoin {
+                name = coreutils-name;
+                paths = [ pkgs.uutils-coreutils-noprefix ];
+              };
+            }
+            {
+              oldDependency = pkgs.findutils;
+              newDependency = pkgs.symlinkJoin {
+                name = findutils-name;
+                paths = [ pkgs.uutils-findutils ];
+              };
+            }
+            {
+              oldDependency = pkgs.diffutils;
+              newDependency = pkgs.symlinkJoin {
+                name = diffutils-name;
+                paths = [ pkgs.uutils-diffutils ];
+              };
+            }
+          ];
+    }
     # https://github.com/NixOS/nixpkgs/blob/a80ba52593f87d41a21d84c4e37f077c3604ca6a/pkgs/build-support/replace-dependencies.nix#L7
     #pkgs.replaceDependencies = { };
 
-    nixpkgs.overlays = [
-      (final: prev: {
-        nbfc-linux = prev.nbfc-linux.overrideAttrs (prev: {
-          src = final.fetchFromGitHub {
-            owner = "nbfc-linux";
-            repo = "nbfc-linux";
-            rev = "92b4cc7881e252aa847cd82cfeffadc4e8c8291a";
-            hash = "sha256-bOgUMcdJbNlqqjjyHeQSbgrOZ7HmfI6wka24ies5ysA=";
-          };
-          patches = (prev.patches or [ ]) ++ [ (patch /nbfc-linux/170.patch) ];
-          buildInputs = (prev.buildInputs or [ ]) ++ [ final.python3 ];
-          configureFlags = [
-            "--prefix=${placeholder "out"}"
-            "--sysconfdir=${placeholder "out"}/etc"
-            "--bindir=${placeholder "out"}/bin"
-          ];
-          postPatch = ''
-            substituteInPlace src/nbfc.h --replace-fail 'SYSCONFDIR "/nbfc"' '"/etc/nbfc"'
-            substituteInPlace src/nbfc.h --replace-fail 'SYSCONFDIR "/nbfc/nbfc.json"' '"/etc/nbfc/nbfc.json"'
-          '';
-        });
+    (lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
+      nixpkgs.overlays = [
+        (final: prev: {
+          nbfc-linux = prev.nbfc-linux.overrideAttrs (prev: {
+            src = final.fetchFromGitHub {
+              owner = "nbfc-linux";
+              repo = "nbfc-linux";
+              rev = "92b4cc7881e252aa847cd82cfeffadc4e8c8291a";
+              hash = "sha256-bOgUMcdJbNlqqjjyHeQSbgrOZ7HmfI6wka24ies5ysA=";
+            };
+            patches = (prev.patches or [ ]) ++ [ (patch /nbfc-linux/170.patch) ];
+            buildInputs = (prev.buildInputs or [ ]) ++ [ final.python3 ];
+            configureFlags = [
+              "--prefix=${placeholder "out"}"
+              "--sysconfdir=${placeholder "out"}/etc"
+              "--bindir=${placeholder "out"}/bin"
+            ];
+            postPatch = ''
+              substituteInPlace src/nbfc.h --replace-fail 'SYSCONFDIR "/nbfc"' '"/etc/nbfc"'
+              substituteInPlace src/nbfc.h --replace-fail 'SYSCONFDIR "/nbfc/nbfc.json"' '"/etc/nbfc/nbfc.json"'
+            '';
+          });
 
-        /*
-          virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
-            qemu = final.callPackage (pkg /qemu_7) {
-              inherit (final.darwin.apple_sdk.frameworks)
-                CoreServices
-                Cocoa
-                Hypervisor
-                vmnet
-                ;
-              inherit (final.darwin.stubs) rez setfile;
-              inherit (final.darwin) sigtool;
+          /*
+            virtiofsd = final.callPackage (pkg /qemu_7/virtiofsd.nix) {
+              qemu = final.callPackage (pkg /qemu_7) {
+                inherit (final.darwin.apple_sdk.frameworks)
+                  CoreServices
+                  Cocoa
+                  Hypervisor
+                  vmnet
+                  ;
+                inherit (final.darwin.stubs) rez setfile;
+                inherit (final.darwin) sigtool;
+              };
+            };
+          */
+
+          distrobox = prev.distrobox.overrideAttrs {
+            version = "1.9-git";
+            src = final.fetchFromGitHub {
+              owner = "89luca89";
+              repo = "distrobox";
+              rev = "3eb5c6f1f303fd09697bb4c56fccad54ee64fb9f";
+              hash = "sha256-dzqKB5+GvY8+wMvp8dillUbcPgaeieLn2rif0ZzCvwU=";
             };
           };
-        */
 
-        distrobox = prev.distrobox.overrideAttrs {
-          version = "1.9-git";
-          src = final.fetchFromGitHub {
-            owner = "89luca89";
-            repo = "distrobox";
-            rev = "3eb5c6f1f303fd09697bb4c56fccad54ee64fb9f";
-            hash = "sha256-dzqKB5+GvY8+wMvp8dillUbcPgaeieLn2rif0ZzCvwU=";
-          };
-        };
-
-        ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
-        ksmwrap32 = final.pkgsi686Linux.callPackage (pkg /ksmwrap) { suffix = "32"; };
-        ksmwrap = final.writeShellScriptBin "ksmwrap" ''
-          exec env LD_PRELOAD=$LD_PRELOAD:${final.ksmwrap64}/bin/ksmwrap64.so${
-            lib.optionalString (
-              pkgs.stdenv.hostPlatform.system == "x86_64-linux"
-            ) ":${final.ksmwrap32}/bin/ksmwrap32.so"
-          } "$@"
-        '';
-
-        udp-reverse-tunnel = final.callPackage (pkg /udp-reverse-tunnel) { };
-
-        duperemove = prev.duperemove.overrideAttrs {
-          src = final.fetchFromGitHub {
-            owner = "markfasheh";
-            repo = "duperemove";
-            rev = "897a222e731cc9dccc7ae4d6065034b561201c5c";
-            hash = "sha256-/MkbR2lOxC/3kXrHqkkL7ngvCILutJpScNxfIx+CdDU=";
-          };
-        };
-
-        ryzenadj = prev.ryzenadj.overrideAttrs {
-          src = final.fetchFromGitHub {
-            owner = "FlyGoat";
-            repo = "RyzenAdj";
-            rev = "7aeb2f4869ee52ac161ee4cb4871e29113487885";
-            hash = "sha256-KE2dbGv4V3+ibyxJ/DHNnBOGzjAcZbGrC3cVGNDsTTQ=";
-          };
-        };
-
-        extra-container = prev.extra-container.overrideAttrs {
-          src = final.fetchFromGitHub {
-            owner = "erikarvstedt";
-            repo = "extra-container";
-            rev = "ae2966fbdedd466c29b9a5d6f11cadad02e1fdd0";
-            hash = "sha256-PIt0w/R3wGaAIlI1zPU4heLq7sxrWF6MgWzTEIVCplg=";
-          };
-        };
-
-        snapperS = final.callPackage (pkg /snapperS) { };
-
-        mosh = prev.mosh.overrideAttrs (prev: {
-          postPatch = (prev.postPatch or "") + ''
-            substituteInPlace src/frontend/stmclient.h --replace-fail "if ( predict_mode )" "if ( false )"
-            substituteInPlace src/frontend/terminaloverlay.h --replace-fail "display_preference( Adaptive )" "display_preference( Experimental )"
+          ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
+          ksmwrap32 = final.pkgsi686Linux.callPackage (pkg /ksmwrap) { suffix = "32"; };
+          ksmwrap = final.writeShellScriptBin "ksmwrap" ''
+            exec env LD_PRELOAD=$LD_PRELOAD:${final.ksmwrap64}/bin/ksmwrap64.so${
+              lib.optionalString (
+                pkgs.stdenv.hostPlatform.system == "x86_64-linux"
+              ) ":${final.ksmwrap32}/bin/ksmwrap32.so"
+            } "$@"
           '';
-        });
-      })
-    ];
-  };
+
+          udp-reverse-tunnel = final.callPackage (pkg /udp-reverse-tunnel) { };
+
+          duperemove = prev.duperemove.overrideAttrs {
+            src = final.fetchFromGitHub {
+              owner = "markfasheh";
+              repo = "duperemove";
+              rev = "897a222e731cc9dccc7ae4d6065034b561201c5c";
+              hash = "sha256-/MkbR2lOxC/3kXrHqkkL7ngvCILutJpScNxfIx+CdDU=";
+            };
+          };
+
+          ryzenadj = prev.ryzenadj.overrideAttrs {
+            src = final.fetchFromGitHub {
+              owner = "FlyGoat";
+              repo = "RyzenAdj";
+              rev = "7aeb2f4869ee52ac161ee4cb4871e29113487885";
+              hash = "sha256-KE2dbGv4V3+ibyxJ/DHNnBOGzjAcZbGrC3cVGNDsTTQ=";
+            };
+          };
+
+          extra-container = prev.extra-container.overrideAttrs {
+            src = final.fetchFromGitHub {
+              owner = "erikarvstedt";
+              repo = "extra-container";
+              rev = "ae2966fbdedd466c29b9a5d6f11cadad02e1fdd0";
+              hash = "sha256-PIt0w/R3wGaAIlI1zPU4heLq7sxrWF6MgWzTEIVCplg=";
+            };
+          };
+
+          snapperS = final.callPackage (pkg /snapperS) { };
+
+          mosh = prev.mosh.overrideAttrs (prev: {
+            postPatch = (prev.postPatch or "") + ''
+              substituteInPlace src/frontend/stmclient.h --replace-fail "if ( predict_mode )" "if ( false )"
+              substituteInPlace src/frontend/terminaloverlay.h --replace-fail "display_preference( Adaptive )" "display_preference( Experimental )"
+            '';
+          });
+        })
+      ];
+    })
+  ];
 }
