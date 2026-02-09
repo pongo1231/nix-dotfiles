@@ -17,7 +17,5 @@
     atlauncher
     ghidra
     bottles
-    rustup
-    nixfmt-tree
   ];
 }
