@@ -7,7 +7,7 @@ keys:
   - &host_rpi3b age19th9vdcnftl5y2dwt8sl89xy7w5trvemxd7hm55glvqcmhh0348qef7pz3
   - &host_starfish age1j0e4y7cy9rutuvr6spkell45s79m0gwm27q93m6hymhmshkf65wsm4pfnm
   - &host_silverfish age1den7w9ceeyprqug0zmefjfmspaxjee6j0rmpg9r0e66d2rfu73uqk4p0nh
-  - &host_wsl age1v5smpsnjafylktdmxga6kmjtwawcd8veeq7my88ltdfss9x2nfaqq70ske
+  - &host_wsl age1f2qg0qhff59k8pqzajx92fcxzrn2yqrfzq4gmjlrkjvrw97l7gcqmx9g4q
 
 creation_rules:
   - path_regex: secrets/pongo/default.yaml
