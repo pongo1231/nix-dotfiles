@@ -54,6 +54,13 @@ args:
         set -ga terminal-overrides ',xterm*:smcup@:rmcup@'
       '';
     };
+
+    direnv = {
+      enable = true;
+      enableBashIntegration = true;
+      enableFishIntegration = true;
+      nix-direnv.enable = true;
+    };
   };
 
   services.ssh-agent = {
@@ -85,7 +92,6 @@ args:
     packages = with pkgs; [
       sops
       ssh-to-age
-      direnv
       btop
       p7zip
       pciutils

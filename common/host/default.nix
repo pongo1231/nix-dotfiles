@@ -106,7 +106,6 @@ args:
 
     usbtop.enable = true;
     dconf.enable = true;
-    direnv.enable = true;
     nix-ld.enable = true;
     mosh.enable = true;
   };
