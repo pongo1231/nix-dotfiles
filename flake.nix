@@ -1,8 +1,6 @@
 {
   inputs = {
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
-    nixpkgs2.follows = "nixpkgs";
-    nixpkgs3.url = "github:pongo1231/nixpkgs/bfeb2fb512cebbf38cdaa6ad7a6d311f861c5487";
 
     flake-utils.url = "github:numtide/flake-utils";
 
@@ -31,11 +29,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    microvm = {
-      url = "github:astro/microvm.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     nix-alien = {
       url = "github:thiagokokada/nix-alien";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -53,11 +46,6 @@
 
     kwin-effects-forceblur = {
       url = "github:taj-ny/kwin-effects-forceblur";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    nix-direnv = {
-      url = "github:nix-community/nix-direnv";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

@@ -26,11 +26,7 @@ in
       (final: prev: {
         linuxPackages_pongo =
           let
-            pkgs' =
-              if cfg.crossCompile != null then
-                inputs.nixpkgs2.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
-              else
-                inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+            pkgs' = if cfg.crossCompile != null then pkgs.pkgsCross.${cfg.crossCompile.target} else pkgs;
           in
           pkgs'.linuxPackages_testing.extend (
             final': prev': {

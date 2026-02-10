@@ -21,14 +21,14 @@
     vesktop
     libreoffice
     gimp
-    inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.audacity
+    audacity
     remmina
     moonlight-qt
     audacious
     jamesdsp
     nextcloud-client
     syncthing
-    inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.thunderbird
+    thunderbird
     darkly
   ];
 }
