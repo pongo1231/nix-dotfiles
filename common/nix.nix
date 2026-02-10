@@ -41,6 +41,7 @@
     config = {
       allowUnfree = true;
       nvidia.acceptLicense = true;
+      permittedInsecurePackages = [ "python-2.7.18.12" ];
     };
   };
 }
