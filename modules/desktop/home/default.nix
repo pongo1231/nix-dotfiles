@@ -29,6 +29,5 @@
     nextcloud-client
     syncthing
     thunderbird
-    darkly
   ];
 }
