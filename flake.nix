@@ -64,9 +64,17 @@
 
   outputs =
     inputs:
-    inputs.flake-utils.lib.eachDefaultSystem (system: {
-      formatter = inputs.nixpkgs.legacyPackages.${system}.nixfmt-tree;
-    })
+    inputs.flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = inputs.nixpkgs.legacyPackages.${system};
+        formatter = pkgs.nixfmt-tree;
+      in
+      {
+        inherit formatter;
+        devShells.default = pkgs.mkShell { packages = with pkgs; [ formatter ]; };
+      }
+    )
     // {
       nixosConfigurations = import ./hostConfigs.nix inputs;
       homeConfigurations = import ./homeConfigs.nix inputs { };

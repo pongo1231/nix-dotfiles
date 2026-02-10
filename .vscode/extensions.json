@@ -1,0 +1,7 @@
+{
+	"recommendations": [
+		"jnoortheen.nix-ide",
+		"arrterian.nix-env-selector",
+		"esbenp.prettier-vscode"
+	]
+}
