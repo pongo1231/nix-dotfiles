@@ -72,7 +72,12 @@
       in
       {
         inherit formatter;
-        devShells.default = pkgs.mkShell { packages = with pkgs; [ formatter ]; };
+        devShells.default = pkgs.mkShell {
+          packages = with pkgs; [
+            formatter
+            sops
+          ];
+        };
       }
     )
     // {

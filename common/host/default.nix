@@ -252,7 +252,6 @@ args:
         distrobox
         udp-reverse-tunnel
         sshfs
-        sops
         ssh-to-age
         podman-compose
       ]

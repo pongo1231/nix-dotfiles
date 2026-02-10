@@ -90,7 +90,6 @@ args:
     sessionVariables.EDITOR = "micro";
 
     packages = with pkgs; [
-      sops
       ssh-to-age
       btop
       p7zip
