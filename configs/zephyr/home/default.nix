@@ -12,7 +12,7 @@
   home.packages = with pkgs; [
     inputs.kwin-effects-forceblur.packages.${pkgs.stdenv.hostPlatform.system}.default
     winboat
-    steam
+    steam-millennium
     vscode-fhs
     atlauncher
     ghidra
