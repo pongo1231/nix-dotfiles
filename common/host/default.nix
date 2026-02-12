@@ -154,6 +154,11 @@ args:
     kmscon.enable = true;
 
     userborn.enable = true;
+
+    physlock = {
+      enable = true;
+      allowAnyUser = true;
+    };
   }
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
     scx-loader = {
