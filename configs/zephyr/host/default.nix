@@ -151,7 +151,47 @@
       };
     };
 
-    scx-loader.settings.default_sched = "scx_bpfland";
+    scx-loader = {
+      package = pkgs.scx.loader.overrideAttrs (
+        let
+          src = pkgs.fetchFromGitHub {
+            owner = "sched-ext";
+            repo = "scx-loader";
+            rev = "0a52e98197721b396bdbc1632b8e35e8f6b27a03";
+            hash = "sha256-skKJiXMrFxRrhnxgE/dtrFda0v9Qy10zqSTVJoQblsk=";
+          };
+        in
+        {
+          inherit src;
+          cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+            inherit src;
+            hash = "sha256-61wi2RCCXHA3jHJp9U6rgVVp4VcwWvXWC0nOeqGosRk=";
+          };
+        }
+      );
+
+      schedsPackages = [
+        (pkgs.scx.rustscheds.overrideAttrs (
+          let
+            src = pkgs.fetchFromGitHub {
+              owner = "sched-ext";
+              repo = "scx";
+              rev = "28f1ebdd7b3b893002390805cf6aeb3d6f65d085";
+              hash = "sha256-CSwzpNUsl5xXr2PERteX7+BFNAcBYLEic7peAzVl/wA=";
+            };
+          in
+          {
+            inherit src;
+            cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+              inherit src;
+              hash = "sha256-wdo127ngL1h4oiFK7ryLb0/qqx6IuZyDBu34DzDmiaE=";
+            };
+          }
+        ))
+      ];
+
+      settings.default_sched = "scx_cake";
+    };
   };
 
   systemd.services = {
