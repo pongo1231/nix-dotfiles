@@ -21,6 +21,8 @@
     kernelParams = [ "mitigations=off" ];
   };
 
+  hardware.enableRedistributableFirmware = true;
+
   networking = {
     networkmanager.enable = false;
     wireless.iwd.enable = true;

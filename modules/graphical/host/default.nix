@@ -9,6 +9,7 @@
   imports = [
     inputs.lsfg-vk.nixosModules.default
 
+    ./bluetooth.nix
     ./mesa.nix
   ];
 
@@ -19,6 +20,8 @@
   };
 
   hardware = {
+    enableRedistributableFirmware = true;
+
     graphics = {
       enable = true;
       enable32Bit = true;

@@ -15,7 +15,6 @@ args:
     ../sops.nix
 
     ./users.nix
-    ./bluetooth.nix
     ./pongoKernel.nix
     ./ksm.nix
   ];
@@ -68,8 +67,6 @@ args:
       options kvm_amd avic=1 force_avic=1
     '';
   };
-
-  hardware.enableAllFirmware = true;
 
   networking = {
     inherit hostName;
@@ -251,7 +248,6 @@ args:
       with pkgs;
       [
         home-manager
-        pulseaudio
         ddcutil
         #snapper
         distrobox
