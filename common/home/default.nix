@@ -126,7 +126,6 @@ args:
       nix-serve-ng
       ps_mem
       procps
-      smem
       borgbackup
       dix
       mosh
