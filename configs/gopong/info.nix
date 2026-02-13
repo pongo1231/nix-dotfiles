@@ -1,5 +1,5 @@
 {
-  type = "vm";
+  types = [ "vm" ];
 
   home.users = [
     "stuff"

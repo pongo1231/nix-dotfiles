@@ -36,7 +36,7 @@ let
     {
       hostName,
       user,
-      type ? null,
+      types ? null,
       args,
     }:
     let
@@ -53,7 +53,9 @@ let
 
       (import ./common/home args)
     ]
-    ++ lib.optionals (type != null) (specialArgs.types /${type})
+    ++ lib.optionals (types != null) (
+      lib.unique (builtins.foldl' (acc: x: acc ++ specialArgs.types /${x}) [ ] types)
+    )
     ++ lib.optionals (builtins.pathExists userModulePath) [ userModulePath ]
     ++ lib.optionals (builtins.pathExists hostHomePath) [ hostHomePath ]
     ++ lib.optionals (builtins.pathExists hostUserHomePath) [ hostUserHomePath ];
@@ -63,7 +65,7 @@ let
       hostName,
       user,
       system ? "x86_64-linux",
-      type ? null,
+      types ? null,
       args,
     }:
     let
@@ -72,7 +74,7 @@ let
         inherit
           hostName
           user
-          type
+          types
           args
           ;
       };
@@ -112,14 +114,14 @@ let
               args =
                 removeAttrs homeInfo [
                   "system"
-                  "type"
+                  "types"
                   "host"
                   "home"
                 ]
                 // lib.optionalAttrs (homeInfo ? home) (removeAttrs homeInfo.home [ "users" ]);
             }
             // lib.optionalAttrs (homeInfo ? system) { inherit (homeInfo) system; }
-            // lib.optionalAttrs (homeInfo ? type) { inherit (homeInfo) type; }
+            // lib.optionalAttrs (homeInfo ? types) { inherit (homeInfo) types; }
           );
         in
         {

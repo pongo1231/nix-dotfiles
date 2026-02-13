@@ -15,7 +15,7 @@ let
       hostName,
       config ? null,
       system ? "x86_64-linux",
-      type ? null,
+      types ? null,
       args,
     }:
     let
@@ -53,7 +53,9 @@ let
           configs.${hostName} = { };
         })
       ]
-      ++ lib.optionals (type != null) (specialArgs.types /${type})
+      ++ lib.optionals (types != null) (
+        lib.unique (builtins.foldl' (acc: x: acc ++ specialArgs.types /${x}) [ ] types)
+      )
       ++ lib.optionals (config != null) [ config ];
     };
 
@@ -72,14 +74,14 @@ let
         args =
           removeAttrs hostInfo [
             "system"
-            "type"
+            "types"
             "host"
             "home"
           ]
           // lib.optionalAttrs (hostInfo ? host) hostInfo.host;
       }
       // lib.optionalAttrs (hostInfo ? system) { inherit (hostInfo) system; }
-      // lib.optionalAttrs (hostInfo ? type) { inherit (hostInfo) type; }
+      // lib.optionalAttrs (hostInfo ? types) { inherit (hostInfo) types; }
       // lib.optionalAttrs (builtins.pathExists configPath) { config = configPath; }
     );
 in

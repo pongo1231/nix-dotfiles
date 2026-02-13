@@ -1,3 +1,3 @@
 {
-  type = "desktop/plasma";
+  types = [ "desktop/plasma" ];
 }
