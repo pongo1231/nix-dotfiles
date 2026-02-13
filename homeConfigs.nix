@@ -53,7 +53,7 @@ let
 
       (import ./common/home args)
     ]
-    ++ lib.optionals (type != null) (specialArgs.modules /${type})
+    ++ lib.optionals (type != null) (specialArgs.types /${type})
     ++ lib.optionals (builtins.pathExists userModulePath) [ userModulePath ]
     ++ lib.optionals (builtins.pathExists hostHomePath) [ hostHomePath ]
     ++ lib.optionals (builtins.pathExists hostUserHomePath) [ hostUserHomePath ];

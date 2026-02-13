@@ -53,7 +53,7 @@ let
           configs.${hostName} = { };
         })
       ]
-      ++ lib.optionals (type != null) (specialArgs.modules /${type})
+      ++ lib.optionals (type != null) (specialArgs.types /${type})
       ++ lib.optionals (config != null) [ config ];
     };
 

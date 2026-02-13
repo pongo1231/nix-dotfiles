@@ -5,8 +5,8 @@
   ...
 }@args:
 let
-  modules =
-    file:
+  modulesInPath =
+    path: file:
     let
       fileStr = builtins.toString file;
       splitFile = lib.splitString "/" fileStr;
@@ -43,36 +43,40 @@ let
                 ++ lib.optionals (allowDefault && builtins.pathExists ./${d}) [ d ]
               ) paths
           ) acc
-        ) [ "modules" ] indices
+        ) [ path ] indices
       );
       filePaths = builtins.map (x: ./${x}) (builtins.filter (x: lib.hasSuffix ".nix" x) filePathsStr);
       filePathsLen = builtins.length filePaths;
     in
     if filePathsLen == 0 then builtins.throw "Could not find module ${fileStr}" else filePaths;
+
+  genModulesAttrset = path: multipleName: oneName: {
+    ${multipleName} = modulesInPath path;
+
+    ${oneName} =
+      file:
+      let
+        foundModules = modulesInPath path file;
+        foundModulesLen = builtins.length foundModules;
+      in
+      if foundModulesLen == 1 then
+        builtins.elemAt foundModules 0
+      else
+        abort (
+          if foundModulesLen == 0 then
+            "${oneName} \"${file}\" not found"
+          else
+            "Ambiguous ${oneName} \"${file}\": ${builtins.foldl' (acc: x: "${acc} \"${x}\"") "" foundModules}"
+        );
+  };
 in
-{
+genModulesAttrset "modules" "modules" "module"
+// genModulesAttrset "types" "types" "type"
+// {
   configInfo = {
     type = prefix;
     inherit isNixosModule;
   };
-
-  inherit modules;
-
-  module =
-    file:
-    let
-      foundModules = modules file;
-      foundModulesLen = builtins.length foundModules;
-    in
-    if foundModulesLen == 1 then
-      builtins.elemAt foundModules 0
-    else
-      abort (
-        if foundModulesLen == 0 then
-          "Module \"${file}\" not found"
-        else
-          "Ambiguous module \"${file}\": ${builtins.foldl' (acc: x: "${acc} \"${x}\"") "" foundModules}"
-      );
 
   patch = file: ./patches/${file};
   pkg = file: ./pkgs/${file};

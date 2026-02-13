@@ -1,7 +1,0 @@
-{ module, ... }:
-{
-  imports = [
-    (module /graphical)
-  ];
-
-}

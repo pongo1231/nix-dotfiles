@@ -1,0 +1,6 @@
+{ type, ... }:
+{
+  imports = [
+    (type /graphical)
+  ];
+}
