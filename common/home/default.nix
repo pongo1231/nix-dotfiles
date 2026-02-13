@@ -129,6 +129,7 @@ args:
       borgbackup
       dix
       mosh
+      bubblewrap
     ];
   };
 }
