@@ -5,11 +5,10 @@
 {
   fileSystems."/" = {
     device = "/dev/mmcblk0p2";
-    fsType = "btrfs";
+    fsType = "ext4";
     options = [
       "noatime"
       "lazytime"
-      "compress-force=zstd:6"
     ];
   };
 
