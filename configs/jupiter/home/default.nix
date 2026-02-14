@@ -36,7 +36,7 @@
       xemu
       heroic
       (bottles.override { removeWarningPopup = true; })
-      atlauncher
+      prismlauncher
     ];
   };
 }

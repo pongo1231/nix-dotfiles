@@ -13,7 +13,7 @@
     winboat
     steam-millennium
     inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.vscode-fhs
-    atlauncher
+    prismlauncher
     ghidra
     bottles
   ];
