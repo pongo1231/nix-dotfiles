@@ -121,7 +121,7 @@ args:
       enable = true;
       settings = {
         X11Forwarding = true;
-        GatewayPorts = "yes";
+        GatewayPorts = "clientspecified";
       };
     };
 
