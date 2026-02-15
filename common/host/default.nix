@@ -148,7 +148,10 @@ args:
 
     ntpd-rs.enable = true;
 
-    kmscon.enable = true;
+    kmscon = {
+      enable = true;
+      useXkbConfig = true;
+    };
 
     userborn.enable = true;
   }
