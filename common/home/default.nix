@@ -130,6 +130,7 @@ args:
       dix
       mosh
       bubblewrap
+      nixos-shell
     ];
   };
 }
