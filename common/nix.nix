@@ -14,10 +14,24 @@
       else
         [ "/etc/nix/inputs" ];
 
-    registry = lib.mapAttrs' (name: flake: {
-      inherit name;
-      value.flake = flake;
-    }) inputs;
+    registry =
+      (lib.mapAttrs' (name: flake: {
+        inherit name;
+        value.flake = flake;
+      }) inputs)
+      // {
+        microvm.to = {
+          owner = "microvm-nix";
+          repo = "microvm.nix";
+          type = "github";
+        };
+
+        nix-direnv.to = {
+          owner = "nix-community";
+          repo = "nix-direnv";
+          type = "github";
+        };
+      };
 
     extraOptions = ''
       experimental-features = nix-command flakes
