@@ -5,7 +5,6 @@ config: {
   # hardening
   "kernel.kptr_restrict" = 2;
   "kernel.dmesg_restrict" = 1;
-  "kernel.unprivileged_bpf_disabled" = 1;
   "kernel.panic" = 60;
   "fs.protected_fifos" = 2;
   "fs.protected_regular" = 2;
