@@ -15,9 +15,8 @@ config: [
   "rcutree.enable_rcu_lazy=1"
   "log_buf_len=4M"
   "split_lock_detect=off"
-  "panic=60"
 
   # Hardening
-  #"randomize_kstack_offset=on"
-  #"efi=disable_early_pci_dma"
+  "randomize_kstack_offset=on"
+  "efi=disable_early_pci_dma"
 ]
