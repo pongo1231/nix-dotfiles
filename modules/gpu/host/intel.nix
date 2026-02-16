@@ -5,8 +5,6 @@
 {
   boot = {
     kernelParams = [
-      "i915.mitigations=off"
-      "xe.mitigations=off"
       "i915.enable_dpcd_backlight=1"
       "xe.enable_dpcd_backlight=1"
     ];
