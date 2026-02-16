@@ -32,6 +32,5 @@
 
   environment.systemPackages = with pkgs; [
     wget # for vs code server
-    btrfs-progs
   ];
 }
