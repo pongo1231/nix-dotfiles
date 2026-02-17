@@ -121,11 +121,6 @@
 
     supergfxd.enable = false;
 
-    howdy = {
-      enable = true;
-      control = "sufficient";
-    };
-
     beesd.filesystems = {
       "-" = {
         spec = "/";
