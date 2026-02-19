@@ -203,11 +203,7 @@ args:
     services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
   };
 
-  documentation = {
-    nixos.enable = false;
-
-    man.generateCaches = false;
-  };
+  documentation.enable = false;
 
   environment = {
     etc =
