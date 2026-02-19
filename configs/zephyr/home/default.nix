@@ -12,7 +12,7 @@
   home.packages = with pkgs; [
     winboat
     steam-millennium
-    inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.vscode-fhs
+    vscode-fhs
     prismlauncher
     ghidra
     bottles
