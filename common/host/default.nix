@@ -243,16 +243,11 @@ args:
       [
         home-manager
         ddcutil
-        #snapper
         distrobox
-        udp-reverse-tunnel
         sshfs
         ssh-to-age
         podman-compose
         linuxPackages.usbip
-      ]
-      ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
-        #scx.full
       ];
   };
 }

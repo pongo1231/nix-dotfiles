@@ -131,6 +131,7 @@ args:
       mosh
       bubblewrap
       nixos-shell
+      udp-reverse-tunnel
     ];
   };
 }
