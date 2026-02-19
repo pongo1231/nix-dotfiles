@@ -1,3 +1,3 @@
 {
-  types = [ "graphical/plasma" ];
+  roles = [ "graphical/plasma" ];
 }

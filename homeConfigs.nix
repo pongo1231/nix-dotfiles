@@ -36,7 +36,7 @@ let
     {
       hostName,
       user,
-      types ? null,
+      roles ? null,
       args,
     }:
     let
@@ -53,8 +53,8 @@ let
 
       (import ./common/home args)
     ]
-    ++ lib.optionals (types != null) (
-      lib.unique (builtins.foldl' (acc: x: acc ++ specialArgs.types /${x}) [ ] types)
+    ++ lib.optionals (roles != null) (
+      lib.unique (builtins.foldl' (acc: x: acc ++ specialArgs.roles /${x}) [ ] roles)
     )
     ++ lib.optionals (builtins.pathExists userModulePath) [ userModulePath ]
     ++ lib.optionals (builtins.pathExists hostHomePath) [ hostHomePath ]
@@ -65,7 +65,7 @@ let
       hostName,
       user,
       system ? "x86_64-linux",
-      types ? null,
+      roles ? null,
       args,
     }:
     let
@@ -74,7 +74,7 @@ let
         inherit
           hostName
           user
-          types
+          roles
           args
           ;
       };
@@ -114,14 +114,14 @@ let
               args =
                 removeAttrs homeInfo [
                   "system"
-                  "types"
+                  "roles"
                   "host"
                   "home"
                 ]
                 // lib.optionalAttrs (homeInfo ? home) (removeAttrs homeInfo.home [ "users" ]);
             }
             // lib.optionalAttrs (homeInfo ? system) { inherit (homeInfo) system; }
-            // lib.optionalAttrs (homeInfo ? types) { inherit (homeInfo) types; }
+            // lib.optionalAttrs (homeInfo ? roles) { inherit (homeInfo) roles; }
           );
         in
         {

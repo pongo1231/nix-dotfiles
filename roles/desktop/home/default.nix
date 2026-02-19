@@ -1,12 +1,12 @@
 {
   inputs,
-  type,
+  role,
   pkgs,
   ...
 }:
 {
   imports = [
-    (type /graphical)
+    (role /graphical)
   ];
 
   xdg.configFile = {

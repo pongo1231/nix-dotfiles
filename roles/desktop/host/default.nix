@@ -1,0 +1,6 @@
+{ role, ... }:
+{
+  imports = [
+    (role /graphical)
+  ];
+}

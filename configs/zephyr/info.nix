@@ -1,3 +1,3 @@
 {
-  types = [ "desktop/plasma" ];
+  roles = [ "desktop/plasma" ];
 }

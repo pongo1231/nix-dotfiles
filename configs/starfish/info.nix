@@ -1,3 +1,3 @@
 {
-  types = [ "vm" ];
+  roles = [ "vm" ];
 }

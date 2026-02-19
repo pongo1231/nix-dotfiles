@@ -71,7 +71,7 @@ let
   };
 in
 genModulesAttrset "modules" "modules" "module"
-// genModulesAttrset "types" "types" "type"
+// genModulesAttrset "roles" "roles" "role"
 // {
   configInfo = {
     type = prefix;

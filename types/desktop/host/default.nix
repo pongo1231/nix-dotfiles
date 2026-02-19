@@ -1,6 +1,0 @@
-{ type, ... }:
-{
-  imports = [
-    (type /graphical)
-  ];
-}
