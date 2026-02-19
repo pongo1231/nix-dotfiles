@@ -180,6 +180,8 @@ in
               substituteInPlace src/frontend/terminaloverlay.h --replace-fail "display_preference( Adaptive )" "display_preference( Experimental )"
             '';
           });
+
+          bottles = prev.bottles.override { removeWarningPopup = true; };
         })
       ];
     })
