@@ -35,7 +35,6 @@
 
     extraOptions = ''
       experimental-features = nix-command flakes
-      keep-outputs = true
     '';
 
     settings = lib.optionalAttrs (configInfo.type == "host") {
