@@ -17,5 +17,6 @@
     ghidra
     bottles
     goverlay
+    heroic
   ];
 }
