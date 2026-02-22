@@ -238,16 +238,14 @@ args:
       DXVK_NVAPI_DRS_SETTINGS = "0x10E41E01=1,0x10E41E02=1,0x10E41E03=1,0x10E41DF3=0xffffff,0x10E41DF7=0xffffff";
     };
 
-    systemPackages =
-      with pkgs;
-      [
-        home-manager
-        ddcutil
-        distrobox
-        sshfs
-        ssh-to-age
-        podman-compose
-        linuxPackages.usbip
-      ];
+    systemPackages = with pkgs; [
+      home-manager
+      ddcutil
+      distrobox
+      sshfs
+      ssh-to-age
+      podman-compose
+      linuxPackages.usbip
+    ];
   };
 }
