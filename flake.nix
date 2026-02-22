@@ -51,13 +51,13 @@
       system:
       let
         pkgs = inputs.nixpkgs.legacyPackages.${system};
-        formatter = pkgs.nixfmt-tree;
       in
       {
-        inherit formatter;
+        formatter = pkgs.nixfmt-tree;
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            formatter
+            nixfmt
+            nixd
             sops
           ];
         };
