@@ -16,5 +16,6 @@
     prismlauncher
     ghidra
     bottles
+    goverlay
   ];
 }
