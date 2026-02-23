@@ -9,6 +9,11 @@
     inputs.nixos-wsl.nixosModules.default
   ];
 
+  system = {
+    nixos-init.enable = false;
+    etc.overlay.enable = false;
+  };
+
   boot = {
     loader.systemd-boot.enable = lib.mkForce false;
 

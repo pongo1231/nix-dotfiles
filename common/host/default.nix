@@ -24,8 +24,8 @@ args:
   system = {
     stateVersion = "25.11";
 
-    nixos-init.enable = true;
-    etc.overlay.enable = true;
+    nixos-init.enable = lib.mkDefault true;
+    etc.overlay.enable = lib.mkDefault true;
   };
 
   boot = {
