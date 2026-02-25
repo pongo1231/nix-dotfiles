@@ -12,7 +12,7 @@
   home.packages = with pkgs; [
     winboat
     steam-millennium
-    vscode-fhs
+    vscodium
     prismlauncher
     ghidra
     bottles
