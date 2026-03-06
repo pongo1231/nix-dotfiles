@@ -34,8 +34,8 @@
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "05ef9f01a7cf411935ba664729ea487f6e0f4d0d";
-            hash = "sha256-LHiVfui372g9TIglGx5x1Dq5Lr6xZO+tCS0tbHoyD/Q=";
+            rev = "2ec8ecd7de3a20f6b85fae76b88b1c1f4192761f";
+            hash = "sha256-AfRQv37J95itQ4PA0VOxctlO/zYVseIxu4MvZvjkVgE=";
           };
 
           patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches ++ [
@@ -45,7 +45,7 @@
             })
           ];
 
-          NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
+          #NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
         });
   };
 }
