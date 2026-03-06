@@ -158,6 +158,7 @@ args:
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
     scx-loader = {
       enable = true;
+      package = pkgs.scx.loader;
       settings.default_sched = lib.mkDefault "scx_lavd";
     };
   };

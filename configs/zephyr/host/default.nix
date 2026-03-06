@@ -114,10 +114,7 @@
       autoStart = false;
     };
 
-    asusd = {
-      enable = true;
-      enableUserService = true;
-    };
+    asusd.enable = true;
 
     supergfxd.enable = false;
 

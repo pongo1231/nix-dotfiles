@@ -113,13 +113,6 @@
   networking.hostId = "a1f92a1f";
 
   services = {
-    displayManager = {
-      sddm.enable = false;
-      gdm.enable = false;
-    };
-
-    fstrim.enable = true;
-
     sunshine = {
       enable = true;
       package = pkgs.sunshine;
@@ -143,13 +136,6 @@
 
     scx.enable = false;
   };
-
-  /*
-    systemd = {
-      services.greetd.serviceConfig.MemoryKSM = true;
-      user.services.gamescope-session.serviceConfig.MemoryKSM = true;
-    };
-  */
 
   environment.systemPackages = with pkgs; [ steamdeck-firmware ];
 }
