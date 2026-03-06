@@ -20,28 +20,6 @@ in
   config = lib.mkMerge [
     {
       system.replaceDependencies.replacements =
-        let
-          coreutils-full-name =
-            "coreuutils-full"
-            + builtins.concatStringsSep "" (
-              builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils-full.version)
-            );
-          coreutils-name =
-            "coreuutils"
-            + builtins.concatStringsSep "" (
-              builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils.version)
-            );
-          findutils-name =
-            "finduutils"
-            + builtins.concatStringsSep "" (
-              builtins.genList (_: "_") (builtins.stringLength pkgs.findutils.version)
-            );
-          diffutils-name =
-            "diffuutils"
-            + builtins.concatStringsSep "" (
-              builtins.genList (_: "_") (builtins.stringLength pkgs.diffutils.version)
-            );
-        in
         lib.optionals
           (
             cfg.enableUutils
@@ -55,28 +33,44 @@ in
             {
               oldDependency = pkgs.coreutils-full;
               newDependency = pkgs.symlinkJoin {
-                name = coreutils-full-name;
+                name =
+                  "coreuutils-full"
+                  + builtins.concatStringsSep "" (
+                    builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils-full.version)
+                  );
                 paths = [ pkgs.uutils-coreutils-noprefix ];
               };
             }
             {
               oldDependency = pkgs.coreutils;
               newDependency = pkgs.symlinkJoin {
-                name = coreutils-name;
+                name =
+                  "coreuutils"
+                  + builtins.concatStringsSep "" (
+                    builtins.genList (_: "_") (builtins.stringLength pkgs.coreutils.version)
+                  );
                 paths = [ pkgs.uutils-coreutils-noprefix ];
               };
             }
             {
               oldDependency = pkgs.findutils;
               newDependency = pkgs.symlinkJoin {
-                name = findutils-name;
+                name =
+                  "finduutils"
+                  + builtins.concatStringsSep "" (
+                    builtins.genList (_: "_") (builtins.stringLength pkgs.findutils.version)
+                  );
                 paths = [ pkgs.uutils-findutils ];
               };
             }
             {
               oldDependency = pkgs.diffutils;
               newDependency = pkgs.symlinkJoin {
-                name = diffutils-name;
+                name =
+                  "diffuutils"
+                  + builtins.concatStringsSep "" (
+                    builtins.genList (_: "_") (builtins.stringLength pkgs.diffutils.version)
+                  );
                 paths = [ pkgs.uutils-diffutils ];
               };
             }
@@ -160,15 +154,6 @@ in
               repo = "RyzenAdj";
               rev = "7aeb2f4869ee52ac161ee4cb4871e29113487885";
               hash = "sha256-KE2dbGv4V3+ibyxJ/DHNnBOGzjAcZbGrC3cVGNDsTTQ=";
-            };
-          };
-
-          extra-container = prev.extra-container.overrideAttrs {
-            src = final.fetchFromGitHub {
-              owner = "erikarvstedt";
-              repo = "extra-container";
-              rev = "ae2966fbdedd466c29b9a5d6f11cadad02e1fdd0";
-              hash = "sha256-PIt0w/R3wGaAIlI1zPU4heLq7sxrWF6MgWzTEIVCplg=";
             };
           };
 
