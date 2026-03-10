@@ -201,7 +201,10 @@ args:
 
     tmpfiles.rules = import ./tmpfiles.nix;
 
-    services."user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+    services = {
+      "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
+      "mandb".wantedBy = lib.mkForce [ ];
+    };
   };
 
   documentation.enable = false;
