@@ -143,7 +143,7 @@
       };
     };
 
-    scx-loader.settings.default_sched = "scx_bpfland";
+    scx-loader.enable = false;
   };
 
   systemd.services = {
