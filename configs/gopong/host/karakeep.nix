@@ -1,6 +1,8 @@
 {
+  inputs,
   withSecrets,
   config,
+  pkgs,
   ...
 }:
 withSecrets "pongo"
@@ -17,6 +19,7 @@ withSecrets "pongo"
 
   services.karakeep = {
     enable = true;
+    package = inputs.nixpkgs2.legacyPackages.${pkgs.stdenv.hostPlatform.system}.karakeep;
     environmentFile = config.sops.secrets."karakeep".path;
     extraEnvironment = {
       PORT = "3817";
