@@ -53,32 +53,34 @@ in
                 cfg.virtualHosts
                 // {
                   "" = {
-                    useACMEHost = domain;
                     inherit root;
                   };
 
                   "chaos" = {
-                    useACMEHost = domain;
                     locations."/".proxyPass = "http://localhost:9907";
                     extraConfig = ''
                       client_max_body_size 50M;
                     '';
                   };
 
-                  "hotel" = {
-                    useACMEHost = domain;
-                    locations."/".proxyPass = "http://localhost:8081";
-                  };
+                  "hotel".locations."/".proxyPass = "http://localhost:8081";
 
                   "fastdl" = {
                     forceSSL = false;
                     addSSL = true;
-                    useACMEHost = domain;
                     root = "${root}/fastdl";
                     extraConfig = ''
                       autoindex on;
                       sub_filter '</body>' '<div class="footer">FastDL server for DuckyServers.<br>Also available for public use.<br>sv_downloadurl "http://fastdl.${config.networking.fqdn}/game/"</div></body>';
                     '';
+                  };
+
+                  "serverlist".locations = {
+                    "/".proxyPass = "http://localhost:8999";
+                    "/ws" = {
+                      proxyPass = "http://localhost:8999";
+                      proxyWebsockets = true;
+                    };
                   };
                 }
               )
@@ -106,6 +108,7 @@ in
           "molly.${domain}"
           "karakeep.${domain}"
           "firefox-syncserver.${domain}"
+          "serverlist.${domain}"
         ];
       });
     };
