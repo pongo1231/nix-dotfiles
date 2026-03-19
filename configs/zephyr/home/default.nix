@@ -18,5 +18,7 @@
     bottles
     goverlay
     heroic
+    looking-glass-client
+    protontricks
   ];
 }
