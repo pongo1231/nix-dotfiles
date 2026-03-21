@@ -144,6 +144,8 @@
     };
 
     scx-loader.enable = false;
+
+    opensnitch.enable = true;
   };
 
   systemd.services = {

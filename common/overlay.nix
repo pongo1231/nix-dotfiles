@@ -82,6 +82,16 @@ in
     (lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       nixpkgs.overlays = [
         (final: prev: {
+          linuxPackages_latest = prev.linuxPackages_latest.extend (
+            final': prev': {
+              opensnitch-ebpf = prev'.opensnitch-ebpf.overrideAttrs (prev'': {
+                preBuild = prev''.preBuild or "" + ''
+                  makeFlagsArray+=(EXTRA_FLAGS="-Wno-microsoft-anon-tag -fms-extensions")
+                '';
+              });
+            }
+          );
+
           nbfc-linux = prev.nbfc-linux.overrideAttrs (prev: {
             src = final.fetchFromGitHub {
               owner = "nbfc-linux";
