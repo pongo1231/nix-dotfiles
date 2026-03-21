@@ -146,6 +146,14 @@
     scx-loader.enable = false;
 
     opensnitch.enable = true;
+
+    technitium-dns-server.enable = true;
+    resolved.enable = false;
+  };
+
+  networking = {
+    nameservers = [ "127.0.0.1" ];
+    networkmanager.dns = "none";
   };
 
   systemd.services = {
