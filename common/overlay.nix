@@ -132,8 +132,8 @@ in
             src = final.fetchFromGitHub {
               owner = "89luca89";
               repo = "distrobox";
-              rev = "3e49b7871268a46709e5c5c4bc63ec544c88c6f6";
-              hash = "sha256-V4T5cL52LRNNOuaitPR4+2deyOSz3RyHJMyjzRlAcOY=";
+              rev = "c6cc6a3d5bf541ebadd6fa64a0aaecb8292cea66";
+              hash = "sha256-brOBdjiDe4OF4BDSh+dsxOE2IzMvTGadW5zbx4U52Gc=";
             };
           };
 
