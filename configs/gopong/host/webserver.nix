@@ -75,7 +75,7 @@ in
                     '';
                   };
 
-                  "serverlist".locations = {
+                  "servers".locations = {
                     "/".proxyPass = "http://localhost:8999";
                     "/ws" = {
                       proxyPass = "http://localhost:8999";
@@ -108,7 +108,7 @@ in
           "molly.${domain}"
           "karakeep.${domain}"
           "firefox-syncserver.${domain}"
-          "serverlist.${domain}"
+          "servers.${domain}"
         ];
       });
     };
