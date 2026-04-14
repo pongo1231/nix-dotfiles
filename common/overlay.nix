@@ -127,16 +127,6 @@ in
             };
           */
 
-          distrobox = prev.distrobox.overrideAttrs {
-            version = "1.9-git";
-            src = final.fetchFromGitHub {
-              owner = "89luca89";
-              repo = "distrobox";
-              rev = "c6cc6a3d5bf541ebadd6fa64a0aaecb8292cea66";
-              hash = "sha256-brOBdjiDe4OF4BDSh+dsxOE2IzMvTGadW5zbx4U52Gc=";
-            };
-          };
-
           ksmwrap64 = final.callPackage (pkg /ksmwrap) { suffix = "64"; };
           ksmwrap32 = final.pkgsi686Linux.callPackage (pkg /ksmwrap) { suffix = "32"; };
           ksmwrap = final.writeShellScriptBin "ksmwrap" ''
