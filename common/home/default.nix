@@ -95,7 +95,6 @@ args:
       killall
       lsof
       powertop
-      htop
       wget
       smartmontools
       usbutils
