@@ -10,7 +10,7 @@
     (module /cpu/intel.nix)
     (import (module /gpu) [
       "intel"
-      "nvidia"
+      #"nvidia"
     ])
     (module /libvirt.nix)
     (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
