@@ -129,6 +129,7 @@ args:
       bubblewrap
       nixos-shell
       udp-reverse-tunnel
+      npins
     ];
   };
 }
