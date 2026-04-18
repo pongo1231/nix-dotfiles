@@ -16,6 +16,7 @@
           "radeonsi"
           "virgl"
           "zink"
+          "nouveau"
         ];
 
         vulkanDrivers = [
@@ -25,6 +26,7 @@
           "microsoft-experimental"
           "swrast"
           "virtio"
+          "nouveau"
         ];
       }).overrideAttrs
         (prev: {
