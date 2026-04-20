@@ -55,7 +55,7 @@
 
         nativeBuildInputs = kernel.moduleBuildDependencies;
 
-        makeFlags = [
+        makeFlags = kernel.extraMakeFlags ++ [
           "KERNEL_DIR=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
         ];
 

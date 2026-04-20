@@ -145,7 +145,7 @@
 
     scx-loader.enable = false;
 
-    opensnitch.enable = true;
+    #opensnitch.enable = true;
 
     technitium-dns-server.enable = true;
     resolved.enable = false;
