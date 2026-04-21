@@ -26,13 +26,21 @@ in
       (final: prev: {
         linuxPackages_pongo =
           let
-            pkgs' = if cfg.crossCompile != null then pkgs.pkgsCross.${cfg.crossCompile.target} else pkgs;
+            pkgs' =
+              if cfg.crossCompile != null then
+                inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
+              else
+                pkgs;
           in
           pkgs'.linuxPackages_testing.extend (
             final': prev': {
               kernel =
                 let
-                  llvm = pkgs'.llvmPackages_latest;
+                  llvm =
+                    if cfg.crossCompile != null then
+                      inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
+                    else
+                      pkgs.llvmPackages_latest;
                   llvmTools = llvm.llvm;
                 in
                 prev'.kernel.override {
@@ -55,6 +63,7 @@ in
                     "OBJCOPY=${llvmTools}/bin/llvm-objcopy"
                     "OBJDUMP=${llvmTools}/bin/llvm-objdump"
                     "READELF=${llvmTools}/bin/llvm-readelf"
+                    "KCFLAGS=-DAMD_PRIVATE_COLOR"
                   ];
 
                   argsOverride =
@@ -67,8 +76,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "da6b5aae84beb0917ecb0c9fbc71169d145397ff";
-                        hash = "sha256-rXF7gEzLfSqnH9+VaG0dFPj31zISXG863cVOaGwcqiU=";
+                        rev = "b4e07588e743c989499ca24d49e752c074924a9a";
+                        hash = "sha256-EaYKwklHGETBO94mnQ892DZkgztaEkEj5/WopGtLnpE=";
                       };
                     };
                 };
@@ -95,18 +104,6 @@ in
             UBSAN_ENUM n
           '';
         }
-        /*
-          {
-            name = "AMD_PRIVATE_COLOR";
-            patch = pkgs.fetchpatch {
-              url = "https://github.com/CachyOS/linux/commit/458baffc0f15d5270f41f0d1b5e8a771b5c3c69a.patch";
-              hash = "sha256-fLBWF1x9e9J8qMy5cZdejlEHPi0iUaSgVkrG4x3b5jg=";
-            };
-            extraConfig = lib.optionalString (pkgs.stdenv.hostPlatform.system == "x86_64-linux") ''
-              AMD_PRIVATE_COLOR y
-            '';
-          }
-        */
         {
           name = "O3";
           patch = pkgs.fetchpatch {
