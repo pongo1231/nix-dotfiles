@@ -76,8 +76,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "b4e07588e743c989499ca24d49e752c074924a9a";
-                        hash = "sha256-EaYKwklHGETBO94mnQ892DZkgztaEkEj5/WopGtLnpE=";
+                        rev = "45dcf5e28813954da4150e7260ccb61e95856176";
+                        hash = "sha256-uT2H6Qin3ESkITpT56BjYUnAp0grCPHaNhA2B7OFJIo=";
                       };
                     };
                 };
