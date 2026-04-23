@@ -30,7 +30,7 @@ let
 
   patchedPath = pkgs.replaceDependencies {
     drv = path;
-    replacements = cfg.replaceDependencies.replacements;
+    inherit (cfg.replaceDependencies) replacements;
   };
 in
 {

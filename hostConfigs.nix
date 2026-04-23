@@ -87,7 +87,7 @@ let
 in
 builtins.listToAttrs (
   map (name: {
-    name = name;
+    inherit name;
     value = mkHost name;
   }) hostNames
 )
