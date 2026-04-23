@@ -236,6 +236,8 @@ args:
       PROTON_DXVK_LOWLATENCY = 1;
       DXVK_NVAPI_DRS_SETTINGS = "0x10E41E01=1,0x10E41E02=1,0x10E41E03=1,0x10E41DF3=0xffffff,0x10E41DF7=0xffffff";
       SDL_VIDEODRIVER = "wayland,x11";
+      VKD3D_CONFIG = "descriptor_heap";
+      PROTON_VKD3D_HEAP = 1;
     };
 
     systemPackages = with pkgs; [
