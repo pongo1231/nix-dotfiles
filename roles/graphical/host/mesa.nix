@@ -36,18 +36,16 @@
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "63c47734a9093c9b3649d247a9ae21a9ef2de321";
-            hash = "sha256-7L5D1ewiOeu9RoQ9QHkrFcmzAIS0Yr+FoulwMOeBy5k=";
+            rev = "40fa195cd0d5539c871c0c6d174660a58ddd5add";
+            hash = "sha256-noOzeBO/E7lJkq6P3DqxHduldxZ43mrbLut28C5ND3c=";
           };
 
-          patches = builtins.filter (p: !lib.strings.hasInfix "musl" p) prev.patches ++ [
+          patches = prev.patches ++ [
             (pkgs.fetchpatch {
               url = "https://gitlab.com/evlaV/mesa/-/commit/e682bb001fc4e85ab191c1557692ebad5a4ee8af.patch";
               hash = "sha256-E5GItsdehLHxkgSUPQgfZxv67/+YVoTyMDr1738hq9Y=";
             })
           ];
-
-          #NIX_CFLAGS_COMPILE = "-march=x86-64-v3";
         });
   };
 }
