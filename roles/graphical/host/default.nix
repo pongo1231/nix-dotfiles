@@ -14,6 +14,8 @@
   ];
 
   boot = {
+    kernelModules = [ "ntsync" ];
+
     extraModulePackages = with config.boot.kernelPackages; [ ];
 
     plymouth.enable = lib.mkDefault true;

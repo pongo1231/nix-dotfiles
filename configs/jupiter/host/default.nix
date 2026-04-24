@@ -35,8 +35,6 @@
       ];
     };
 
-    kernelModules = [ "ntsync" ];
-
     kernelParams = [ "mitigations=off" ];
 
     extraModulePackages = with config.boot.kernelPackages; [

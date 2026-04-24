@@ -38,10 +38,7 @@
       ];
     };
 
-    kernelModules = [
-      "vfio-pci"
-      "ntsync"
-    ];
+    kernelModules = [ "vfio-pci" ];
 
     kernelParams = [
       #"i915.force_probe=!7d51"
