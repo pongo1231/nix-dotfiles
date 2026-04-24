@@ -126,5 +126,7 @@ in
         }
       ];
     };
+
+    boot.kernelParams = [ "cfi=kcfi" ];
   };
 }
