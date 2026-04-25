@@ -35,7 +35,7 @@
       ppsspp
       xemu
       heroic
-      (bottles.override { removeWarningPopup = true; })
+      bottles
       prismlauncher
     ];
   };

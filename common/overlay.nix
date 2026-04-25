@@ -1,4 +1,5 @@
 {
+  inputs,
   configInfo,
   patch,
   pkg,
@@ -166,7 +167,11 @@ in
             '';
           });
 
-          bottles = prev.bottles.override { removeWarningPopup = true; };
+          bottles = inputs.nixpkgs2.legacyPackages.${final.stdenv.hostPlatform.system}.bottles.override {
+            removeWarningPopup = true;
+          };
+
+          rspamd = inputs.nixpkgs2.legacyPackages.${final.stdenv.hostPlatform.system}.rspamd;
         })
       ];
     })
