@@ -41,28 +41,33 @@ in
                       inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
                     else
                       pkgs.llvmPackages_latest;
-                  llvmTools = llvm.llvm;
+                  llvmTarget = pkgs'.llvmPackages_latest;
+                  llvmBuild =
+                    if cfg.crossCompile != null then
+                      inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
+                    else
+                      pkgs.llvmPackages_latest;
                 in
                 prev'.kernel.override {
                   buildPackages = pkgs'.buildPackages // {
-                    inherit (llvm) stdenv;
+                    inherit (llvmBuild) stdenv;
                   };
 
-                  inherit (llvm) stdenv;
+                  inherit (llvmTarget) stdenv;
                   inherit (pkgs') pkgsBuildBuild;
 
                   ignoreConfigErrors = true;
 
                   extraMakeFlags = [
                     "LLVM=1"
-                    "CC=${llvm.clang-unwrapped}/bin/clang"
-                    "LD=${llvm.lld}/bin/ld.lld"
-                    "AR=${llvmTools}/bin/llvm-ar"
-                    "NM=${llvmTools}/bin/llvm-nm"
-                    "STRIP=${llvmTools}/bin/llvm-strip"
-                    "OBJCOPY=${llvmTools}/bin/llvm-objcopy"
-                    "OBJDUMP=${llvmTools}/bin/llvm-objdump"
-                    "READELF=${llvmTools}/bin/llvm-readelf"
+                    "CC=${llvmBuild.clang-unwrapped}/bin/clang"
+                    "LD=${llvmBuild.lld}/bin/ld.lld"
+                    "AR=${llvmBuild.llvm}/bin/llvm-ar"
+                    "NM=${llvmBuild.llvm}/bin/llvm-nm"
+                    "STRIP=${llvmBuild.llvm}/bin/llvm-strip"
+                    "OBJCOPY=${llvmBuild.llvm}/bin/llvm-objcopy"
+                    "OBJDUMP=${llvmBuild.llvm}/bin/llvm-objdump"
+                    "READELF=${llvmBuild.llvm}/bin/llvm-readelf"
                     "KCFLAGS=-DAMD_PRIVATE_COLOR"
                   ];
 
@@ -76,8 +81,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "45dcf5e28813954da4150e7260ccb61e95856176";
-                        hash = "sha256-uT2H6Qin3ESkITpT56BjYUnAp0grCPHaNhA2B7OFJIo=";
+                        rev = "f9569c6ce4a4bbad0876ca7bd1e04fbfbbc1641f";
+                        hash = "sha256-vfPNwm3oof8w43kPgQ0gkWNaHBAlFj9pEwrxrUPsmXI=";
                       };
                     };
                 };
