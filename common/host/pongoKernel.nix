@@ -107,6 +107,10 @@ in
             UBSAN_BOUNDS y
             UBSAN_BOOL n
             UBSAN_ENUM n
+          ''
+          + lib.optionalString (pkgs.stdenv.hostPlatform.system == "aarch64-linux") ''
+            CORESIGHT n
+            CORESIGHT_SOURCE_ETM4X n
           '';
         }
         {
@@ -119,13 +123,15 @@ in
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
         }
+      ]
+      ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         {
           name = "x86_64 levels";
           patch = pkgs.fetchpatch {
             url = "https://github.com/CachyOS/linux/commit/b24e97ea653f29ffa815221e4e5a60cc51e61c24.patch";
             hash = "sha256-05q30EQmS+EUL/DTeDVefGAMf+0zfNueJ5aEIyN4OU0=";
           };
-          extraConfig = lib.optionalString (pkgs.stdenv.hostPlatform.system == "x86_64-linux") ''
+          extraConfig = ''
             X86_64_VERSION 3
           '';
         }
