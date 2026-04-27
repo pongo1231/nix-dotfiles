@@ -77,12 +77,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.0.0";
+                      modDirVersion = "7.1.0-rc1";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "f9569c6ce4a4bbad0876ca7bd1e04fbfbbc1641f";
-                        hash = "sha256-vfPNwm3oof8w43kPgQ0gkWNaHBAlFj9pEwrxrUPsmXI=";
+                        rev = "254f49634ee16a731174d2ae34bc50bd5f45e731";
+                        hash = "sha256-88uBvJ2fZEWUAyMJZRNEFBZZPWaCp5O+KhTGa8u4EQw=";
                       };
                     };
                 };
