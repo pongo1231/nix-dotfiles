@@ -234,7 +234,7 @@ args:
       PROTON_USE_WOW64 = 1;
       PROTON_DXVK_LOWLATENCY = 1;
       SDL_VIDEODRIVER = "wayland,x11";
-      VKD3D_CONFIG = "descriptor_heap";
+      VKD3D_CONFIG = "descriptor_heap,enable_experimental_features";
       PROTON_VKD3D_HEAP = 1;
     };
 
