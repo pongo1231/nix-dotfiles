@@ -23,5 +23,6 @@
     heroic
     looking-glass-client
     protontricks
+    zed-editor
   ];
 }
