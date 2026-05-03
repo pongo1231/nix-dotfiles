@@ -23,6 +23,6 @@
     heroic
     looking-glass-client
     protontricks
-    zed-editor
+    inputs.nixpkgs3.legacyPackages.${pkgs.stdenv.hostPlatform.system}.zed-editor
   ];
 }
