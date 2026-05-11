@@ -187,10 +187,10 @@ args:
   systemd = {
     network.wait-online.enable = false;
 
-    coredump.extraConfig = ''
-      Storage=none
-      ProcessSizeMax=0
-    '';
+    coredump.settings.Coredump = {
+      Storage = "none";
+      ProcessSizeMax = 0;
+    };
 
     oomd = {
       enable = true;
