@@ -28,6 +28,14 @@
           "virtio"
           "nouveau"
         ];
+
+        libdrm = pkgs.libdrm.overrideAttrs {
+          version = "2.4.133";
+          src = pkgs.fetchurl {
+            url = "https://dri.freedesktop.org/libdrm/libdrm-2.4.133.tar.xz";
+            hash = "sha256-/Gj50LoupjyUMqKZ4U/qCfrXqKZugDn814AspZ93tPU=";
+          };
+        };
       }).overrideAttrs
         (prev: {
           version = "26.1-git";
@@ -36,8 +44,8 @@
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "40fa195cd0d5539c871c0c6d174660a58ddd5add";
-            hash = "sha256-noOzeBO/E7lJkq6P3DqxHduldxZ43mrbLut28C5ND3c=";
+            rev = "907cc49c3201170de01167a728bac0366066a6f2";
+            hash = "sha256-pv/NTDMNSPMecQj6lMAoXkoT5wyPERDHxwCHiYYdGoE=";
           };
 
           patches = prev.patches ++ [
