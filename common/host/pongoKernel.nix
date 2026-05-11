@@ -1,5 +1,6 @@
 {
   inputs,
+  patch,
   config,
   pkgs,
   lib,
@@ -122,6 +123,14 @@ in
           extraConfig = ''
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
+        }
+        {
+          name = "xe stutter fix";
+          patch = patch /linux/7.1/v5_20260505_matthew_brost_mm_drm_ttm_drm_xe_avoid_reclaim_eviction_loops_under_fragmentation.patch;
+        }
+        {
+          name = "drm-misc-next";
+          patch = patch /linux/7.1/drm-misc-next.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
