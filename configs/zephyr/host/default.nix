@@ -140,7 +140,10 @@
       };
     };
 
-    scx-loader.enable = false;
+    scx-loader.settings = {
+      default_sched = "scx_bpfland";
+      default_mode = "LowLatency";
+    };
 
     #opensnitch.enable = true;
 
