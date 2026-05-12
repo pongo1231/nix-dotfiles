@@ -82,8 +82,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "5d6919055dec134de3c40167a490f33c74c12581";
-                        hash = "sha256-tfOQHlMoej2pBYqDp8MxXx0yoIj43juH8f8DhBg08z8=";
+                        rev = "50897c955902c93ae71c38698abb910525ebdc89";
+                        hash = "sha256-/m//gkis8TSDVo8uDL8SFnx1duwQpKChyoDl/3J4ZxY=";
                       };
                     };
                 };
@@ -131,6 +131,10 @@ in
         {
           name = "drm-misc-next";
           patch = patch /linux/7.1/drm-misc-next.patch;
+        }
+        {
+          name = "sched flatten the pick";
+          patch = patch /linux/7.1/v2_20260511_peterz_sched_flatten_the_pick.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
