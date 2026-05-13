@@ -15,6 +15,7 @@ args:
     ../sops.nix
 
     ./users.nix
+    ./kernelParams.nix
     ./pongoKernel.nix
     ./ksm.nix
   ];
@@ -59,8 +60,6 @@ args:
     };
 
     initrd.systemd.enable = true;
-
-    kernelParams = import ./kernelParams.nix config;
 
     extraModprobeConfig = ''
       options snd_hda_intel power_save=1
