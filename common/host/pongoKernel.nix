@@ -82,8 +82,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "50897c955902c93ae71c38698abb910525ebdc89";
-                        hash = "sha256-/m//gkis8TSDVo8uDL8SFnx1duwQpKChyoDl/3J4ZxY=";
+                        rev = "d458a240344c4369bf6f3da203f2779515177738";
+                        hash = "sha256-fJhTFoYM3whgOzNNAd29IqC5RMUKPvrvaR4iEXWIzPw=";
                       };
                     };
                 };
@@ -101,7 +101,7 @@ in
           patch = null;
           extraConfig = ''
             BTRFS_EXPERIMENTAL y
-            LTO_CLANG_THIN y
+            LTO_CLANG_FULL y
             CFI y
             UBSAN y
             UBSAN_TRAP y
@@ -135,6 +135,27 @@ in
         {
           name = "sched flatten the pick";
           patch = patch /linux/7.1/v2_20260511_peterz_sched_flatten_the_pick.patch;
+        }
+        {
+          name = "kcompressd";
+          patch = pkgs.fetchpatch {
+            url = "https://raw.githubusercontent.com/firelzrd/kcompressd-unofficial/refs/heads/main/patches/stable/0001-linux7.1-rc1-kcompressd-unofficial-0.5.patch";
+            hash = "sha256-eb7teGa9HXfyLMqdn5aO3YNelCz69ipoVvIRe2e49ic=";
+          };
+        }
+        {
+          name = "le9uo";
+          patch = pkgs.fetchpatch {
+            url = "https://raw.githubusercontent.com/firelzrd/le9uo/refs/heads/main/le9uo_patches/stable/base/0001-linux7.1-rc1-le9uo-1.15.patch";
+            hash = "sha256-RznwkUJC1pUTv6KJbCH8WYgLmdFvGl5XM17nJ3j9FFs=";
+          };
+        }
+        {
+          name = "reswappiness";
+          patch = pkgs.fetchpatch {
+            url = "https://raw.githubusercontent.com/firelzrd/re-swappiness/refs/heads/main/patches/0001-linux7.1-rc1-Re-swappiness-v1.3.patch";
+            hash = "sha256-njhQJzbMmWl+bxaXGfyhyj5gfLzIrmTlhyv7ZL45sDw=";
+          };
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
