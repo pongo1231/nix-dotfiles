@@ -20,7 +20,19 @@ in
 
   config = lib.mkMerge [
     {
-      system.replaceDependencies.replacements =
+      system.replaceDependencies.replacements = [
+        {
+          oldDependency = pkgs.libdrm;
+          newDependency = pkgs.libdrm.overrideAttrs {
+            version = "2.4.133";
+            src = pkgs.fetchurl {
+              url = "https://dri.freedesktop.org/libdrm/libdrm-2.4.133.tar.xz";
+              hash = "sha256-/Gj50LoupjyUMqKZ4U/qCfrXqKZugDn814AspZ93tPU=";
+            };
+          };
+        }
+      ]
+      ++
         lib.optionals
           (
             cfg.enableUutils
