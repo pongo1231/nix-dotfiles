@@ -78,12 +78,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.1.0-rc3";
+                      modDirVersion = "7.1.0-rc4";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "6916d5703ddf9a38f1f6c2cc793381a24ee914c6";
-                        hash = "sha256-P6WLhnxDsfLXYxMC1p+oXUAvgsTVM/waLkVmVWFq5GI=";
+                        rev = "27fa82620cbaa89a7fc11ac3057701d598813e87";
+                        hash = "sha256-Jh2cMz3gY9s7PBipAbaUQCNWOTFZ7HFeqCm44Cx1bfM=";
                       };
                     };
                 };
@@ -100,7 +100,6 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
-            BTRFS_EXPERIMENTAL y
             LTO_CLANG_FULL y
             CFI y
             UBSAN y
@@ -148,13 +147,6 @@ in
           patch = pkgs.fetchpatch {
             url = "https://raw.githubusercontent.com/firelzrd/le9uo/refs/heads/main/le9uo_patches/stable/base/0001-linux7.1-rc1-le9uo-1.15.patch";
             hash = "sha256-RznwkUJC1pUTv6KJbCH8WYgLmdFvGl5XM17nJ3j9FFs=";
-          };
-        }
-        {
-          name = "reswappiness";
-          patch = pkgs.fetchpatch {
-            url = "https://raw.githubusercontent.com/firelzrd/re-swappiness/refs/heads/main/patches/0001-linux7.1-rc1-Re-swappiness-v1.3.patch";
-            hash = "sha256-njhQJzbMmWl+bxaXGfyhyj5gfLzIrmTlhyv7ZL45sDw=";
           };
         }
       ]
