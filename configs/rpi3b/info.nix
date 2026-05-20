@@ -1,5 +1,6 @@
 {
   system = "aarch64-linux";
+  roles = [ "server" ];
 
   host = {
     # install bootloader step fails with rust uutils atm
