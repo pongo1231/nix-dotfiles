@@ -7,7 +7,7 @@ let
 
   dirEntries = builtins.readDir configsDir;
 
-  hostNames = builtins.filter (name: !(builtins.pathExists (configsDir + "/${name}/.homeonly"))) (
+  hostNames = builtins.filter (name: builtins.pathExists (configsDir + "/${name}/host/default.nix")) (
     builtins.attrNames dirEntries
   );
 

@@ -46,12 +46,21 @@ let
         ) [ path ] indices
       );
       filePaths = builtins.map (x: ./${x}) (builtins.filter (x: lib.hasSuffix ".nix" x) filePathsStr);
-      filePathsLen = builtins.length filePaths;
     in
-    if filePathsLen == 0 then builtins.throw "Could not find module ${fileStr}" else filePaths;
+    filePaths;
 
-  genModulesAttrset = path: multipleName: oneName: {
-    ${multipleName} = modulesInPath path;
+  modulesInPathOrThrow =
+    path: file:
+    let
+      foundModules = modulesInPath path file;
+    in
+    if foundModules == [ ] then
+      builtins.throw "Could not find module ${builtins.toString file}"
+    else
+      foundModules;
+
+  genModulesAttrset = path: multipleName: oneName: allowEmptyMultiple: {
+    ${multipleName} = if allowEmptyMultiple then modulesInPath path else modulesInPathOrThrow path;
 
     ${oneName} =
       file:
@@ -70,8 +79,8 @@ let
         );
   };
 in
-genModulesAttrset "modules" "modules" "module"
-// genModulesAttrset "roles" "roles" "role"
+genModulesAttrset "modules" "modules" "module" false
+// genModulesAttrset "roles" "roles" "role" true
 // {
   configInfo = {
     type = prefix;
