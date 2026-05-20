@@ -11,5 +11,7 @@
     };
 
     kernelParams.remove = [ "threadirqs" ];
+
+    ksm.enable = false;
   };
 }
