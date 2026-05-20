@@ -82,8 +82,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "27fa82620cbaa89a7fc11ac3057701d598813e87";
-                        hash = "sha256-Jh2cMz3gY9s7PBipAbaUQCNWOTFZ7HFeqCm44Cx1bfM=";
+                        rev = "8bc67e4db64aa72732c474b44ea8622062c903f0";
+                        hash = "sha256-Ishz60bcrBpyZVxWFjSJVIpRSEz8oqMCyBSXhmyi0LE=";
                       };
                     };
                 };
@@ -147,6 +147,13 @@ in
           patch = pkgs.fetchpatch {
             url = "https://raw.githubusercontent.com/firelzrd/le9uo/refs/heads/main/le9uo_patches/stable/base/0001-linux7.1-rc1-le9uo-1.15.patch";
             hash = "sha256-RznwkUJC1pUTv6KJbCH8WYgLmdFvGl5XM17nJ3j9FFs=";
+          };
+        }
+        {
+          name = "cache aware sched";
+          patch = pkgs.fetchpatch {
+            url = "https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/patch/?id=a26d9208c1376ac3877d9f12e697f83368e2af1c";
+            hash = "sha256-imJuGzjD3TVxXoeRaw0rx/lxWDYMtZr6Bk2SvvFlOwY=";
           };
         }
       ]
