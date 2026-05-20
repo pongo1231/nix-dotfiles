@@ -8,4 +8,6 @@
     "stuff"
     "habbo"
   ];
+
+  host.ksm.enable = true;
 }
