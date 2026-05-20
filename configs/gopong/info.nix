@@ -1,5 +1,8 @@
 {
-  roles = [ "vm" ];
+  roles = [
+    "vm"
+    "server"
+  ];
 
   home.users = [
     "stuff"
