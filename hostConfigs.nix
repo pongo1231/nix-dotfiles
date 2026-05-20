@@ -3,6 +3,7 @@ let
   inherit (inputs.nixpkgs) lib;
 
   configsDir = ./configs;
+  infoLib = import ./infoLib.nix { inherit lib; };
 
   dirEntries = builtins.readDir configsDir;
 
@@ -64,7 +65,12 @@ let
     let
       hostDir = configsDir + "/${name}";
 
-      hostInfo = import (hostDir + "/info.nix");
+      configInfo = import (hostDir + "/info.nix");
+      roleInfo = infoLib.rolesInfo (configInfo.roles or [ ]);
+      hostInfo = infoLib.mergeInfos [
+        roleInfo.info
+        configInfo
+      ];
 
       configPath = hostDir + "/host";
     in
@@ -81,7 +87,7 @@ let
           // lib.optionalAttrs (hostInfo ? host) hostInfo.host;
       }
       // lib.optionalAttrs (hostInfo ? system) { inherit (hostInfo) system; }
-      // lib.optionalAttrs (hostInfo ? roles) { inherit (hostInfo) roles; }
+      // lib.optionalAttrs (roleInfo.roles != [ ]) { roles = roleInfo.roles; }
       // lib.optionalAttrs (builtins.pathExists configPath) { config = configPath; }
     );
 in

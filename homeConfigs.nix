@@ -12,6 +12,7 @@ let
   ];
 
   configsDir = ./configs;
+  infoLib = import ./infoLib.nix { inherit lib; };
 
   dirEntries = if configs != null then configs else builtins.readDir configsDir;
 
@@ -99,7 +100,12 @@ let
   usersForHost =
     hostName:
     let
-      homeInfo = import (configsDir + "/${hostName}/info.nix");
+      configInfo = import (configsDir + "/${hostName}/info.nix");
+      roleInfo = infoLib.rolesInfo (configInfo.roles or [ ]);
+      homeInfo = infoLib.mergeInfos [
+        roleInfo.info
+        configInfo
+      ];
 
       homeUsers =
         commonUsers ++ lib.optionals (homeInfo ? home && homeInfo.home ? users) homeInfo.home.users;
@@ -121,7 +127,7 @@ let
                 // lib.optionalAttrs (homeInfo ? home) (removeAttrs homeInfo.home [ "users" ]);
             }
             // lib.optionalAttrs (homeInfo ? system) { inherit (homeInfo) system; }
-            // lib.optionalAttrs (homeInfo ? roles) { inherit (homeInfo) roles; }
+            // lib.optionalAttrs (roleInfo.roles != [ ]) { roles = roleInfo.roles; }
           );
         in
         {
