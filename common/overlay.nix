@@ -181,6 +181,8 @@ in
           bottles = inputs.nixpkgs2.legacyPackages.${final.stdenv.hostPlatform.system}.bottles.override {
             removeWarningPopup = true;
           };
+
+          reasonix = final.callPackage (pkg /reasonix) { };
         })
       ];
     })
