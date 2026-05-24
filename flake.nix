@@ -49,6 +49,13 @@
 
   outputs =
     inputs:
+    let
+      overlay = import ./overlays {
+        inherit inputs;
+        patch = file: ./patches/${file};
+        pkg = file: ./pkgs/${file};
+      };
+    in
     inputs.flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -63,9 +70,11 @@
             sops
           ];
         };
+        packages = pkgs.extend overlay;
       }
     )
     // {
+      overlays.default = overlay;
       nixosConfigurations = import ./hostConfigs.nix inputs;
       homeConfigurations = import ./homeConfigs.nix inputs { };
     };
