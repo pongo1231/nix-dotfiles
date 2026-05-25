@@ -44,6 +44,7 @@
       "i915.force_probe=!7d51"
       "xe.force_probe=7d51"
       #"irqaffinity=14,15"
+      "intel_pstate=passive"
     ];
 
     extraModulePackages =
