@@ -1,3 +1,6 @@
 {
-  roles = [ "desktop/plasma" ];
+  roles = [
+    "desktop"
+    "plasma"
+  ];
 }
