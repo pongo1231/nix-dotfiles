@@ -141,7 +141,7 @@
       };
     };
 
-    scx-loader.enable = false;
+    #scx-loader.enable = false;
     /*
       scx-loader.settings = {
         default_sched = "scx_bpfland";
