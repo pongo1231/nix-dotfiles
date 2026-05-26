@@ -172,6 +172,15 @@ in
             X86_64_VERSION 3
           '';
         }
+      ]
+      ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "aarch64-linux") [
+        {
+          name = "disable panthor";
+          patch = null;
+          extraConfig = ''
+            DRM_PANTHOR n
+          '';
+        }
       ];
     };
 
