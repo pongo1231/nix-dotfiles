@@ -78,12 +78,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.1.0-rc4";
+                      modDirVersion = "7.1.0-rc5";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "8bc67e4db64aa72732c474b44ea8622062c903f0";
-                        hash = "sha256-Ishz60bcrBpyZVxWFjSJVIpRSEz8oqMCyBSXhmyi0LE=";
+                        rev = "e8c2f9fdadee7cbc75134dc463c1e0d856d6e5c7";
+                        hash = "sha256-mIPv2HrfDm6NvqQv91DlNSdO8M5pIZnZUQAaw6cRpuc=";
                       };
                     };
                 };
@@ -155,6 +155,10 @@ in
             url = "https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/patch/?id=a26d9208c1376ac3877d9f12e697f83368e2af1c";
             hash = "sha256-imJuGzjD3TVxXoeRaw0rx/lxWDYMtZr6Bk2SvvFlOwY=";
           };
+        }
+        {
+          name = "btrfs large folios";
+          patch = patch /linux/7.1/btrfs-large-folios.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
