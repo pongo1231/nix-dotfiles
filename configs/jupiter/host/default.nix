@@ -35,10 +35,7 @@
       ];
     };
 
-    kernelParams = [
-      "mitigations=off"
-      "rcu_nocbs=0-N"
-    ];
+    kernelParams = [ "mitigations=off" ];
 
     extraModulePackages = with config.boot.kernelPackages; [
       (stdenv.mkDerivation (final: {
