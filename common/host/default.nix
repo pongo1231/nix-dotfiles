@@ -235,6 +235,8 @@ args:
       SDL_VIDEODRIVER = "wayland,x11";
       VKD3D_CONFIG = "descriptor_heap,enable_experimental_features";
       PROTON_VKD3D_HEAP = 1;
+      DXVK_NVAPI_VKREFLEX = 1;
+      LOW_LATENCY_LAYER = 1;
     };
 
     systemPackages = with pkgs; [
