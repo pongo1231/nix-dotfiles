@@ -1,0 +1,804 @@
+diff --git a/dbfile.c b/dbfile.c
+index cf8deb3..50f26fd 100644
+--- a/dbfile.c
++++ b/dbfile.c
+@@ -1292,7 +1292,7 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+ {
+ 	int ret;
+ 	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_nondupe_extents;
+-	uint64_t count = 0, i;
++	unsigned int count = 0, capacity = 0;
+ 	struct file_extent *extents = NULL;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, file->fileid);
+@@ -1301,33 +1301,40 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+ 		goto out;
+ 	}
+ 
+-	i = 0;
+ 	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
+-		count++;
+-
+-		extents = realloc(extents, count * sizeof(struct file_extent));
+-		if (!extents) {
+-			ret = ENOMEM;
+-			goto out;
++		if (count == capacity) {
++			struct file_extent *new_extents;
++			unsigned int new_capacity;
++
++			new_capacity = capacity ? capacity * 2 : 16;
++			new_extents = realloc(extents, new_capacity * sizeof(*extents));
++			if (!new_extents) {
++				ret = ENOMEM;
++				goto out;
++			}
++			extents = new_extents;
++			capacity = new_capacity;
+ 		}
+ 
+-		extents[i].loff = sqlite3_column_int64(stmt, 0);
+-		extents[i].len = sqlite3_column_int64(stmt, 1);
+-		extents[i].poff = sqlite3_column_int64(stmt, 2);
+-
+-		++i;
++		extents[count].loff = sqlite3_column_int64(stmt, 0);
++		extents[count].len = sqlite3_column_int64(stmt, 1);
++		extents[count].poff = sqlite3_column_int64(stmt, 2);
++		count++;
+ 	}
+ 
+-	*num_extents = count;
+ 	if (ret != SQLITE_DONE) {
+ 		perror_sqlite(ret, "stepping nondupe extents statement");
+ 		goto out;
+ 	}
+ 	ret = 0;
+ out:
+-	*ret_extents = extents;
+-	if (ret && extents)
++	if (ret && extents) {
+ 		free(extents);
++		extents = NULL;
++		count = 0;
++	}
++	*ret_extents = extents;
++	*num_extents = count;
+ 	return ret;
+ }
+ 
+diff --git a/fiemap.c b/fiemap.c
+index 655797d..2814fd9 100644
+--- a/fiemap.c
++++ b/fiemap.c
+@@ -98,9 +98,9 @@ struct fiemap *do_fiemap(int fd)
+ 	return fiemap;
+ }
+ 
+-int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shared)
++int fiemap_count_shared_in_fiemap(struct fiemap *fiemap, size_t start_off,
++				  size_t end_off, uint64_t *shared)
+ {
+-	_cleanup_(freep) struct fiemap *fiemap = NULL;
+ 	struct fiemap_extent *extent;
+ 
+ 	size_t extent_loff;
+@@ -108,10 +108,6 @@ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shar
+ 
+ 	abort_on(start_off >= end_off);
+ 
+-	fiemap = do_fiemap(fd);
+-	if (!fiemap)
+-		return 1;
+-
+ 	*shared = 0;
+ 
+ 	for (unsigned int i = 0; i < fiemap->fm_mapped_extents; i++) {
+@@ -133,3 +129,15 @@ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shar
+ 	}
+ 	return 0;
+ }
++
++int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shared)
++{
++	_cleanup_(freep) struct fiemap *fiemap = NULL;
++
++	fiemap = do_fiemap(fd);
++	if (!fiemap)
++		return 1;
++
++	return fiemap_count_shared_in_fiemap(fiemap, start_off, end_off,
++					     shared);
++}
+diff --git a/fiemap.h b/fiemap.h
+index 1918c6e..7bfdf86 100644
+--- a/fiemap.h
++++ b/fiemap.h
+@@ -27,4 +27,6 @@ struct fiemap *do_fiemap(int fd);
+  * Count how much of the area between start_off and end_off is shared.
+  */
+ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shared);
++int fiemap_count_shared_in_fiemap(struct fiemap *fiemap, size_t start_off,
++				  size_t end_off, uint64_t *shared);
+ #endif	/* __FIEMAP_H__ */
+diff --git a/find_dupes.c b/find_dupes.c
+index 69a190c..6f879c2 100644
+--- a/find_dupes.c
++++ b/find_dupes.c
+@@ -119,6 +119,58 @@ static inline int end_of_block_list(struct file_block *b)
+ 	return !rb_next(&b->b_file_next);
+ }
+ 
++static bool should_search_block_pair(struct file_block *block,
++				     struct file_block *found_block)
++{
++	struct filerec *file = block->b_file;
++	struct filerec *found_file = found_block->b_file;
++
++	if (file->fileid < found_file->fileid)
++		return true;
++	if (file->fileid > found_file->fileid)
++		return false;
++
++	/*
++	 * Same-file matches are symmetrical too. Search only from the lower
++	 * offset so we do not compare and insert the same pair twice.
++	 */
++	return block->b_loff < found_block->b_loff;
++}
++
++static uint64_t extent_remaining_from_block(struct file_extent *extent,
++					    struct file_block *block)
++{
++	uint64_t offset;
++
++	if (block->b_loff < extent->loff)
++		return 0;
++
++	offset = block->b_loff - extent->loff;
++	if (offset >= extent->len)
++		return 0;
++
++	return extent->len - offset;
++}
++
++static uint64_t cap_same_file_search_len(struct file_block *block,
++					 struct file_block *found_block,
++					 uint64_t search_len)
++{
++	uint64_t gap;
++
++	if (block->b_file != found_block->b_file)
++		return search_len;
++
++	if (block->b_loff >= found_block->b_loff)
++		return 0;
++
++	gap = found_block->b_loff - block->b_loff;
++	if (search_len > gap)
++		search_len = gap;
++
++	return search_len;
++}
++
+ /*
+  * We search search_len bytes. If search_len == UINT64_MAX
+  * then we'll search until end of file.
+@@ -247,6 +299,7 @@ static int search_extent(struct filerec *file, struct file_extent *extent,
+ 	struct filerec *found_file;
+ 	struct dupe_blocks_list *blocklist;
+ 	struct file_extent found_extent;
++	uint64_t search_len, found_remaining;
+ 
+ 	block = find_filerec_block(file, extent->loff);
+ 	/* No dupe block so no possible dupe. */
+@@ -271,22 +324,47 @@ static int search_extent(struct filerec *file, struct file_extent *extent,
+ 		if (!options.dedupe_same_file && file == found_file)
+ 			continue;
+ 
++		if (!should_search_block_pair(block, found_block))
++			continue;
++
+ 		/*
+-		 * Find the on-disk extent for found_block and check
+-		 * that we won't be going over the end of it.
++		 * Find the on-disk extent for found_block and cap the search
++		 * there. The current result/update path records one logical
++		 * dedupe range at a time, so do not generate matches that
++		 * straddle the candidate extent.
+ 		 */
++		memset(&found_extent, 0, sizeof(found_extent));
+ 		ret = dbfile_load_one_file_extent(db, found_file,
+ 						  found_block->b_loff,
+ 						  &found_extent);
+ 		if (ret)
+ 			break;
+ 
++		found_remaining = extent_remaining_from_block(&found_extent,
++							      found_block);
++		if (!found_remaining)
++			continue;
++
++		search_len = extent->len;
++		if (search_len > found_remaining)
++			search_len = found_remaining;
++
++		/*
++		 * Btrfs and XFS reject overlapping same-file dedupe ranges.
++		 * Keep the useful non-overlapping prefix and skip candidates
++		 * that cannot produce one.
++		 */
++		search_len = cap_same_file_search_len(block, found_block,
++						      search_len);
++		if (!search_len)
++			continue;
++
+ 		/*
+ 		 * TODO: Allow us to solve for a dupe that straddles
+ 		 * two extents.
+ 		 */
+ 		ret = compare_extents(file, block, found_file,
+-				      found_block, extent->len,
++				      found_block, search_len,
+ 				      dupe_extents);
+ 		if (ret)
+ 			break;
+@@ -336,8 +414,8 @@ static void search_file_extents(struct filerec *file, struct results_tree *dupe_
+ 			PRIu64" len %"PRIu64" poff %"PRIu64"\n",
+ 			i, extent->loff, extent->len, extent->poff);
+ 		/*
+-		 * XXX: Here we should collapse contiguous extents
+-		 * into one larger one
++		 * Keep partial search extent-local until the hashfile update
++		 * path can refresh every row covered by a multi-extent match.
+ 		 */
+ 	}
+ 	for(i = 0; i < num_extents; i++) {
+diff --git a/results-tree.c b/results-tree.c
+index f3f14cd..79227da 100644
+--- a/results-tree.c
++++ b/results-tree.c
+@@ -159,6 +159,8 @@ static void insert_extent_list_free(struct dupe_extents *dext,
+ 	if (insert_extent_rb(dext, *e) == 0) {
+ 		(*e)->e_parent = dext;
+ 		dext->de_num_dupes++;
++		if (dext->de_num_dupes > 1)
++			dext->de_score += dext->de_len;
+ 		list_add_tail(&(*e)->e_list, &dext->de_extents);
+ 		return;
+ 	}
+@@ -178,7 +180,6 @@ static struct dupe_extents *dupe_extents_new(unsigned char *digest,
+ 
+ 	memcpy(dext->de_hash, digest, DIGEST_LEN);
+ 	dext->de_len = len;
+-	dext->de_score = len;
+ 
+ 	INIT_LIST_HEAD(&dext->de_extents);
+ 	dext->de_extents_root = RB_ROOT;
+@@ -190,18 +191,17 @@ static struct dupe_extents *dupe_extents_new(unsigned char *digest,
+ 
+ static struct dupe_extents *find_alloc_dext(struct results_tree *res,
+ 					    unsigned char *digest,
+-					    uint64_t len, int *add_score)
++					    uint64_t len)
+ {
+ 	struct dupe_extents *dext, *new;
+ 
+-	if (add_score)
+-		*add_score = 1;
+-
+ 	g_mutex_lock(&res->tree_mutex);
+ 	dext = find_dupe_extents(res, digest, len);
+ 	g_mutex_unlock(&res->tree_mutex);
+ 	if (!dext) {
+ 		new = dupe_extents_new(digest, len);
++		if (!new)
++			return NULL;
+ 
+ 		g_mutex_lock(&res->tree_mutex);
+ 		dext = find_dupe_extents(res, digest, len);
+@@ -212,8 +212,6 @@ static struct dupe_extents *find_alloc_dext(struct results_tree *res,
+ 		}
+ 		insert_dupe_extents(res, new);
+ 		g_mutex_unlock(&res->tree_mutex);
+-		if (add_score)
+-			*add_score = 0;
+ 		return new;
+ 	}
+ 	return dext;
+@@ -236,9 +234,11 @@ int insert_one_result(struct results_tree *res, unsigned char *digest,
+ 	extent_poff(extent) = poff;
+ 	extent_plen(extent) = len;
+ 	extent_shared_bytes(extent) = 0;
+-	dext = find_alloc_dext(res, digest, len, NULL);
+-	if (!dext)
++	dext = find_alloc_dext(res, digest, len);
++	if (!dext) {
++		free_extent(extent);
+ 		return ENOMEM;
++	}
+ 
+ 	abort_on(dext->de_len != len);
+ 
+@@ -264,26 +264,25 @@ int insert_result(struct results_tree *res, unsigned char *digest,
+ 	struct extent *e1 = alloc_extent(recs[1], startoff[1]);
+ 	struct dupe_extents *dext;
+ 	uint64_t len = endoff[0] - startoff[0] + 1;
+-	int add_score;
+ 
+-	if (!e0 || !e1)
++	if (!e0 || !e1) {
++		free_extent(e0);
++		free_extent(e1);
+ 		return ENOMEM;
++	}
+ 
+-	dext = find_alloc_dext(res, digest, len, &add_score);
+-	if (!dext)
++	dext = find_alloc_dext(res, digest, len);
++	if (!dext) {
++		free_extent(e0);
++		free_extent(e1);
+ 		return ENOMEM;
++	}
+ 
+ 	abort_on(dext->de_len != len);
+ 
+ 	g_mutex_lock(&dext->de_mutex);
+ 	insert_extent_list_free(dext, &e0);
+ 	insert_extent_list_free(dext, &e1);
+-	if (add_score) {
+-		if (e0)
+-			dext->de_score += len;
+-		if (e1)
+-			dext->de_score += len;
+-	}
+ 	g_mutex_unlock(&dext->de_mutex);
+ 
+ 	g_mutex_lock(&res->tree_mutex);
+@@ -303,7 +302,8 @@ unsigned int remove_extent(struct results_tree *res, struct extent *extent)
+ 	unsigned int result;
+ 
+ again:
+-	p->de_score -= p->de_len;
++	if (p->de_num_dupes > 1)
++		p->de_score -= p->de_len;
+ 	p->de_num_dupes--;
+ 	result = p->de_num_dupes;
+ 
+diff --git a/results-tree.h b/results-tree.h
+index 8ce5656..4ac94c7 100644
+--- a/results-tree.h
++++ b/results-tree.h
+@@ -34,6 +34,7 @@ struct dupe_extents {
+ 	uint64_t	de_len;
+ 	unsigned char		de_hash[DIGEST_LEN];
+ 
++	/* Potential bytes saved: de_len times the non-source extents. */
+ 	uint64_t	de_score;
+ 
+ 	struct list_head	de_extents;
+diff --git a/run_dedupe.c b/run_dedupe.c
+index 3906a2f..582b782 100644
+--- a/run_dedupe.c
++++ b/run_dedupe.c
+@@ -51,12 +51,75 @@ static volatile unsigned long long curr_dedupe_pass;
+ static unsigned int leading_spaces;
+ static bool whole_file_dedup;
+ 
+-void print_dupes_table(struct results_tree *res, bool whole_file)
++static int cmp_dedupe_work(const void *a, const void *b)
++{
++	const struct dupe_extents *dext_a;
++	const struct dupe_extents *dext_b;
++
++	dext_a = *(const struct dupe_extents * const *)a;
++	dext_b = *(const struct dupe_extents * const *)b;
++
++	if (dext_a->de_score > dext_b->de_score)
++		return -1;
++	if (dext_a->de_score < dext_b->de_score)
++		return 1;
++
++	if (dext_a->de_len > dext_b->de_len)
++		return -1;
++	if (dext_a->de_len < dext_b->de_len)
++		return 1;
++
++	return memcmp(dext_a->de_hash, dext_b->de_hash, DIGEST_LEN);
++}
++
++static int collect_sorted_extents(struct results_tree *res,
++				  struct dupe_extents ***ret_work,
++				  unsigned int *ret_work_count,
++				  bool skip_insufficient)
+ {
+ 	struct rb_root *root = &res->root;
+ 	struct rb_node *node = rb_first(root);
++	struct dupe_extents **work;
++	struct dupe_extents *dext;
++	unsigned int work_count = 0;
++
++	*ret_work = NULL;
++	*ret_work_count = 0;
++
++	if (res->num_dupes == 0)
++		return 0;
++
++	work = calloc(res->num_dupes, sizeof(*work));
++	if (!work)
++		return ENOMEM;
++
++	while (node) {
++		dext = rb_entry(node, struct dupe_extents, de_node);
++		node = rb_next(node);
++
++		if (skip_insufficient && dext->de_num_dupes < 2) {
++			qprintf("Skipping extent - insufficient duplicates (%u)\n",
++				   dext->de_num_dupes);
++			continue;
++		}
++
++		work[work_count++] = dext;
++	}
++
++	qsort(work, work_count, sizeof(*work), cmp_dedupe_work);
++	*ret_work = work;
++	*ret_work_count = work_count;
++	return 0;
++}
++
++static void print_dupes_work(struct results_tree *res,
++			     struct dupe_extents **work,
++			     unsigned int work_count,
++			     bool whole_file)
++{
+ 	struct dupe_extents *dext;
+ 	struct extent *extent;
++	unsigned int i;
+ 	char *kind;
+ 
+ 	if (whole_file)
+@@ -71,12 +134,8 @@ void print_dupes_table(struct results_tree *res, bool whole_file)
+ 	if (quiet || res->num_dupes == 0)
+ 		return;
+ 
+-	while (1) {
+-		if (node == NULL)
+-			break;
+-
+-		dext = rb_entry(node, struct dupe_extents, de_node);
+-
++	for (i = 0; i < work_count; i++) {
++		dext = work[i];
+ 		printf("Showing %u identical %s of length %s with id ",
+ 		       dext->de_num_dupes, kind, pretty_size(dext->de_len));
+ 		debug_print_digest_short(stdout, dext->de_hash);
+@@ -87,9 +146,23 @@ void print_dupes_table(struct results_tree *res, bool whole_file)
+ 			       pretty_size(extent->e_loff),
+ 			       extent->e_file->filename);
+ 		}
++	}
++}
+ 
+-		node = rb_next(node);
++void print_dupes_table(struct results_tree *res, bool whole_file)
++{
++	struct dupe_extents **work;
++	unsigned int work_count;
++	int ret;
++
++	ret = collect_sorted_extents(res, &work, &work_count, false);
++	if (ret) {
++		eprintf("Unable to sort dedupe results: out of memory.\n");
++		return;
+ 	}
++
++	print_dupes_work(res, work, work_count, whole_file);
++	free(work);
+ }
+ 
+ static void process_dedupe_results(struct dedupe_ctxt *ctxt,
+@@ -138,34 +211,74 @@ static void add_shared_extents(struct dupe_extents *dext, uint64_t *shared)
+ 		*shared += extent_shared_bytes(extent);
+ }
+ 
++static void free_filerec_tokens(struct rb_root *root)
++{
++	struct filerec_token *token;
++	struct rb_node *node = rb_first(root);
++
++	while (node) {
++		token = rb_entry(node, struct filerec_token, t_node);
++		rb_erase(&token->t_node, root);
++		filerec_token_free(token);
++
++		node = rb_first(root);
++	}
++}
++
+ /*
+  * Fiemap the file and get our post-dedupe extent state.
+- *
+- * XXX: We're running fiemap too much for this. At the least we should
+- * shoot for one fiemap call(s) per filerec.
+  */
+ static void add_shared_extents_post(struct dupe_extents *dext, uint64_t *shared)
+ {
+ 	int ret;
+ 	uint64_t bytes = 0;
+ 	struct extent *extent;
++	struct extent *scan;
+ 	struct filerec *file;
++	struct filerec_token *token;
++	struct fiemap *fiemap = NULL;
++	struct rb_root files_seen = RB_ROOT;
+ 
+ 	list_for_each_entry(extent, &dext->de_extents, e_list) {
+ 		file = extent->e_file;
++		if (find_filerec_token_rb(&files_seen, file))
++			continue;
++
++		token = filerec_token_new(file);
++		if (!token)
++			goto out;
++		insert_filerec_token_rb(&files_seen, token);
++
+ 		ret = filerec_open(file, true);
+ 		if (ret)
+-			return;
+-
+-		ret = fiemap_count_shared(file->fd, extent->e_loff, extent->e_loff + dext->de_len,
+-					   &bytes);
++			goto out;
+ 
+-		*shared += bytes;
++		fiemap = do_fiemap(file->fd);
+ 		filerec_close(file);
++		if (!fiemap)
++			goto out;
+ 
+-		if (ret)
+-			return;
++		list_for_each_entry(scan, &dext->de_extents, e_list) {
++			if (scan->e_file != file)
++				continue;
++
++			ret = fiemap_count_shared_in_fiemap(fiemap,
++						scan->e_loff,
++						scan->e_loff + dext->de_len,
++						&bytes);
++			if (ret)
++				goto out;
++
++			*shared += bytes;
++		}
++
++		free(fiemap);
++		fiemap = NULL;
+ 	}
++
++out:
++	free(fiemap);
++	free_filerec_tokens(&files_seen);
+ }
+ 
+ static int disk_extent_grew(struct dupe_extents *dext, struct extent *extent)
+@@ -499,9 +612,9 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 		return ret;
+ 	}
+ 
+-	dbfile_lock();
+-	list_for_each_entry(extent, &dext->de_extents, e_list) {
+-		if (whole_file_dedup) {
++	if (whole_file_dedup) {
++		dbfile_lock();
++		list_for_each_entry(extent, &dext->de_extents, e_list) {
+ 			/* If we are deduping a whole file, then the extents may be remapped
+ 			 * by Linux. Let's drop them from the hashfile: even if some other file
+ 			 * share one on those extents, keeping the whole file deduplicated is
+@@ -511,14 +624,22 @@ static int extent_dedupe_worker(struct dupe_extents *dext,
+ 			 * This may cause dbfile_load_one_file_extent() to raise an error.
+ 			 */
+ 			dbfile_remove_extent_hashes(db, extent->e_file->fileid);
+-		} else {
++		}
++		dbfile_unlock();
++	} else {
++		list_for_each_entry(extent, &dext->de_extents, e_list) {
+ 			/* Rescan physical offset and update the hashfile accordingly */
+ 			ret = fiemap_scan_extent(extent);
+-			if (!ret)
+-				dbfile_update_extent_poff(db, extent->e_file->fileid, extent->e_loff, extent->e_poff);
++			if (ret)
++				continue;
++
++			dbfile_lock();
++			dbfile_update_extent_poff(db, extent->e_file->fileid,
++						  extent->e_loff,
++						  extent->e_poff);
++			dbfile_unlock();
+ 		}
+ 	}
+-	dbfile_unlock();
+ 
+ 	if (!list_empty(&dext->de_extents)) {
+ 		g_mutex_lock(&mutex);
+@@ -545,33 +666,19 @@ static void dedupe_worker(void *priv, struct dedupe_counts *counts)
+ static GThreadPool *dedupe_pool = NULL;
+ 
+ /* Errors from this function are fatal. */
+-static int push_extents(struct results_tree *res)
++static int push_extents(struct dupe_extents **work, unsigned int work_count)
+ {
+-	struct rb_root *root = &res->root;
+-	struct rb_node *node = rb_first(root);
+-	struct dupe_extents *dext;
++	unsigned int i;
+ 	GError *err = NULL;
+ 
+-	while (node) {
+-		dext = rb_entry(node, struct dupe_extents, de_node);
+-
+-		/*
+-		 * dext may be free'd by the dedupe threads, so get
+-		 * the next node now. In addition we want to lock
+-		 * around the rbtree code here so rb_erase doesn't
+-		 * change the tree underneath us.
+-		 */
+-		g_mutex_lock(&mutex);
+-		node = rb_next(node);
+-		g_mutex_unlock(&mutex);
+-
+-		if (dext->de_num_dupes < 2) {
++	for (i = 0; i < work_count; i++) {
++		if (work[i]->de_num_dupes < 2) {
+ 			qprintf("Skipping extent - insufficient duplicates (%u)\n",
+-				   dext->de_num_dupes);
++				   work[i]->de_num_dupes);
+ 			continue;
+ 		}
+ 
+-		g_thread_pool_push(dedupe_pool, dext, &err);
++		g_thread_pool_push(dedupe_pool, work[i], &err);
+ 		if (err) {
+ 			eprintf("Fatal error while deduping: %s\n",
+ 				err->message);
+@@ -587,6 +694,8 @@ void dedupe_results(struct results_tree *res, bool whole_file)
+ 	int ret;
+ 	struct dedupe_counts counts = { 0ULL, };
+ 	GError *err = NULL;
++	struct dupe_extents **work;
++	unsigned int work_count;
+ 
+ 	/*
+ 	 * dedupe_results() could be called multiple times, so we reset that bit
+@@ -597,10 +706,17 @@ void dedupe_results(struct results_tree *res, bool whole_file)
+ 
+ 	whole_file_dedup = whole_file;
+ 
+-	print_dupes_table(res, whole_file);
++	ret = collect_sorted_extents(res, &work, &work_count, false);
++	if (ret) {
++		eprintf("Unable to sort dedupe results: out of memory.\n");
++		return;
++	}
++
++	print_dupes_work(res, work, work_count, whole_file);
+ 
+ 	if (RB_EMPTY_ROOT(&res->root)) {
+ 		printf("Nothing to dedupe.\n");
++		free(work);
+ 		return;
+ 	}
+ 
+@@ -612,16 +728,16 @@ void dedupe_results(struct results_tree *res, bool whole_file)
+ 		eprintf("Unable to create dedupe thread pool: %s\n",
+ 			err->message);
+ 		g_error_free(err);
++		free(work);
+ 		return;
+ 	}
+ 
+ 	total_dedupe_passes = res->num_dupes;
+ 	leading_spaces = num_digits(total_dedupe_passes);
+-	ret = push_extents(res);
+-	if (ret) {
+-		eprintf("Fatal error while deduping: %s\n", err->message);
+-		g_error_free(err);
+-	}
++	ret = push_extents(work, work_count);
++	free(work);
++	if (ret)
++		eprintf("Fatal error while scheduling dedupe work.\n");
+ 
+ 	g_thread_pool_free(dedupe_pool, FALSE, TRUE);
+ 
+diff --git a/tests.c b/tests.c
+index bd3054a..6527c54 100644
+--- a/tests.c
++++ b/tests.c
+@@ -92,10 +92,83 @@ MU_TEST(test_is_file_renamed) {
+ 	mu_check(is_file_renamed(exec_path, new_path) == false);
+ }
+ 
++MU_TEST(test_results_tree_score) {
++	struct results_tree res;
++	struct dupe_extents *dext;
++	struct extent *extent;
++	struct filerec file1 = { 0, };
++	struct filerec file2 = { 0, };
++	struct filerec file3 = { 0, };
++	unsigned char digest[DIGEST_LEN] = { 1, };
++	uint64_t len = 4096;
++
++	init_results_tree(&res);
++
++	mu_check(insert_one_result(&res, digest, &file1, 0, len, 0) == 0);
++	dext = rb_entry(rb_first(&res.root), struct dupe_extents, de_node);
++	mu_check(dext->de_num_dupes == 1);
++	mu_check(dext->de_score == 0);
++
++	mu_check(insert_one_result(&res, digest, &file2, 0, len, 0) == 0);
++	mu_check(dext->de_num_dupes == 2);
++	mu_check(dext->de_score == len);
++
++	mu_check(insert_one_result(&res, digest, &file3, 0, len, 0) == 0);
++	mu_check(dext->de_num_dupes == 3);
++	mu_check(dext->de_score == len * 2);
++
++	extent = list_entry(dext->de_extents.next, struct extent, e_list);
++	mu_check(remove_extent(&res, extent) == 2);
++	mu_check(dext->de_score == len);
++
++	free_results_tree(&res);
++}
++
++MU_TEST(test_partial_search_pair_ordering) {
++	struct filerec file1 = { .fileid = 1 };
++	struct filerec file2 = { .fileid = 2 };
++	struct file_block a = { .b_file = &file1, .b_loff = 0 };
++	struct file_block b = { .b_file = &file2, .b_loff = 0 };
++	struct file_block c = { .b_file = &file1, .b_loff = 4096 };
++
++	mu_check(should_search_block_pair(&a, &b) == true);
++	mu_check(should_search_block_pair(&b, &a) == false);
++	mu_check(should_search_block_pair(&a, &c) == true);
++	mu_check(should_search_block_pair(&c, &a) == false);
++	mu_check(should_search_block_pair(&a, &a) == false);
++}
++
++MU_TEST(test_partial_search_len_caps) {
++	struct filerec file1 = { .fileid = 1 };
++	struct filerec file2 = { .fileid = 2 };
++	struct file_block block = { .b_file = &file1, .b_loff = 100 };
++	struct file_block found = { .b_file = &file2, .b_loff = 150 };
++	struct file_extent extent = { .loff = 128, .len = 512 };
++
++	mu_check(extent_remaining_from_block(&extent, &found) == 490);
++	found.b_loff = 127;
++	mu_check(extent_remaining_from_block(&extent, &found) == 0);
++	found.b_loff = 640;
++	mu_check(extent_remaining_from_block(&extent, &found) == 0);
++
++	block.b_file = &file1;
++	block.b_loff = 0;
++	found.b_file = &file1;
++	found.b_loff = 8192;
++	mu_check(cap_same_file_search_len(&block, &found, 16384) == 8192);
++	mu_check(cap_same_file_search_len(&found, &block, 16384) == 0);
++
++	found.b_file = &file2;
++	mu_check(cap_same_file_search_len(&block, &found, 16384) == 16384);
++}
++
+ MU_TEST_SUITE(test_suite) {
+ 	MU_RUN_TEST(test_is_block_zeroed);
+ 	MU_RUN_TEST(test_block_len);
+ 	MU_RUN_TEST(test_is_file_renamed);
++	MU_RUN_TEST(test_results_tree_score);
++	MU_RUN_TEST(test_partial_search_pair_ordering);
++	MU_RUN_TEST(test_partial_search_len_caps);
+ }
+ 
+ int main(int argc [[maybe_unused]], char *argv[]) {

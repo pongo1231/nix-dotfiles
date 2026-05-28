@@ -4,7 +4,6 @@
   pkg,
 }:
 final: prev:
-
 let
   inherit (prev) lib;
 in
@@ -58,6 +57,10 @@ in
       rev = "897a222e731cc9dccc7ae4d6065034b561201c5c";
       hash = "sha256-/MkbR2lOxC/3kXrHqkkL7ngvCILutJpScNxfIx+CdDU=";
     };
+
+    patches = (prev.patches or [ ]) ++ [
+      (patch /duperemove/slop.patch)
+    ];
   };
 
   ryzenadj = prev.ryzenadj.overrideAttrs {
