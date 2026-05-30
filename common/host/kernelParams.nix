@@ -25,6 +25,7 @@ in
     "rcutree.enable_rcu_lazy=1"
     "log_buf_len=4M"
     "split_lock_detect=off"
+    "modprobe.blacklist=nouveau"
 
     # Hardening
     "randomize_kstack_offset=on"
