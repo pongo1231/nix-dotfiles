@@ -105,7 +105,6 @@ args:
       nix-tree
       gptfdisk
       iotop
-      pstree
       nvd
       manix
       deadnix
@@ -130,6 +129,7 @@ args:
       nixos-shell
       udp-reverse-tunnel
       npins
+      psmisc
     ];
   };
 }
