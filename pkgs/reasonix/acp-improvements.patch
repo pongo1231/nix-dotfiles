@@ -1,1537 +1,1331 @@
-diff --git a/src/acp/dispatch.ts b/src/acp/dispatch.ts
-index 866e1abd..6a3be662 100644
---- a/src/acp/dispatch.ts
-+++ b/src/acp/dispatch.ts
-@@ -16,6 +16,226 @@ function tryParseJson(raw: string): unknown {
-   }
+diff --git a/internal/acp/dispatch.go b/internal/acp/dispatch.go
+index 9d6941a3..8b4c23a5 100644
+--- a/internal/acp/dispatch.go
++++ b/internal/acp/dispatch.go
+@@ -3,6 +3,7 @@ package acp
+ import (
+ 	"context"
+ 	"encoding/json"
++	"fmt"
+ 	"strconv"
+ 	"strings"
+ 
+@@ -23,6 +24,171 @@ type notifier interface {
+ // dispatch.ts (the full result still goes to the model; this is display only).
+ const maxResultChars = 8000
+ 
++// maxTitleArg is the max width for a tool argument embedded in the title.
++const maxTitleArg = 80
++
++// toolTitle builds a human-readable one-liner from tool name + JSON args so ACP
++// clients (Zed, etc.) show WHAT the tool is doing, not just its raw name.
++// Ported from main's src/acp/dispatch.ts toolTitle / toolNameLabel.
++func toolTitle(name string, args json.RawMessage) string {
++	if len(args) == 0 || !json.Valid(args) {
++		return toolNameLabel(name)
++	}
++	var p map[string]any
++	if json.Unmarshal(args, &p) != nil {
++		return toolNameLabel(name)
++	}
++
++	switch name {
++	// Shell
++	case "bash":
++		return cmdTitle("Run", p)
++	case "bash_output":
++		return fmt.Sprintf("Job output: %v", p["job_id"])
++	case "kill_shell":
++		return fmt.Sprintf("Stop job: %v", p["job_id"])
++	case "wait":
++		return "Wait for jobs"
++
++	// File reads
++	case "read_file":
++		return pathTitle("Read", p)
++	case "ls":
++		return pathTitle("List", p)
++	case "glob":
++		return patternTitle("Glob", p)
++	case "grep":
++		return patternTitle("Search", p)
++	case "web_fetch":
++		return urlTitle("Fetch", p)
++
++	// File writes / mutations
++	case "write_file":
++		return pathTitle("Write", p)
++	case "edit_file":
++		return pathTitle("Edit", p)
++	case "multi_edit":
++		edits, _ := p["edits"].([]any)
++		n := len(edits)
++		if n > 0 {
++			return fmt.Sprintf("Multi-edit: %d file%s", n, plural(n))
++		}
++		return "Multi-edit"
++
++	// Planning
++	case "complete_step":
++		return fmt.Sprintf("Step done: %v", p["step"])
++
++	// Subagent / task
++	case "task":
++		return taskTitle("Task", p)
++
++	default:
++		return name
++	}
++}
++
++// toolNameLabel is a human-readable label when we don't have args yet (tool.pending).
++func toolNameLabel(name string) string {
++	switch name {
++	case "bash":
++		return "Run command"
++	case "bash_output":
++		return "Job output"
++	case "kill_shell":
++		return "Stop job"
++	case "wait":
++		return "Wait for jobs"
++	case "read_file":
++		return "Read file"
++	case "ls":
++		return "List directory"
++	case "glob":
++		return "Glob"
++	case "grep":
++		return "Search code"
++	case "web_fetch":
++		return "Web fetch"
++	case "write_file":
++		return "Write file"
++	case "edit_file":
++		return "Edit file"
++	case "multi_edit":
++		return "Multi-edit"
++	case "complete_step":
++		return "Mark step complete"
++	case "task":
++		return "Task"
++	default:
++		return name
++	}
++}
++
++func cmdTitle(verb string, p map[string]any) string {
++	c, _ := p["command"].(string)
++	c = strings.TrimSpace(c)
++	if c == "" {
++		return verb + " command"
++	}
++	if i := strings.IndexByte(c, '\n'); i >= 0 {
++		c = c[:i]
++	}
++	return verb + ": " + ellipsis(c, maxTitleArg)
++}
++
++func pathTitle(verb string, p map[string]any) string {
++	path, _ := p["path"].(string)
++	path = strings.TrimSpace(path)
++	if path == "" {
++		return verb
++	}
++	return verb + ": " + ellipsis(path, maxTitleArg)
++}
++
++func patternTitle(verb string, p map[string]any) string {
++	pat, _ := p["pattern"].(string)
++	pat = strings.TrimSpace(pat)
++	if pat == "" {
++		return verb
++	}
++	return verb + ": `" + ellipsis(pat, maxTitleArg-2) + "`"
++}
++
++func urlTitle(verb string, p map[string]any) string {
++	u, _ := p["url"].(string)
++	u = strings.TrimSpace(u)
++	if u == "" {
++		return verb
++	}
++	return verb + ": " + ellipsis(u, maxTitleArg)
++}
++
++func taskTitle(verb string, p map[string]any) string {
++	t, _ := p["description"].(string)
++	if t == "" {
++		t, _ = p["prompt"].(string)
++	}
++	t = strings.TrimSpace(t)
++	if t == "" {
++		return "Task"
++	}
++	return verb + ": " + ellipsis(t, maxTitleArg)
++}
++
++func ellipsis(s string, max int) string {
++	if len(s) <= max {
++		return s
++	}
++	return s[:max] + "…"
++}
++
++func plural(n int) string {
++	if n == 1 {
++		return ""
++	}
++	return "s"
++}
++
+ // updateSink is an event.Sink bound to one session that maps the agent's typed
+ // event stream onto ACP session/update notifications. It is the v2 counterpart of
+ // main's dispatchKernelEvent: where main translated kernel events, we translate
+@@ -72,13 +238,14 @@ func (s *updateSink) Emit(e event.Event) {
+ 		s.send(messageChunk{SessionUpdate: "agent_message_chunk", Content: textBlock(e.Text)})
+ 
+ 	case event.ToolDispatch:
++		raw := rawJSON(e.Tool.Args)
+ 		s.send(toolCall{
+ 			SessionUpdate: "tool_call",
+ 			ToolCallID:    e.Tool.ID,
+-			Title:         e.Tool.Name,
++			Title:         toolTitle(e.Tool.Name, raw),
+ 			Kind:          toolKindFor(e.Tool.Name),
+ 			Status:        "pending",
+-			RawInput:      rawJSON(e.Tool.Args),
++			RawInput:      raw,
+ 		})
+ 
+ 	case event.ToolResult:
+@@ -136,13 +303,14 @@ func (s *updateSink) replay(msgs []provider.Message) {
+ 				s.send(messageChunk{SessionUpdate: "agent_message_chunk", Content: textBlock(m.Content)})
+ 			}
+ 			for _, tc := range m.ToolCalls {
++				raw := rawJSON(tc.Arguments)
+ 				s.send(toolCall{
+ 					SessionUpdate: "tool_call",
+ 					ToolCallID:    tc.ID,
+-					Title:         tc.Name,
++					Title:         toolTitle(tc.Name, raw),
+ 					Kind:          toolKindFor(tc.Name),
+ 					Status:        "completed",
+-					RawInput:      rawJSON(tc.Arguments),
++					RawInput:      raw,
+ 				})
+ 			}
+ 		case provider.RoleTool:
+@@ -221,6 +389,86 @@ func clip(text string) string {
+ 		strconv.Itoa(len(text)-maxResultChars) + " more chars truncated)"
  }
  
-+// ── Tool title builder ──────────────────────────────────────────────────────
-+// Produces a human-readable one-liner from tool name + parsed args so ACP
-+// clients (Zed, etc.) show WHAT the tool is doing, not just its name.
-+
-+const MAX_TITLE_ARG = 80;
-+
-+function ellipsis(s: string, max: number): string {
-+  if (s.length <= max) return s;
-+  return `${s.slice(0, max)}…`;
++// DispatchPlanSubmitted sends a plan update with all steps as pending. Called
++// when the agent submits a plan (e.g., after submit_plan in plan mode).
++func (s *updateSink) DispatchPlanSubmitted(steps []PlanStep) {
++	entries := make([]planEntry, 0, len(steps))
++	for _, st := range steps {
++		entries = append(entries, planEntry{
++			Content:  st.Title + ": " + st.Action,
++			Priority: "medium",
++			Status:   "pending",
++		})
++	}
++	if len(entries) > 0 {
++		s.send(planUpdate{SessionUpdate: "plan", Entries: entries})
++	}
 +}
 +
-+/** Human-readable label when we don't have args yet (tool.preparing). */
-+function toolNameLabel(name: string): string {
-+  switch (name) {
-+    case "run_command": return "Run command";
-+    case "run_background": return "Background command";
-+    case "job_output": return "Job output";
-+    case "wait_for_job": return "Wait for job";
-+    case "stop_job": return "Stop job";
-+    case "list_jobs": return "List jobs";
-+    case "read_file": return "Read file";
-+    case "list_directory": return "List directory";
-+    case "directory_tree": return "Directory tree";
-+    case "search_files": return "Find files";
-+    case "search_content": return "Search code";
-+    case "glob": return "Glob";
-+    case "get_file_info": return "Stat file";
-+    case "get_symbols": return "Symbols";
-+    case "find_in_code": return "Find in file";
-+    case "write_file": return "Write file";
-+    case "edit_file": return "Edit file";
-+    case "multi_edit": return "Multi-edit";
-+    case "delete_range": return "Delete range";
-+    case "delete_symbol": return "Delete symbol";
-+    case "create_directory": return "Create directory";
-+    case "move_file": return "Move file";
-+    case "delete_file": return "Delete file";
-+    case "delete_directory": return "Delete directory";
-+    case "copy_file": return "Copy file";
-+    case "web_search": return "Web search";
-+    case "web_fetch": return "Web fetch";
-+    case "submit_plan": return "Submit plan";
-+    case "mark_step_complete": return "Mark step complete";
-+    case "revise_plan": return "Revise plan";
-+    case "todo_write": return "Todo";
-+    case "remember": return "Remember";
-+    case "forget": return "Forget";
-+    case "recall_memory": return "Recall memory";
-+    case "run_skill": return "Run skill";
-+    case "install_skill": return "Install skill";
-+    case "create_skill": return "Create skill";
-+    case "explore": return "Explore";
-+    case "research": return "Research";
-+    case "review": return "Review";
-+    case "security_review": return "Security review";
-+    case "ask_choice": return "Ask";
-+    case "add_mcp_server": return "Add MCP server";
-+    default: return name;
-+  }
++// PlanStep is a single step in a plan, as dispatched to ACP clients.
++type PlanStep struct {
++	Title  string
++	Action string
 +}
 +
-+function toolTitle(name: string, parsed: unknown): string {
-+  const args = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-+    ? parsed as Record<string, unknown>
-+    : null;
-+
-+  switch (name) {
-+    // ── Shell ──────────────────────────────────────────────────────────
-+    case "run_command":
-+      return cmd("Run", args);
-+    case "run_background":
-+      return cmd("Background", args);
-+    case "job_output":
-+      return `Job output #${args?.jobId ?? "?"}`;
-+    case "wait_for_job":
-+      return `Wait job #${args?.jobId ?? "?"}`;
-+    case "stop_job":
-+      return `Stop job #${args?.jobId ?? "?"}`;
-+    case "list_jobs":
-+      return "List jobs";
-+
-+    // ── File reads ─────────────────────────────────────────────────────
-+    case "read_file":
-+      return path("Read", args);
-+    case "list_directory":
-+      return path("List", args);
-+    case "directory_tree":
-+      return path("Tree", args);
-+    case "search_files":
-+      return pattern("Find files", args);
-+    case "search_content":
-+      return pattern("Search", args);
-+    case "glob":
-+      return pattern("Glob", args);
-+    case "get_file_info":
-+      return path("Stat", args);
-+    case "get_symbols":
-+      return path("Symbols", args);
-+    case "find_in_code":
-+      return `Find \`${args?.name ?? "?"}\``;
-+    case "java_source":
-+      return `Java source: ${args?.className ?? "?"}`;
-+
-+    // ── File writes / mutations ────────────────────────────────────────
-+    case "write_file":
-+      return path("Write", args);
-+    case "edit_file":
-+      return path("Edit", args);
-+    case "multi_edit": {
-+      const edits = Array.isArray(args?.edits) ? args!.edits.length : 0;
-+      return edits ? `Multi-edit: ${edits} file${edits === 1 ? "" : "s"}` : "Multi-edit";
-+    }
-+    case "delete_range":
-+      return path("Delete range", args);
-+    case "delete_symbol":
-+      return `Delete \`${args?.name ?? "?"}\``;
-+    case "create_directory":
-+      return path("Mkdir", args);
-+    case "move_file":
-+      return twoPath("Move", args);
-+    case "delete_file":
-+      return path("Delete", args);
-+    case "delete_directory":
-+      return path("Rmdir", args);
-+    case "copy_file":
-+      return twoPath("Copy", args);
-+
-+    // ── Web ────────────────────────────────────────────────────────────
-+    case "web_search":
-+      return query("Web", args);
-+    case "web_fetch":
-+      return url("Fetch", args);
-+
-+    // ── Planning / tasks ───────────────────────────────────────────────
-+    case "submit_plan":
-+      return `Plan: ${ellipsis(String(args?.summary ?? args?.plan ?? ""), MAX_TITLE_ARG) || "Submit plan"}`;
-+    case "mark_step_complete":
-+      return `Step done: ${args?.stepId ?? "?"}`;
-+    case "revise_plan":
-+      return "Revise plan";
-+    case "todo_write": {
-+      const todos = Array.isArray(args?.todos) ? args!.todos.length : 0;
-+      return todos ? `Todo: ${todos} item${todos === 1 ? "" : "s"}` : "Todo";
-+    }
-+
-+    // ── Memory ─────────────────────────────────────────────────────────
-+    case "remember":
-+      return `Remember: ${args?.name ?? "?"}`;
-+    case "forget":
-+      return `Forget: ${args?.name ?? "?"}`;
-+    case "recall_memory":
-+      return `Recall: ${args?.name ?? "?"}`;
-+
-+    // ── Skills / subagents ─────────────────────────────────────────────
-+    case "run_skill":
-+      return `Skill: ${args?.name ?? "?"}`;
-+    case "install_skill":
-+      return `Install skill: ${args?.name ?? "?"}`;
-+    case "create_skill":
-+      return `Create skill: ${args?.name ?? "?"}`;
-+    case "explore":
-+      return `Explore: ${ellipsis(String(args?.task ?? ""), MAX_TITLE_ARG) || "exploring"}`;
-+    case "research":
-+      return `Research: ${ellipsis(String(args?.task ?? ""), MAX_TITLE_ARG) || "researching"}`;
-+    case "review":
-+      return `Review: ${ellipsis(String(args?.task ?? ""), MAX_TITLE_ARG) || "reviewing"}`;
-+    case "security_review":
-+      return `Security: ${ellipsis(String(args?.task ?? ""), MAX_TITLE_ARG) || "reviewing"}`;
-+
-+    // ── Other ──────────────────────────────────────────────────────────
-+    case "ask_choice":
-+      return `Ask: ${ellipsis(String(args?.question ?? ""), MAX_TITLE_ARG) || "choose"}`;
-+    case "add_mcp_server":
-+      return `Add MCP: ${args?.name ?? "?"}`;
-+
-+    default:
-+      return name;
-+  }
++// DispatchPlanStepCompleted sends a plan update marking one step as completed.
++func (s *updateSink) DispatchPlanStepCompleted(stepID, title string) {
++	content := title
++	if content == "" {
++		content = stepID
++	}
++	s.send(planUpdate{
++		SessionUpdate: "plan",
++		Entries:       []planEntry{{Content: content, Priority: "medium", Status: "completed"}},
++	})
 +}
 +
-+function cmd(verb: string, args: Record<string, unknown> | null): string {
-+  const c = typeof args?.command === "string" ? args!.command.trim() : "";
-+  if (!c) return `${verb} command`;
-+  const firstLine = c.split("\n")[0] ?? c;
-+  return `${verb}: ${ellipsis(firstLine, MAX_TITLE_ARG)}`;
++// DispatchUsageUpdate sends token usage + cost to the client. Call after each
++// model turn completes.
++func (s *updateSink) DispatchUsageUpdate(prompt, completion, total int, costUSD float64) {
++	s.send(usageUpdate{
++		SessionUpdate: "usage_update",
++		Used:          total,
++		Size:          prompt + completion,
++		Cost:          &usageCost{Amount: costUSD, Currency: "USD"},
++	})
 +}
 +
-+function path(verb: string, args: Record<string, unknown> | null): string {
-+  const p = typeof args?.path === "string" ? args!.path.trim() : "";
-+  if (!p) return verb;
-+  return `${verb}: ${ellipsis(p, MAX_TITLE_ARG)}`;
++// DispatchAvailableCommands sends the list of supported slash commands.
++func (s *updateSink) DispatchAvailableCommands() {
++	s.send(availableCommandsUpdate{
++		SessionUpdate: "available_commands_update",
++		AvailableCommands: []availableCommand{
++			{Name: "help", Description: "Show available commands"},
++			{Name: "clear", Description: "Clear the conversation history"},
++			{Name: "compact", Description: "Compact conversation to save context"},
++			{Name: "diff", Description: "Show pending changes as a diff"},
++			{Name: "undo", Description: "Undo the last file operation"},
++			{Name: "model", Description: "Show or change the current model"},
++			{Name: "mode", Description: "Show or change the edit mode"},
++			{Name: "plan", Description: "Show current plan status"},
++			{Name: "mcp", Description: "Manage MCP servers"},
++		},
++	})
 +}
 +
-+function twoPath(verb: string, args: Record<string, unknown> | null): string {
-+  const src = typeof args?.source === "string" ? args!.source.trim() : "";
-+  const dst = typeof args?.destination === "string" ? args!.destination.trim() : "";
-+  if (!src && !dst) return verb;
-+  const srcShort = ellipsis(src, 35);
-+  const dstShort = ellipsis(dst, 35);
-+  return dst ? `${verb}: ${srcShort} → ${dstShort}` : `${verb}: ${srcShort}`;
++// DispatchConfigOptions sends the current set of config options to the client.
++func (s *updateSink) DispatchConfigOptions(opts []SessionConfigOption) {
++	s.send(configOptionUpdate{
++		SessionUpdate: "config_option_update",
++		ConfigOptions: opts,
++	})
 +}
 +
-+function pattern(verb: string, args: Record<string, unknown> | null): string {
-+  const p = typeof args?.pattern === "string" ? args!.pattern.trim() : "";
-+  if (!p) return verb;
-+  return `${verb}: \`${ellipsis(p, MAX_TITLE_ARG - 2)}\``;
++// DispatchSessionInfoUpdate sends a session title or timestamp update.
++func (s *updateSink) DispatchSessionInfoUpdate(title, updatedAt *string) {
++	s.send(sessionInfoUpdate{
++		SessionUpdate: "session_info_update",
++		Title:         title,
++		UpdatedAt:     updatedAt,
++	})
 +}
 +
-+function query(verb: string, args: Record<string, unknown> | null): string {
-+  const q = typeof args?.query === "string" ? args!.query.trim() : "";
-+  if (!q) return verb;
-+  return `${verb}: ${ellipsis(q, MAX_TITLE_ARG)}`;
-+}
-+
-+function url(verb: string, args: Record<string, unknown> | null): string {
-+  const u = typeof args?.url === "string" ? args!.url.trim() : "";
-+  if (!u) return verb;
-+  return `${verb}: ${ellipsis(u, MAX_TITLE_ARG)}`;
-+}
-+
- /** Stateless mapping from one kernel event to (zero or more) ACP session/update notifications. */
- export function dispatchKernelEvent(server: AcpServer, sessionId: string, ev: KernelEvent): void {
-   switch (ev.type) {
-@@ -34,7 +254,7 @@ export function dispatchKernelEvent(server: AcpServer, sessionId: string, ev: Ke
-         update: {
-           sessionUpdate: "tool_call",
-           toolCallId: ev.callId,
--          title: ev.name,
-+          title: toolNameLabel(ev.name),
-           kind: toolKindFor(ev.name),
-           status: "pending",
-         },
-@@ -57,7 +277,7 @@ export function dispatchKernelEvent(server: AcpServer, sessionId: string, ev: Ke
-           update: {
-             sessionUpdate: "tool_call",
-             toolCallId: ev.callId,
--            title: ev.name,
-+            title: toolTitle(ev.name, rawInput),
-             kind: toolKindFor(ev.name),
-             status: "in_progress",
-             rawInput,
-@@ -83,6 +303,18 @@ export function dispatchKernelEvent(server: AcpServer, sessionId: string, ev: Ke
-       });
-       return;
-     }
-+    case "model.final": {
-+      // Emit usage update after each model turn completes.
-+      if (ev.usage && ev.costUsd !== undefined) {
-+        dispatchUsageUpdate(server, sessionId, {
-+          promptTokens: ev.usage.prompt_tokens ?? 0,
-+          completionTokens: ev.usage.completion_tokens ?? 0,
-+          totalTokens: ev.usage.total_tokens ?? 0,
-+          costUsd: ev.costUsd,
-+        });
-+      }
-+      return;
-+    }
-     case "error": {
-       emit(server, {
-         sessionId,
-@@ -116,3 +348,104 @@ function clip(text: string): string {
- function emit(server: AcpServer, params: SessionUpdateParams): void {
-   server.sendNotification("session/update", params);
- }
-+
-+// ── Plan dispatch ──────────────────────────────────────────────────────────
-+
-+export function dispatchPlanSubmitted(
-+  server: AcpServer,
-+  sessionId: string,
-+  body: string,
-+  steps: ReadonlyArray<{ id: string; title: string; action: string }>,
-+): void {
-+  emit(server, {
-+    sessionId,
-+    update: {
-+      sessionUpdate: "plan",
-+      entries: steps.map((s) => ({
-+        content: `${s.title}: ${s.action}`,
-+        priority: "medium" as const,
-+        status: "pending" as const,
-+      })),
-+    },
-+  });
-+}
-+
-+export function dispatchPlanStepCompleted(
-+  server: AcpServer,
-+  sessionId: string,
-+  stepId: string,
-+  title: string | undefined,
-+): void {
-+  emit(server, {
-+    sessionId,
-+    update: {
-+      sessionUpdate: "plan",
-+      entries: [
-+        {
-+          content: title ?? stepId,
-+          priority: "medium" as const,
-+          status: "completed" as const,
-+        },
-+      ],
-+    },
-+  });
-+}
-+
-+// ── Session metadata dispatch ──────────────────────────────────────────────
-+
-+export function dispatchSessionInfoUpdate(
-+  server: AcpServer,
-+  sessionId: string,
-+  opts: { title?: string; updatedAt?: string },
-+): void {
-+  emit(server, {
-+    sessionId,
-+    update: {
-+      sessionUpdate: "session_info_update",
-+      title: opts.title ?? null,
-+      updatedAt: opts.updatedAt ?? null,
-+    },
-+  });
-+}
-+
-+// ── Usage dispatch ─────────────────────────────────────────────────────────
-+
-+export function dispatchUsageUpdate(
-+  server: AcpServer,
-+  sessionId: string,
-+  opts: { promptTokens: number; completionTokens: number; totalTokens: number; costUsd: number },
-+): void {
-+  emit(server, {
-+    sessionId,
-+    update: {
-+      sessionUpdate: "usage_update",
-+      used: opts.totalTokens,
-+      size: opts.promptTokens + opts.completionTokens,
-+      cost: { amount: opts.costUsd, currency: "USD" },
-+    },
-+  });
-+}
-+
-+// ── Available commands dispatch ────────────────────────────────────────────
-+
-+const ACP_SLASH_COMMANDS = [
-+  { name: "help", description: "Show available commands" },
-+  { name: "clear", description: "Clear the conversation history" },
-+  { name: "compact", description: "Compact conversation to save context" },
-+  { name: "diff", description: "Show pending changes as a diff" },
-+  { name: "undo", description: "Undo the last file operation" },
-+  { name: "model", description: "Show or change the current model" },
-+  { name: "mode", description: "Show or change the edit mode" },
-+  { name: "plan", description: "Show current plan status" },
-+  { name: "mcp", description: "Manage MCP servers" },
-+];
-+
-+export function dispatchAvailableCommands(server: AcpServer, sessionId: string): void {
-+  emit(server, {
-+    sessionId,
-+    update: {
-+      sessionUpdate: "available_commands_update",
-+      available_commands: ACP_SLASH_COMMANDS,
-+    },
-+  });
-+}
-diff --git a/src/acp/protocol.ts b/src/acp/protocol.ts
-index a8d39a10..68bd964e 100644
---- a/src/acp/protocol.ts
-+++ b/src/acp/protocol.ts
-@@ -45,6 +45,11 @@ export interface InitializeResult {
-     loadSession?: boolean;
-     promptCapabilities?: { image?: boolean; audio?: boolean; embeddedContext?: boolean };
-     mcpCapabilities?: { http?: boolean; sse?: boolean };
-+    sessionCapabilities?: {
-+      resume?: Record<string, never>;
-+      close?: Record<string, never>;
-+      list?: Record<string, never>;
-+    };
-   };
-   agentInfo: { name: string; title?: string; version: string };
-   authMethods: never[];
-@@ -62,8 +67,64 @@ export interface SessionNewParams {
- 
- export interface SessionNewResult {
-   sessionId: string;
-+  configOptions?: SessionConfigOption[];
-+  modes?: SessionModeState;
-+}
-+
-+// ── Session Config Options (ACP spec: session-config-options) ────────────────
-+
-+export interface SessionConfigOptionValue {
-+  value: string;
-+  name: string;
-+  description?: string;
-+}
-+
-+export type ConfigOptionCategory = "mode" | "model" | "thought_level" | string;
-+
-+export interface SessionConfigOption {
-+  id: string;
-+  name: string;
-+  description?: string;
-+  category?: ConfigOptionCategory;
-+  type: "select";
-+  currentValue: string;
-+  options: SessionConfigOptionValue[];
-+}
-+
-+export interface SetConfigOptionParams {
-+  sessionId: string;
-+  configId: string;
-+  value: string;
-+}
-+
-+export interface SetConfigOptionResult {
-+  configOptions: SessionConfigOption[];
-+}
-+
-+// ── Session Modes (legacy — superseded by config options) ────────────────────
-+
-+export interface SessionMode {
-+  id: string;
-+  name: string;
-+  description?: string;
-+}
-+
-+export interface SessionModeState {
-+  currentModeId: string;
-+  availableModes: SessionMode[];
-+}
-+
-+export interface SetModeParams {
-+  sessionId: string;
-+  modeId: string;
+ // toolKindFor maps a tool name to the ACP tool kind the host uses to categorize
+ // the call in its UI. The kinds match main's restricted set
+ // (read/edit/search/execute/other). Known v2 built-ins map explicitly; anything
+diff --git a/internal/acp/e2e_test.go b/internal/acp/e2e_test.go
+index c41fe6bf..c3dbc7e9 100644
+--- a/internal/acp/e2e_test.go
++++ b/internal/acp/e2e_test.go
+@@ -95,6 +95,12 @@ func (f *e2eFactory) NewSession(_ context.Context, p SessionParams) (*control.Co
+ 	}), nil
  }
  
-+export interface SetModeResult {
-+  modes: SessionModeState;
++func (f *e2eFactory) ModelRefs() []string { return nil }
++
++func (f *e2eFactory) RebuildController(_ context.Context, p SessionParams, _ string, _ bool, _ []provider.Message) (*control.Controller, error) {
++	return f.NewSession(context.Background(), p)
 +}
 +
-+// ── Content blocks ───────────────────────────────────────────────────────────
+ func toolCallChunk(id, name, args string) provider.Chunk {
+ 	return provider.Chunk{Type: provider.ChunkToolCall, ToolCall: &provider.ToolCall{ID: id, Name: name, Arguments: args}}
+ }
+diff --git a/internal/acp/protocol.go b/internal/acp/protocol.go
+index cbad7b7e..97e7b71c 100644
+--- a/internal/acp/protocol.go
++++ b/internal/acp/protocol.go
+@@ -16,6 +16,7 @@ package acp
+ 
+ import (
+ 	"encoding/json"
++	"fmt"
+ 	"strings"
+ )
+ 
+@@ -63,6 +64,14 @@ type AgentCapabilities struct {
+ 	LoadSession        bool               `json:"loadSession"`
+ 	PromptCapabilities PromptCapabilities `json:"promptCapabilities"`
+ 	MCPCapabilities    MCPCapabilities    `json:"mcpCapabilities"`
++	SessionCapabilities *SessionCapabilities `json:"sessionCapabilities,omitempty"`
++}
 +
- export type ContentBlock =
-   | { type: "text"; text: string }
-   | { type: "resource"; resource: { uri: string; mimeType?: string; text?: string } }
-@@ -73,6 +134,11 @@ export type ContentBlock =
- export interface SessionPromptParams {
-   sessionId: string;
-   prompt: ContentBlock[];
-+  /** 0-indexed user turn to edit. When set, the agent rewinds to that turn
-+   *  (dropping everything after) before processing this prompt. */
-+  _meta?: {
-+    editUserTurnIndex?: number;
-+  };
++// SessionCapabilities advertises optional session management methods.
++type SessionCapabilities struct {
++	Resume struct{} `json:"resume,omitempty"`
++	Close  struct{} `json:"close,omitempty"`
++	List   struct{} `json:"list,omitempty"`
  }
  
- export type StopReason = "end_turn" | "tool_use_complete" | "cancelled" | "error";
-@@ -121,8 +187,99 @@ export type SessionUpdate =
-         priority: "high" | "medium" | "low";
-         status: "pending" | "in_progress" | "completed";
-       }>;
-+    }
-+  | {
-+      sessionUpdate: "config_option_update";
-+      configOptions: SessionConfigOption[];
-+    }
-+  | {
-+      sessionUpdate: "current_mode_update";
-+      modeId: string;
-+    }
-+  | {
-+      sessionUpdate: "user_message_chunk";
-+      content: { type: "text"; text: string };
-+    }
-+  | {
-+      sessionUpdate: "session_info_update";
-+      title?: string | null;
-+      updatedAt?: string | null;
-+      _meta?: Record<string, unknown>;
-+    }
-+  | {
-+      sessionUpdate: "usage_update";
-+      used: number;
-+      size: number;
-+      cost?: { amount: number; currency: string };
-+    }
-+  | {
-+      sessionUpdate: "available_commands_update";
-+      available_commands: Array<{ name: string; description: string }>;
-     };
- 
-+// ── Session load / resume / close / list ────────────────────────────────────
-+
-+export interface SessionLoadParams {
-+  sessionId: string;
-+  cwd: string;
-+  mcpServers: McpServerConfig[];
-+}
-+
-+export interface SessionLoadResult {
-+  configOptions?: SessionConfigOption[];
-+  modes?: SessionModeState;
-+}
-+
-+export interface SessionResumeParams {
-+  sessionId: string;
-+  cwd: string;
-+  mcpServers?: McpServerConfig[];
-+}
-+
-+export interface SessionResumeResult {
-+  configOptions?: SessionConfigOption[];
-+  modes?: SessionModeState;
-+}
-+
-+export interface SessionCloseParams {
-+  sessionId: string;
-+}
-+
-+export type SessionCloseResult = Record<string, never>;
-+
-+export interface SessionDeleteParams {
-+  sessionId: string;
-+}
-+
-+export type SessionDeleteResult = Record<string, never>;
-+
-+export interface McpServerConfig {
-+  name: string;
-+  command?: string;
-+  args?: string[];
-+  env?: Array<{ name: string; value: string }>;
-+}
-+
-+export interface SessionListParams {
-+  cwd?: string;
-+  cursor?: string;
-+}
-+
-+export interface SessionInfo {
-+  sessionId: string;
-+  cwd: string;
-+  title?: string;
-+  updatedAt?: string;
-+  _meta?: Record<string, unknown>;
-+}
-+
-+export interface SessionListResult {
-+  sessions: SessionInfo[];
-+  nextCursor?: string;
-+}
-+
-+// ── Session updates ─────────────────────────────────────────────────────────
-+
- export interface SessionUpdateParams {
-   sessionId: string;
-   update: SessionUpdate;
-diff --git a/src/cli/commands/acp.ts b/src/cli/commands/acp.ts
-index 2bc42ca2..1aa2d37e 100644
---- a/src/cli/commands/acp.ts
-+++ b/src/cli/commands/acp.ts
-@@ -3,7 +3,13 @@
- import { AsyncLocalStorage } from "node:async_hooks";
- import { type WriteStream, existsSync, statSync } from "node:fs";
- import { resolve } from "node:path";
--import { dispatchKernelEvent } from "../../acp/dispatch.js";
-+import {
-+  dispatchAvailableCommands,
-+  dispatchKernelEvent,
-+  dispatchPlanStepCompleted,
-+  dispatchPlanSubmitted,
-+  dispatchSessionInfoUpdate,
-+} from "../../acp/dispatch.js";
- import { requestPermissionForGate } from "../../acp/gates.js";
- import {
-   ACP_PROTOCOL_VERSION,
-@@ -12,11 +18,30 @@ import {
-   type InitializeParams,
-   type InitializeResult,
-   type SessionCancelParams,
-+  type SessionCloseParams,
-+  type SessionCloseResult,
-+  type SessionDeleteParams,
-+  type SessionDeleteResult,
-+  type SessionConfigOption,
-+  type SessionConfigOptionValue,
-+  type SessionInfo,
-+  type SessionListParams,
-+  type SessionListResult,
-+  type SessionLoadParams,
-+  type SessionLoadResult,
-+  type SessionMode,
-+  type SessionModeState,
-   type SessionNewParams,
-   type SessionNewResult,
-   type SessionPromptParams,
-   type SessionPromptResult,
-+  type SessionResumeParams,
-+  type SessionResumeResult,
-   type SessionUpdateParams,
-+  type SetConfigOptionParams,
-+  type SetConfigOptionResult,
-+  type SetModeParams,
-+  type SetModeResult,
-   type StopReason,
-   flattenPrompt,
- } from "../../acp/protocol.js";
-@@ -25,6 +50,10 @@ import { codeSystemPrompt } from "../../code/prompt.js";
- import { buildCodeToolset } from "../../code/setup.js";
- import {
-   DEFAULT_MODEL,
-+  REASONING_EFFORT_VALUES,
-+  SUPPORTED_OFFICIAL_MODELS,
-+  type EditMode,
-+  type ReasoningEffort,
-   bridgeEndpointEnv,
-   loadApiKey,
-   loadEditMode,
-@@ -35,6 +64,13 @@ import {
-   normalizeMcpConfig,
-   readConfig,
- } from "../../config.js";
-+import type { ChatMessage } from "../../types.js";
-+import {
-+  deleteSession,
-+  listSessions,
-+  loadSessionMessages,
-+  normalizeWorkspace,
-+} from "../../memory/session.js";
- import { Eventizer } from "../../core/eventize.js";
- import { pauseGate } from "../../core/pause-gate.js";
- import { autoResolveVerdict } from "../../core/pause-policy.js";
-@@ -51,6 +87,8 @@ import { openTranscriptFile, recordFromLoopEvent, writeRecord } from "../../tran
- import { VERSION } from "../../version.js";
- import { formatMcpLifecycleEvent } from "../ui/mcp-lifecycle.js";
- import { formatMcpSlowToast } from "../ui/mcp-toast.js";
-+import { toolKindFor } from "../../acp/dispatch.js";
-+import type { PlanToolOptions } from "../../tools/plan.js";
- 
- export interface AcpOptions {
-   model?: string;
-@@ -68,6 +106,8 @@ interface Session {
-   id: string;
-   rootDir: string;
-   model: string;
-+  editMode: EditMode;
-+  reasoningEffort: ReasoningEffort;
-   toolset: Awaited<ReturnType<typeof buildCodeToolset>>;
-   mcpClients: McpClient[];
-   loop: CacheFirstLoop;
-@@ -75,9 +115,11 @@ interface Session {
-   ctx: {
-     model: string;
-     prefixHash: string;
--    reasoningEffort: import("../../config.js").ReasoningEffort;
-+    reasoningEffort: ReasoningEffort;
-   };
-   aborter: AbortController | null;
-+  /** Set after session/cancel so the next session/prompt can rewind. */
-+  pendingEdit: boolean;
+ // PromptCapabilities reports which content-block kinds prompts may carry.
+@@ -87,12 +96,39 @@ type SessionNewParams struct {
+ 	MCPServers []MCPServerSpec `json:"mcpServers,omitempty"`
  }
  
- function resolveMcpPrefix(
-@@ -161,9 +203,33 @@ async function buildSession(opts: {
-   mcpSpecs?: string[];
-   mcpPrefix?: string;
-   systemAppend?: string;
-+  /** When set, load this existing session rather than creating a new log. */
-+  sessionName?: string;
-+  /** ACP server for dispatching plan + session-info updates. */
-+  server: AcpServer;
- }): Promise<Session> {
-   const model = opts.modelOverride || loadModel() || DEFAULT_MODEL;
--  const toolset = await buildCodeToolset({ rootDir: opts.rootDir });
-+  const editMode = loadEditMode();
-+  const reasoningEffort = loadReasoningEffort();
++// envMap accepts env as either a JSON object {"KEY":"VALUE"} or a JSON array of
++// "KEY=VALUE" strings (both forms appear in the wild — Claude Code and Zed use
++// different conventions) and normalises both into map[string]string.
++type envMap map[string]string
 +
-+  // Session ID is known early so plan callbacks can reference it.
-+  const sessionName = opts.sessionName ?? `acp-${timestampSuffix()}`;
++func (e *envMap) UnmarshalJSON(b []byte) error {
++	var obj map[string]string
++	if err := json.Unmarshal(b, &obj); err == nil {
++		*e = envMap(obj)
++		return nil
++	}
++	var arr []string
++	if err := json.Unmarshal(b, &arr); err != nil {
++		return fmt.Errorf("env must be a JSON object or an array of KEY=VALUE strings")
++	}
++	m := make(envMap, len(arr))
++	for _, s := range arr {
++		k, v, ok := strings.Cut(s, "=")
++		if !ok {
++			return fmt.Errorf("env array element %q is not in KEY=VALUE format", s)
++		}
++		m[k] = v
++	}
++	*e = m
++	return nil
++}
 +
-+  // Plan callbacks — wired into the tool registry so submit_plan / mark_step_complete
-+  // dispatch ACP session/update notifications for Zed and other ACP clients.
-+  const planCallbacks: PlanToolOptions = {
-+    onPlanSubmitted: (plan, steps) => {
-+      dispatchPlanSubmitted(opts.server, sessionName, plan, steps ?? []);
-+    },
-+    onStepCompleted: (update) => {
-+      dispatchPlanStepCompleted(opts.server, sessionName, update.stepId, update.title);
-+    },
-+  };
-+
-+  const toolset = await buildCodeToolset({
-+    rootDir: opts.rootDir,
-+    planCallbacks,
-+  });
-   // Bridge MCP tools BEFORE building the prefix so their specs make it into the cache key.
-   const mcpClients = await loadMcpServers(
-     toolset.tools,
-@@ -179,19 +245,23 @@ async function buildSession(opts: {
-   const ep = loadEndpoint();
-   const client = new DeepSeekClient({ apiKey: ep.apiKey, baseUrl: ep.baseUrl });
-   const prefix = new ImmutablePrefix({ system, toolSpecs: toolset.tools.specs() });
-+  // Use ACP session ID as the on-disk session name so session/load can map back.
-   const loop = new CacheFirstLoop({
-     client,
-     prefix,
-     tools: toolset.tools,
-     model,
-+    reasoningEffort,
-     budgetUsd: opts.budgetUsd,
-     maxIterPerTurn: loadMaxIterPerTurn(),
--    session: `acp-${timestampSuffix()}`,
-+    session: sessionName,
-   });
-   return {
--    id: `sess_${timestampSuffix()}-${Math.random().toString(36).slice(2, 8)}`,
-+    id: sessionName,
-     rootDir: opts.rootDir,
-     model,
-+    editMode,
-+    reasoningEffort,
-     toolset,
-     mcpClients,
-     loop,
-@@ -199,12 +269,290 @@ async function buildSession(opts: {
-     ctx: {
-       model,
-       prefixHash: prefix.fingerprint,
--      reasoningEffort: loadReasoningEffort(),
-+      reasoningEffort,
-     },
-     aborter: null,
-+    pendingEdit: false,
-   };
+ // MCPServerSpec describes one stdio MCP server the client asks the agent to run.
+ type MCPServerSpec struct {
+-	Name    string            `json:"name"`
+-	Command string            `json:"command,omitempty"`
+-	Args    []string          `json:"args,omitempty"`
+-	Env     map[string]string `json:"env,omitempty"`
++	Name    string   `json:"name"`
++	Command string   `json:"command,omitempty"`
++	Args    []string `json:"args,omitempty"`
++	Env     envMap   `json:"env,omitempty"`
  }
  
-+// ── Config options + legacy modes ────────────────────────────────────────────
-+
-+const EDIT_MODE_LABELS: Record<EditMode, string> = {
-+  review: "Review",
-+  auto: "Auto",
-+  yolo: "YOLO",
-+  plan: "Plan",
-+};
-+
-+const EDIT_MODE_DESCS: Record<EditMode, string> = {
-+  review: "Queue edits + gate shell commands for review",
-+  auto: "Auto-apply edits + gate shell commands",
-+  yolo: "Skip all gates - zero-prompt iteration",
-+  plan: "Block every non-readonly tool; plan only",
-+};
-+
-+const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
-+  low: "Low",
-+  medium: "Medium",
-+  high: "High",
-+  max: "Max",
-+};
-+
-+const REASONING_EFFORT_DESCS: Record<ReasoningEffort, string> = {
-+  low: "Fastest, least reasoning depth",
-+  medium: "Balanced speed and depth",
-+  high: "Deeper reasoning (default)",
-+  max: "Maximum reasoning depth (DeepSeek-only)",
-+};
-+
-+const MODEL_LABELS: Record<string, string> = {
-+  "deepseek-v4-flash": "DeepSeek V4 Flash",
-+  "deepseek-v4-pro": "DeepSeek V4 Pro",
-+};
-+
-+const MODEL_DESCS: Record<string, string> = {
-+  "deepseek-v4-flash": "Fast, cost-effective model",
-+  "deepseek-v4-pro": "Most powerful model with deep reasoning",
-+};
-+
-+function buildConfigOptions(session: Session): SessionConfigOption[] {
-+  const modelOptions: SessionConfigOptionValue[] = SUPPORTED_OFFICIAL_MODELS.map((m) => ({
-+    value: m,
-+    name: MODEL_LABELS[m] ?? m,
-+    description: MODEL_DESCS[m],
-+  }));
-+
-+  const editOptions: SessionConfigOptionValue[] = (
-+    ["review", "auto", "yolo", "plan"] as EditMode[]
-+  ).map((e) => ({
-+    value: e,
-+    name: EDIT_MODE_LABELS[e],
-+    description: EDIT_MODE_DESCS[e],
-+  }));
-+
-+  const effortOptions: SessionConfigOptionValue[] = [
-+    {
-+      value: "off",
-+      name: "Off",
-+      description: "No thinking - fastest responses",
-+    },
-+    ...REASONING_EFFORT_VALUES.map((r) => ({
-+      value: r,
-+      name: REASONING_EFFORT_LABELS[r],
-+      description: REASONING_EFFORT_DESCS[r],
-+    })),
-+  ];
-+
-+  return [
-+    {
-+      id: "model",
-+      name: "Model",
-+      description: "Language model to use for this session",
-+      category: "model",
-+      type: "select",
-+      currentValue: session.model,
-+      options: modelOptions,
-+    },
-+    {
-+      id: "edit_mode",
-+      name: "Edit Mode",
-+      description: "Controls how the agent requests permission before making changes",
-+      category: "mode",
-+      type: "select",
-+      currentValue: session.editMode,
-+      options: editOptions,
-+    },
-+    {
-+      id: "effort",
-+      name: "Reasoning Effort",
-+      description: "Reasoning depth for the model",
-+      category: "thought_level",
-+      type: "select",
-+      currentValue: session.loop.thinking === "disabled" ? "off" : session.reasoningEffort,
-+      options: effortOptions,
-+    },
-+  ];
+ // SessionNewResult returns the opaque id used to address the session thereafter.
+@@ -163,6 +199,15 @@ func FlattenPrompt(blocks []ContentBlock) string {
+ type SessionPromptParams struct {
+ 	SessionID string         `json:"sessionId"`
+ 	Prompt    []ContentBlock `json:"prompt"`
++	Meta      *PromptMeta    `json:"_meta,omitempty"`
 +}
 +
-+function buildModes(session: Session): SessionModeState {
-+  const editModeToModeId: Record<EditMode, string> = {
-+    review: "ask",
-+    auto: "code",
-+    yolo: "code",
-+    plan: "architect",
-+  };
-+
-+  const availableModes: SessionMode[] = [
-+    {
-+      id: "ask",
-+      name: "Ask",
-+      description: "Request permission before making any changes",
-+    },
-+    {
-+      id: "code",
-+      name: "Code",
-+      description: "Write and modify code with full tool access",
-+    },
-+    {
-+      id: "architect",
-+      name: "Architect",
-+      description: "Design and plan software systems without implementation",
-+    },
-+  ];
-+
-+  return {
-+    currentModeId: editModeToModeId[session.editMode],
-+    availableModes,
-+  };
-+}
-+
-+function modeIdToEditMode(modeId: string): EditMode {
-+  switch (modeId) {
-+    case "code":
-+      return "auto";
-+    case "architect":
-+      return "plan";
-+    case "ask":
-+    default:
-+      return "review";
-+  }
-+}
-+
-+function notifyConfigOptions(server: AcpServer, session: Session): void {
-+  server.sendNotification("session/update", {
-+    sessionId: session.id,
-+    update: {
-+      sessionUpdate: "config_option_update",
-+      configOptions: buildConfigOptions(session),
-+    },
-+  } satisfies SessionUpdateParams);
-+}
-+
-+function notifyModeChange(server: AcpServer, session: Session): void {
-+  const modes = buildModes(session);
-+  server.sendNotification("session/update", {
-+    sessionId: session.id,
-+    update: {
-+      sessionUpdate: "current_mode_update",
-+      modeId: modes.currentModeId,
-+    },
-+  } satisfies SessionUpdateParams);
-+}
-+
-+// ── Usage tracking ───────────────────────// ── History replay (for session/load) ────────────────────────────────────────
-+
-+function getToolKind(name: string): "read" | "edit" | "search" | "execute" | "other" {
-+  return toolKindFor(name);
-+}
-+
-+/** Replay loaded session messages as ACP session/update notifications. */
-+function replayHistory(server: AcpServer, sessionId: string, messages: readonly ChatMessage[]): void {
-+  for (const msg of messages) {
-+    if (msg.role === "user") {
-+      const text = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
-+      if (text) {
-+        server.sendNotification("session/update", {
-+          sessionId,
-+          update: {
-+            sessionUpdate: "user_message_chunk",
-+            content: { type: "text", text },
-+          },
-+        } satisfies SessionUpdateParams);
-+      }
-+    } else if (msg.role === "assistant") {
-+      if (msg.reasoning_content) {
-+        server.sendNotification("session/update", {
-+          sessionId,
-+          update: {
-+            sessionUpdate: "agent_thought_chunk",
-+            content: { type: "text", text: msg.reasoning_content },
-+          },
-+        } satisfies SessionUpdateParams);
-+      }
-+      if (msg.content) {
-+        server.sendNotification("session/update", {
-+          sessionId,
-+          update: {
-+            sessionUpdate: "agent_message_chunk",
-+            content: { type: "text", text: msg.content },
-+          },
-+        } satisfies SessionUpdateParams);
-+      }
-+      for (const tc of msg.tool_calls ?? []) {
-+        const callId = tc.id ?? `call_${Math.random().toString(36).slice(2, 8)}`;
-+        server.sendNotification("session/update", {
-+          sessionId,
-+          update: {
-+            sessionUpdate: "tool_call",
-+            toolCallId: callId,
-+            title: tc.function?.name ?? "tool",
-+            kind: getToolKind(tc.function?.name ?? ""),
-+            status: "completed",
-+            rawInput: tc.function?.arguments
-+              ? tryParseJsonForReplay(tc.function.arguments)
-+              : undefined,
-+          },
-+        } satisfies SessionUpdateParams);
-+      }
-+    } else if (msg.role === "tool") {
-+      server.sendNotification("session/update", {
-+        sessionId,
-+        update: {
-+          sessionUpdate: "tool_call_update",
-+          toolCallId: msg.tool_call_id ?? "unknown",
-+          status: "completed",
-+          content: [
-+            {
-+              type: "content",
-+              content: {
-+                type: "text",
-+                text: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
-+              },
-+            },
-+          ],
-+        },
-+      } satisfies SessionUpdateParams);
-+    }
-+  }
-+}
-+
-+function tryParseJsonForReplay(raw: string): unknown {
-+  try {
-+    return JSON.parse(raw);
-+  } catch {
-+    return raw;
-+  }
-+}
-+
-+// ── Edit detection ──────────────────────────────────────────────────────────
-+
-+/** If `text` matches a previous user message in the log, rewind to that turn.
-+ *  This keeps the agent's context in sync when the client (Zed, etc.) edits a
-+ *  prior message without an explicit ACP edit mechanism. */
-+function detectAndRewindEdit(loop: CacheFirstLoop, text: string): void {
-+  if (loop.log.totalLength === 0) return;
-+  const entries = loop.log.toFullHistory();
-+  // Search backward so a repeated message matches the *latest* occurrence.
-+  for (let i = entries.length - 1; i >= 0; i--) {
-+    const msg = entries[i];
-+    if (msg?.role !== "user") continue;
-+    const content = typeof msg.content === "string" ? msg.content : "";
-+    if (content === text) {
-+      // Count user turns up to (and including) this index.
-+      let userTurns = 0;
-+      for (let j = 0; j <= i; j++) {
-+        if (entries[j]?.role === "user") userTurns++;
-+      }
-+      // rewindToUserTurn is 0-indexed; drops this turn + everything after.
-+      loop.rewindToUserTurn(userTurns - 1);
-+      return;
-+    }
-+  }
-+}
-+
-+// ── Main entry ───────────────────────────────────────────────────────────────
-+
- export async function acpCommand(opts: AcpOptions): Promise<void> {
-   loadDotenv();
-   bridgeEndpointEnv();
-@@ -226,19 +574,20 @@ export async function acpCommand(opts: AcpOptions): Promise<void> {
-   }
- 
-   pauseGate.on((req) => {
--    const editMode = opts.yolo ? "yolo" : loadEditMode();
-+    const activeSessionId = sessionContext.getStore();
-+    const session = activeSessionId ? sessions.get(activeSessionId) : undefined;
-+    const editMode = opts.yolo ? "yolo" : session?.editMode ?? loadEditMode();
-     const auto = autoResolveVerdict(req, editMode);
-     if (auto !== null) {
-       pauseGate.resolve(req.id, auto);
-       return;
-     }
--    const activeSessionId = sessionContext.getStore();
--    if (!activeSessionId || !sessions.has(activeSessionId)) {
-+    if (!session) {
-       pauseGate.cancel(req.id);
-       return;
-     }
-     void (async () => {
--      const verdict = await requestPermissionForGate(server, activeSessionId, req);
-+      const verdict = await requestPermissionForGate(server, activeSessionId!, req);
-       pauseGate.resolve(req.id, verdict);
-     })();
-   });
-@@ -250,9 +599,10 @@ export async function acpCommand(opts: AcpOptions): Promise<void> {
-     return {
-       protocolVersion: ACP_PROTOCOL_VERSION,
-       agentCapabilities: {
--        loadSession: false,
-+        loadSession: true,
-         promptCapabilities: { image: false, audio: false, embeddedContext: true },
-         mcpCapabilities: { http: false, sse: false },
-+        sessionCapabilities: { resume: {}, close: {}, list: {} },
-       },
-       agentInfo: { name: "reasonix", title: "Reasonix", version: VERSION },
-       authMethods: [],
-@@ -268,9 +618,289 @@ export async function acpCommand(opts: AcpOptions): Promise<void> {
-       mcpSpecs: opts.mcpSpecs,
-       mcpPrefix: opts.mcpPrefix,
-       systemAppend: process.env.REASONIX_ACP_SYSTEM_APPEND || undefined,
-+      server,
-+    });
-+    sessions.set(session.id, session);
-+    // Advertise available slash commands so the ACP client can render them.
-+    dispatchAvailableCommands(server, session.id);
-+    dispatchSessionInfoUpdate(server, session.id, { updatedAt: new Date().toISOString() });
-+    return {
-+      sessionId: session.id,
-+      configOptions: buildConfigOptions(session),
-+      modes: buildModes(session),
-+    };
-+  });
-+
-+  server.onRequest<SetConfigOptionParams, SetConfigOptionResult>(
-+    "session/set_config_option",
-+    async (params) => {
-+      if (!params?.sessionId || !params?.configId || params.value === undefined) {
-+        throw Object.assign(
-+          new Error("session/set_config_option: missing sessionId, configId, or value"),
-+          { code: ERR_INVALID_PARAMS },
-+        );
-+      }
-+      const session = sessions.get(params.sessionId);
-+      if (!session) {
-+        throw Object.assign(
-+          new Error(`session/set_config_option: unknown session ${params.sessionId}`),
-+          { code: ERR_INVALID_PARAMS },
-+        );
-+      }
-+      switch (params.configId) {
-+        case "model": {
-+          const valid = SUPPORTED_OFFICIAL_MODELS as readonly string[];
-+          if (!valid.includes(params.value)) {
-+            throw Object.assign(
-+              new Error(`session/set_config_option: unknown model "${params.value}"`),
-+              { code: ERR_INVALID_PARAMS },
-+            );
-+          }
-+          session.model = params.value;
-+          session.ctx.model = params.value;
-+          session.loop.configure({ model: params.value });
-+          break;
-+        }
-+        case "edit_mode": {
-+          const valid = new Set<EditMode>(["review", "auto", "yolo", "plan"]);
-+          if (!valid.has(params.value as EditMode)) {
-+            throw Object.assign(
-+              new Error(`session/set_config_option: unknown edit mode "${params.value}"`),
-+              { code: ERR_INVALID_PARAMS },
-+            );
-+          }
-+          session.editMode = params.value as EditMode;
-+          break;
-+        }
-+        case "effort": {
-+          if (params.value === "off") {
-+            session.loop.configure({ thinking: "disabled" });
-+          } else if (REASONING_EFFORT_VALUES.includes(params.value as ReasoningEffort)) {
-+            session.reasoningEffort = params.value as ReasoningEffort;
-+            session.ctx.reasoningEffort = params.value as ReasoningEffort;
-+            session.loop.configure({
-+              reasoningEffort: params.value as ReasoningEffort,
-+              thinking: "enabled",
-+            });
-+          } else {
-+            throw Object.assign(
-+              new Error(
-+                `session/set_config_option: unknown reasoning effort "${params.value}"`,
-+              ),
-+              { code: ERR_INVALID_PARAMS },
-+            );
-+          }
-+          break;
-+        }
-+        default:
-+          throw Object.assign(
-+            new Error(`session/set_config_option: unknown config id "${params.configId}"`),
-+            { code: ERR_INVALID_PARAMS },
-+          );
-+      }
-+      // Notify client of the full updated config + mode state.
-+      notifyConfigOptions(server, session);
-+      notifyModeChange(server, session);
-+      return { configOptions: buildConfigOptions(session) };
-+    },
-+  );
-+
-+  server.onRequest<SetModeParams, SetModeResult>("session/set_mode", async (params) => {
-+    if (!params?.sessionId || !params?.modeId) {
-+      throw Object.assign(new Error("session/set_mode: missing sessionId or modeId"), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    const session = sessions.get(params.sessionId);
-+    if (!session) {
-+      throw Object.assign(
-+        new Error(`session/set_mode: unknown session ${params.sessionId}`),
-+        { code: ERR_INVALID_PARAMS },
-+      );
-+    }
-+    const editMode = modeIdToEditMode(params.modeId);
-+    session.editMode = editMode;
-+    // Keep config options and modes in sync.
-+    notifyConfigOptions(server, session);
-+    notifyModeChange(server, session);
-+    return { modes: buildModes(session) };
-+  });
-+
-+  // sessions/set_model is a legacy ACP method (pre-config-options). Zed sends
-+  // this when the user picks a model from the model selector. Delegate to
-+  // set_config_option with configId="model" for unified handling.
-+  server.onRequest("sessions/set_model", async (params: unknown) => {
-+    const p = params as { sessionId?: string; modelId?: string } | undefined;
-+    if (!p?.sessionId || !p?.modelId) {
-+      throw Object.assign(new Error("sessions/set_model: missing sessionId or modelId"), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    const session = sessions.get(p.sessionId);
-+    if (!session) {
-+      throw Object.assign(new Error(`sessions/set_model: unknown session ${p.sessionId}`), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    const valid = SUPPORTED_OFFICIAL_MODELS as readonly string[];
-+    if (!valid.includes(p.modelId)) {
-+      throw Object.assign(new Error(`sessions/set_model: unknown model "${p.modelId}"`), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    session.model = p.modelId;
-+    session.ctx.model = p.modelId;
-+    session.loop.configure({ model: p.modelId });
-+    notifyConfigOptions(server, session);
-+    notifyModeChange(server, session);
-+    return {};
-+  });
-+
-+  server.onRequest<SessionLoadParams, SessionLoadResult>("session/load", async (params) => {
-+    if (!params?.sessionId || !params?.cwd) {
-+      throw Object.assign(new Error("session/load: missing sessionId or cwd"), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    // sessionId IS the on-disk session name (unified in buildSession).
-+    const sessionName = params.sessionId;
-+    const messages = loadSessionMessages(sessionName);
-+    if (messages.length === 0) {
-+      throw Object.assign(new Error(`session/load: session not found: ${sessionName}`), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    const rootDir = resolveDir(params.cwd, defaultDir);
-+    const session = await buildSession({
-+      rootDir,
-+      modelOverride: opts.model,
-+      budgetUsd: opts.budgetUsd,
-+      mcpSpecs: opts.mcpSpecs,
-+      mcpPrefix: opts.mcpPrefix,
-+      systemAppend: process.env.REASONIX_ACP_SYSTEM_APPEND || undefined,
-+      sessionName,
-+      server,
-     });
-     sessions.set(session.id, session);
--    return { sessionId: session.id };
-+    // Advertise available slash commands.
-+    dispatchAvailableCommands(server, session.id);
-+    dispatchSessionInfoUpdate(server, session.id, { updatedAt: new Date().toISOString() });
-+    // Replay history — loaded messages include user + assistant + tool turns.
-+    replayHistory(server, session.id, messages);
-+    // Send config + mode state.
-+    notifyConfigOptions(server, session);
-+    notifyModeChange(server, session);
-+    return {
-+      configOptions: buildConfigOptions(session),
-+      modes: buildModes(session),
-+    };
-+  });
-+
-+  server.onRequest<SessionResumeParams, SessionResumeResult>(
-+    "session/resume",
-+    async (params) => {
-+      if (!params?.sessionId || !params?.cwd) {
-+        throw Object.assign(new Error("session/resume: missing sessionId or cwd"), {
-+          code: ERR_INVALID_PARAMS,
-+        });
-+      }
-+      const sessionName = params.sessionId;
-+      const messages = loadSessionMessages(sessionName);
-+      if (messages.length === 0) {
-+        throw Object.assign(new Error(`session/resume: session not found: ${sessionName}`), {
-+          code: ERR_INVALID_PARAMS,
-+        });
-+      }
-+      const rootDir = resolveDir(params.cwd, defaultDir);
-+      const session = await buildSession({
-+        rootDir,
-+        modelOverride: opts.model,
-+        budgetUsd: opts.budgetUsd,
-+        mcpSpecs: opts.mcpSpecs,
-+        mcpPrefix: opts.mcpPrefix,
-+        systemAppend: process.env.REASONIX_ACP_SYSTEM_APPEND || undefined,
-+        sessionName,
-+        server,
-+      });
-+      sessions.set(session.id, session);
-+      // Advertise available slash commands.
-+      dispatchAvailableCommands(server, session.id);
-+      dispatchSessionInfoUpdate(server, session.id, { updatedAt: new Date().toISOString() });
-+      // No history replay — just restore config + mode state.
-+      notifyConfigOptions(server, session);
-+      notifyModeChange(server, session);
-+      return {
-+        configOptions: buildConfigOptions(session),
-+        modes: buildModes(session),
-+      };
-+    },
-+  );
-+
-+  server.onRequest<SessionCloseParams, SessionCloseResult>("session/close", async (params) => {
-+    if (!params?.sessionId) {
-+      throw Object.assign(new Error("session/close: missing sessionId"), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    const session = sessions.get(params.sessionId);
-+    if (!session) {
-+      throw Object.assign(new Error(`session/close: unknown session ${params.sessionId}`), {
-+        code: ERR_INVALID_PARAMS,
-+      });
-+    }
-+    // Cancel in-flight work.
-+    session.aborter?.abort();
-+    // Close MCP clients.
-+    await Promise.all(session.mcpClients.map((c) => c.close().catch(() => undefined)));
-+    sessions.delete(params.sessionId);
-+    return {};
-+  });
-+
-+  server.onRequest<SessionDeleteParams, SessionDeleteResult>(
-+    "session/delete",
-+    async (params) => {
-+      if (!params?.sessionId) {
-+        throw Object.assign(new Error("session/delete: missing sessionId"), {
-+          code: ERR_INVALID_PARAMS,
-+        });
-+      }
-+      // Clean up live session if it's currently loaded.
-+      const live = sessions.get(params.sessionId);
-+      if (live) {
-+        live.aborter?.abort();
-+        await Promise.all(live.mcpClients.map((c) => c.close().catch(() => undefined)));
-+        sessions.delete(params.sessionId);
-+      }
-+      // Delete the on-disk session files.
-+      deleteSession(params.sessionId);
-+      return {};
-+    },
-+  );
-+
-+  server.onRequest<SessionListParams, SessionListResult>("session/list", async (params) => {
-+    const wantCwd = params?.cwd ? normalizeWorkspace(params.cwd) : null;
-+    const all = listSessions();
-+    const filtered = wantCwd
-+      ? all.filter((s) => {
-+          const meta = s.meta as SessionMeta;
-+          if (typeof meta.workspace === "string") {
-+            return normalizeWorkspace(meta.workspace) === wantCwd;
-+          }
-+          return false;
-+        })
-+      : all;
-+    const sessions_out: SessionInfo[] = filtered.map((s) => ({
-+      sessionId: s.name,
-+      cwd: s.meta.workspace ?? "",
-+      title: s.meta.summary,
-+      updatedAt: s.mtime.toISOString(),
-+      _meta: {
-+        messageCount: s.messageCount,
-+        turnCount: s.meta.turnCount,
-+        totalCostUsd: s.meta.totalCostUsd,
-+      },
-+    }));
-+    return { sessions: sessions_out };
-   });
- 
-   server.onRequest<SessionPromptParams, SessionPromptResult>("session/prompt", async (params) => {
-@@ -289,6 +919,42 @@ export async function acpCommand(opts: AcpOptions): Promise<void> {
-     if (!text) {
-       throw Object.assign(new Error("session/prompt: empty prompt"), { code: ERR_INVALID_PARAMS });
-     }
-+    // Auto-detect edits so the agent's context matches what the client shows.
-+    const editIndex = params?._meta?.editUserTurnIndex;
-+    if (typeof editIndex === "number" && editIndex >= 0) {
-+      // Explicit edit: client tells us exactly which user turn to replace.
-+      session.loop.rewindToUserTurn(editIndex);
-+    } else if (session.pendingEdit) {
-+      // Cancel-then-edit pattern: after session/cancel, the next prompt is an
-+      // edit of the most recent user turn. Rewind to that turn.
-+      session.pendingEdit = false;
-+      const entries = session.loop.log.toFullHistory();
-+      let lastUserTurn = -1;
-+      for (let i = entries.length - 1; i >= 0; i--) {
-+        if (entries[i]?.role === "user") {
-+          let userTurns = 0;
-+          for (let j = 0; j <= i; j++) {
-+            if (entries[j]?.role === "user") userTurns++;
-+          }
-+          lastUserTurn = userTurns - 1;
-+          break;
-+        }
-+      }
-+      if (lastUserTurn >= 0) {
-+        session.loop.rewindToUserTurn(lastUserTurn);
-+      }
-+    } else {
-+      // Retry detection: exact text match against a prior user message.
-+      detectAndRewindEdit(session.loop, text);
-+    }
-+    // Echo the user message back so the ACP client shows it immediately.
-+    server.sendNotification("session/update", {
-+      sessionId: session.id,
-+      update: {
-+        sessionUpdate: "user_message_chunk",
-+        content: { type: "text", text },
-+      },
-+    } satisfies SessionUpdateParams);
-     session.aborter = new AbortController();
-     let stopReason: StopReason = "end_turn";
-     try {
-@@ -343,7 +1009,11 @@ export async function acpCommand(opts: AcpOptions): Promise<void> {
- 
-   server.onNotification<SessionCancelParams>("session/cancel", (params) => {
-     const session = params?.sessionId ? sessions.get(params.sessionId) : undefined;
--    session?.aborter?.abort();
-+    if (session) {
-+      session.aborter?.abort();
-+      // Flag the session so the next session/prompt rewinds before processing.
-+      session.pendingEdit = true;
-+    }
-   });
- 
-   try {
-diff --git a/src/code/setup.ts b/src/code/setup.ts
-index 3ed35102..a9229267 100644
---- a/src/code/setup.ts
-+++ b/src/code/setup.ts
-@@ -21,7 +21,7 @@ import { registerFilesystemTools } from "../tools/filesystem.js";
- import { registerJavaSourceTool } from "../tools/java-source.js";
- import { JobRegistry } from "../tools/jobs.js";
- import { registerMemoryTools } from "../tools/memory.js";
--import { registerPlanTool } from "../tools/plan.js";
-+import { type PlanToolOptions, registerPlanTool } from "../tools/plan.js";
- import { registerScaffoldTools } from "../tools/scaffold.js";
- import { registerShellTools } from "../tools/shell.js";
- import { type SkillInstalledHook, registerSkillTools } from "../tools/skills.js";
-@@ -44,6 +44,8 @@ export interface CodeToolsetOpts {
-   onJobsChanged?: () => void;
-   /** Shared `{current: callback}` sink the TUI populates after mount. Setup forwards it into every `spawnSubagent` so live progress events reach the rich subagent row even though setup runs before the UI does. */
-   subagentSink?: SubagentSink;
-+  /** Plan tool callbacks — wired by ACP to dispatch plan session/update notifications. */
-+  planCallbacks?: PlanToolOptions;
++// PromptMeta carries optional directives for session/prompt.
++type PromptMeta struct {
++	// EditUserTurnIndex, when set, rewinds the session to that 0-indexed user
++	// turn (dropping everything after) before processing this prompt — used by
++	// ACP clients for "retry/edit last message".
++	EditUserTurnIndex *int `json:"editUserTurnIndex,omitempty"`
  }
  
- export interface CodeToolset {
-@@ -97,7 +99,7 @@ export async function buildCodeToolset(opts: CodeToolsetOpts): Promise<CodeTools
-   };
- 
-   registerRooted(opts.rootDir);
--  registerPlanTool(tools);
-+  registerPlanTool(tools, opts.planCallbacks);
-   registerChoiceTool(tools);
-   registerTodoTool(tools);
-   registerScaffoldTools(tools, { projectRoot: opts.rootDir });
-diff --git a/src/loop.ts b/src/loop.ts
-index 3668edf5..7860274f 100644
---- a/src/loop.ts
-+++ b/src/loop.ts
-@@ -117,6 +117,8 @@ export interface CacheFirstLoopOptions {
-   confirmationGate?: PauseGate;
-   /** Re-runs the prompt builder (applyMemoryStack / codeSystemPrompt) on /new so REASONIX.md edits take effect without a restart. Accepting a cache miss is the price. */
-   rebuildSystem?: () => string;
-+  /** Override auto-detected thinking mode. Undefined = auto-detect from model. */
-+  thinking?: "enabled" | "disabled";
+ // StopReason tells the client why a turn ended. Values match main's wire.
+@@ -230,6 +275,51 @@ type toolCallUpdateMsg struct {
+ 	Content       []toolContent `json:"content,omitempty"`
  }
  
- export interface ReconfigurableOptions {
-@@ -126,6 +128,8 @@ export interface ReconfigurableOptions {
-   reasoningEffort?: ReasoningEffort;
-   /** Per-turn output token cap. Pass null to clear. */
-   maxOutputTokens?: number | null;
-+  /** Override auto-detected thinking mode. Pass undefined to revert to auto-detect. */
-+  thinking?: "enabled" | "disabled" | undefined;
++// planUpdate is a "plan" session update — dispatched when a plan is submitted or
++// a step completes, so ACP clients can render plan progress.
++type planUpdate struct {
++	SessionUpdate string      `json:"sessionUpdate"`
++	Entries       []planEntry `json:"entries"`
++}
++
++type planEntry struct {
++	Content  string `json:"content"`
++	Priority string `json:"priority"`
++	Status   string `json:"status"`
++}
++
++// usageUpdate is a "usage_update" session update — dispatched after each model
++// turn so the client can show token consumption and cost.
++type usageUpdate struct {
++	SessionUpdate string       `json:"sessionUpdate"`
++	Used          int          `json:"used"`
++	Size          int          `json:"size"`
++	Cost          *usageCost   `json:"cost,omitempty"`
++}
++
++type usageCost struct {
++	Amount   float64 `json:"amount"`
++	Currency string  `json:"currency"`
++}
++
++// availableCommandsUpdate is an "available_commands_update" session update.
++type availableCommandsUpdate struct {
++	SessionUpdate     string            `json:"sessionUpdate"`
++	AvailableCommands []availableCommand `json:"available_commands"`
++}
++
++type availableCommand struct {
++	Name        string `json:"name"`
++	Description string `json:"description"`
++}
++
++// sessionInfoUpdate is a "session_info_update" session update.
++type sessionInfoUpdate struct {
++	SessionUpdate string  `json:"sessionUpdate"`
++	Title         *string `json:"title,omitempty"`
++	UpdatedAt     *string `json:"updatedAt,omitempty"`
++}
++
+ // toolContent wraps a tool result's text, per the ACP tool_call_update shape.
+ type toolContent struct {
+ 	Type    string       `json:"type"`
+@@ -288,3 +378,115 @@ type PermissionOutcome struct {
+ 	Outcome  string `json:"outcome"`
+ 	OptionID string `json:"optionId,omitempty"`
+ }
++
++// ── Session config options ──────────────────────────────────────────────
++
++// SessionConfigOption describes one configurable setting for a session.
++type SessionConfigOption struct {
++	ID           string                     `json:"id"`
++	Name         string                     `json:"name"`
++	Description  string                     `json:"description,omitempty"`
++	Category     string                     `json:"category,omitempty"`
++	Type         string                     `json:"type"`
++	CurrentValue string                     `json:"currentValue"`
++	Options      []SessionConfigOptionValue `json:"options"`
++}
++
++// SessionConfigOptionValue is one choice for a config option.
++type SessionConfigOptionValue struct {
++	Value       string `json:"value"`
++	Name        string `json:"name"`
++	Description string `json:"description,omitempty"`
++}
++
++// SetConfigOptionParams sets a config option for a session.
++type SetConfigOptionParams struct {
++	SessionID string `json:"sessionId"`
++	ConfigID  string `json:"configId"`
++	Value     string `json:"value"`
++}
++
++// SetConfigOptionResult returns the updated config options after a change.
++type SetConfigOptionResult struct {
++	ConfigOptions []SessionConfigOption `json:"configOptions"`
++}
++
++// ── Session modes (legacy — superseded by config options) ─────────────
++
++// SessionMode describes one mode for legacy clients.
++type SessionMode struct {
++	ID          string `json:"id"`
++	Name        string `json:"name"`
++	Description string `json:"description,omitempty"`
++}
++
++// SessionModeState is the current mode state for a session.
++type SessionModeState struct {
++	CurrentModeID  string         `json:"currentModeId"`
++	AvailableModes []SessionMode `json:"availableModes"`
++}
++
++// SetModeParams sets a session mode (legacy).
++type SetModeParams struct {
++	SessionID string `json:"sessionId"`
++	ModeID    string `json:"modeId"`
++}
++
++// SetModeResult returns the updated mode state.
++type SetModeResult struct {
++	Modes SessionModeState `json:"modes"`
++}
++
++// ── Session management (close / delete / list / resume) ───────────────
++
++// SessionCloseParams closes a session.
++type SessionCloseParams struct {
++	SessionID string `json:"sessionId"`
++}
++
++// SessionCloseResult is the empty ack for a close.
++type SessionCloseResult struct{}
++
++// SessionResumeParams resumes a closed session (replays history).
++type SessionResumeParams struct {
++	SessionID  string          `json:"sessionId"`
++	Cwd        string          `json:"cwd,omitempty"`
++	MCPServers []MCPServerSpec `json:"mcpServers,omitempty"`
++}
++
++// SessionResumeResult is the empty ack.
++type SessionResumeResult struct{}
++
++// SessionListParams lists sessions for a workspace.
++type SessionListParams struct {
++	Cwd    string `json:"cwd,omitempty"`
++	Cursor string `json:"cursor,omitempty"`
++}
++
++// SessionInfo describes one session in a list.
++type SessionInfo struct {
++	SessionID string  `json:"sessionId"`
++	Cwd       string  `json:"cwd"`
++	Title     *string `json:"title,omitempty"`
++	UpdatedAt *string `json:"updatedAt,omitempty"`
++}
++
++// SessionListResult returns a page of sessions.
++type SessionListResult struct {
++	Sessions   []SessionInfo `json:"sessions"`
++	NextCursor *string       `json:"nextCursor,omitempty"`
++}
++
++// ── Config / mode update notifications ────────────────────────────────
++
++// configOptionUpdate is a "config_option_update" session update.
++type configOptionUpdate struct {
++	SessionUpdate string               `json:"sessionUpdate"`
++	ConfigOptions []SessionConfigOption `json:"configOptions"`
++}
++
++// currentModeUpdate is a "current_mode_update" session update.
++type currentModeUpdate struct {
++	SessionUpdate string `json:"sessionUpdate"`
++	ModeID        string `json:"modeId"`
++}
+diff --git a/internal/acp/server_test.go b/internal/acp/server_test.go
+index ada81d00..ca339b33 100644
+--- a/internal/acp/server_test.go
++++ b/internal/acp/server_test.go
+@@ -10,6 +10,7 @@ import (
+ 
+ 	"reasonix/internal/control"
+ 	"reasonix/internal/event"
++	"reasonix/internal/provider"
+ )
+ 
+ // --- fakes: a Factory wrapping a behavior-driven runner in a real Controller ---
+@@ -36,6 +37,12 @@ func (f *fakeFactory) NewSession(_ context.Context, p SessionParams) (*control.C
+ 	return control.New(control.Options{Runner: runner, Sink: p.Sink}), nil
  }
  
- export interface LoopAbortOptions {
-@@ -170,6 +174,8 @@ export class CacheFirstLoop {
-   stream: boolean;
-   reasoningEffort: ReasoningEffort;
-   maxOutputTokens: number | undefined;
-+  /** Override auto-detected thinking mode. Undefined = auto-detect from model. */
-+  thinking: "enabled" | "disabled" | undefined;
-   budgetUsd: number | null;
-   /** Maximum tool-call iterations per turn. Config > env > default (50). */
-   maxIterPerTurn: number;
-@@ -242,6 +248,7 @@ export class CacheFirstLoop {
-     });
-     this.model = opts.model ?? "deepseek-v4-flash";
-     this.reasoningEffort = opts.reasoningEffort ?? "high";
-+    this.thinking = opts.thinking;
-     this.maxOutputTokens = opts.maxOutputTokens;
-     this.budgetUsd =
-       typeof opts.budgetUsd === "number" && opts.budgetUsd > 0 ? opts.budgetUsd : null;
-@@ -447,6 +454,9 @@ export class CacheFirstLoop {
-     if (opts.maxOutputTokens !== undefined) {
-       this.maxOutputTokens = opts.maxOutputTokens ?? undefined;
-     }
-+    if (opts.thinking !== undefined) {
-+      this.thinking = opts.thinking;
-+    }
-   }
++func (f *fakeFactory) ModelRefs() []string { return nil }
++
++func (f *fakeFactory) RebuildController(_ context.Context, p SessionParams, _ string, _ bool, _ []provider.Message) (*control.Controller, error) {
++	return f.NewSession(context.Background(), p)
++}
++
+ // --- a minimal JSON-RPC client over the wire, for integration tests ---
  
-   /** `null` disables the cap; any change re-arms the 80% warning. */
-@@ -960,6 +970,7 @@ export class CacheFirstLoop {
-             reasoningEffort: this.reasoningEffort,
-             maxTokens: this.maxOutputTokens,
-             turn: this._turn,
-+            thinking: this.thinking,
-           });
-           assistantContent = result.assistantContent;
-           reasoningContent = result.reasoningContent;
-@@ -971,7 +982,7 @@ export class CacheFirstLoop {
-             messages,
-             tools: toolSpecs.length ? toolSpecs : undefined,
-             signal,
--            thinking: thinkingModeForModel(callModel),
-+            thinking: this.thinking ?? thinkingModeForModel(callModel),
-             reasoningEffort: this.reasoningEffort,
-             maxTokens: this.maxOutputTokens,
-           });
-diff --git a/src/loop/streaming.ts b/src/loop/streaming.ts
-index a8190453..b518709e 100644
---- a/src/loop/streaming.ts
-+++ b/src/loop/streaming.ts
-@@ -14,6 +14,8 @@ export interface StreamModelOptions {
-   reasoningEffort: ReasoningEffort;
-   maxTokens?: number;
-   turn: number;
-+  /** Override auto-detected thinking mode. Undefined = auto-detect. */
-+  thinking?: "enabled" | "disabled";
+ type frame struct {
+diff --git a/internal/acp/service.go b/internal/acp/service.go
+index 95d5ba19..601adff8 100644
+--- a/internal/acp/service.go
++++ b/internal/acp/service.go
+@@ -7,12 +7,14 @@ import (
+ 	"fmt"
+ 	"io"
+ 	"path/filepath"
++	"strings"
+ 	"sync"
+ 
+ 	"reasonix/internal/agent"
+ 	"reasonix/internal/control"
+ 	"reasonix/internal/event"
+ 	"reasonix/internal/plugin"
++	"reasonix/internal/provider"
+ )
+ 
+ // SessionParams is everything a Factory needs to assemble one ACP session's
+@@ -38,8 +40,17 @@ type SessionParams struct {
+ // per-session MCP host from MCPServers, the event Sink, all wired into a
+ // control.Controller. The returned controller owns its own cleanup (Close stops
+ // MCP subprocesses), so the service calls ctrl.Close() on teardown.
++//
++// ModelRefs returns every available provider/model string for surfacing as
++// config options to the ACP client (Zed, etc.).
++//
++// RebuildController builds a new controller for a different model ref, carrying
++// the supplied conversation history across — used when config/set changes the
++// model mid-session.
+ type Factory interface {
+ 	NewSession(ctx context.Context, p SessionParams) (*control.Controller, error)
++	ModelRefs() []string
++	RebuildController(ctx context.Context, p SessionParams, modelRef string, enableThinking bool, history []provider.Message) (*control.Controller, error)
  }
  
- export interface StreamModelResult {
-@@ -26,7 +28,7 @@ export interface StreamModelResult {
- export async function* streamModelResponse(
-   opts: StreamModelOptions,
- ): AsyncGenerator<LoopEvent, StreamModelResult, void> {
--  const { client, model, messages, toolSpecs, signal, reasoningEffort, maxTokens, turn } = opts;
-+  const { client, model, messages, toolSpecs, signal, reasoningEffort, maxTokens, turn, thinking } = opts;
-   let assistantContent = "";
-   let reasoningContent = "";
-   let usage: Usage | null = null;
-@@ -38,7 +40,7 @@ export async function* streamModelResponse(
-     messages,
-     tools: toolSpecs.length ? toolSpecs : undefined,
-     signal,
--    thinking: thinkingModeForModel(model),
-+    thinking: thinking ?? thinkingModeForModel(model),
-     reasoningEffort,
-     maxTokens,
-   })) {
+ // AgentInfo identifies this agent to clients in the initialize reply.
+@@ -67,6 +78,10 @@ func Serve(ctx context.Context, r io.Reader, w io.Writer, factory Factory, info
+ 	conn.Handle("session/new", svc.sessionNew)
+ 	conn.Handle("session/load", svc.sessionLoad)
+ 	conn.Handle("session/prompt", svc.sessionPrompt)
++	conn.Handle("session/close", svc.sessionClose)
++	conn.Handle("session/list", svc.sessionList)
++	conn.Handle("config/set", svc.configSet)
++	conn.Handle("mode/set", svc.modeSet)
+ 	conn.HandleNotify("session/cancel", svc.sessionCancel)
+ 	defer svc.closeAll()
+ 	return conn.Serve(ctx)
+@@ -84,12 +99,17 @@ type service struct {
+ }
+ 
+ // acpSession is one open session: its controller, the on-disk transcript path
+-// (empty when persistence is off), and the cancel func of the in-flight turn
+-// (nil when idle) so session/cancel can abort it.
++// (empty when persistence is off), the cancel func of the in-flight turn (nil
++// when idle), the cwd it was opened at, its original creation params (needed
++// to rebuild the controller on config changes), and the current thinking-mode
++// flag for the next rebuild.
+ type acpSession struct {
+ 	id         string
+ 	ctrl       *control.Controller
+ 	transcript string
++	cwd        string
++	params     SessionParams // kept for controller rebuilds
++	thinking   bool          // thinking/reasoning mode
+ 
+ 	mu     sync.Mutex
+ 	cancel context.CancelFunc
+@@ -125,6 +145,10 @@ func (s *service) initialize(_ context.Context, _ json.RawMessage) (any, error)
+ 				EmbeddedContext: true,
+ 			},
+ 			MCPCapabilities: MCPCapabilities{HTTP: false, SSE: false},
++			SessionCapabilities: &SessionCapabilities{
++				Close: struct{}{},
++				List:  struct{}{},
++			},
+ 		},
+ 		AgentInfo:   Implementation{Name: s.info.Name, Version: s.info.Version},
+ 		AuthMethods: []any{},
+@@ -160,7 +184,7 @@ func (s *service) sessionNew(ctx context.Context, raw json.RawMessage) (any, err
+ 	ctrl.EnableInteractiveApproval()
+ 	sink.bindApprove(ctrl.Approve)
+ 
+-	sess := &acpSession{id: id, ctrl: ctrl}
++	sess := &acpSession{id: id, ctrl: ctrl, cwd: p.Cwd, params: SessionParams{Cwd: p.Cwd, MCPServers: mcpSpecs(p.MCPServers), Sink: sink}}
+ 	// Pin a transcript file keyed by session id when the controller has a session
+ 	// dir, so every turn auto-saves there, session/prompt can hand the path back,
+ 	// and session/load can find it again by id across process restarts.
+@@ -173,6 +197,10 @@ func (s *service) sessionNew(ctx context.Context, raw json.RawMessage) (any, err
+ 	s.sessions[id] = sess
+ 	s.mu.Unlock()
+ 
++	// Push the available config options to the client so Zed etc. can render
++	// model/thinking toggles in the UI.
++	s.pushConfigOptions(sess)
++
+ 	return SessionNewResult{SessionID: id}, nil
+ }
+ 
+@@ -220,12 +248,13 @@ func (s *service) sessionLoad(ctx context.Context, raw json.RawMessage) (any, er
+ 	}
+ 	ctrl.Resume(loaded, path)
+ 
+-	sess := &acpSession{id: p.SessionID, ctrl: ctrl, transcript: path}
++	sess := &acpSession{id: p.SessionID, ctrl: ctrl, transcript: path, cwd: p.Cwd, params: SessionParams{Cwd: p.Cwd, MCPServers: mcpSpecs(p.MCPServers), Sink: sink}}
+ 	s.mu.Lock()
+ 	s.sessions[p.SessionID] = sess
+ 	s.mu.Unlock()
+ 
+ 	sink.replay(ctrl.History())
++	s.pushConfigOptions(sess)
+ 	return SessionLoadResult{}, nil
+ }
+ 
+@@ -254,6 +283,15 @@ func (s *service) sessionPrompt(ctx context.Context, raw json.RawMessage) (any,
+ 		return nil, &RPCError{Code: ErrInvalidParams, Message: "session/prompt: empty prompt"}
+ 	}
+ 
++	// Support retry/edit: when _meta.editUserTurnIndex is set, rewind the
++	// conversation to that turn index before processing the new prompt.
++	if p.Meta != nil && p.Meta.EditUserTurnIndex != nil {
++		// ACP turn indices are 0-based; the controller's Rewind uses turn
++		// numbers from checkpoints. For a simple retry, rewind conversation
++		// only (code is left as-is).
++		_ = sess.ctrl.Rewind(*p.Meta.EditUserTurnIndex, control.RewindConversation)
++	}
++
+ 	runCtx, cancel := context.WithCancel(ctx)
+ 	sess.setCancel(cancel)
+ 	runErr := sess.ctrl.Run(runCtx, text)
+@@ -297,6 +335,220 @@ func (s *service) session(id string) *acpSession {
+ 	return s.sessions[id]
+ }
+ 
++// sessionClose removes a session and cleans up its resources.
++func (s *service) sessionClose(_ context.Context, raw json.RawMessage) (any, error) {
++	var p SessionCloseParams
++	if err := json.Unmarshal(raw, &p); err != nil {
++		return nil, &RPCError{Code: ErrInvalidParams, Message: "session/close: " + err.Error()}
++	}
++	s.mu.Lock()
++	sess, ok := s.sessions[p.SessionID]
++	if ok {
++		delete(s.sessions, p.SessionID)
++	}
++	s.mu.Unlock()
++	if ok {
++		sess.abort()
++		sess.ctrl.Close()
++	}
++	return SessionCloseResult{}, nil
++}
++
++// sessionList returns all open sessions, primarily for the desktop client's
++// session sidebar. Only sessions in the current workspace are listed.
++func (s *service) sessionList(_ context.Context, raw json.RawMessage) (any, error) {
++	var p SessionListParams
++	if len(raw) > 0 {
++		if err := json.Unmarshal(raw, &p); err != nil {
++			return nil, &RPCError{Code: ErrInvalidParams, Message: "session/list: " + err.Error()}
++		}
++	}
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	var list []SessionInfo
++	for _, sess := range s.sessions {
++		list = append(list, SessionInfo{
++			SessionID: sess.id,
++			Cwd:       sess.cwd,
++		})
++	}
++	return SessionListResult{Sessions: list}, nil
++}
++
++// configSet handles config/set RPC requests. Supports:
++//   - "model" — switch the session to a different provider/model
++//   - "thinking" — toggle thinking mode on/off (supported by DeepSeek reasoner models)
++//
++// Model changes rebuild the controller (carrying conversation); thinking is set
++// on the session for the next turn.
++func (s *service) configSet(_ context.Context, raw json.RawMessage) (any, error) {
++	var p SetConfigOptionParams
++	if err := json.Unmarshal(raw, &p); err != nil {
++		return nil, &RPCError{Code: ErrInvalidParams, Message: "config/set: " + err.Error()}
++	}
++	sess := s.session(p.SessionID)
++	if sess == nil {
++		return nil, &RPCError{Code: ErrInvalidParams, Message: "config/set: unknown session " + p.SessionID}
++	}
++
++	switch p.ConfigID {
++	case "model":
++		if p.Value == "" {
++			break
++		}
++		// Don't rebuild when already on this model.
++		curLabel := sess.ctrl.Label()
++		if curLabel == p.Value {
++			break
++		}
++		history := sess.ctrl.History()
++		// Persist and close the old controller.
++		_ = sess.ctrl.Snapshot()
++		sess.ctrl.Close()
++
++		newCtrl, err := s.factory.RebuildController(context.Background(), sess.params, p.Value, sess.thinking, history)
++		if err != nil {
++			return nil, &RPCError{Code: ErrInternal, Message: "config/set model: " + err.Error()}
++		}
++		newCtrl.EnableInteractiveApproval()
++		// Re-bind the transcript path if the session had one.
++		if sess.transcript != "" {
++			newCtrl.SetSessionPath(sess.transcript)
++		}
++		sess.ctrl = newCtrl
++
++	case "thinking":
++		on := p.Value == "true"
++		sess.thinking = on
++		sess.ctrl.SetThinkingMode(on)
++	default:
++		// Unknown option — ignore silently so future options are forward-compat.
++	}
++
++	return SetConfigOptionResult{ConfigOptions: s.buildConfigOptions(sess)}, nil
++}
++
++// pushConfigOptions sends a config_option_update notification for the session.
++func (s *service) pushConfigOptions(sess *acpSession) {
++	_ = s.conn.Notify("session/update", SessionUpdateParams{
++		SessionID: sess.id,
++		Update: configOptionUpdate{
++			SessionUpdate: "config_option_update",
++			ConfigOptions: s.buildConfigOptions(sess),
++		},
++	})
++}
++
++// buildConfigOptions returns the current set of configurable session options:
++// the model picker (all configured provider/model refs) and the thinking toggle.
++func (s *service) buildConfigOptions(sess *acpSession) []SessionConfigOption {
++	modelRefs := s.factory.ModelRefs()
++	modelOpts := make([]SessionConfigOptionValue, 0, len(modelRefs))
++	currentLabel := sess.ctrl.Label()
++	for _, ref := range modelRefs {
++		modelOpts = append(modelOpts, SessionConfigOptionValue{
++			Value: ref,
++			Name:  ref,
++		})
++	}
++	currentModel := currentLabel
++	if currentModel == "" && len(modelRefs) > 0 {
++		currentModel = modelRefs[0]
++	}
++
++	// Strip planner suffix for the current model value.
++	modelName := currentModel
++	if idx := strings.Index(currentModel, " + planner "); idx >= 0 {
++		modelName = currentModel[:idx]
++	}
++
++	thinkingVal := "false"
++	if sess.thinking {
++		thinkingVal = "true"
++	}
++
++	return []SessionConfigOption{
++		{
++			ID:           "model",
++			Name:         "Model",
++			Description:  "Switch the active model",
++			Type:         "select",
++			CurrentValue: modelName,
++			Options:      modelOpts,
++		},
++		{
++			ID:           "thinking",
++			Name:         "Thinking mode",
++			Description:  "Enable chain-of-thought reasoning (some models)",
++			Type:         "boolean",
++			CurrentValue: thinkingVal,
++			Options: []SessionConfigOptionValue{
++				{Value: "true", Name: "On"},
++				{Value: "false", Name: "Off"},
++			},
++		},
++	}
++}
++
++// modeSet handles mode/set RPC requests (legacy — superseded by config options).
++// Maps to model selection for backward compatibility with clients that only
++// support the mode/set protocol.
++func (s *service) modeSet(_ context.Context, raw json.RawMessage) (any, error) {
++	var p SetModeParams
++	if err := json.Unmarshal(raw, &p); err != nil {
++		return nil, &RPCError{Code: ErrInvalidParams, Message: "mode/set: " + err.Error()}
++	}
++	// If the mode ID matches a model ref, switch the session.
++	if p.ModeID != "" && p.SessionID != "" {
++		if sess := s.session(p.SessionID); sess != nil {
++			refs := s.factory.ModelRefs()
++			for _, ref := range refs {
++				if strings.EqualFold(ref, p.ModeID) {
++					// Found a matching model — rebuild the controller.
++					history := sess.ctrl.History()
++					newCtrl, err := s.factory.RebuildController(context.Background(), sess.params, ref, sess.thinking, history)
++					if err != nil {
++						return nil, &RPCError{Code: ErrInternal, Message: "mode/set: " + err.Error()}
++					}
++					_ = sess.ctrl.Snapshot()
++					sess.ctrl.Close()
++					newCtrl.EnableInteractiveApproval()
++					if sess.transcript != "" {
++						newCtrl.SetSessionPath(sess.transcript)
++					}
++					sess.ctrl = newCtrl
++					break
++				}
++			}
++		}
++	}
++
++	// Build available modes from the model list.
++	modelRefs := s.factory.ModelRefs()
++	modes := make([]SessionMode, 0, len(modelRefs))
++	for _, ref := range modelRefs {
++		modes = append(modes, SessionMode{
++			ID:          ref,
++			Name:        ref,
++			Description: "Switch model to " + ref,
++		})
++	}
++	if len(modes) == 0 {
++		modes = []SessionMode{{ID: "code", Name: "Code", Description: "Full filesystem access + code tools"}}
++	}
++
++	currentID := "code"
++	if sess := s.session(p.SessionID); sess != nil {
++		currentID = sess.ctrl.Label()
++	}
++	return SetModeResult{
++		Modes: SessionModeState{
++			CurrentModeID:  currentID,
++			AvailableModes: modes,
++		},
++	}, nil
++}
++
+ // closeAll tears down every open session (aborting any in-flight turn and
+ // stopping its MCP subprocesses) when the connection ends.
+ func (s *service) closeAll() {
+@@ -323,7 +575,7 @@ func mcpSpecs(in []MCPServerSpec) []plugin.Spec {
+ 			Type:    "stdio",
+ 			Command: m.Command,
+ 			Args:    m.Args,
+-			Env:     m.Env,
++			Env:     map[string]string(m.Env),
+ 		})
+ 	}
+ 	return out
+diff --git a/internal/agent/agent.go b/internal/agent/agent.go
+index ba5e06a4..27380191 100644
+--- a/internal/agent/agent.go
++++ b/internal/agent/agent.go
+@@ -111,6 +111,10 @@ type Agent struct {
+ 	// usage line out of the output writer.
+ 	lastUsage *provider.Usage
+ 
++	// enableThinking, when true, asks thinking-capable models to emit reasoning
++	// content (chain-of-thought) before the visible answer.
++	enableThinking bool
++
+ 	// sessCacheHit/sessCacheMiss accumulate cache tokens across every API call
+ 	// this session, so frontends can show the aggregate hit-rate (Σhit/Σ(hit+miss))
+ 	// — a steadier, cost-oriented number than the single-turn rate. They are NOT
+@@ -175,6 +179,11 @@ func (a *Agent) SetGate(g Gate) { a.gate = g }
+ // Interactive frontends wire one in; headless runs leave it nil.
+ func (a *Agent) SetAsker(as Asker) { a.asker = as }
+ 
++// SetThinking enables or disables thinking/reasoning mode. When enabled, the
++// agent requests chain-of-thought reasoning from models that support it.
++// Takes effect on the next streamed request.
++func (a *Agent) SetThinking(on bool) { a.enableThinking = on }
++
+ // SetPreEditHook installs the pre-edit snapshot hook (see onPreEdit). The
+ // controller wires it to its per-session checkpoint store; nil disables capture.
+ func (a *Agent) SetPreEditHook(fn func(diff.Change)) { a.onPreEdit = fn }
+@@ -213,6 +222,9 @@ type Options struct {
+ 	MaxSteps    int
+ 	Temperature float64
+ 	Pricing     *provider.Pricing // optional, for per-turn cost display
++	// EnableThinking, when true, requests reasoning_content from thinking-
++	// capable models (e.g. DeepSeek reasoner models).
++	EnableThinking bool
+ 
+ 	// Gate is the per-call permission gate. nil disables gating.
+ 	Gate Gate
+@@ -253,6 +265,7 @@ func New(prov provider.Provider, tools *tool.Registry, session *Session, opts Op
+ 		maxSteps:      opts.MaxSteps,
+ 		temperature:   opts.Temperature,
+ 		pricing:       opts.Pricing,
++		enableThinking: opts.EnableThinking,
+ 		sink:          sink,
+ 		gate:          opts.Gate,
+ 		hooks:         opts.Hooks,
+@@ -329,9 +342,10 @@ func (a *Agent) Run(ctx context.Context, input string) error {
+ // reasoning on the next turn.
+ func (a *Agent) stream(ctx context.Context) (string, string, []provider.ToolCall, *provider.Usage, error) {
+ 	ch, err := a.prov.Stream(ctx, provider.Request{
+-		Messages:    a.session.Messages,
+-		Tools:       a.tools.Schemas(),
+-		Temperature: a.temperature,
++		Messages:       a.session.Messages,
++		Tools:          a.tools.Schemas(),
++		Temperature:    a.temperature,
++		EnableThinking: a.enableThinking,
+ 	})
+ 	if err != nil {
+ 		return "", "", nil, nil, err
+diff --git a/internal/cli/acp.go b/internal/cli/acp.go
+index 2ebfc96c..6a4150d8 100644
+--- a/internal/cli/acp.go
++++ b/internal/cli/acp.go
+@@ -16,6 +16,7 @@ import (
+ 	"reasonix/internal/i18n"
+ 	"reasonix/internal/permission"
+ 	"reasonix/internal/plugin"
++	"reasonix/internal/provider"
+ 	"reasonix/internal/sandbox"
+ 	"reasonix/internal/tool"
+ 	"reasonix/internal/tool/builtin"
+@@ -32,6 +33,7 @@ import (
+ func acpCommand(args []string, version string) int {
+ 	fs := flag.NewFlagSet("acp", flag.ContinueOnError)
+ 	model := fs.String("model", "", "provider name (default: config default_model)")
++	thinking := fs.Bool("thinking", false, "enable thinking/reasoning mode (for models that support it)")
+ 	if err := fs.Parse(args); err != nil {
+ 		return 2
+ 	}
+@@ -58,7 +60,7 @@ func acpCommand(args []string, version string) int {
+ 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+ 	defer stop()
+ 
+-	factory := &acpFactory{cfg: cfg, model: modelName}
++	factory := &acpFactory{cfg: cfg, model: modelName, enableThinking: *thinking}
+ 	info := acp.AgentInfo{Name: "reasonix", Version: version}
+ 	if err := acp.Serve(ctx, os.Stdin, os.Stdout, factory, info); err != nil {
+ 		fmt.Fprintln(os.Stderr, i18n.M.ErrorPrefix, err)
+@@ -72,9 +74,130 @@ func acpCommand(args []string, version string) int {
+ // tools are bound to the session's cwd via builtin.Workspace (so concurrent
+ // sessions have separate path roots), and the client's per-session MCP servers
+ // are connected alongside the config's own plugins.
++//
++// The factory is reused across sessions and also when a session rebuilds its
++// controller on a model/config change (see RebuildController).
+ type acpFactory struct {
+-	cfg   *config.Config
+-	model string
++	cfg            *config.Config
++	model          string // default model ref
++	enableThinking bool   // default thinking mode
++}
++
++// ModelRefs returns all available provider/model ref strings ("provider/model")
++// from the loaded config, for surfacing as ACP config options.
++func (f *acpFactory) ModelRefs() []string {
++	var refs []string
++	for i := range f.cfg.Providers {
++		p := &f.cfg.Providers[i]
++		for _, m := range p.ModelList() {
++			refs = append(refs, p.Name+"/"+m)
++		}
++	}
++	return refs
++}
++
++// RebuildController builds a new controller for the same session params but a
++// different model ref, carrying the supplied conversation history across. The
++// caller owns closing the old controller after swapping.
++func (f *acpFactory) RebuildController(ctx context.Context, p acp.SessionParams, modelRef string, enableThinking bool, history []provider.Message) (*control.Controller, error) {
++	cfg := f.cfg
++	entry, ok := cfg.ResolveModel(modelRef)
++	if !ok {
++		return nil, fmt.Errorf("unknown model %q", modelRef)
++	}
++	execProv, err := boot.NewProvider(entry)
++	if err != nil {
++		return nil, err
++	}
++	sysPrompt, err := cfg.ResolveSystemPrompt()
++	if err != nil {
++		return nil, err
++	}
++
++	reg := tool.NewRegistry()
++	var writeRoots []string
++	if p.Cwd != "" {
++		writeRoots = []string{p.Cwd}
++	}
++	bashSpec := sandbox.Spec{Mode: cfg.BashMode(), WriteRoots: writeRoots, Network: cfg.Sandbox.Network}
++	ws := builtin.Workspace{Dir: p.Cwd, WriteRoots: writeRoots, Bash: bashSpec}
++	for _, t := range ws.Tools(cfg.Tools.Enabled...) {
++		reg.Add(t)
++	}
++
++	cleanup := func() {}
++	var host *plugin.Host
++	specs := append(boot.PluginSpecs(cfg.Plugins), p.MCPServers...)
++	if len(specs) > 0 {
++		h, ptools, err := plugin.StartAll(ctx, specs)
++		if err != nil {
++			return nil, fmt.Errorf("plugin: %w", err)
++		}
++		host = h
++		cleanup = h.Close
++		for _, t := range ptools {
++			reg.Add(t)
++		}
++	}
++
++	maxSteps := cfg.Agent.MaxSteps
++	policy := permission.New(cfg.Permissions.Mode, cfg.Permissions.Allow, cfg.Permissions.Ask, cfg.Permissions.Deny)
++	headlessGate := permission.NewGate(policy, nil)
++	reg.Add(agent.NewTaskTool(execProv, entry.Price, reg, maxSteps,
++		entry.ContextWindow, cfg.Agent.Temperature, config.ArchiveDir(), "", headlessGate))
++
++	execSess := agent.NewSession(sysPrompt)
++	executor := agent.New(execProv, reg, execSess, agent.Options{
++		MaxSteps:        maxSteps,
++		Temperature:     cfg.Agent.Temperature,
++		Pricing:         entry.Price,
++		Gate:            headlessGate,
++		ContextWindow:   entry.ContextWindow,
++		ArchiveDir:      config.ArchiveDir(),
++		EnableThinking:  enableThinking,
++	}, p.Sink)
++
++	cmds, _ := command.Load(config.CommandDirs()...)
++
++	var runner agent.Runner = executor
++	label := entry.Model
++	if pm := cfg.Agent.PlannerModel; pm != "" {
++		pe, ok := cfg.ResolveModel(pm)
++		if !ok {
++			cleanup()
++			return nil, fmt.Errorf("planner_model %q is not a configured provider", pm)
++		}
++		if pe.Model != entry.Model {
++			plannerProv, err := boot.NewProvider(pe)
++			if err != nil {
++				cleanup()
++				return nil, fmt.Errorf("planner %q: %w", pm, err)
++			}
++			plannerSess := agent.NewSession(agent.DefaultPlannerPrompt)
++			runner = agent.NewCoordinator(plannerProv, plannerSess, pe.Price, executor, cfg.Agent.Temperature, p.Sink)
++			label = entry.Model + " + planner " + pe.Model
++		}
++	}
++
++	ctrl := control.New(control.Options{
++		Runner:       runner,
++		Executor:     executor,
++		Sink:         p.Sink,
++		Policy:       policy,
++		Label:        label,
++		SystemPrompt: sysPrompt,
++		SessionDir:   config.SessionDir(),
++		Host:         host,
++		Commands:     cmds,
++		Cleanup:      cleanup,
++	})
++
++	// Carry the existing conversation into the new controller.
++	if len(history) > 0 {
++		ctrl.Resume(&agent.Session{Messages: history}, "")
++	}
++
++	return ctrl, nil
+ }
+ 
+ // NewSession assembles the per-session controller. Resources (MCP subprocesses)
+diff --git a/internal/config/mcpjson.go b/internal/config/mcpjson.go
+index cae664b8..30ad6fec 100644
+--- a/internal/config/mcpjson.go
++++ b/internal/config/mcpjson.go
+@@ -5,6 +5,7 @@ import (
+ 	"fmt"
+ 	"os"
+ 	"sort"
++	"strings"
+ )
+ 
+ // mcpJSONFile is the project-root file Claude Code calls .mcp.json. Reasonix reads
+@@ -12,6 +13,32 @@ import (
+ // server specs map field-for-field onto PluginEntry.
+ const mcpJSONFile = ".mcp.json"
+ 
++// envMap accepts env as either a JSON object {"KEY":"VALUE"} or a JSON array of
++// "KEY=VALUE" strings and normalises both into map[string]string.
++type envMap map[string]string
++
++func (e *envMap) UnmarshalJSON(b []byte) error {
++	var obj map[string]string
++	if err := json.Unmarshal(b, &obj); err == nil {
++		*e = envMap(obj)
++		return nil
++	}
++	var arr []string
++	if err := json.Unmarshal(b, &arr); err != nil {
++		return fmt.Errorf("env must be a JSON object or an array of KEY=VALUE strings")
++	}
++	m := make(envMap, len(arr))
++	for _, s := range arr {
++		k, v, ok := strings.Cut(s, "=")
++		if !ok {
++			return fmt.Errorf("env array element %q is not in KEY=VALUE format", s)
++		}
++		m[k] = v
++	}
++	*e = m
++	return nil
++}
++
+ // mcpServerSpec mirrors one entry of Claude Code's "mcpServers" map. The field
+ // names and semantics match PluginEntry (and Claude): command/args/env describe
+ // a local stdio server; type/url/headers describe a remote one.
+@@ -19,7 +46,7 @@ type mcpServerSpec struct {
+ 	Type    string            `json:"type"`
+ 	Command string            `json:"command"`
+ 	Args    []string          `json:"args"`
+-	Env     map[string]string `json:"env"`
++	Env     envMap            `json:"env"`
+ 	URL     string            `json:"url"`
+ 	Headers map[string]string `json:"headers"`
+ }
+diff --git a/internal/control/controller.go b/internal/control/controller.go
+index 431eeaff..e5eec1ba 100644
+--- a/internal/control/controller.go
++++ b/internal/control/controller.go
+@@ -984,6 +984,16 @@ func (c *Controller) SetBypass(on bool) {
+ 	c.mu.Unlock()
+ }
+ 
++// SetThinkingMode enables or disables thinking/reasoning mode on the executor
++// agent, so the next model request requests chain-of-thought reasoning from
++// models that support it. Takes effect on the next turn. No-op when there is
++// no executor (headless task runner).
++func (c *Controller) SetThinkingMode(on bool) {
++	if c.executor != nil {
++		c.executor.SetThinking(on)
++	}
++}
++
+ // Bypass reports whether YOLO/bypass mode is on, for the status-bar indicator.
+ func (c *Controller) Bypass() bool {
+ 	c.mu.Lock()
+diff --git a/internal/provider/openai/openai.go b/internal/provider/openai/openai.go
+index b5d3987a..97c18446 100644
+--- a/internal/provider/openai/openai.go
++++ b/internal/provider/openai/openai.go
+@@ -188,9 +188,17 @@ func (c *client) buildRequest(req provider.Request) chatRequest {
+ 		StreamOptions: &streamOptions{IncludeUsage: true},
+ 		Temperature:   req.Temperature,
+ 		MaxTokens:     req.MaxTokens,
++		Thinking:      thinkingParamFrom(req.EnableThinking),
+ 	}
+ }
+ 
++func thinkingParamFrom(enable bool) *thinkingParam {
++	if !enable {
++		return nil
++	}
++	return &thinkingParam{Type: "enabled"}
++}
++
+ // readStream parses the SSE stream, emits text deltas live, accumulates tool-call
+ // fragments internally, and emits complete ToolCalls (by index) when done. Each
+ // call also gets a ChunkToolCallStart the moment its name is known, so a frontend
+@@ -312,13 +320,23 @@ func normaliseUsage(u *wireUsage) *provider.Usage {
+ // --- OpenAI-compatible wire protocol ---
+ 
+ type chatRequest struct {
+-	Model         string         `json:"model"`
+-	Messages      []chatMessage  `json:"messages"`
+-	Tools         []chatTool     `json:"tools,omitempty"`
+-	Stream        bool           `json:"stream"`
+-	StreamOptions *streamOptions `json:"stream_options,omitempty"`
+-	Temperature   float64        `json:"temperature,omitempty"`
+-	MaxTokens     int            `json:"max_tokens,omitempty"`
++	Model         string           `json:"model"`
++	Messages      []chatMessage    `json:"messages"`
++	Tools         []chatTool       `json:"tools,omitempty"`
++	Stream        bool             `json:"stream"`
++	StreamOptions *streamOptions   `json:"stream_options,omitempty"`
++	Temperature   float64          `json:"temperature,omitempty"`
++	MaxTokens     int              `json:"max_tokens,omitempty"`
++	Thinking      *thinkingParam   `json:"thinking,omitempty"`
++}
++
++// thinkingParam enables thinking mode for models that support it (DeepSeek etc.).
++// When Thinking.Type is "enabled", the model emits chain-of-thought reasoning
++// before the visible answer. BudgetTokens controls how many tokens to spend on
++// reasoning; omit it for the model's default.
++type thinkingParam struct {
++	Type         string `json:"type"` // "enabled" | "disabled"
++	BudgetTokens int    `json:"budget_tokens,omitempty"`
+ }
+ 
+ type streamOptions struct {
+diff --git a/internal/provider/provider.go b/internal/provider/provider.go
+index a46a526c..a70315d2 100644
+--- a/internal/provider/provider.go
++++ b/internal/provider/provider.go
+@@ -47,10 +47,11 @@ type ToolSchema struct {
+ 
+ // Request is a single completion request.
+ type Request struct {
+-	Messages    []Message
+-	Tools       []ToolSchema
+-	Temperature float64
+-	MaxTokens   int
++	Messages       []Message
++	Tools          []ToolSchema
++	Temperature    float64
++	MaxTokens      int
++	EnableThinking bool // when true, request reasoning_content from thinking-capable models
+ }
+ 
+ // ChunkType identifies the kind of a streamed increment.
