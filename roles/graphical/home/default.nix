@@ -51,6 +51,7 @@
         weston
         virt-manager
         waypipe
+        lsfg-vk
       ]
       ++ (import ../lsfgScripts.nix pkgs);
   };

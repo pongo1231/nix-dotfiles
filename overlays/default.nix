@@ -86,4 +86,35 @@ in
   };
 
   reasonix = final.callPackage (pkg /reasonix) { };
+
+  lsfg-vk = prev.lsfg-vk.overrideAttrs (prevAttrs: {
+    src = final.fetchFromGitHub {
+      owner = "PancakeTAS";
+      repo = "lsfg-vk";
+      rev = "218820e8dc2d69c21a7a0775b5c47f2c447ed31a";
+      hash = "sha256-Qb3vufCzNpM1r+vgo8M9nnA7CENgGTithWG0oXqLKbI=";
+      fetchSubmodules = true;
+    };
+
+    patches = (prevAttrs.patches or [ ]) ++ [ (patch /lsfg-vk/slop.patch) ];
+    postPatch = "";
+
+    postInstall = ''
+      substituteInPlace "$out/share/vulkan/implicit_layer.d/VkLayer_LSFGVK_frame_generation.json" \
+        --replace-fail "liblsfg-vk-layer.so" "$out/lib/liblsfg-vk-layer.so"
+    '';
+
+    nativeBuildInputs = prevAttrs.nativeBuildInputs ++ [
+      final.qt6.wrapQtAppsHook
+    ];
+
+    buildInputs = prevAttrs.buildInputs ++ [
+      final.qt6.qtbase
+      final.qt6.qtdeclarative
+    ];
+
+    cmakeFlags = [
+      (lib.cmakeFeature "LSFGVK_BUILD_UI" "ON")
+    ];
+  });
 }

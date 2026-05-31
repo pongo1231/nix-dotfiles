@@ -1,0 +1,1195 @@
+diff --git a/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp b/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp
+index eacb98e..9288a06 100644
+--- a/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp
++++ b/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp
+@@ -48,7 +48,8 @@ namespace lsfgvk::backend {
+     /// Function type for picking a device based on its name and IDs
+     using DevicePicker = std::function<bool(
+         const std::string& deviceName,
+-        std::pair<const std::string&, const std::string&> ids, // (vendor ID, device ID) 0xXXXX format
++        const std::string& vendorId,  // 0xXXXX format
++        const std::string& deviceId,  // 0xXXXX format
+         const std::optional<std::string>& pci // (bus:slot.func) if available, no padded zeros
+     )>;
+ 
+@@ -95,6 +96,8 @@ namespace lsfgvk::backend {
+         /// @param hdr Whether the images are HDR.
+         /// @param flow Motion flow factor.
+         /// @param perf Whether to enable performance mode.
++        /// @param targetFps Target FPS for adaptive frame generation (0 = use fixed multiplier instead).
++        /// @param adaptiveSmoothing EMA smoothing factor for frame timing (0.5–0.99).
+         ///
+         /// @throws backend::error on failure
+         ///
+@@ -103,16 +106,20 @@ namespace lsfgvk::backend {
+             const std::vector<int>& destFds,
+             int syncFd,
+             uint32_t width, uint32_t height,
+-            bool hdr, float flow, bool perf
++            bool hdr, float flow, bool perf,
++            uint32_t targetFps = 0, float adaptiveSmoothing = 0.9F
+         );
+ 
+         ///
+         /// Schedule a new set of generated frames.
+         ///
+         /// @param context Context to use.
++        /// @return Number of generated frames actually scheduled.
++        ///         In adaptive mode this varies based on frame timing;
++        ///         in fixed mode equals (destFds.size()).
+         /// @throws backend::error on failure
+         ///
+-        void scheduleFrames(Context& context);
++        size_t scheduleFrames(Context& context);
+ 
+         ///
+         /// Close a frame generation context
+diff --git a/lsfg-vk-backend/src/helpers/utils.hpp b/lsfg-vk-backend/src/helpers/utils.hpp
+index 202ac0c..4467a4c 100644
+--- a/lsfg-vk-backend/src/helpers/utils.hpp
++++ b/lsfg-vk-backend/src/helpers/utils.hpp
+@@ -38,6 +38,9 @@ namespace lsfgvk::backend {
+         float flow;
+         bool perf;
+         size_t count;
++
++        uint32_t targetFps{0};
++        float adaptiveSmoothing{0.9F};
+     };
+ 
+     /// constant buffer used in shaders
+diff --git a/lsfg-vk-backend/src/lsfgvk.cpp b/lsfg-vk-backend/src/lsfgvk.cpp
+index c94cfe1..6b860e2 100644
+--- a/lsfg-vk-backend/src/lsfgvk.cpp
++++ b/lsfg-vk-backend/src/lsfgvk.cpp
+@@ -26,6 +26,8 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <chrono>
++#include <cmath>
+ #include <cstddef>
+ #include <cstdint>
+ #include <cstdlib>
+@@ -100,11 +102,13 @@ namespace lsfgvk::backend {
+         /// (see lsfg-vk documentation)
+         ContextImpl(const InstanceImpl& instance,
+             std::pair<int, int> sourceFds, const std::vector<int>& destFds, int syncFd,
+-            VkExtent2D extent, bool hdr, float flow, bool perf);
++            VkExtent2D extent, bool hdr, float flow, bool perf,
++            uint32_t targetFps, float adaptiveSmoothing);
+ 
+         /// schedule frames
+         /// (see lsfg-vk documentation)
+-        void scheduleFrames();
++        /// @return number of generated frames scheduled
++        size_t scheduleFrames();
+     private:
+         std::pair<vk::Image, vk::Image> sourceImages;
+         std::vector<vk::Image> destImages;
+@@ -120,6 +124,10 @@ namespace lsfgvk::backend {
+ 
+         Ctx ctx;
+ 
++        // adaptive frame generation state
++        std::chrono::steady_clock::time_point lastFrameTime{};
++        double emaFrameInterval{0.0};
++
+         Mipmaps mipmaps;
+         std::array<Alpha0, 7> alpha0;
+         std::array<Alpha1, 7> alpha1;
+@@ -172,8 +180,8 @@ Instance::Instance(
+ 
+             if (devicePicker(
+                 std::string(devname.data()),
+-                { backend::to_hex_id(props.properties.vendorID),
+-                  backend::to_hex_id(props.properties.deviceID) },
++                backend::to_hex_id(props.properties.vendorID),
++                backend::to_hex_id(props.properties.deviceID),
+                 has_pci_ext ? std::optional<std::string>{
+                     std::to_string(pciInfo.pciBus) + ":" +
+                     std::to_string(pciInfo.pciDevice) + "." +
+@@ -275,11 +283,13 @@ InstanceImpl::InstanceImpl(vk::PhysicalDeviceSelector selectPhysicalDevice,
+ 
+ Context& Instance::openContext(std::pair<int, int> sourceFds, const std::vector<int>& destFds,
+         int syncFd, uint32_t width, uint32_t height,
+-        bool hdr, float flow, bool perf) {
++        bool hdr, float flow, bool perf,
++        uint32_t targetFps, float adaptiveSmoothing) {
+     const VkExtent2D extent{ width, height };
+     return *this->m_contexts.emplace_back(std::make_unique<ContextImpl>(*this->m_impl,
+         sourceFds, destFds, syncFd,
+-        extent, hdr, flow, perf
++        extent, hdr, flow, perf,
++        targetFps, adaptiveSmoothing
+     )).get();
+ }
+ 
+@@ -358,7 +368,8 @@ namespace {
+     }
+     /// create context data
+     Ctx createCtx(const InstanceImpl& instance, VkExtent2D extent,
+-            bool hdr, float flow, bool perf, size_t count) {
++            bool hdr, float flow, bool perf, size_t count,
++            uint32_t targetFps, float adaptiveSmoothing) {
+         const auto& vk = instance.getVulkan();
+         const auto& shaders = instance.getShaderRegistry();
+ 
+@@ -391,7 +402,9 @@ namespace {
+                 .hdr = hdr,
+                 .flow = flow,
+                 .perf = perf,
+-                .count = count
++                .count = count,
++                .targetFps = targetFps,
++                .adaptiveSmoothing = adaptiveSmoothing
+             };
+         } catch (const std::exception& e) {
+             throw backend::error("Unable to create context", e);
+@@ -401,7 +414,8 @@ namespace {
+ 
+ ContextImpl::ContextImpl(const InstanceImpl& instance,
+             std::pair<int, int> sourceFds, const std::vector<int>& destFds, int syncFd,
+-            VkExtent2D extent, bool hdr, float flow, bool perf) :
++            VkExtent2D extent, bool hdr, float flow, bool perf,
++            uint32_t targetFps, float adaptiveSmoothing) :
+         sourceImages(importImages(instance.getVulkan(), sourceFds,
+             extent, hdr ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM)),
+         destImages(importImages(instance.getVulkan(), destFds,
+@@ -411,7 +425,8 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+         prepassSemaphore(createPrepassSemaphore(instance.getVulkan())),
+         cmdbufs(createCommandBuffers(instance.getVulkan(), destFds.size() + 1)),
+         cmdbufFence(instance.getVulkan()),
+-        ctx(createCtx(instance, extent, hdr, flow, perf, destFds.size())),
++        ctx(createCtx(instance, extent, hdr, flow, perf, destFds.size(),
++            targetFps, adaptiveSmoothing)),
+         mipmaps(ctx, sourceImages),
+         alpha0{
+             Alpha0(ctx, mipmaps.getImages().at(0)),
+@@ -549,7 +564,7 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+     cmdbuf.submit(ctx.vk); // wait for completion
+ }
+ 
+-void Instance::scheduleFrames(Context& context) { // NOLINT (static)
++size_t Instance::scheduleFrames(Context& context) { // NOLINT (static)
+ #ifdef LSFGVK_TESTING_RENDERDOC
+     const auto& impl = this->m_impl;
+     if (impl->getRenderDocAPI()) {
+@@ -558,8 +573,9 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
+             nullptr);
+     }
+ #endif
++    size_t count{0};
+     try {
+-        context.scheduleFrames();
++        count = context.scheduleFrames();
+     } catch (const std::exception& e) {
+         throw backend::error("Unable to schedule frames", e);
+     }
+@@ -571,15 +587,47 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
+             nullptr);
+     }
+ #endif
++    return count;
+ }
+ 
+-void Context::scheduleFrames() {
+-    // wait for previous pre-pass to complete
++size_t Context::scheduleFrames() {
++    using namespace std::chrono;
++
++    // --- adaptive frame count computation ---
++    const auto now = steady_clock::now();
++    size_t activeCount = this->destImages.size(); // default: all frames
++
++    if (this->ctx.targetFps > 0 && this->fidx > 0) {
++        const double elapsed = duration<double>(now - this->lastFrameTime).count();
++
++        if (this->emaFrameInterval <= 0.0) {
++            this->emaFrameInterval = elapsed; // seed on first measurement
++        } else {
++            const auto s = static_cast<double>(this->ctx.adaptiveSmoothing);
++            this->emaFrameInterval = s * this->emaFrameInterval + (1.0 - s) * elapsed;
++        }
++
++        const double targetInterval = 1.0 / static_cast<double>(this->ctx.targetFps);
++        auto needed = static_cast<size_t>(
++            std::round(this->emaFrameInterval / targetInterval)
++        );
++
++        // clamp: at least 1 generated frame
++        if (needed < 1) needed = 1;
++
++        // clamp: never exceed pre-allocated capacity
++        if (needed > this->destImages.size()) needed = this->destImages.size();
++
++        activeCount = needed;
++    }
++    this->lastFrameTime = now;
++
++    // --- fence wait (previous frame's last main pass) ---
+     if (this->fidx && !this->cmdbufFence.wait(this->ctx.vk))
+         throw backend::error("Timeout waiting for previous frame to complete");
+     this->cmdbufFence.reset(this->ctx.vk);
+ 
+-    // schedule pre-pass
++    // --- schedule pre-pass ---
+     const auto& cmdbuf = this->cmdbufs.at(0);
+     cmdbuf.begin(ctx.vk);
+ 
+@@ -599,32 +647,34 @@ void Context::scheduleFrames() {
+ 
+     this->idx++;
+ 
+-    // schedule main passes
+-    for (size_t i = 0; i < this->destImages.size(); i++) {
+-        const auto& cmdbuf = this->cmdbufs.at(i + 1);
+-        cmdbuf.begin(ctx.vk);
++    // --- schedule main passes (only activeCount of them) ---
++    for (size_t i = 0; i < activeCount; i++) {
++        const auto& passCmdbuf = this->cmdbufs.at(i + 1);
++        passCmdbuf.begin(ctx.vk);
+ 
+         const auto& pass = this->passes.at(i);
+         for (size_t j = 0; j < 7; j++) {
+-            pass.gamma0.at(j).render(ctx.vk, cmdbuf, this->fidx);
+-            pass.gamma1.at(j).render(ctx.vk, cmdbuf);
++            pass.gamma0.at(j).render(ctx.vk, passCmdbuf, this->fidx);
++            pass.gamma1.at(j).render(ctx.vk, passCmdbuf);
+ 
+             if (j < 4) continue;
+-            pass.delta0.at(j - 4).render(ctx.vk, cmdbuf, this->fidx);
+-            pass.delta1.at(j - 4).render(ctx.vk, cmdbuf);
++            pass.delta0.at(j - 4).render(ctx.vk, passCmdbuf, this->fidx);
++            pass.delta1.at(j - 4).render(ctx.vk, passCmdbuf);
+         }
+-        pass.generate->render(ctx.vk, cmdbuf, this->fidx);
++        pass.generate->render(ctx.vk, passCmdbuf, this->fidx);
+ 
+-        cmdbuf.end(ctx.vk);
+-        cmdbuf.submit(this->ctx.vk,
++        passCmdbuf.end(ctx.vk);
++        passCmdbuf.submit(this->ctx.vk,
+             {}, this->prepassSemaphore.handle(), this->idx - 1,
+             {}, this->syncSemaphore.handle(), this->idx + i,
+-            i == this->destImages.size() - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
++            i == activeCount - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
+         );
+     }
+ 
+-    this->idx += this->destImages.size();
++    this->idx += activeCount;
+     this->fidx++;
++
++    return activeCount;
+ }
+ 
+ void Instance::closeContext(const Context& context) {
+diff --git a/lsfg-vk-cli/src/main.cpp b/lsfg-vk-cli/src/main.cpp
+index 446ca8f..21ee268 100644
+--- a/lsfg-vk-cli/src/main.cpp
++++ b/lsfg-vk-cli/src/main.cpp
+@@ -42,9 +42,11 @@ SUBCOMMAND OPTIONS:
+         -w, --width <INT>               Width of the input frames
+         -h, --height <INT>              Height of the input frames
+         -f, --flow <FLOAT>              Flow scale
+-        -m, --multiplier <INT>          Multiplier
++        -m, --multiplier <INT>          Multiplier (fixed frame count)
+         -p, --performance-mode          Use performance mode
+         -g, --gpu <STRING>              GPU to use
++        --target-fps <INT>              Target FPS for adaptive mode (0 = disabled)
++        --adaptive-smoothing <FLOAT>    EMA smoothing factor (0.5-0.99, default 0.9)
+ 
+     benchmark
+         -t, --duration <SECONDS>        Benchmark duration in seconds
+@@ -87,17 +89,19 @@ SUBCOMMAND OPTIONS:
+     [[noreturn]] void on_benchmark(int argc, char** argv) {
+         benchmark::Options opts{};
+ 
+-        const std::array<option, 10> GETOPT {{
+-            { "dll",              required_argument, nullptr, 'd' },
+-            { "allow-fp16",       no_argument,       nullptr, 'a' },
+-            { "width",            required_argument, nullptr, 'w' },
+-            { "height",           required_argument, nullptr, 'h' },
+-            { "flow",             required_argument, nullptr, 'f' },
+-            { "multiplier",       required_argument, nullptr, 'm' },
+-            { "performance-mode",       no_argument, nullptr, 'p' },
+-            { "gpu",              required_argument, nullptr, 'g' },
+-            { "duration",         required_argument, nullptr, 't' },
+-            { nullptr,                  no_argument, nullptr,  0  }
++        const std::array<option, 12> GETOPT {{
++            { "dll",                required_argument, nullptr, 'd' },
++            { "allow-fp16",         no_argument,       nullptr, 'a' },
++            { "width",              required_argument, nullptr, 'w' },
++            { "height",             required_argument, nullptr, 'h' },
++            { "flow",               required_argument, nullptr, 'f' },
++            { "multiplier",         required_argument, nullptr, 'm' },
++            { "performance-mode",   no_argument,       nullptr, 'p' },
++            { "gpu",                required_argument, nullptr, 'g' },
++            { "duration",           required_argument, nullptr, 't' },
++            { "target-fps",         required_argument, nullptr,  1  },
++            { "adaptive-smoothing", required_argument, nullptr,  2  },
++            { nullptr,              no_argument,       nullptr,  0  }
+         }};
+ 
+         int c{0};
+@@ -130,6 +134,12 @@ SUBCOMMAND OPTIONS:
+                 case 't':
+                     opts.duration = std::stoi(optarg);
+                     break;
++                case 1:
++                    opts.target_fps = static_cast<uint32_t>(std::stoul(optarg));
++                    break;
++                case 2:
++                    opts.adaptive_smoothing = std::stof(optarg);
++                    break;
+                 case '?':
+                 default:
+                     usage(*argv);
+@@ -149,16 +159,18 @@ SUBCOMMAND OPTIONS:
+     [[noreturn]] void on_debug(int argc, char** argv) {
+         debug::Options opts{};
+ 
+-        const std::array<option, 9> GETOPT {{
+-            { "dll",              required_argument, nullptr, 'd' },
+-            { "allow-fp16",       no_argument,       nullptr, 'a' },
+-            { "width",            required_argument, nullptr, 'w' },
+-            { "height",           required_argument, nullptr, 'h' },
+-            { "flow",             required_argument, nullptr, 'f' },
+-            { "multiplier",       required_argument, nullptr, 'm' },
+-            { "performance-mode",       no_argument, nullptr, 'p' },
+-            { "gpu",              required_argument, nullptr, 'g' },
+-            { nullptr,                  no_argument, nullptr,  0  }
++        const std::array<option, 11> GETOPT {{
++            { "dll",                required_argument, nullptr, 'd' },
++            { "allow-fp16",         no_argument,       nullptr, 'a' },
++            { "width",              required_argument, nullptr, 'w' },
++            { "height",             required_argument, nullptr, 'h' },
++            { "flow",               required_argument, nullptr, 'f' },
++            { "multiplier",         required_argument, nullptr, 'm' },
++            { "performance-mode",   no_argument,       nullptr, 'p' },
++            { "gpu",                required_argument, nullptr, 'g' },
++            { "target-fps",         required_argument, nullptr,  1  },
++            { "adaptive-smoothing", required_argument, nullptr,  2  },
++            { nullptr,              no_argument,       nullptr,  0  }
+         }};
+ 
+         int c{0};
+@@ -188,6 +200,12 @@ SUBCOMMAND OPTIONS:
+                 case 'g':
+                     opts.gpu.emplace(optarg);
+                     break;
++                case 1:
++                    opts.target_fps = static_cast<uint32_t>(std::stoul(optarg));
++                    break;
++                case 2:
++                    opts.adaptive_smoothing = std::stof(optarg);
++                    break;
+                 case '?':
+                 default:
+                     usage(*argv);
+diff --git a/lsfg-vk-cli/src/tools/benchmark.cpp b/lsfg-vk-cli/src/tools/benchmark.cpp
+index eb18aa3..86841d0 100644
+--- a/lsfg-vk-cli/src/tools/benchmark.cpp
++++ b/lsfg-vk-cli/src/tools/benchmark.cpp
+@@ -9,9 +9,11 @@
+ #include "lsfg-vk-common/vulkan/vulkan.hpp"
+ 
+ #include <array>
++#include <cmath>
+ #include <cstddef>
+ #include <cstdint>
+ #include <cstdlib>
++#include <limits>
+ #include <exception>
+ #include <filesystem>
+ #include <iomanip>
+@@ -92,9 +94,16 @@ int benchmark::run(const Options& opts) {
+             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+             std::nullopt, &srcfds.second};
+ 
++        size_t destMultiplier = static_cast<size_t>(opts.multiplier);
++        if (opts.target_fps > 0) {
++            size_t adaptiveNeeded = static_cast<size_t>(
++                std::ceil(static_cast<float>(opts.target_fps) / 10.0f)) + 1;
++            destMultiplier = std::max(destMultiplier, adaptiveNeeded);
++        }
++
+         std::vector<vk::Image> destimgs{};
+         std::vector<int> destfds{};
+-        for (int i = 0; i < (opts.multiplier - 1); i++) {
++        for (size_t i = 0; i < (destMultiplier - 1); i++) {
+             int fd{};
+             destimgs.emplace_back(vk,
+                 extent, VK_FORMAT_R8G8B8A8_UNORM,
+@@ -118,7 +127,8 @@ int benchmark::run(const Options& opts) {
+         lsfgvk::backend::Instance lsfgvk{
+             [opts](
+                 const std::string& gpu_name,
+-                std::pair<const std::string&, const std::string&>,
++                const std::string&,
++                const std::string&,
+                 const std::optional<std::string>&
+             ) {
+                 return opts.gpu.value_or(gpu_name) == gpu_name;
+@@ -128,21 +138,29 @@ int benchmark::run(const Options& opts) {
+         lsfgvk::backend::Context& lsfgvk_ctx = lsfgvk.openContext(
+             srcfds, destfds,
+             syncfd, extent.width, extent.height,
+-            false, 1.0F / opts.flow, opts.performance_mode
++            false, 1.0F / opts.flow, opts.performance_mode,
++            opts.target_fps, opts.adaptive_smoothing
+         );
+ 
+         // run the benchmark
+         size_t iterations{0};
+         size_t generated_frames{0};
+         size_t total_frames{1};
++        size_t minActive{std::numeric_limits<size_t>::max()};
++        size_t maxActive{0};
++        uint64_t activeSum{0};
+ 
+         uint64_t print_time = ms() + 1000ULL;
+         const uint64_t end_time = ms() + static_cast<uint64_t>(opts.duration) * 1000ULL;
+         while (ms() < end_time) {
+             sync.signal(vk, total_frames++);
+-            lsfgvk.scheduleFrames(lsfgvk_ctx);
++            auto active = lsfgvk.scheduleFrames(lsfgvk_ctx);
+ 
+-            for (size_t i = 0; i < destimgs.size(); i++) {
++            if (active < minActive) minActive = active;
++            if (active > maxActive) maxActive = active;
++            activeSum += active;
++
++            for (size_t i = 0; i < active; i++) {
+                 auto success = sync.wait(vk, total_frames++);
+                 if (!success)
+                     throw ls::error("failed to wait for frame");
+@@ -171,6 +189,12 @@ int benchmark::run(const Options& opts) {
+         std::cerr << std::setprecision(2) << std::fixed;
+         std::cerr << "  fps (generated):  " << fps_generated << "fps\n";
+         std::cerr << "  fps (total):      " << fps_total << "fps\n";
++        if (opts.target_fps) {
++            std::cerr << "  active count (min/avg/max): "
++                << minActive << " / "
++                << static_cast<double>(activeSum) / static_cast<double>(iterations)
++                << " / " << maxActive << "\n";
++        }
+ 
+         // deinitialize lsfg-vk
+         lsfgvk.closeContext(lsfgvk_ctx);
+diff --git a/lsfg-vk-cli/src/tools/benchmark.hpp b/lsfg-vk-cli/src/tools/benchmark.hpp
+index 18dbe1c..746d419 100644
+--- a/lsfg-vk-cli/src/tools/benchmark.hpp
++++ b/lsfg-vk-cli/src/tools/benchmark.hpp
+@@ -2,6 +2,7 @@
+ 
+ #pragma once
+ 
++#include <cstdint>
+ #include <optional>
+ #include <string>
+ 
+@@ -19,6 +20,9 @@ namespace lsfgvk::cli::benchmark {
+         bool performance_mode{false};
+         std::optional<std::string> gpu;
+ 
++        uint32_t target_fps{0};
++        float adaptive_smoothing{0.9F};
++
+         int duration{10};
+     };
+ 
+diff --git a/lsfg-vk-cli/src/tools/debug.cpp b/lsfg-vk-cli/src/tools/debug.cpp
+index 3b21449..e45be4c 100644
+--- a/lsfg-vk-cli/src/tools/debug.cpp
++++ b/lsfg-vk-cli/src/tools/debug.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <cmath>
+ #include <cstddef>
+ #include <cstdint>
+ #include <cstdlib>
+@@ -132,9 +133,16 @@ int debug::run(const Options& opts) {
+             VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+             std::nullopt, &srcfds.second};
+ 
++        size_t destMultiplier = static_cast<size_t>(opts.multiplier);
++        if (opts.target_fps > 0) {
++            size_t adaptiveNeeded = static_cast<size_t>(
++                std::ceil(static_cast<float>(opts.target_fps) / 10.0f)) + 1;
++            destMultiplier = std::max(destMultiplier, adaptiveNeeded);
++        }
++
+         std::vector<vk::Image> destimgs{};
+         std::vector<int> destfds{};
+-        for (int i = 0; i < (opts.multiplier - 1); i++) {
++        for (size_t i = 0; i < (destMultiplier - 1); i++) {
+             int fd{};
+             destimgs.emplace_back(vk,
+                 extent, VK_FORMAT_R8G8B8A8_UNORM,
+@@ -157,7 +165,8 @@ int debug::run(const Options& opts) {
+         lsfgvk::backend::Instance lsfgvk{
+             [opts](
+                 const std::string& gpu_name,
+-                std::pair<const std::string&, const std::string&>,
++                const std::string&,
++                const std::string&,
+                 const std::optional<std::string>&
+             ) {
+                 return opts.gpu.value_or(gpu_name) == gpu_name;
+@@ -167,7 +176,8 @@ int debug::run(const Options& opts) {
+         lsfgvk::backend::Context& lsfgvk_ctx = lsfgvk.openContext(
+             srcfds, destfds,
+             syncfd, extent.width, extent.height,
+-            false, 1.0F / opts.flow, opts.performance_mode
++            false, 1.0F / opts.flow, opts.performance_mode,
++            opts.target_fps, opts.adaptive_smoothing
+         );
+ 
+         // render destination images
+@@ -179,9 +189,9 @@ int debug::run(const Options& opts) {
+             );
+ 
+             sync.signal(vk, idx++);
+-            lsfgvk.scheduleFrames(lsfgvk_ctx);
++            auto active = lsfgvk.scheduleFrames(lsfgvk_ctx);
+ 
+-            for (size_t i = 0; i < destimgs.size(); i++) {
++            for (size_t i = 0; i < active; i++) {
+                 auto success = sync.wait(vk, idx++);
+                 if (!success)
+                     throw ls::error("failed to wait for frame");
+diff --git a/lsfg-vk-cli/src/tools/debug.hpp b/lsfg-vk-cli/src/tools/debug.hpp
+index 631034a..2609e12 100644
+--- a/lsfg-vk-cli/src/tools/debug.hpp
++++ b/lsfg-vk-cli/src/tools/debug.hpp
+@@ -2,6 +2,7 @@
+ 
+ #pragma once
+ 
++#include <cstdint>
+ #include <filesystem>
+ #include <optional>
+ #include <string>
+@@ -20,6 +21,9 @@ namespace lsfgvk::cli::debug {
+         bool performance_mode{true};
+         std::optional<std::string> gpu;
+ 
++        uint32_t target_fps{0};
++        float adaptive_smoothing{0.9F};
++
+         std::filesystem::path path;
+     };
+ 
+diff --git a/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp b/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
+index 4581c3e..1442c8b 100644
+--- a/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
++++ b/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
+@@ -39,6 +39,10 @@ namespace ls {
+         float flow_scale{1.00F};
+         /// use performance mode
+         bool performance_mode{false};
++        /// target FPS for adaptive frame generation (0 = disabled, use fixed multiplier)
++        uint32_t target_fps{0};
++        /// EMA smoothing factor for adaptive frame timing (0.5–0.99, default 0.9)
++        float adaptive_smoothing{0.9F};
+         /// pacing method
+         Pacing pacing{Pacing::None};
+     };
+diff --git a/lsfg-vk-common/src/configuration/config.cpp b/lsfg-vk-common/src/configuration/config.cpp
+index cee5861..fe4dcb2 100644
+--- a/lsfg-vk-common/src/configuration/config.cpp
++++ b/lsfg-vk-common/src/configuration/config.cpp
+@@ -70,6 +70,7 @@ ConfigFile::ConfigFile() {
+         .multiplier = 4,
+         .flow_scale = 0.85F,
+         .performance_mode = true,
++        .target_fps = 0,
+         .pacing = Pacing::None
+     });
+     this->profileConfs.emplace_back(GameConf {
+@@ -78,7 +79,8 @@ ConfigFile::ConfigFile() {
+             "GenshinImpact.exe"
+         },
+         .gpu = "NVIDIA GeForce RTX 5080",
+-        .multiplier = 2
++        .multiplier = 2,
++        .target_fps = 0
+     });
+ }
+ 
+@@ -127,6 +129,8 @@ namespace {
+             .multiplier = tbl["multiplier"].value_or(2U),
+             .flow_scale = tbl["flow_scale"].value_or(1.0F),
+             .performance_mode = tbl["performance_mode"].value_or(false),
++            .target_fps = tbl["target_fps"].value_or(0U),
++            .adaptive_smoothing = tbl["adaptive_smoothing"].value_or(0.9F),
+             .pacing = parcingFromString(tbl["pacing"].value_or<std::string>("none"))
+         };
+ 
+@@ -134,6 +138,8 @@ namespace {
+             throw ls::error("multiplier must be greater than 1");
+         if (conf.flow_scale < 0.25F || conf.flow_scale > 1.0F)
+             throw ls::error("flow_scale must be between 0.25 and 1.0");
++        if (conf.adaptive_smoothing < 0.5F || conf.adaptive_smoothing > 0.99F)
++            throw ls::error("adaptive_smoothing must be between 0.5 and 0.99");
+ 
+         return conf;
+     }
+@@ -179,11 +185,17 @@ namespace {
+         if (performance) conf.performance_mode = std::string(performance) == "1";
+         const char* pacing = std::getenv("LSFGVK_PACING");
+         if (pacing) conf.pacing = parcingFromString(std::string(pacing));
++        const char* target_fps = std::getenv("LSFGVK_TARGET_FPS");
++        if (target_fps) conf.target_fps = static_cast<uint32_t>(std::stoul(target_fps));
++        const char* adaptive_smoothing = std::getenv("LSFGVK_ADAPTIVE_SMOOTHING");
++        if (adaptive_smoothing) conf.adaptive_smoothing = std::stof(adaptive_smoothing);
+ 
+         if (conf.multiplier <= 1)
+             throw ls::error("multiplier must be greater than 1");
+         if (conf.flow_scale < 0.25F || conf.flow_scale > 1.0F)
+             throw ls::error("flow_scale must be between 0.25 and 1.0");
++        if (conf.adaptive_smoothing < 0.5F || conf.adaptive_smoothing > 0.99F)
++            throw ls::error("adaptive_smoothing must be between 0.5 and 0.99");
+ 
+         return conf;
+     }
+@@ -242,6 +254,10 @@ void ConfigFile::write(const std::filesystem::path& path) const {
+         profile.insert("multiplier", static_cast<int64_t>(conf.multiplier));
+         profile.insert("flow_scale", conf.flow_scale);
+         profile.insert("performance_mode", conf.performance_mode);
++        if (conf.target_fps)
++            profile.insert("target_fps", static_cast<int64_t>(conf.target_fps));
++        if (conf.adaptive_smoothing != 0.9F)
++            profile.insert("adaptive_smoothing", conf.adaptive_smoothing);
+         switch (conf.pacing) {
+             case Pacing::None:
+                 profile.insert("pacing", "none");
+diff --git a/lsfg-vk-layer/src/entrypoint.cpp b/lsfg-vk-layer/src/entrypoint.cpp
+index 6256b9f..0af5f90 100644
+--- a/lsfg-vk-layer/src/entrypoint.cpp
++++ b/lsfg-vk-layer/src/entrypoint.cpp
+@@ -329,12 +329,21 @@ namespace {
+                 .presentMode = newInfo.presentMode
+             }).first->second;
+ 
+-            // create lsfg-vk swapchain
+-            layer_info->root.createSwapchainContext(it->second, *swapchain, info);
+-
++            // always store Vulkan reference (needed for later context creation or passthrough)
+             instance_info->swapchains.emplace(*swapchain,
+                 ls::R<vk::Vulkan>(it->second));
+ 
++            // create lsfg-vk swapchain context (only if profile is active)
++            if (layer_info->root.active()) {
++                try {
++                    layer_info->root.createSwapchainContext(it->second, *swapchain, info);
++                } catch (const std::exception& e) {
++                    std::cerr << "lsfg-vk: failed to create swapchain context:\n";
++                    std::cerr << "- " << e.what() << '\n';
++                    // swapchain still works, just without FG
++                }
++            }
++
+             return res;
+         } catch (const ls::vulkan_error& e) {
+             std::cerr << "lsfg-vk: something went wrong during lsfg-vk swapchain creation:\n";
+@@ -363,11 +372,21 @@ namespace {
+ 
+         if (reload) {
+             try {
+-                for (const auto& [swapchain, vk] : instance_info->swapchains) {
+-                    auto& info = instance_info->swapchainInfos.at(swapchain);
+-
++                // destroy all existing FG contexts
++                for (const auto& [swapchain, vk] : instance_info->swapchains)
+                     layer_info->root.removeSwapchainContext(swapchain);
+-                    layer_info->root.createSwapchainContext(vk, swapchain, info);
++
++                // recreate contexts for all swapchains if profile is now active
++                if (layer_info->root.active()) {
++                    for (const auto& [swapchain, vk] : instance_info->swapchains) {
++                        try {
++                            auto& sinfo = instance_info->swapchainInfos.at(swapchain);
++                            layer_info->root.createSwapchainContext(vk, swapchain, sinfo);
++                        } catch (const std::exception& e) {
++                            std::cerr << "lsfg-vk: failed to recreate swapchain context: "
++                                << e.what() << '\n';
++                        }
++                    }
+                 }
+ 
+                 std::cerr << "lsfg-vk: updated lsfg-vk configuration\n";
+@@ -385,26 +404,31 @@ namespace {
+             if (it == instance_info->swapchains.end())
+                 return VK_ERROR_INITIALIZATION_FAILED;
+ 
++            // check if this swapchain has an FG context
++            bool hasContext{false};
+             try {
++                auto& context = layer_info->root.getSwapchainContext(swapchain);
++                hasContext = true;
++
+                 std::vector<VkSemaphore> waitSemaphores;
+                 waitSemaphores.reserve(info->waitSemaphoreCount);
+ 
+                 for (size_t j = 0; j < info->waitSemaphoreCount; j++)
+                     waitSemaphores.push_back(info->pWaitSemaphores[j]);
+ 
+-                auto& context = layer_info->root.getSwapchainContext(swapchain);
+                 result = context.present(it->second,
+                     queue, swapchain,
+                     const_cast<void*>(info->pNext),
+                     info->pImageIndices[i],
+                     { waitSemaphores.begin(), waitSemaphores.end() }
+                 );
++            } catch (const ls::error&) {
++                hasContext = false; // no FG context — passthrough
+             } catch (const ls::vulkan_error& e) {
+                 if (e.error() != VK_ERROR_OUT_OF_DATE_KHR) {
+                     std::cerr << "lsfg-vk: something went wrong during lsfg-vk swapchain presentation:\n";
+                     std::cerr << "- " << e.what() << '\n';
+-                } // silently swallow out-of-date errors
+-
++                }
+                 result = e.error();
+             } catch (const std::exception& e) {
+                 std::cerr << "lsfg-vk: something went wrong during lsfg-vk swapchain presentation:\n";
+@@ -412,6 +436,20 @@ namespace {
+                 result = VK_ERROR_UNKNOWN;
+             }
+ 
++            if (!hasContext) {
++                // passthrough: no FG, just present normally
++                VkPresentInfoKHR presentInfo{
++                    .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
++                    .pNext = const_cast<void*>(info->pNext),
++                    .waitSemaphoreCount = info->waitSemaphoreCount,
++                    .pWaitSemaphores = info->pWaitSemaphores,
++                    .swapchainCount = 1,
++                    .pSwapchains = &swapchain,
++                    .pImageIndices = &info->pImageIndices[i]
++                };
++                result = it->second.get().df().QueuePresentKHR(queue, &presentInfo);
++            }
++
+             if (result != VK_SUCCESS && info->pResults)
+                 info->pResults[i] = result;
+         }
+@@ -478,7 +516,7 @@ VkResult vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface* pVers
+             .root = Root()
+         };
+ 
+-        if (!layer_info->root.active()) { // skip inactive
++        if (!layer_info->root.shouldLoad()) { // skip if env mode and inactive
+             delete layer_info; // NOLINT (memory management)
+             layer_info = nullptr;
+ 
+diff --git a/lsfg-vk-layer/src/instance.cpp b/lsfg-vk-layer/src/instance.cpp
+index 00da4d1..5ceea8f 100644
+--- a/lsfg-vk-layer/src/instance.cpp
++++ b/lsfg-vk-layer/src/instance.cpp
+@@ -84,7 +84,7 @@ bool Root::update() {
+ 
+ void Root::modifyInstanceCreateInfo(VkInstanceCreateInfo& createInfo,
+         const std::function<void(void)>& finish) const {
+-    if (!this->active_profile.has_value())
++    if (!this->active_profile.has_value() && !this->isWatching())
+         return;
+ 
+     auto extensions = add_extensions(
+@@ -104,7 +104,7 @@ void Root::modifyInstanceCreateInfo(VkInstanceCreateInfo& createInfo,
+ 
+ void Root::modifyDeviceCreateInfo(VkDeviceCreateInfo& createInfo,
+         const std::function<void(void)>& finish) const {
+-    if (!this->active_profile.has_value())
++    if (!this->active_profile.has_value() && !this->isWatching())
+         return;
+ 
+     auto extensions = add_extensions(
+@@ -150,8 +150,10 @@ void Root::modifyDeviceCreateInfo(VkDeviceCreateInfo& createInfo,
+ 
+ void Root::modifySwapchainCreateInfo(const vk::Vulkan& vk, VkSwapchainCreateInfoKHR& createInfo,
+         const std::function<void(void)>& finish) const {
+-    if (!this->active_profile.has_value())
++    if (!this->active_profile.has_value()) {
++        finish(); // still create the swapchain, just don't modify it
+         return;
++    }
+ 
+     VkSurfaceCapabilitiesKHR caps{}; // NOLINT (enum value 0)
+     auto res = vk.fi().GetPhysicalDeviceSurfaceCapabilitiesKHR(
+@@ -185,14 +187,15 @@ void Root::createSwapchainContext(const vk::Vulkan& vk,
+             this->backend.emplace(
+                 [gpu = profile.gpu](
+                     const std::string& deviceName,
+-                    std::pair<const std::string&, const std::string&> ids,
++                    const std::string& vendorId,
++                    const std::string& deviceId,
+                     const std::optional<std::string>& pci
+                 ) {
+                     if (!gpu)
+                         return true;
+ 
+                     return (deviceName == *gpu)
+-                        || (ids.first + ":" + ids.second == *gpu)
++                        || (vendorId + ":" + deviceId == *gpu)
+                         || (pci && *pci == *gpu);
+                 },
+                 dll, global.allow_fp16
+diff --git a/lsfg-vk-layer/src/instance.hpp b/lsfg-vk-layer/src/instance.hpp
+index 35083b6..e982dd3 100644
+--- a/lsfg-vk-layer/src/instance.hpp
++++ b/lsfg-vk-layer/src/instance.hpp
+@@ -9,6 +9,7 @@
+ #include "lsfg-vk-common/vulkan/vulkan.hpp"
+ #include "swapchain.hpp"
+ 
++#include <cstdlib>
+ #include <optional>
+ #include <unordered_map>
+ 
+@@ -23,10 +24,18 @@ namespace lsfgvk::layer {
+         /// @throws ls::error on failure
+         Root();
+ 
+-        /// check if the layer is active
++        /// check if the layer is active (has a matching profile)
+         /// @return true if active
+         [[nodiscard]] bool active() const { return this->active_profile.has_value(); }
+ 
++        /// check if the layer should watch for config changes
++        /// (returns true when not in LSFGVK_ENV mode)
++        [[nodiscard]] bool isWatching() const { return !std::getenv("LSFGVK_ENV"); }
++
++        /// check if the layer should load at all
++        /// (always loads unless in env mode without a matching profile)
++        [[nodiscard]] bool shouldLoad() const { return this->active() || this->isWatching(); }
++
+         /// ensure the layer is up-to-date
+         /// @return true if the configuration was updated
+         bool update();
+diff --git a/lsfg-vk-layer/src/swapchain.cpp b/lsfg-vk-layer/src/swapchain.cpp
+index 85033ae..4834587 100644
+--- a/lsfg-vk-layer/src/swapchain.cpp
++++ b/lsfg-vk-layer/src/swapchain.cpp
+@@ -11,6 +11,7 @@
+ #include "lsfg-vk-common/vulkan/vulkan.hpp"
+ 
+ #include <algorithm>
++#include <cmath>
+ #include <cstddef>
+ #include <cstdint>
+ #include <exception>
+@@ -56,13 +57,20 @@ void layer::context_ModifySwapchainCreateInfo(const ls::GameConf& profile, uint3
+         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+ 
+     switch (profile.pacing) {
+-        case ls::Pacing::None:
+-            createInfo.minImageCount += profile.multiplier;
++        case ls::Pacing::None: {
++            size_t multiplier = profile.multiplier;
++            if (profile.target_fps > 0) {
++                size_t adaptiveNeeded = static_cast<size_t>(
++                    std::ceil(static_cast<float>(profile.target_fps) / 30.0f)) + 1;
++                multiplier = std::max(multiplier, adaptiveNeeded);
++            }
++            createInfo.minImageCount += multiplier;
+             if (maxImages && createInfo.minImageCount > maxImages)
+                 createInfo.minImageCount = maxImages;
+ 
+             createInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+             break;
++        }
+     }
+ }
+ 
+@@ -73,8 +81,15 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+     const VkExtent2D extent = this->info.extent;
+     const bool hdr = this->info.format > 57;
+ 
++    size_t destMultiplier = this->profile.multiplier;
++    if (this->profile.target_fps > 0) {
++        size_t adaptiveNeeded = static_cast<size_t>(
++            std::ceil(static_cast<float>(this->profile.target_fps) / 30.0f)) + 1;
++        destMultiplier = std::max(destMultiplier, adaptiveNeeded);
++    }
++
+     std::vector<int> sourceFds(2);
+-    std::vector<int> destinationFds(this->profile.multiplier - 1);
++    std::vector<int> destinationFds(destMultiplier - 1);
+ 
+     this->sourceImages.reserve(sourceFds.size());
+     for (int& fd : sourceFds)
+@@ -98,7 +113,8 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+             new ls::R<backend::Context>(backend.openContext(
+                 { sourceFds.at(0), sourceFds.at(1) }, destinationFds, syncFd,
+                 extent.width, extent.height,
+-                hdr, 1.0F / this->profile.flow_scale, this->profile.performance_mode
++                hdr, 1.0F / this->profile.flow_scale, this->profile.performance_mode,
++                this->profile.target_fps, this->profile.adaptive_smoothing
+             )),
+             [backend = &backend](ls::R<backend::Context>& ctx) {
+                 backend->closeContext(ctx);
+@@ -136,8 +152,9 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+     const auto& sourceImage = this->sourceImages.at(this->fidx % 2);
+ 
+     // schedule frame generation
++    size_t activeCount{};
+     try {
+-        this->instance.get().scheduleFrames(this->ctx.get());
++        activeCount = this->instance.get().scheduleFrames(this->ctx.get());
+     } catch (const std::exception& e) {
+         throw ls::error("failed to schedule frames", e);
+     }
+@@ -202,7 +219,7 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+         {}, this->syncSemaphore->handle(), this->idx++
+     );
+ 
+-    for (size_t i = 0; i < this->destinationImages.size(); i++) {
++    for (size_t i = 0; i < activeCount; i++) {
+         auto& pcs = this->postCopySemaphores.at(this->idx % this->postCopySemaphores.size());
+         auto& destinationImage = this->destinationImages.at(i);
+         auto& pass = this->passes.at(i);
+@@ -265,7 +282,7 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+         cmdbuf.submit(vk,
+             waitSemaphores, this->syncSemaphore->handle(), this->idx,
+             signalSemaphores, VK_NULL_HANDLE, 0,
+-            i == this->destinationImages.size() - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
++            i == activeCount - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
+         );
+ 
+         // present swapchain image
+diff --git a/lsfg-vk-ui/rsc/UI.qml b/lsfg-vk-ui/rsc/UI.qml
+index 5c5a96c..dfc3ec0 100644
+--- a/lsfg-vk-ui/rsc/UI.qml
++++ b/lsfg-vk-ui/rsc/UI.qml
+@@ -188,17 +188,68 @@ ApplicationWindow {
+                 }
+ 
+                 GroupEntry {
+-                    title: "Multiplier"
+-                    description: "Control the amount of generated frames"
++                    title: "Frame Generation Mode"
++                    description: "Fixed multiplier or adaptive target framerate"
++
++                    ComboBox {
++                        Layout.fillWidth: true
++
++                        model: ["Fixed Multiplier", "Adaptive Target FPS"]
++                        currentIndex: backend.fg_mode
++                        onActivated: (index) => backend.fg_mode = index
++                    }
++                }
++
++                GroupEntry {
++                    title: backend.fg_mode === 0 ? "Multiplier" : "Target FPS"
++                    description: backend.fg_mode === 0 ? "Fixed number of frames to generate" : "Generate enough frames to hit this target"
+ 
+                     SpinBox {
++                        id: fgSpinBox
+                         Layout.alignment: Qt.AlignRight
++                        editable: true
++
++                        from: backend.fg_mode === 0 ? 2 : 1
++                        to: backend.fg_mode === 0 ? 2147483647 : 240
++                        stepSize: backend.fg_mode === 0 ? 1 : 5
++
++                        value: backend.fg_value
++                        onValueModified: backend.fg_value = value
++
++                        function increase() {
++                            value = Math.min(value + stepSize, to)
++                        }
++                        function decrease() {
++                            value = Math.max(value - stepSize, from)
++                        }
++                    }
++                }
++
++                GroupEntry {
++                    title: "Adaptive Smoothing"
++                    description: "How quickly the frame timing estimate responds to changes"
++                    visible: backend.fg_mode === 1
++
++                    RowLayout {
++                        Layout.fillWidth: true
++                        spacing: 4
++
++                        Slider {
++                            Layout.fillWidth: true
++
++                            from: 0.50
++                            to: 0.99
++                            stepSize: 0.01
+ 
+-                        from: 2
+-                        to: 100
++                            value: backend.adaptive_smoothing
++                            onValueChanged: backend.adaptive_smoothing = value.toFixed(2)
++                        }
+ 
+-                        value: backend.multiplier
+-                        onValueModified: backend.multiplier = value
++                        Label {
++                            Layout.preferredWidth: 30
++                            text: backend.adaptive_smoothing.toFixed(2)
++                            horizontalAlignment: Text.AlignHCenter
++                        }
+                     }
+                 }
+ 
+diff --git a/lsfg-vk-ui/src/backend.cpp b/lsfg-vk-ui/src/backend.cpp
+index 646ba25..0a7c1b5 100644
+--- a/lsfg-vk-ui/src/backend.cpp
++++ b/lsfg-vk-ui/src/backend.cpp
+@@ -35,6 +35,10 @@ Backend::Backend() {
+     this->m_global = config.global();
+     this->m_profiles = config.profiles();
+ 
++    // sync initial fg_mode from first profile's config
++    if (!this->m_profiles.empty())
++        this->m_fg_mode = this->m_profiles[0].target_fps > 0 ? 1 : 0;
++
+     // create gpu list
+     this->m_gpu_list = ui::getAvailableGPUs();
+ 
+diff --git a/lsfg-vk-ui/src/backend.hpp b/lsfg-vk-ui/src/backend.hpp
+index 9eed642..999570a 100644
+--- a/lsfg-vk-ui/src/backend.hpp
++++ b/lsfg-vk-ui/src/backend.hpp
+@@ -33,6 +33,10 @@ namespace lsfgvk::ui {
+         Q_PROPERTY(float flow_scale READ getFlowScale WRITE flowScaleUpdated NOTIFY refreshUI)
+         Q_PROPERTY(bool performance_mode READ getPerformanceMode WRITE performanceModeUpdated NOTIFY refreshUI)
+         Q_PROPERTY(int pacing_mode READ getPacingMode WRITE pacingModeUpdated NOTIFY refreshUI)
++        Q_PROPERTY(int target_fps READ getTargetFps WRITE targetFpsUpdated NOTIFY refreshUI)
++        Q_PROPERTY(float adaptive_smoothing READ getAdaptiveSmoothing WRITE adaptiveSmoothingUpdated NOTIFY refreshUI)
++        Q_PROPERTY(int fg_mode READ getFgMode WRITE fgModeUpdated NOTIFY refreshUI)
++        Q_PROPERTY(int fg_value READ getFgValue WRITE fgValueUpdated NOTIFY refreshUI)
+         Q_PROPERTY(QStringList gpus READ calculateGPUList NOTIFY refreshUI)
+         Q_PROPERTY(int gpu READ getGPU WRITE gpuUpdated NOTIFY refreshUI)
+ 
+@@ -89,6 +93,23 @@ namespace lsfgvk::ui {
+             }
+             throw std::runtime_error("Unknown pacing type in backend");
+         }
++        [[nodiscard]] int getTargetFps() const {
++            VALIDATE_AND_GET_PROFILE(0)
++            return static_cast<int>(conf.target_fps);
++        }
++        [[nodiscard]] float getAdaptiveSmoothing() const {
++            VALIDATE_AND_GET_PROFILE(0.9F)
++            return conf.adaptive_smoothing;
++        }
++        [[nodiscard]] int getFgMode() const {
++            return this->m_fg_mode;
++        }
++        [[nodiscard]] int getFgValue() const {
++            VALIDATE_AND_GET_PROFILE(2)
++            if (this->m_fg_mode == 1)
++                return static_cast<int>(conf.target_fps);
++            return static_cast<int>(conf.multiplier);
++        }
+         [[nodiscard]] QStringList calculateGPUList() const {
+             return this->m_gpu_list;
+         }
+@@ -103,6 +124,8 @@ namespace lsfgvk::ui {
+     setters:
+         void profileSelected(int idx) {
+             this->m_profile_index = idx;
++            if (this->m_profile_index >= 0 && std::cmp_less(this->m_profile_index, this->m_profiles.size()))
++                this->m_fg_mode = this->m_profiles[static_cast<size_t>(idx)].target_fps > 0 ? 1 : 0;
+             emit refreshUI();
+         }
+ 
+@@ -160,6 +183,40 @@ namespace lsfgvk::ui {
+             }
+             MARK_DIRTY()
+         }
++        void targetFpsUpdated(int target_fps) {
++            VALIDATE_AND_GET_PROFILE()
++            conf.target_fps = static_cast<uint32_t>(target_fps);
++            MARK_DIRTY()
++        }
++        void adaptiveSmoothingUpdated(float adaptive_smoothing) {
++            VALIDATE_AND_GET_PROFILE()
++            conf.adaptive_smoothing = adaptive_smoothing;
++            MARK_DIRTY()
++        }
++        void fgModeUpdated(int mode) {
++            if (mode == this->m_fg_mode)
++                return;
++            this->m_fg_mode = mode;
++            VALIDATE_AND_GET_PROFILE()
++            if (mode == 0) {
++                conf.target_fps = 0;
++            } else {
++                if (conf.target_fps == 0)
++                    conf.target_fps = 60;
++            }
++            MARK_DIRTY()
++        }
++        void fgValueUpdated(int value) {
++            VALIDATE_AND_GET_PROFILE()
++            if (this->m_fg_mode == 1) {
++                conf.target_fps = static_cast<uint32_t>(
++                    std::max(1, std::min(value, 240))
++                );
++            } else {
++                conf.multiplier = static_cast<size_t>(std::max(2, value));
++            }
++            MARK_DIRTY()
++        }
+         void gpuUpdated(int gpu_idx) {
+             VALIDATE_AND_GET_PROFILE()
+             const auto& gpu = this->m_gpu_list.at(gpu_idx);
+@@ -212,6 +269,7 @@ namespace lsfgvk::ui {
+             model->setData(model->index(model->rowCount() - 1), name);
+ 
+             this->m_profile_index = static_cast<int>(this->m_profiles.size() - 1);
++            this->m_fg_mode = 0; // new profiles start in fixed mode
+             MARK_DIRTY()
+         }
+         Q_INVOKABLE void renameProfile(const QString& name) {
+@@ -233,10 +291,13 @@ namespace lsfgvk::ui {
+             active_in_models.erase(active_in_models.begin() + this->m_profile_index);
+             auto& model = this->m_profile_list_model;
+             model->removeRow(this->m_profile_index);
+-            if (!this->m_profiles.empty())
++            if (!this->m_profiles.empty()) {
+                 this->m_profile_index = 0;
+-            else
++                this->m_fg_mode = this->m_profiles[0].target_fps > 0 ? 1 : 0;
++            } else {
+                 this->m_profile_index = -1;
++                this->m_fg_mode = 0;
++            }
+             MARK_DIRTY()
+         }
+ 
+@@ -256,6 +317,8 @@ namespace lsfgvk::ui {
+         std::vector<QStringListModel*> m_active_in_list_models;
+         int m_active_in_index{-1};
+ 
++        int m_fg_mode{0}; // 0 = fixed multiplier, 1 = adaptive target FPS
++
+         QStringList m_gpu_list;
+ 
+         std::atomic_bool m_dirty{false};
+diff --git a/lsfg-vk-ui/src/utils.cpp b/lsfg-vk-ui/src/utils.cpp
+index 0866b48..e5f4665 100644
+--- a/lsfg-vk-ui/src/utils.cpp
++++ b/lsfg-vk-ui/src/utils.cpp
+@@ -25,7 +25,8 @@ QStringList ui::getAvailableGPUs() {
+     try {
+         const backend::DevicePicker picker{[&gpus](
+             const std::string& deviceName,
+-            std::pair<const std::string&, const std::string&>,
++            const std::string&,
++            const std::string&,
+             const std::optional<std::string>& pci
+         ) {
+             gpus.emplace_back(deviceName, pci);
