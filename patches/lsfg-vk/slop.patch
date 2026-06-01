@@ -59,7 +59,7 @@ index 202ac0c..4467a4c 100644
  
      /// constant buffer used in shaders
 diff --git a/lsfg-vk-backend/src/lsfgvk.cpp b/lsfg-vk-backend/src/lsfgvk.cpp
-index c94cfe1..6b860e2 100644
+index c94cfe1..c05a2d5 100644
 --- a/lsfg-vk-backend/src/lsfgvk.cpp
 +++ b/lsfg-vk-backend/src/lsfgvk.cpp
 @@ -26,6 +26,8 @@
@@ -87,18 +87,20 @@ index c94cfe1..6b860e2 100644
      private:
          std::pair<vk::Image, vk::Image> sourceImages;
          std::vector<vk::Image> destImages;
-@@ -120,6 +124,10 @@ namespace lsfgvk::backend {
+@@ -120,6 +124,12 @@ namespace lsfgvk::backend {
  
          Ctx ctx;
  
 +        // adaptive frame generation state
 +        std::chrono::steady_clock::time_point lastFrameTime{};
 +        double emaFrameInterval{0.0};
++        double frameDebt{0.0};
++        bool fenceSignaled{false};
 +
          Mipmaps mipmaps;
          std::array<Alpha0, 7> alpha0;
          std::array<Alpha1, 7> alpha1;
-@@ -172,8 +180,8 @@ Instance::Instance(
+@@ -172,8 +182,8 @@ Instance::Instance(
  
              if (devicePicker(
                  std::string(devname.data()),
@@ -109,7 +111,7 @@ index c94cfe1..6b860e2 100644
                  has_pci_ext ? std::optional<std::string>{
                      std::to_string(pciInfo.pciBus) + ":" +
                      std::to_string(pciInfo.pciDevice) + "." +
-@@ -275,11 +283,13 @@ InstanceImpl::InstanceImpl(vk::PhysicalDeviceSelector selectPhysicalDevice,
+@@ -275,11 +285,13 @@ InstanceImpl::InstanceImpl(vk::PhysicalDeviceSelector selectPhysicalDevice,
  
  Context& Instance::openContext(std::pair<int, int> sourceFds, const std::vector<int>& destFds,
          int syncFd, uint32_t width, uint32_t height,
@@ -125,7 +127,7 @@ index c94cfe1..6b860e2 100644
      )).get();
  }
  
-@@ -358,7 +368,8 @@ namespace {
+@@ -358,7 +370,8 @@ namespace {
      }
      /// create context data
      Ctx createCtx(const InstanceImpl& instance, VkExtent2D extent,
@@ -135,7 +137,7 @@ index c94cfe1..6b860e2 100644
          const auto& vk = instance.getVulkan();
          const auto& shaders = instance.getShaderRegistry();
  
-@@ -391,7 +402,9 @@ namespace {
+@@ -391,7 +404,9 @@ namespace {
                  .hdr = hdr,
                  .flow = flow,
                  .perf = perf,
@@ -146,7 +148,7 @@ index c94cfe1..6b860e2 100644
              };
          } catch (const std::exception& e) {
              throw backend::error("Unable to create context", e);
-@@ -401,7 +414,8 @@ namespace {
+@@ -401,7 +416,8 @@ namespace {
  
  ContextImpl::ContextImpl(const InstanceImpl& instance,
              std::pair<int, int> sourceFds, const std::vector<int>& destFds, int syncFd,
@@ -156,7 +158,7 @@ index c94cfe1..6b860e2 100644
          sourceImages(importImages(instance.getVulkan(), sourceFds,
              extent, hdr ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM)),
          destImages(importImages(instance.getVulkan(), destFds,
-@@ -411,7 +425,8 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+@@ -411,7 +427,8 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
          prepassSemaphore(createPrepassSemaphore(instance.getVulkan())),
          cmdbufs(createCommandBuffers(instance.getVulkan(), destFds.size() + 1)),
          cmdbufFence(instance.getVulkan()),
@@ -166,7 +168,7 @@ index c94cfe1..6b860e2 100644
          mipmaps(ctx, sourceImages),
          alpha0{
              Alpha0(ctx, mipmaps.getImages().at(0)),
-@@ -549,7 +564,7 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+@@ -549,7 +566,7 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
      cmdbuf.submit(ctx.vk); // wait for completion
  }
  
@@ -175,7 +177,7 @@ index c94cfe1..6b860e2 100644
  #ifdef LSFGVK_TESTING_RENDERDOC
      const auto& impl = this->m_impl;
      if (impl->getRenderDocAPI()) {
-@@ -558,8 +573,9 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
+@@ -558,8 +575,9 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
              nullptr);
      }
  #endif
@@ -186,7 +188,7 @@ index c94cfe1..6b860e2 100644
      } catch (const std::exception& e) {
          throw backend::error("Unable to schedule frames", e);
      }
-@@ -571,15 +587,47 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
+@@ -571,15 +589,60 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
              nullptr);
      }
  #endif
@@ -195,49 +197,65 @@ index c94cfe1..6b860e2 100644
  
 -void Context::scheduleFrames() {
 -    // wait for previous pre-pass to complete
+-    if (this->fidx && !this->cmdbufFence.wait(this->ctx.vk))
+-        throw backend::error("Timeout waiting for previous frame to complete");
+-    this->cmdbufFence.reset(this->ctx.vk);
 +size_t Context::scheduleFrames() {
 +    using namespace std::chrono;
 +
 +    // --- adaptive frame count computation ---
 +    const auto now = steady_clock::now();
-+    size_t activeCount = this->destImages.size(); // default: all frames
++    size_t activeCount = this->destImages.size(); // default: fixed mode (generated frames)
 +
-+    if (this->ctx.targetFps > 0 && this->fidx > 0) {
-+        const double elapsed = duration<double>(now - this->lastFrameTime).count();
++    if (this->ctx.targetFps > 0) {
++        if (this->fidx > 0) {
++            const double elapsed = duration<double>(now - this->lastFrameTime).count();
 +
-+        if (this->emaFrameInterval <= 0.0) {
-+            this->emaFrameInterval = elapsed; // seed on first measurement
++            if (this->emaFrameInterval <= 0.0) {
++                this->emaFrameInterval = elapsed; // seed on first measurement
++            } else {
++                const auto s = static_cast<double>(this->ctx.adaptiveSmoothing);
++                this->emaFrameInterval = s * this->emaFrameInterval + (1.0 - s) * elapsed;
++            }
++
++            const double targetInterval = 1.0 / static_cast<double>(this->ctx.targetFps);
++
++            // Compute total output multiplier (original + generated)
++            // using a Bresenham-style fractional accumulator.
++            this->frameDebt += (this->emaFrameInterval / targetInterval);
++            auto totalOutput = static_cast<size_t>(
++                std::max(0.0, std::floor(this->frameDebt + 1e-9))
++            );
++
++            if (totalOutput < 1) totalOutput = 1;
+ 
+-    // schedule pre-pass
++            if (totalOutput > this->destImages.size() + 1)
++                totalOutput = this->destImages.size() + 1;
++
++            this->frameDebt -= static_cast<double>(totalOutput);
++            if (this->frameDebt < 0.0) this->frameDebt = 0.0;
++
++            activeCount = totalOutput;
 +        } else {
-+            const auto s = static_cast<double>(this->ctx.adaptiveSmoothing);
-+            this->emaFrameInterval = s * this->emaFrameInterval + (1.0 - s) * elapsed;
++            // fidx == 0: minimal burst, just the original frame
++            activeCount = 1;
 +        }
-+
-+        const double targetInterval = 1.0 / static_cast<double>(this->ctx.targetFps);
-+        auto needed = static_cast<size_t>(
-+            std::round(this->emaFrameInterval / targetInterval)
-+        );
-+
-+        // clamp: at least 1 generated frame
-+        if (needed < 1) needed = 1;
-+
-+        // clamp: never exceed pre-allocated capacity
-+        if (needed > this->destImages.size()) needed = this->destImages.size();
-+
-+        activeCount = needed;
 +    }
 +    this->lastFrameTime = now;
 +
 +    // --- fence wait (previous frame's last main pass) ---
-     if (this->fidx && !this->cmdbufFence.wait(this->ctx.vk))
-         throw backend::error("Timeout waiting for previous frame to complete");
-     this->cmdbufFence.reset(this->ctx.vk);
- 
--    // schedule pre-pass
++    if (this->fidx && this->fenceSignaled) {
++        if (!this->cmdbufFence.wait(this->ctx.vk))
++            throw backend::error("Timeout waiting for previous frame to complete");
++        this->cmdbufFence.reset(this->ctx.vk);
++    }
++
 +    // --- schedule pre-pass ---
      const auto& cmdbuf = this->cmdbufs.at(0);
      cmdbuf.begin(ctx.vk);
  
-@@ -599,32 +647,34 @@ void Context::scheduleFrames() {
+@@ -599,32 +662,36 @@ void Context::scheduleFrames() {
  
      this->idx++;
  
@@ -245,8 +263,9 @@ index c94cfe1..6b860e2 100644
 -    for (size_t i = 0; i < this->destImages.size(); i++) {
 -        const auto& cmdbuf = this->cmdbufs.at(i + 1);
 -        cmdbuf.begin(ctx.vk);
-+    // --- schedule main passes (only activeCount of them) ---
-+    for (size_t i = 0; i < activeCount; i++) {
++    // --- schedule main passes (generatedCount = activeCount - 1) ---
++    const size_t generatedCount = activeCount > 0 ? activeCount - 1 : 0;
++    for (size_t i = 0; i < generatedCount; i++) {
 +        const auto& passCmdbuf = this->cmdbufs.at(i + 1);
 +        passCmdbuf.begin(ctx.vk);
  
@@ -273,13 +292,14 @@ index c94cfe1..6b860e2 100644
              {}, this->prepassSemaphore.handle(), this->idx - 1,
              {}, this->syncSemaphore.handle(), this->idx + i,
 -            i == this->destImages.size() - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
-+            i == activeCount - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
++            i == generatedCount - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
          );
      }
  
 -    this->idx += this->destImages.size();
-+    this->idx += activeCount;
++    this->idx += generatedCount;
      this->fidx++;
++    this->fenceSignaled = (generatedCount > 0);
 +
 +    return activeCount;
  }
@@ -585,22 +605,56 @@ index 631034a..2609e12 100644
      };
  
 diff --git a/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp b/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
-index 4581c3e..1442c8b 100644
+index 4581c3e..76a8aa1 100644
 --- a/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
 +++ b/lsfg-vk-common/include/lsfg-vk-common/configuration/config.hpp
-@@ -39,6 +39,10 @@ namespace ls {
-         float flow_scale{1.00F};
-         /// use performance mode
-         bool performance_mode{false};
-+        /// target FPS for adaptive frame generation (0 = disabled, use fixed multiplier)
-+        uint32_t target_fps{0};
-+        /// EMA smoothing factor for adaptive frame timing (0.5–0.99, default 0.9)
-+        float adaptive_smoothing{0.9F};
-         /// pacing method
-         Pacing pacing{Pacing::None};
+@@ -26,22 +26,28 @@ namespace ls {
      };
+ 
+     /// game profile configuration
+-    struct GameConf {
+-        /// name of the profile
+-        std::string name{"Profile"};
+-        /// optional activation string/array
+-        std::vector<std::string> active_in;
+-        /// gpu to use (in case of multiple)
+-        std::optional<std::string> gpu;
+-        /// multiplier for frame generation
+-        size_t multiplier{2};
+-        /// non-inverted flow scale
+-        float flow_scale{1.00F};
+-        /// use performance mode
+-        bool performance_mode{false};
+-        /// pacing method
+-        Pacing pacing{Pacing::None};
+-    };
++struct GameConf {
++    /// name of the profile
++    std::string name{"Profile"};
++    /// optional activation string/array
++    std::vector<std::string> active_in;
++    /// gpu to use (in case of multiple)
++    std::optional<std::string> gpu;
++    /// multiplier for frame generation
++    size_t multiplier{2};
++    /// non-inverted flow scale
++    float flow_scale{1.00F};
++    /// use performance mode
++    bool performance_mode{false};
++    /// whether this profile is enabled
++    bool enabled{true};
++    /// target FPS for adaptive frame generation (0 = disabled, use fixed multiplier)
++    uint32_t target_fps{0};
++    /// EMA smoothing factor for adaptive frame timing (0.5–0.99, default 0.9)
++    float adaptive_smoothing{0.9F};
++    /// pacing method
++    Pacing pacing{Pacing::None};
++};
+ 
+     /// parsed configuration file
+     class ConfigFile {
 diff --git a/lsfg-vk-common/src/configuration/config.cpp b/lsfg-vk-common/src/configuration/config.cpp
-index cee5861..fe4dcb2 100644
+index cee5861..1ce9b7e 100644
 --- a/lsfg-vk-common/src/configuration/config.cpp
 +++ b/lsfg-vk-common/src/configuration/config.cpp
 @@ -70,6 +70,7 @@ ConfigFile::ConfigFile() {
@@ -621,16 +675,17 @@ index cee5861..fe4dcb2 100644
      });
  }
  
-@@ -127,6 +129,8 @@ namespace {
+@@ -127,6 +129,9 @@ namespace {
              .multiplier = tbl["multiplier"].value_or(2U),
              .flow_scale = tbl["flow_scale"].value_or(1.0F),
              .performance_mode = tbl["performance_mode"].value_or(false),
++            .enabled = tbl["enabled"].value_or(true),
 +            .target_fps = tbl["target_fps"].value_or(0U),
 +            .adaptive_smoothing = tbl["adaptive_smoothing"].value_or(0.9F),
              .pacing = parcingFromString(tbl["pacing"].value_or<std::string>("none"))
          };
  
-@@ -134,6 +138,8 @@ namespace {
+@@ -134,6 +139,8 @@ namespace {
              throw ls::error("multiplier must be greater than 1");
          if (conf.flow_scale < 0.25F || conf.flow_scale > 1.0F)
              throw ls::error("flow_scale must be between 0.25 and 1.0");
@@ -639,7 +694,7 @@ index cee5861..fe4dcb2 100644
  
          return conf;
      }
-@@ -179,11 +185,17 @@ namespace {
+@@ -179,11 +186,17 @@ namespace {
          if (performance) conf.performance_mode = std::string(performance) == "1";
          const char* pacing = std::getenv("LSFGVK_PACING");
          if (pacing) conf.pacing = parcingFromString(std::string(pacing));
@@ -657,10 +712,12 @@ index cee5861..fe4dcb2 100644
  
          return conf;
      }
-@@ -242,6 +254,10 @@ void ConfigFile::write(const std::filesystem::path& path) const {
+@@ -242,6 +255,12 @@ void ConfigFile::write(const std::filesystem::path& path) const {
          profile.insert("multiplier", static_cast<int64_t>(conf.multiplier));
          profile.insert("flow_scale", conf.flow_scale);
          profile.insert("performance_mode", conf.performance_mode);
++        if (!conf.enabled)
++            profile.insert("enabled", false);
 +        if (conf.target_fps)
 +            profile.insert("target_fps", static_cast<int64_t>(conf.target_fps));
 +        if (conf.adaptive_smoothing != 0.9F)
@@ -668,6 +725,45 @@ index cee5861..fe4dcb2 100644
          switch (conf.pacing) {
              case Pacing::None:
                  profile.insert("pacing", "none");
+diff --git a/lsfg-vk-common/src/configuration/detection.cpp b/lsfg-vk-common/src/configuration/detection.cpp
+index a4fb74a..8ddfe4c 100644
+--- a/lsfg-vk-common/src/configuration/detection.cpp
++++ b/lsfg-vk-common/src/configuration/detection.cpp
+@@ -19,25 +19,31 @@ using namespace ls;
+ namespace {
+     // try to match a profile by name
+     std::optional<GameConf> matchByName(const std::vector<GameConf>& profiles, const std::string& id) {
+-        for (const auto& profile : profiles)
++        for (const auto& profile : profiles) {
++            if (!profile.enabled) continue;
+             if (profile.name == id)
+                 return profile;
++        }
+         return std::nullopt;
+     }
+     // try to match a profile by id
+     std::optional<GameConf> matchById(const std::vector<GameConf>& profiles, const std::string& id) {
+-        for (const auto& profile : profiles)
++        for (const auto& profile : profiles) {
++            if (!profile.enabled) continue;
+             for (const auto& activation : profile.active_in)
+                 if (id == activation)
+                     return profile;
++        }
+         return std::nullopt;
+     }
+     // try to match a profile by id
+     std::optional<GameConf> matchEndsWithId(const std::vector<GameConf>& profiles, const std::string& id) {
+-        for (const auto& profile : profiles)
++        for (const auto& profile : profiles) {
++            if (!profile.enabled) continue;
+             for (const auto& activation : profile.active_in)
+                 if (id.ends_with(activation))
+                     return profile;
++        }
+         return std::nullopt;
+     }
+ }
 diff --git a/lsfg-vk-layer/src/entrypoint.cpp b/lsfg-vk-layer/src/entrypoint.cpp
 index 6256b9f..0af5f90 100644
 --- a/lsfg-vk-layer/src/entrypoint.cpp
@@ -873,7 +969,7 @@ index 35083b6..e982dd3 100644
          /// @return true if the configuration was updated
          bool update();
 diff --git a/lsfg-vk-layer/src/swapchain.cpp b/lsfg-vk-layer/src/swapchain.cpp
-index 85033ae..4834587 100644
+index 85033ae..320c75e 100644
 --- a/lsfg-vk-layer/src/swapchain.cpp
 +++ b/lsfg-vk-layer/src/swapchain.cpp
 @@ -11,6 +11,7 @@
@@ -934,8 +1030,21 @@ index 85033ae..4834587 100644
              )),
              [backend = &backend](ls::R<backend::Context>& ctx) {
                  backend->closeContext(ctx);
-@@ -136,8 +152,9 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+@@ -120,7 +136,9 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+     }
+ 
+     const size_t frames = std::max(this->info.images.size(), this->destinationImages.size() + 2);
++    this->frameSemaphores.reserve(frames);
+     for (size_t i = 0; i < frames; i++) {
++        this->frameSemaphores.emplace_back(vk);
+         this->postCopySemaphores.emplace_back(
+             vk::Semaphore(vk),
+             vk::Semaphore(vk)
+@@ -134,10 +152,12 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+         const std::vector<VkSemaphore>& semaphores) {
+     const auto& swapchainImage = this->info.images.at(imageIdx);
      const auto& sourceImage = this->sourceImages.at(this->fidx % 2);
++    VkResult res = VK_SUCCESS;
  
      // schedule frame generation
 +    size_t activeCount{};
@@ -945,29 +1054,276 @@ index 85033ae..4834587 100644
      } catch (const std::exception& e) {
          throw ls::error("failed to schedule frames", e);
      }
-@@ -202,7 +219,7 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
-         {}, this->syncSemaphore->handle(), this->idx++
+@@ -161,9 +181,11 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+     }
+ 
+     // wait for completion of previous frame
+-    if (this->fidx && !this->renderFence->wait(vk, 150ULL * 1000 * 1000))
+-        throw ls::vulkan_error(VK_TIMEOUT, "vkWaitForFences() failed");
+-    this->renderFence->reset(vk);
++    if (this->fidx && this->fenceSignaled) {
++        if (!this->renderFence->wait(vk, 150ULL * 1000 * 1000))
++            throw ls::vulkan_error(VK_TIMEOUT, "vkWaitForFences() failed");
++        this->renderFence->reset(vk);
++    }
+ 
+     // copy swapchain image into backend source image
+     const auto& cmdbuf = *this->renderCommandBuffer;
+@@ -197,108 +219,124 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+     );
+ 
+     cmdbuf.end(vk);
++    const size_t ringIdx = this->fidx % this->frameSemaphores.size();
+     cmdbuf.submit(vk,
+         semaphores, VK_NULL_HANDLE, 0,
+-        {}, this->syncSemaphore->handle(), this->idx++
++        { this->frameSemaphores.at(ringIdx).handle() },
++        this->syncSemaphore->handle(), this->idx++
      );
  
 -    for (size_t i = 0; i < this->destinationImages.size(); i++) {
+-        auto& pcs = this->postCopySemaphores.at(this->idx % this->postCopySemaphores.size());
+-        auto& destinationImage = this->destinationImages.at(i);
+-        auto& pass = this->passes.at(i);
+-
+-        // acquire swapchain image
+-        uint32_t aqImageIdx{};
+-        auto res = vk.df().AcquireNextImageKHR(vk.dev(), swapchain,
+-            UINT64_MAX, pass.acquireSemaphore.handle(),
+-            VK_NULL_HANDLE,
+-            &aqImageIdx
+-        );
+-        if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+-            throw ls::vulkan_error(res, "vkAcquireNextImageKHR() failed");
+-
+-        const auto& aquiredSwapchainImage = this->info.images.at(aqImageIdx);
+-
+-        // copy backend destination image into swapchain image
+-        auto& cmdbuf = pass.commandBuffer;
+-        cmdbuf.begin(vk);
+-
+-        cmdbuf.blitImage(vk,
+-            {
+-                barrierHelper(destinationImage.handle(),
+-                    VK_ACCESS_NONE,
+-                    VK_ACCESS_TRANSFER_READ_BIT,
+-                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+-                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+-                ),
+-                barrierHelper(aquiredSwapchainImage,
+-                    VK_ACCESS_NONE,
+-                    VK_ACCESS_TRANSFER_WRITE_BIT,
+-                    VK_IMAGE_LAYOUT_UNDEFINED,
+-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+-                ),
+-            },
+-            { destinationImage.handle(), aquiredSwapchainImage },
+-            destinationImage.getExtent(),
+-            {
+-                barrierHelper(aquiredSwapchainImage,
+-                    VK_ACCESS_TRANSFER_WRITE_BIT,
+-                    VK_ACCESS_MEMORY_READ_BIT,
+-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+-                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+-                ),
 +    for (size_t i = 0; i < activeCount; i++) {
-         auto& pcs = this->postCopySemaphores.at(this->idx % this->postCopySemaphores.size());
-         auto& destinationImage = this->destinationImages.at(i);
-         auto& pass = this->passes.at(i);
-@@ -265,7 +282,7 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
-         cmdbuf.submit(vk,
-             waitSemaphores, this->syncSemaphore->handle(), this->idx,
-             signalSemaphores, VK_NULL_HANDLE, 0,
--            i == this->destinationImages.size() - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
-+            i == activeCount - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
-         );
++        const bool isOriginal = (i == activeCount - 1);
++
++        if (isOriginal) {
++            // present original frame: wait on previous pass's PCS
++            // (or on the blit frameSemaphore when activeCount == 1)
++            VkSemaphore waitSem = activeCount > 1
++                ? this->postCopySemaphores.at(
++                    (this->idx - 1) % this->postCopySemaphores.size()).second.handle()
++                : this->frameSemaphores.at(ringIdx).handle();
++
++            const VkPresentInfoKHR presentInfo{
++                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
++                .pNext = next_chain,
++                .waitSemaphoreCount = 1,
++                .pWaitSemaphores = &waitSem,
++                .swapchainCount = 1,
++                .pSwapchains = &swapchain,
++                .pImageIndices = &imageIdx,
++            };
++            res = vk.df().QueuePresentKHR(queue, &presentInfo);
++            if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
++                throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
++
++            // original does not consume a syncSem slot
++        } else {
++            auto& pcs = this->postCopySemaphores.at(this->idx % this->postCopySemaphores.size());
++            auto& destinationImage = this->destinationImages.at(i);
++            auto& pass = this->passes.at(i);
++
++            // acquire swapchain image
++            uint32_t aqImageIdx{};
++            auto res = vk.df().AcquireNextImageKHR(vk.dev(), swapchain,
++                UINT64_MAX, pass.acquireSemaphore.handle(),
++                VK_NULL_HANDLE,
++                &aqImageIdx
++            );
++            if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
++                throw ls::vulkan_error(res, "vkAcquireNextImageKHR() failed");
++
++            const auto& aquiredSwapchainImage = this->info.images.at(aqImageIdx);
++
++            // copy backend destination image into swapchain image
++            auto& cmdbuf = pass.commandBuffer;
++            cmdbuf.begin(vk);
++
++            cmdbuf.blitImage(vk,
++                {
++                    barrierHelper(destinationImage.handle(),
++                        VK_ACCESS_NONE,
++                        VK_ACCESS_TRANSFER_READ_BIT,
++                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
++                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
++                    ),
++                    barrierHelper(aquiredSwapchainImage,
++                        VK_ACCESS_NONE,
++                        VK_ACCESS_TRANSFER_WRITE_BIT,
++                        VK_IMAGE_LAYOUT_UNDEFINED,
++                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
++                    ),
++                },
++                { destinationImage.handle(), aquiredSwapchainImage },
++                destinationImage.getExtent(),
++                {
++                    barrierHelper(aquiredSwapchainImage,
++                        VK_ACCESS_TRANSFER_WRITE_BIT,
++                        VK_ACCESS_MEMORY_READ_BIT,
++                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
++                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
++                    ),
++                }
++            );
++
++            std::vector<VkSemaphore> waitSemaphores{ pass.acquireSemaphore.handle() };
++            if (i) { // non-first pass
++                const auto& prevPCS = this->postCopySemaphores.at(
++                    (this->idx - 1) % this->postCopySemaphores.size());
++                waitSemaphores.push_back(prevPCS.second.handle());
+             }
+-        );
  
-         // present swapchain image
+-        std::vector<VkSemaphore> waitSemaphores{ pass.acquireSemaphore.handle() };
+-        if (i) { // non-first pass
+-            const auto& prevPCS = this->postCopySemaphores.at((this->idx - 1) % this->postCopySemaphores.size());
+-            waitSemaphores.push_back(prevPCS.second.handle());
++            const std::vector<VkSemaphore> signalSemaphores{
++                pcs.first.handle(),
++                pcs.second.handle()
++            };
++
++            cmdbuf.end(vk);
++            cmdbuf.submit(vk,
++                waitSemaphores, this->syncSemaphore->handle(), this->idx,
++                signalSemaphores, VK_NULL_HANDLE, 0,
++                (i == activeCount - 2) ? this->renderFence->handle() : VK_NULL_HANDLE
++            );
++
++            // present generated frame
++            const VkPresentInfoKHR presentInfo{
++                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
++                .pNext = i ? nullptr : next_chain,
++                .waitSemaphoreCount = 1,
++                .pWaitSemaphores = &pcs.first.handle(),
++                .swapchainCount = 1,
++                .pSwapchains = &swapchain,
++                .pImageIndices = &aqImageIdx,
++            };
++            res = vk.df().QueuePresentKHR(queue, &presentInfo);
++            if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
++                throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
++
++            this->idx++;
+         }
+-
+-        const std::vector<VkSemaphore> signalSemaphores{
+-            pcs.first.handle(),
+-            pcs.second.handle()
+-        };
+-
+-        cmdbuf.end(vk);
+-        cmdbuf.submit(vk,
+-            waitSemaphores, this->syncSemaphore->handle(), this->idx,
+-            signalSemaphores, VK_NULL_HANDLE, 0,
+-            i == this->destinationImages.size() - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
+-        );
+-
+-        // present swapchain image
+-        const VkPresentInfoKHR presentInfo{
+-            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+-            .pNext = i ? nullptr : next_chain,
+-            .waitSemaphoreCount = 1,
+-            .pWaitSemaphores = &pcs.first.handle(),
+-            .swapchainCount = 1,
+-            .pSwapchains = &swapchain,
+-            .pImageIndices = &aqImageIdx,
+-        };
+-        res = vk.df().QueuePresentKHR(queue,
+-            &presentInfo);
+-        if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+-            throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
+-
+-        this->idx++;
+     }
+ 
+-    // present original swapchain image
+-    auto& lastPCS = this->postCopySemaphores.at((this->idx - 1) % this->postCopySemaphores.size());
+-    const VkPresentInfoKHR presentInfo{
+-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+-        .waitSemaphoreCount = 1,
+-        .pWaitSemaphores = &lastPCS.second.handle(),
+-        .swapchainCount = 1,
+-        .pSwapchains = &swapchain,
+-        .pImageIndices = &imageIdx,
+-    };
+-    auto res = vk.df().QueuePresentKHR(queue, &presentInfo);
+-    if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+-        throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
++    this->fenceSignaled = (activeCount > 1);
+ 
+     this->fidx++;
+     return res;
+diff --git a/lsfg-vk-layer/src/swapchain.hpp b/lsfg-vk-layer/src/swapchain.hpp
+index 3c711a0..a30e566 100644
+--- a/lsfg-vk-layer/src/swapchain.hpp
++++ b/lsfg-vk-layer/src/swapchain.hpp
+@@ -65,6 +65,8 @@ namespace lsfgvk::layer {
+ 
+         ls::lazy<vk::CommandBuffer> renderCommandBuffer;
+         ls::lazy<vk::Fence> renderFence;
++        std::vector<vk::Semaphore> frameSemaphores;
++        bool fenceSignaled{false};
+         struct RenderPass {
+             vk::CommandBuffer commandBuffer;
+             vk::Semaphore acquireSemaphore;
 diff --git a/lsfg-vk-ui/rsc/UI.qml b/lsfg-vk-ui/rsc/UI.qml
-index 5c5a96c..dfc3ec0 100644
+index 5c5a96c..0db88d8 100644
 --- a/lsfg-vk-ui/rsc/UI.qml
 +++ b/lsfg-vk-ui/rsc/UI.qml
-@@ -188,17 +188,68 @@ ApplicationWindow {
+@@ -175,6 +175,18 @@ ApplicationWindow {
+                 name: "Profile Settings"
+                 enabled: backend.available
+ 
++                GroupEntry {
++                    title: "Enabled"
++                    description: "Disable to temporarily ignore this profile"
++
++                    CheckBox {
++                        Layout.alignment: Qt.AlignRight
++
++                        checked: backend.profile_enabled
++                        onToggled: backend.profile_enabled = checked
++                    }
++                }
++
+                 GroupEntry {
+                     title: "Active In"
+                     description: "Specify which applications this profile is active in"
+@@ -188,17 +200,68 @@ ApplicationWindow {
                  }
  
                  GroupEntry {
@@ -1058,12 +1414,14 @@ index 646ba25..0a7c1b5 100644
      this->m_gpu_list = ui::getAvailableGPUs();
  
 diff --git a/lsfg-vk-ui/src/backend.hpp b/lsfg-vk-ui/src/backend.hpp
-index 9eed642..999570a 100644
+index 9eed642..6897660 100644
 --- a/lsfg-vk-ui/src/backend.hpp
 +++ b/lsfg-vk-ui/src/backend.hpp
-@@ -33,6 +33,10 @@ namespace lsfgvk::ui {
+@@ -32,7 +32,12 @@ namespace lsfgvk::ui {
+         Q_PROPERTY(size_t multiplier READ getMultiplier WRITE multiplierUpdated NOTIFY refreshUI)
          Q_PROPERTY(float flow_scale READ getFlowScale WRITE flowScaleUpdated NOTIFY refreshUI)
          Q_PROPERTY(bool performance_mode READ getPerformanceMode WRITE performanceModeUpdated NOTIFY refreshUI)
++        Q_PROPERTY(bool profile_enabled READ getProfileEnabled WRITE profileEnabledUpdated NOTIFY refreshUI)
          Q_PROPERTY(int pacing_mode READ getPacingMode WRITE pacingModeUpdated NOTIFY refreshUI)
 +        Q_PROPERTY(int target_fps READ getTargetFps WRITE targetFpsUpdated NOTIFY refreshUI)
 +        Q_PROPERTY(float adaptive_smoothing READ getAdaptiveSmoothing WRITE adaptiveSmoothingUpdated NOTIFY refreshUI)
@@ -1072,7 +1430,18 @@ index 9eed642..999570a 100644
          Q_PROPERTY(QStringList gpus READ calculateGPUList NOTIFY refreshUI)
          Q_PROPERTY(int gpu READ getGPU WRITE gpuUpdated NOTIFY refreshUI)
  
-@@ -89,6 +93,23 @@ namespace lsfgvk::ui {
+@@ -82,6 +87,10 @@ namespace lsfgvk::ui {
+             VALIDATE_AND_GET_PROFILE(false)
+             return conf.performance_mode;
+         }
++        [[nodiscard]] bool getProfileEnabled() const {
++            VALIDATE_AND_GET_PROFILE(true)
++            return conf.enabled;
++        }
+         [[nodiscard]] int getPacingMode() const {
+             VALIDATE_AND_GET_PROFILE(0)
+             switch (conf.pacing) {
+@@ -89,6 +98,23 @@ namespace lsfgvk::ui {
              }
              throw std::runtime_error("Unknown pacing type in backend");
          }
@@ -1096,7 +1465,7 @@ index 9eed642..999570a 100644
          [[nodiscard]] QStringList calculateGPUList() const {
              return this->m_gpu_list;
          }
-@@ -103,6 +124,8 @@ namespace lsfgvk::ui {
+@@ -103,6 +129,8 @@ namespace lsfgvk::ui {
      setters:
          void profileSelected(int idx) {
              this->m_profile_index = idx;
@@ -1105,7 +1474,19 @@ index 9eed642..999570a 100644
              emit refreshUI();
          }
  
-@@ -160,6 +183,40 @@ namespace lsfgvk::ui {
+@@ -148,6 +176,11 @@ namespace lsfgvk::ui {
+             conf.performance_mode = performance_mode;
+             MARK_DIRTY()
+         }
++        void profileEnabledUpdated(bool enabled) {
++            VALIDATE_AND_GET_PROFILE()
++            conf.enabled = enabled;
++            MARK_DIRTY()
++        }
+         void pacingModeUpdated(int pacing_mode) {
+             VALIDATE_AND_GET_PROFILE()
+             if (pacing_mode == 0)
+@@ -160,6 +193,40 @@ namespace lsfgvk::ui {
              }
              MARK_DIRTY()
          }
@@ -1146,7 +1527,7 @@ index 9eed642..999570a 100644
          void gpuUpdated(int gpu_idx) {
              VALIDATE_AND_GET_PROFILE()
              const auto& gpu = this->m_gpu_list.at(gpu_idx);
-@@ -212,6 +269,7 @@ namespace lsfgvk::ui {
+@@ -212,6 +279,7 @@ namespace lsfgvk::ui {
              model->setData(model->index(model->rowCount() - 1), name);
  
              this->m_profile_index = static_cast<int>(this->m_profiles.size() - 1);
@@ -1154,7 +1535,7 @@ index 9eed642..999570a 100644
              MARK_DIRTY()
          }
          Q_INVOKABLE void renameProfile(const QString& name) {
-@@ -233,10 +291,13 @@ namespace lsfgvk::ui {
+@@ -233,10 +301,13 @@ namespace lsfgvk::ui {
              active_in_models.erase(active_in_models.begin() + this->m_profile_index);
              auto& model = this->m_profile_list_model;
              model->removeRow(this->m_profile_index);
@@ -1170,7 +1551,7 @@ index 9eed642..999570a 100644
              MARK_DIRTY()
          }
  
-@@ -256,6 +317,8 @@ namespace lsfgvk::ui {
+@@ -256,6 +327,8 @@ namespace lsfgvk::ui {
          std::vector<QStringListModel*> m_active_in_list_models;
          int m_active_in_index{-1};
  
