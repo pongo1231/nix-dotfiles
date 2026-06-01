@@ -72,7 +72,9 @@ in
     };
   };
 
-  snapperS = final.callPackage (pkg /snapperS) { };
+  snapperS =
+    inputs.nixpkgs2.legacyPackages.${final.stdenv.buildPlatform.system}.callPackage (pkg /snapperS)
+      { };
 
   mosh = prev.mosh.overrideAttrs (prevAttrs: {
     postPatch = (prevAttrs.postPatch or "") + ''

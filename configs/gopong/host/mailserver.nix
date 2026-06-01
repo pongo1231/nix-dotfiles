@@ -29,7 +29,6 @@ withSecrets "pongo"
       "gopong.dev"
     ];
     mailDirectory = "/var/lib/vmail";
-    sieveDirectory = "/var/lib/sieve";
     enableSubmission = true;
     loginAccounts = {
       "pongo@${config.mailserver.fqdn}" = {
