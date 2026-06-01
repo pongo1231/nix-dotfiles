@@ -59,7 +59,7 @@ index 202ac0c..4467a4c 100644
  
      /// constant buffer used in shaders
 diff --git a/lsfg-vk-backend/src/lsfgvk.cpp b/lsfg-vk-backend/src/lsfgvk.cpp
-index c94cfe1..c05a2d5 100644
+index c94cfe1..1e9c2ab 100644
 --- a/lsfg-vk-backend/src/lsfgvk.cpp
 +++ b/lsfg-vk-backend/src/lsfgvk.cpp
 @@ -26,6 +26,8 @@
@@ -205,7 +205,7 @@ index c94cfe1..c05a2d5 100644
 +
 +    // --- adaptive frame count computation ---
 +    const auto now = steady_clock::now();
-+    size_t activeCount = this->destImages.size(); // default: fixed mode (generated frames)
++    size_t activeCount = this->destImages.size() + 1; // default: fixed mode (1 original + N generated)
 +
 +    if (this->ctx.targetFps > 0) {
 +        if (this->fidx > 0) {
@@ -228,14 +228,14 @@ index c94cfe1..c05a2d5 100644
 +            );
 +
 +            if (totalOutput < 1) totalOutput = 1;
- 
--    // schedule pre-pass
++
 +            if (totalOutput > this->destImages.size() + 1)
 +                totalOutput = this->destImages.size() + 1;
 +
 +            this->frameDebt -= static_cast<double>(totalOutput);
 +            if (this->frameDebt < 0.0) this->frameDebt = 0.0;
-+
+ 
+-    // schedule pre-pass
 +            activeCount = totalOutput;
 +        } else {
 +            // fidx == 0: minimal burst, just the original frame
@@ -255,7 +255,7 @@ index c94cfe1..c05a2d5 100644
      const auto& cmdbuf = this->cmdbufs.at(0);
      cmdbuf.begin(ctx.vk);
  
-@@ -599,32 +662,36 @@ void Context::scheduleFrames() {
+@@ -599,32 +662,84 @@ void Context::scheduleFrames() {
  
      this->idx++;
  
@@ -263,37 +263,93 @@ index c94cfe1..c05a2d5 100644
 -    for (size_t i = 0; i < this->destImages.size(); i++) {
 -        const auto& cmdbuf = this->cmdbufs.at(i + 1);
 -        cmdbuf.begin(ctx.vk);
-+    // --- schedule main passes (generatedCount = activeCount - 1) ---
-+    const size_t generatedCount = activeCount > 0 ? activeCount - 1 : 0;
-+    for (size_t i = 0; i < generatedCount; i++) {
-+        const auto& passCmdbuf = this->cmdbufs.at(i + 1);
-+        passCmdbuf.begin(ctx.vk);
- 
-         const auto& pass = this->passes.at(i);
-         for (size_t j = 0; j < 7; j++) {
+-
+-        const auto& pass = this->passes.at(i);
+-        for (size_t j = 0; j < 7; j++) {
 -            pass.gamma0.at(j).render(ctx.vk, cmdbuf, this->fidx);
 -            pass.gamma1.at(j).render(ctx.vk, cmdbuf);
-+            pass.gamma0.at(j).render(ctx.vk, passCmdbuf, this->fidx);
-+            pass.gamma1.at(j).render(ctx.vk, passCmdbuf);
- 
-             if (j < 4) continue;
+-
+-            if (j < 4) continue;
 -            pass.delta0.at(j - 4).render(ctx.vk, cmdbuf, this->fidx);
 -            pass.delta1.at(j - 4).render(ctx.vk, cmdbuf);
-+            pass.delta0.at(j - 4).render(ctx.vk, passCmdbuf, this->fidx);
-+            pass.delta1.at(j - 4).render(ctx.vk, passCmdbuf);
++    // --- schedule main passes (generatedCount = activeCount - 1) ---
++    const size_t generatedCount = activeCount > 0 ? activeCount - 1 : 0;
++    if (generatedCount > 0) {
++        std::vector<VkSubmitInfo> submitInfos;
++        std::vector<VkTimelineSemaphoreSubmitInfo> timelineInfos;
++        std::vector<VkCommandBuffer> handles;
++        std::vector<VkPipelineStageFlags> allStages;
++        std::vector<VkSemaphore> waitSemas;
++        std::vector<uint64_t> waitValues;
++        std::vector<VkSemaphore> signalSemas;
++        std::vector<uint64_t> signalValues;
++        submitInfos.reserve(generatedCount);
++        timelineInfos.reserve(generatedCount);
++        handles.reserve(generatedCount);
++        allStages.reserve(generatedCount);
++        waitSemas.reserve(generatedCount);
++        waitValues.reserve(generatedCount);
++        signalSemas.reserve(generatedCount);
++        signalValues.reserve(generatedCount);
++
++        for (size_t i = 0; i < generatedCount; i++) {
++            const auto& passCmdbuf = this->cmdbufs.at(i + 1);
++            passCmdbuf.begin(ctx.vk);
++
++            const auto& pass = this->passes.at(i);
++            for (size_t j = 0; j < 7; j++) {
++                pass.gamma0.at(j).render(ctx.vk, passCmdbuf, this->fidx);
++                pass.gamma1.at(j).render(ctx.vk, passCmdbuf);
++
++                if (j < 4) continue;
++                pass.delta0.at(j - 4).render(ctx.vk, passCmdbuf, this->fidx);
++                pass.delta1.at(j - 4).render(ctx.vk, passCmdbuf);
++            }
++            pass.generate->render(ctx.vk, passCmdbuf, this->fidx);
++
++            passCmdbuf.end(ctx.vk);
++
++            // build submit info for this pass
++            waitSemas.push_back(this->prepassSemaphore.handle());
++            waitValues.push_back(this->idx - 1);
++            signalSemas.push_back(this->syncSemaphore.handle());
++            signalValues.push_back(this->idx + i);
++            allStages.push_back(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
++            handles.push_back(passCmdbuf.handle());
++
++            auto& ti = timelineInfos.emplace_back(VkTimelineSemaphoreSubmitInfo{
++                .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
++                .waitSemaphoreValueCount = 1,
++                .pWaitSemaphoreValues = &waitValues.back(),
++                .signalSemaphoreValueCount = 1,
++                .pSignalSemaphoreValues = &signalValues.back()
++            });
++
++            submitInfos.push_back({
++                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
++                .pNext = &ti,
++                .waitSemaphoreCount = 1,
++                .pWaitSemaphores = &waitSemas.back(),
++                .pWaitDstStageMask = &allStages.back(),
++                .commandBufferCount = 1,
++                .pCommandBuffers = &handles.back(),
++                .signalSemaphoreCount = 1,
++                .pSignalSemaphores = &signalSemas.back()
++            });
          }
 -        pass.generate->render(ctx.vk, cmdbuf, this->fidx);
-+        pass.generate->render(ctx.vk, passCmdbuf, this->fidx);
  
 -        cmdbuf.end(ctx.vk);
 -        cmdbuf.submit(this->ctx.vk,
-+        passCmdbuf.end(ctx.vk);
-+        passCmdbuf.submit(this->ctx.vk,
-             {}, this->prepassSemaphore.handle(), this->idx - 1,
-             {}, this->syncSemaphore.handle(), this->idx + i,
+-            {}, this->prepassSemaphore.handle(), this->idx - 1,
+-            {}, this->syncSemaphore.handle(), this->idx + i,
 -            i == this->destImages.size() - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
-+            i == generatedCount - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
-         );
+-        );
++        auto res = ctx.vk.get().df().QueueSubmit(ctx.vk.get().queue(),
++            static_cast<uint32_t>(submitInfos.size()),
++            submitInfos.data(), this->cmdbufFence.handle());
++        if (res != VK_SUCCESS)
++            throw ls::vulkan_error(res, "vkQueueSubmit() failed");
      }
  
 -    this->idx += this->destImages.size();
@@ -653,6 +709,21 @@ index 4581c3e..76a8aa1 100644
  
      /// parsed configuration file
      class ConfigFile {
+diff --git a/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp b/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp
+index 0129238..210bfec 100644
+--- a/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp
++++ b/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp
+@@ -96,6 +96,10 @@ namespace vk {
+         /// @param vk the vulkan instance
+         /// @throws ls::vulkan_error on failure
+         void submit(const vk::Vulkan& vk) const;
++
++        /// get the raw vulkan command buffer handle
++        /// @return VkCommandBuffer handle
++        [[nodiscard]] VkCommandBuffer handle() const { return *this->commandBuffer; }
+     private:
+         ls::owned_ptr<VkCommandBuffer> commandBuffer;
+     };
 diff --git a/lsfg-vk-common/src/configuration/config.cpp b/lsfg-vk-common/src/configuration/config.cpp
 index cee5861..1ce9b7e 100644
 --- a/lsfg-vk-common/src/configuration/config.cpp
