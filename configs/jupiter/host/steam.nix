@@ -4,16 +4,16 @@
 }:
 {
   nixpkgs.overlays = [
-    (final: prev:
+    (
+      final: prev:
       let
         # The shaders-path.patch targets src/Utils/DirHelpers.cpp which no longer
         # exists; GetUsrDir() moved to src/reshade_effect_manager.cpp
         fixGamescopePatches = prev': {
-          patches =
-            [ ../../../patches/gamescope/wlroots-libinput-switch.patch ]
-            ++ builtins.filter
-              (p: !(prev.lib.hasSuffix "shaders-path.patch" (toString p)))
-              prev'.patches;
+          patches = [
+            ../../../patches/gamescope/wlroots-libinput-switch.patch
+          ]
+          ++ builtins.filter (p: !(prev.lib.hasSuffix "shaders-path.patch" (toString p))) prev'.patches;
 
           postPatch = ''
             substituteInPlace src/reshade_effect_manager.cpp --replace-fail 'return "/usr";' 'return "'$out'";'
@@ -24,13 +24,16 @@
         };
       in
       {
-        gamescope = prev.gamescope.overrideAttrs (prev':
-          fixGamescopePatches prev' // {
+        gamescope = prev.gamescope.overrideAttrs (
+          prev':
+          fixGamescopePatches prev'
+          // {
             postPatch = (fixGamescopePatches prev').postPatch + ''
               substituteInPlace scripts/00-gamescope/displays/valve.steamdeck.lcd.lua --replace-fail "40, 41, 42, 43, 44, 45, 46, 47, 48, 49," "30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,"
               substituteInPlace scripts/00-gamescope/displays/valve.steamdeck.lcd.lua --replace-fail "        60" "        60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70"
             '';
-          });
+          }
+        );
 
         # Jovian's gamescope-wsi references its own (unfixed) gamescope in a rec block
         gamescope-wsi = prev.gamescope-wsi.overrideAttrs fixGamescopePatches;
@@ -45,7 +48,8 @@
             };
           };
         */
-      })
+      }
+    )
   ];
 
   programs.steam.extest.enable = true;
