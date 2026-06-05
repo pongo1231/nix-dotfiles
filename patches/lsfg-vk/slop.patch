@@ -1,5 +1,5 @@
 diff --git a/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp b/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp
-index eacb98e..9288a06 100644
+index eacb98e..bf3b522 100644
 --- a/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp
 +++ b/lsfg-vk-backend/include/lsfg-vk-backend/lsfgvk.hpp
 @@ -48,7 +48,8 @@ namespace lsfgvk::backend {
@@ -44,6 +44,19 @@ index eacb98e..9288a06 100644
  
          ///
          /// Close a frame generation context
+@@ -140,4 +147,12 @@ namespace lsfgvk::backend {
+     ///
+     void makeLeaking();
+ 
++    ///
++    /// Get the EMA-smoothed real frame interval from a context.
++    ///
++    /// @param context Context to query.
++    /// @return EMA-smoothed real frame interval in seconds (0 if not yet measured).
++    ///
++    double getEmaFrameInterval(const Context& context);
++
+ }
 diff --git a/lsfg-vk-backend/src/helpers/utils.hpp b/lsfg-vk-backend/src/helpers/utils.hpp
 index 202ac0c..4467a4c 100644
 --- a/lsfg-vk-backend/src/helpers/utils.hpp
@@ -59,7 +72,7 @@ index 202ac0c..4467a4c 100644
  
      /// constant buffer used in shaders
 diff --git a/lsfg-vk-backend/src/lsfgvk.cpp b/lsfg-vk-backend/src/lsfgvk.cpp
-index c94cfe1..1e9c2ab 100644
+index c94cfe1..6b78f73 100644
 --- a/lsfg-vk-backend/src/lsfgvk.cpp
 +++ b/lsfg-vk-backend/src/lsfgvk.cpp
 @@ -26,6 +26,8 @@
@@ -71,7 +84,7 @@ index c94cfe1..1e9c2ab 100644
  #include <cstddef>
  #include <cstdint>
  #include <cstdlib>
-@@ -100,11 +102,13 @@ namespace lsfgvk::backend {
+@@ -100,11 +102,16 @@ namespace lsfgvk::backend {
          /// (see lsfg-vk documentation)
          ContextImpl(const InstanceImpl& instance,
              std::pair<int, int> sourceFds, const std::vector<int>& destFds, int syncFd,
@@ -84,10 +97,18 @@ index c94cfe1..1e9c2ab 100644
 -        void scheduleFrames();
 +        /// @return number of generated frames scheduled
 +        size_t scheduleFrames();
++
++        /// get the EMA-smoothed real frame interval in seconds (0 if not yet measured)
++        [[nodiscard]] double getEmaFrameInterval() const { return this->emaFrameInterval; }
      private:
          std::pair<vk::Image, vk::Image> sourceImages;
          std::vector<vk::Image> destImages;
-@@ -120,6 +124,12 @@ namespace lsfgvk::backend {
+@@ -116,10 +123,21 @@ namespace lsfgvk::backend {
+         size_t fidx{0}; // real frame index
+ 
+         std::vector<vk::CommandBuffer> cmdbufs;
+-        vk::Fence cmdbufFence;
++        vk::Fence batchFence;
  
          Ctx ctx;
  
@@ -95,12 +116,17 @@ index c94cfe1..1e9c2ab 100644
 +        std::chrono::steady_clock::time_point lastFrameTime{};
 +        double emaFrameInterval{0.0};
 +        double frameDebt{0.0};
-+        bool fenceSignaled{false};
++
++        // batched submit info storage (pre-allocated, cleared each frame)
++        std::vector<VkSubmitInfo2> batchSubmits;
++        std::vector<VkSemaphoreSubmitInfo> batchWaitInfos;
++        std::vector<VkCommandBufferSubmitInfo> batchCmdInfos;
++        std::vector<VkSemaphoreSubmitInfo> batchSignalInfos;
 +
          Mipmaps mipmaps;
          std::array<Alpha0, 7> alpha0;
          std::array<Alpha1, 7> alpha1;
-@@ -172,8 +182,8 @@ Instance::Instance(
+@@ -172,8 +190,8 @@ Instance::Instance(
  
              if (devicePicker(
                  std::string(devname.data()),
@@ -111,7 +137,7 @@ index c94cfe1..1e9c2ab 100644
                  has_pci_ext ? std::optional<std::string>{
                      std::to_string(pciInfo.pciBus) + ":" +
                      std::to_string(pciInfo.pciDevice) + "." +
-@@ -275,11 +285,13 @@ InstanceImpl::InstanceImpl(vk::PhysicalDeviceSelector selectPhysicalDevice,
+@@ -275,11 +293,13 @@ InstanceImpl::InstanceImpl(vk::PhysicalDeviceSelector selectPhysicalDevice,
  
  Context& Instance::openContext(std::pair<int, int> sourceFds, const std::vector<int>& destFds,
          int syncFd, uint32_t width, uint32_t height,
@@ -127,7 +153,7 @@ index c94cfe1..1e9c2ab 100644
      )).get();
  }
  
-@@ -358,7 +370,8 @@ namespace {
+@@ -358,7 +378,8 @@ namespace {
      }
      /// create context data
      Ctx createCtx(const InstanceImpl& instance, VkExtent2D extent,
@@ -137,7 +163,7 @@ index c94cfe1..1e9c2ab 100644
          const auto& vk = instance.getVulkan();
          const auto& shaders = instance.getShaderRegistry();
  
-@@ -391,7 +404,9 @@ namespace {
+@@ -391,7 +412,9 @@ namespace {
                  .hdr = hdr,
                  .flow = flow,
                  .perf = perf,
@@ -148,7 +174,7 @@ index c94cfe1..1e9c2ab 100644
              };
          } catch (const std::exception& e) {
              throw backend::error("Unable to create context", e);
-@@ -401,7 +416,8 @@ namespace {
+@@ -401,7 +424,8 @@ namespace {
  
  ContextImpl::ContextImpl(const InstanceImpl& instance,
              std::pair<int, int> sourceFds, const std::vector<int>& destFds, int syncFd,
@@ -158,17 +184,33 @@ index c94cfe1..1e9c2ab 100644
          sourceImages(importImages(instance.getVulkan(), sourceFds,
              extent, hdr ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM)),
          destImages(importImages(instance.getVulkan(), destFds,
-@@ -411,7 +427,8 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+@@ -410,8 +434,9 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+         syncSemaphore(importTimelineSemaphore(instance.getVulkan(), syncFd)),
          prepassSemaphore(createPrepassSemaphore(instance.getVulkan())),
          cmdbufs(createCommandBuffers(instance.getVulkan(), destFds.size() + 1)),
-         cmdbufFence(instance.getVulkan()),
+-        cmdbufFence(instance.getVulkan()),
 -        ctx(createCtx(instance, extent, hdr, flow, perf, destFds.size())),
++        batchFence(instance.getVulkan()),
 +        ctx(createCtx(instance, extent, hdr, flow, perf, destFds.size(),
 +            targetFps, adaptiveSmoothing)),
          mipmaps(ctx, sourceImages),
          alpha0{
              Alpha0(ctx, mipmaps.getImages().at(0)),
-@@ -549,7 +566,7 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+@@ -433,6 +458,13 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
+         },
+         beta0(ctx, alpha1.at(0).getImages()),
+         beta1(ctx, beta0.getImages()) {
++    // pre-allocate batch submit vectors to max capacity (+1 for pre-pass element)
++    const size_t maxPasses = destImages.size();
++    this->batchSubmits.reserve(maxPasses + 1);
++    this->batchWaitInfos.reserve(maxPasses + 1);
++    this->batchCmdInfos.reserve(maxPasses + 1);
++    this->batchSignalInfos.reserve(maxPasses + 1);
++
+     // build main passes
+     for (size_t i = 0; i < destImages.size(); ++i) {
+         auto& pass = this->passes.emplace_back();
+@@ -549,7 +581,7 @@ ContextImpl::ContextImpl(const InstanceImpl& instance,
      cmdbuf.submit(ctx.vk); // wait for completion
  }
  
@@ -177,7 +219,7 @@ index c94cfe1..1e9c2ab 100644
  #ifdef LSFGVK_TESTING_RENDERDOC
      const auto& impl = this->m_impl;
      if (impl->getRenderDocAPI()) {
-@@ -558,8 +575,9 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
+@@ -558,8 +590,9 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
              nullptr);
      }
  #endif
@@ -188,7 +230,7 @@ index c94cfe1..1e9c2ab 100644
      } catch (const std::exception& e) {
          throw backend::error("Unable to schedule frames", e);
      }
-@@ -571,15 +589,60 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
+@@ -571,60 +604,158 @@ void Instance::scheduleFrames(Context& context) { // NOLINT (static)
              nullptr);
      }
  #endif
@@ -202,11 +244,18 @@ index c94cfe1..1e9c2ab 100644
 -    this->cmdbufFence.reset(this->ctx.vk);
 +size_t Context::scheduleFrames() {
 +    using namespace std::chrono;
-+
+ 
+-    // schedule pre-pass
+-    const auto& cmdbuf = this->cmdbufs.at(0);
+-    cmdbuf.begin(ctx.vk);
 +    // --- adaptive frame count computation ---
 +    const auto now = steady_clock::now();
 +    size_t activeCount = this->destImages.size() + 1; // default: fixed mode (1 original + N generated)
-+
+ 
+-    this->mipmaps.render(ctx.vk, cmdbuf, this->fidx);
+-    for (size_t i = 0; i < 7; ++i) {
+-        this->alpha0.at(6 - i).render(ctx.vk, cmdbuf);
+-        this->alpha1.at(6 - i).render(ctx.vk, cmdbuf, this->fidx);
 +    if (this->ctx.targetFps > 0) {
 +        if (this->fidx > 0) {
 +            const double elapsed = duration<double>(now - this->lastFrameTime).count();
@@ -218,11 +267,22 @@ index c94cfe1..1e9c2ab 100644
 +                this->emaFrameInterval = s * this->emaFrameInterval + (1.0 - s) * elapsed;
 +            }
 +
++            // safety floor: prevent ema from going below 1 ms
++            // (avoids extreme burst counts from sub-ms intervals)
++            constexpr double kMinFrameInterval = 1.0 / 1000.0;
++            if (this->emaFrameInterval < kMinFrameInterval)
++                this->emaFrameInterval = kMinFrameInterval;
++
 +            const double targetInterval = 1.0 / static_cast<double>(this->ctx.targetFps);
 +
 +            // Compute total output multiplier (original + generated)
 +            // using a Bresenham-style fractional accumulator.
 +            this->frameDebt += (this->emaFrameInterval / targetInterval);
++
++            // cap frameDebt to prevent windup after long pauses
++            const double kMaxDebt = static_cast<double>(this->destImages.size() + 1);
++            if (this->frameDebt > kMaxDebt)
++                this->frameDebt = kMaxDebt;
 +            auto totalOutput = static_cast<size_t>(
 +                std::max(0.0, std::floor(this->frameDebt + 1e-9))
 +            );
@@ -234,133 +294,146 @@ index c94cfe1..1e9c2ab 100644
 +
 +            this->frameDebt -= static_cast<double>(totalOutput);
 +            if (this->frameDebt < 0.0) this->frameDebt = 0.0;
- 
--    // schedule pre-pass
++
 +            activeCount = totalOutput;
 +        } else {
 +            // fidx == 0: minimal burst, just the original frame
 +            activeCount = 1;
 +        }
-+    }
+     }
+-    this->beta0.render(ctx.vk, cmdbuf, this->fidx);
+-    this->beta1.render(ctx.vk, cmdbuf);
 +    this->lastFrameTime = now;
-+
-+    // --- fence wait (previous frame's last main pass) ---
-+    if (this->fidx && this->fenceSignaled) {
-+        if (!this->cmdbufFence.wait(this->ctx.vk))
-+            throw backend::error("Timeout waiting for previous frame to complete");
-+        this->cmdbufFence.reset(this->ctx.vk);
+ 
+-    cmdbuf.end(ctx.vk);
+-    cmdbuf.submit(this->ctx.vk,
+-        {}, this->syncSemaphore.handle(), this->idx,
+-        {}, this->prepassSemaphore.handle(), this->idx
+-    );
++    // --- fence wait (previous frame's entire batch) ---
++    if (this->fidx) {
++        if (!this->batchFence.wait(this->ctx.vk, 150ULL * 1000 * 1000))
++            throw backend::error("Timeout waiting for previous batch");
++        this->batchFence.reset(this->ctx.vk);
 +    }
-+
+ 
+-    this->idx++;
 +    // --- schedule pre-pass ---
-     const auto& cmdbuf = this->cmdbufs.at(0);
-     cmdbuf.begin(ctx.vk);
- 
-@@ -599,32 +662,84 @@ void Context::scheduleFrames() {
- 
-     this->idx++;
++    const auto& preCmdbuf = this->cmdbufs.at(0);
++    preCmdbuf.begin(ctx.vk);
  
 -    // schedule main passes
 -    for (size_t i = 0; i < this->destImages.size(); i++) {
 -        const auto& cmdbuf = this->cmdbufs.at(i + 1);
 -        cmdbuf.begin(ctx.vk);
--
--        const auto& pass = this->passes.at(i);
--        for (size_t j = 0; j < 7; j++) {
--            pass.gamma0.at(j).render(ctx.vk, cmdbuf, this->fidx);
--            pass.gamma1.at(j).render(ctx.vk, cmdbuf);
--
--            if (j < 4) continue;
--            pass.delta0.at(j - 4).render(ctx.vk, cmdbuf, this->fidx);
--            pass.delta1.at(j - 4).render(ctx.vk, cmdbuf);
++    this->mipmaps.render(ctx.vk, preCmdbuf, this->fidx);
++    for (size_t i = 0; i < 7; ++i) {
++        this->alpha0.at(6 - i).render(ctx.vk, preCmdbuf);
++        this->alpha1.at(6 - i).render(ctx.vk, preCmdbuf, this->fidx);
++    }
++    this->beta0.render(ctx.vk, preCmdbuf, this->fidx);
++    this->beta1.render(ctx.vk, preCmdbuf);
++
++    preCmdbuf.end(ctx.vk);
++
 +    // --- schedule main passes (generatedCount = activeCount - 1) ---
 +    const size_t generatedCount = activeCount > 0 ? activeCount - 1 : 0;
-+    if (generatedCount > 0) {
-+        std::vector<VkSubmitInfo> submitInfos;
-+        std::vector<VkTimelineSemaphoreSubmitInfo> timelineInfos;
-+        std::vector<VkCommandBuffer> handles;
-+        std::vector<VkPipelineStageFlags> allStages;
-+        std::vector<VkSemaphore> waitSemas;
-+        std::vector<uint64_t> waitValues;
-+        std::vector<VkSemaphore> signalSemas;
-+        std::vector<uint64_t> signalValues;
-+        submitInfos.reserve(generatedCount);
-+        timelineInfos.reserve(generatedCount);
-+        handles.reserve(generatedCount);
-+        allStages.reserve(generatedCount);
-+        waitSemas.reserve(generatedCount);
-+        waitValues.reserve(generatedCount);
-+        signalSemas.reserve(generatedCount);
-+        signalValues.reserve(generatedCount);
 +
-+        for (size_t i = 0; i < generatedCount; i++) {
-+            const auto& passCmdbuf = this->cmdbufs.at(i + 1);
-+            passCmdbuf.begin(ctx.vk);
++    // reuse pre-allocated vectors for the unified batch
++    this->batchSubmits.clear();
++    this->batchWaitInfos.clear();
++    this->batchCmdInfos.clear();
++    this->batchSignalInfos.clear();
 +
-+            const auto& pass = this->passes.at(i);
-+            for (size_t j = 0; j < 7; j++) {
-+                pass.gamma0.at(j).render(ctx.vk, passCmdbuf, this->fidx);
-+                pass.gamma1.at(j).render(ctx.vk, passCmdbuf);
++    const auto compStage = static_cast<VkPipelineStageFlags2>(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 +
-+                if (j < 4) continue;
-+                pass.delta0.at(j - 4).render(ctx.vk, passCmdbuf, this->fidx);
-+                pass.delta1.at(j - 4).render(ctx.vk, passCmdbuf);
-+            }
-+            pass.generate->render(ctx.vk, passCmdbuf, this->fidx);
++    // element 0: pre-pass (waits on syncSemaphore, signals prepassSemaphore)
++    this->batchWaitInfos.push_back({VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++        this->syncSemaphore.handle(), this->idx, compStage, 0});
++    this->batchCmdInfos.push_back({VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr,
++        preCmdbuf.handle(), 0});
++    this->batchSignalInfos.push_back({VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++        this->prepassSemaphore.handle(), this->idx, 0, 0});
++    this->batchSubmits.push_back({
++        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
++        .waitSemaphoreInfoCount = 1,
++        .pWaitSemaphoreInfos = &this->batchWaitInfos.back(),
++        .commandBufferInfoCount = 1,
++        .pCommandBufferInfos = &this->batchCmdInfos.back(),
++        .signalSemaphoreInfoCount = 1,
++        .pSignalSemaphoreInfos = &this->batchSignalInfos.back()
++    });
 +
-+            passCmdbuf.end(ctx.vk);
-+
-+            // build submit info for this pass
-+            waitSemas.push_back(this->prepassSemaphore.handle());
-+            waitValues.push_back(this->idx - 1);
-+            signalSemas.push_back(this->syncSemaphore.handle());
-+            signalValues.push_back(this->idx + i);
-+            allStages.push_back(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-+            handles.push_back(passCmdbuf.handle());
-+
-+            auto& ti = timelineInfos.emplace_back(VkTimelineSemaphoreSubmitInfo{
-+                .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
-+                .waitSemaphoreValueCount = 1,
-+                .pWaitSemaphoreValues = &waitValues.back(),
-+                .signalSemaphoreValueCount = 1,
-+                .pSignalSemaphoreValues = &signalValues.back()
-+            });
-+
-+            submitInfos.push_back({
-+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-+                .pNext = &ti,
-+                .waitSemaphoreCount = 1,
-+                .pWaitSemaphores = &waitSemas.back(),
-+                .pWaitDstStageMask = &allStages.back(),
-+                .commandBufferCount = 1,
-+                .pCommandBuffers = &handles.back(),
-+                .signalSemaphoreCount = 1,
-+                .pSignalSemaphores = &signalSemas.back()
-+            });
++    // elements 1..N: main passes (wait on prepassSemaphore, signal syncSemaphore)
++    for (size_t i = 0; i < generatedCount; i++) {
++        const auto& passCmdbuf = this->cmdbufs.at(i + 1);
++        passCmdbuf.begin(ctx.vk);
+ 
+         const auto& pass = this->passes.at(i);
+         for (size_t j = 0; j < 7; j++) {
+-            pass.gamma0.at(j).render(ctx.vk, cmdbuf, this->fidx);
+-            pass.gamma1.at(j).render(ctx.vk, cmdbuf);
++            pass.gamma0.at(j).render(ctx.vk, passCmdbuf, this->fidx);
++            pass.gamma1.at(j).render(ctx.vk, passCmdbuf);
+ 
+             if (j < 4) continue;
+-            pass.delta0.at(j - 4).render(ctx.vk, cmdbuf, this->fidx);
+-            pass.delta1.at(j - 4).render(ctx.vk, cmdbuf);
++            pass.delta0.at(j - 4).render(ctx.vk, passCmdbuf, this->fidx);
++            pass.delta1.at(j - 4).render(ctx.vk, passCmdbuf);
          }
 -        pass.generate->render(ctx.vk, cmdbuf, this->fidx);
- 
+-
 -        cmdbuf.end(ctx.vk);
 -        cmdbuf.submit(this->ctx.vk,
 -            {}, this->prepassSemaphore.handle(), this->idx - 1,
 -            {}, this->syncSemaphore.handle(), this->idx + i,
 -            i == this->destImages.size() - 1 ? this->cmdbufFence.handle() : VK_NULL_HANDLE
 -        );
-+        auto res = ctx.vk.get().df().QueueSubmit(ctx.vk.get().queue(),
-+            static_cast<uint32_t>(submitInfos.size()),
-+            submitInfos.data(), this->cmdbufFence.handle());
-+        if (res != VK_SUCCESS)
-+            throw ls::vulkan_error(res, "vkQueueSubmit() failed");
++        pass.generate->render(ctx.vk, passCmdbuf, this->fidx);
++
++        passCmdbuf.end(ctx.vk);
++
++        this->batchWaitInfos.push_back({VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++            this->prepassSemaphore.handle(), this->idx, compStage, 0});
++        this->batchCmdInfos.push_back({VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr,
++            passCmdbuf.handle(), 0});
++        this->batchSignalInfos.push_back({VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++            this->syncSemaphore.handle(), this->idx + 1 + i, 0, 0});
++        this->batchSubmits.push_back({
++            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
++            .waitSemaphoreInfoCount = 1,
++            .pWaitSemaphoreInfos = &this->batchWaitInfos.back(),
++            .commandBufferInfoCount = 1,
++            .pCommandBufferInfos = &this->batchCmdInfos.back(),
++            .signalSemaphoreInfoCount = 1,
++            .pSignalSemaphoreInfos = &this->batchSignalInfos.back()
++        });
      }
  
 -    this->idx += this->destImages.size();
-+    this->idx += generatedCount;
++    // single unified batch submit
++    auto res = ctx.vk.get().df().QueueSubmit2KHR(ctx.vk.get().queue(),
++        static_cast<uint32_t>(this->batchSubmits.size()),
++        this->batchSubmits.data(), this->batchFence.handle());
++    if (res != VK_SUCCESS)
++        throw ls::vulkan_error(res, "vkQueueSubmit2KHR() failed");
++
++    this->idx += 1 + generatedCount;
      this->fidx++;
-+    this->fenceSignaled = (generatedCount > 0);
 +
 +    return activeCount;
  }
  
  void Instance::closeContext(const Context& context) {
+@@ -664,3 +795,7 @@ InstanceImpl::~InstanceImpl() {
+ void backend::makeLeaking() {
+     leaking = true;
+ }
++
++double backend::getEmaFrameInterval(const Context& context) {
++    return context.getEmaFrameInterval();
++}
 diff --git a/lsfg-vk-cli/src/main.cpp b/lsfg-vk-cli/src/main.cpp
 index 446ca8f..21ee268 100644
 --- a/lsfg-vk-cli/src/main.cpp
@@ -710,10 +783,29 @@ index 4581c3e..76a8aa1 100644
      /// parsed configuration file
      class ConfigFile {
 diff --git a/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp b/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp
-index 0129238..210bfec 100644
+index 0129238..1b57589 100644
 --- a/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp
 +++ b/lsfg-vk-common/include/lsfg-vk-common/vulkan/command_buffer.hpp
-@@ -96,6 +96,10 @@ namespace vk {
+@@ -84,18 +84,25 @@ namespace vk {
+         /// @param signalTimelineSemaphore the timeline semaphore to signal
+         /// @param signalValue the value to signal
+         /// @param fence optional fence to signal on completion
++        /// @param waitStage pipeline stage at which the wait occurs
+         /// @throws ls::vulkan_error on failure
+         void submit(const vk::Vulkan& vk,
+-            std::vector<VkSemaphore> waitSemaphores,
++            const std::vector<VkSemaphore>& waitSemaphores,
+             VkSemaphore waitTimelineSemaphore, uint64_t waitValue,
+-            std::vector<VkSemaphore> signalSemaphores,
+-            VkSemaphore signalTimelineSemaphore, uint64_t signalValue,
+-            VkFence fence = VK_NULL_HANDLE) const;
++            const std::vector<VkSemaphore>& signalSemaphores = {},
++            VkSemaphore signalTimelineSemaphore = VK_NULL_HANDLE,
++            uint64_t signalValue = 0,
++            VkFence fence = VK_NULL_HANDLE,
++            VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT) const;
+ 
+         /// submit the command buffer instantly
          /// @param vk the vulkan instance
          /// @throws ls::vulkan_error on failure
          void submit(const vk::Vulkan& vk) const;
@@ -724,6 +816,18 @@ index 0129238..210bfec 100644
      private:
          ls::owned_ptr<VkCommandBuffer> commandBuffer;
      };
+diff --git a/lsfg-vk-common/include/lsfg-vk-common/vulkan/vulkan.hpp b/lsfg-vk-common/include/lsfg-vk-common/vulkan/vulkan.hpp
+index 18fe083..9c1b306 100644
+--- a/lsfg-vk-common/include/lsfg-vk-common/vulkan/vulkan.hpp
++++ b/lsfg-vk-common/include/lsfg-vk-common/vulkan/vulkan.hpp
+@@ -76,6 +76,7 @@ namespace vk {
+         PFN_vkCmdDispatch CmdDispatch;
+         PFN_vkCmdCopyBufferToImage CmdCopyBufferToImage;
+         PFN_vkQueueSubmit QueueSubmit;
++        PFN_vkQueueSubmit2KHR QueueSubmit2KHR;
+         PFN_vkAllocateDescriptorSets AllocateDescriptorSets;
+         PFN_vkFreeDescriptorSets FreeDescriptorSets;
+         PFN_vkUpdateDescriptorSets UpdateDescriptorSets;
 diff --git a/lsfg-vk-common/src/configuration/config.cpp b/lsfg-vk-common/src/configuration/config.cpp
 index cee5861..1ce9b7e 100644
 --- a/lsfg-vk-common/src/configuration/config.cpp
@@ -835,6 +939,157 @@ index a4fb74a..8ddfe4c 100644
          return std::nullopt;
      }
  }
+diff --git a/lsfg-vk-common/src/vulkan/command_buffer.cpp b/lsfg-vk-common/src/vulkan/command_buffer.cpp
+index cac4732..da9d3b4 100644
+--- a/lsfg-vk-common/src/vulkan/command_buffer.cpp
++++ b/lsfg-vk-common/src/vulkan/command_buffer.cpp
+@@ -200,61 +200,70 @@ void CommandBuffer::end(const vk::Vulkan& vk) const {
+ }
+ 
+ void CommandBuffer::submit(const vk::Vulkan& vk,
+-        std::vector<VkSemaphore> waitSemaphores,
++        const std::vector<VkSemaphore>& waitSemaphores,
+         VkSemaphore waitTimelineSemaphore, uint64_t waitValue,
+-        std::vector<VkSemaphore> signalSemaphores,
++        const std::vector<VkSemaphore>& signalSemaphores,
+         VkSemaphore signalTimelineSemaphore, uint64_t signalValue,
+-        VkFence fence) const {
+-    // create arrays of semaphores and values
+-    if (waitTimelineSemaphore)
+-        waitSemaphores.push_back(waitTimelineSemaphore);
++        VkFence fence,
++        VkPipelineStageFlags waitStage) const {
++    const size_t waitCount = waitSemaphores.size() + (waitTimelineSemaphore ? 1 : 0);
++    const size_t signalCount = signalSemaphores.size() + (signalTimelineSemaphore ? 1 : 0);
+ 
+-    std::vector<uint64_t> waitValues(waitSemaphores.size(), 0);
+-    waitValues.back() = waitValue;
++    const auto stage2 = static_cast<VkPipelineStageFlags2>(waitStage);
+ 
+-    if (signalTimelineSemaphore)
+-        signalSemaphores.push_back(signalTimelineSemaphore);
++    // small fixed-size stack buffers — no heap allocation
++    constexpr size_t kMax = 8;
++    VkSemaphoreSubmitInfo waitInfos[kMax];
++    VkSemaphoreSubmitInfo signalInfos[kMax];
++
++    size_t wi = 0;
++    for (size_t i = 0; i < waitSemaphores.size(); i++, wi++)
++        waitInfos[wi] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++                         waitSemaphores[i], 0, stage2, 0};
++    if (waitTimelineSemaphore)
++        waitInfos[wi++] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++                           waitTimelineSemaphore, waitValue, stage2, 0};
+ 
+-    std::vector<uint64_t> signalValues(signalSemaphores.size(), 0);
+-    signalValues.back() = signalValue;
++    for (size_t i = 0; i < signalSemaphores.size(); i++)
++        signalInfos[i] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++                          signalSemaphores[i], 0, 0, 0};
++    if (signalTimelineSemaphore)
++        signalInfos[signalSemaphores.size()] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
++                                                signalTimelineSemaphore, signalValue, 0, 0};
+ 
+-    // create submit info
+-    const VkTimelineSemaphoreSubmitInfo timelineInfo{
+-        .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
+-        .waitSemaphoreValueCount = static_cast<uint32_t>(waitValues.size()),
+-        .pWaitSemaphoreValues = waitValues.data(),
+-        .signalSemaphoreValueCount = static_cast<uint32_t>(signalValues.size()),
+-        .pSignalSemaphoreValues = signalValues.data()
++    const VkCommandBufferSubmitInfo cmdInfo{
++        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
++        .commandBuffer = *this->commandBuffer
+     };
+-    std::vector<VkPipelineStageFlags> stages(waitSemaphores.size(),
+-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+-    const VkSubmitInfo submitInfo{
+-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+-        .pNext = &timelineInfo,
+-        .waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
+-        .pWaitSemaphores = waitSemaphores.data(),
+-        .pWaitDstStageMask = stages.data(),
+-        .commandBufferCount = 1,
+-        .pCommandBuffers = &*this->commandBuffer,
+-        .signalSemaphoreCount = static_cast<uint32_t>(signalSemaphores.size()),
+-        .pSignalSemaphores = signalSemaphores.data()
++    const VkSubmitInfo2 submitInfo{
++        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
++        .waitSemaphoreInfoCount = static_cast<uint32_t>(waitCount),
++        .pWaitSemaphoreInfos = waitInfos,
++        .commandBufferInfoCount = 1,
++        .pCommandBufferInfos = &cmdInfo,
++        .signalSemaphoreInfoCount = static_cast<uint32_t>(signalCount),
++        .pSignalSemaphoreInfos = signalInfos
+     };
+-    auto res = vk.df().QueueSubmit(vk.queue(), 1, &submitInfo, fence);
++    auto res = vk.df().QueueSubmit2KHR(vk.queue(), 1, &submitInfo, fence);
+     if (res != VK_SUCCESS)
+-        throw ls::vulkan_error(res, "vkQueueSubmit() failed");
++        throw ls::vulkan_error(res, "vkQueueSubmit2KHR() failed");
+ }
+ 
+ 
+ void CommandBuffer::submit(const vk::Vulkan& vk) const {
+-    const VkSubmitInfo submitInfo{
+-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+-        .commandBufferCount = 1,
+-        .pCommandBuffers = &*this->commandBuffer
++    const VkCommandBufferSubmitInfo cmdInfo{
++        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
++        .commandBuffer = *this->commandBuffer
++    };
++    const VkSubmitInfo2 submitInfo{
++        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
++        .commandBufferInfoCount = 1,
++        .pCommandBufferInfos = &cmdInfo
+     };
+     const vk::Fence fence{vk};
+-    auto res = vk.df().QueueSubmit(vk.queue(), 1, &submitInfo, fence.handle());
++    auto res = vk.df().QueueSubmit2KHR(vk.queue(), 1, &submitInfo, fence.handle());
+     if (res != VK_SUCCESS)
+-        throw ls::vulkan_error(res, "vkQueueSubmit() failed");
++        throw ls::vulkan_error(res, "vkQueueSubmit2KHR() failed");
+ 
+     if (!fence.wait(vk))
+         throw ls::vulkan_error(VK_TIMEOUT, "Fence::wait() timed out");
+diff --git a/lsfg-vk-common/src/vulkan/vulkan.cpp b/lsfg-vk-common/src/vulkan/vulkan.cpp
+index 092b874..5db9892 100644
+--- a/lsfg-vk-common/src/vulkan/vulkan.cpp
++++ b/lsfg-vk-common/src/vulkan/vulkan.cpp
+@@ -164,8 +164,13 @@ namespace {
+         VkDevice handle{};
+ 
+         const float queuePriority{1.0F}; // highest priority
+-        const VkPhysicalDeviceVulkan12Features requestedFeaturesVulkan12{
++        const VkPhysicalDeviceSynchronization2FeaturesKHR requestedFeaturesSync2{
++            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
++            .synchronization2 = VK_TRUE
++        };
++        VkPhysicalDeviceVulkan12Features requestedFeaturesVulkan12{
+             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
++            .pNext = const_cast<VkPhysicalDeviceSynchronization2FeaturesKHR*>(&requestedFeaturesSync2),
+             .shaderFloat16 = fp16,
+             .timelineSemaphore = VK_TRUE
+         };
+@@ -178,7 +183,8 @@ namespace {
+         const std::vector<const char*> requestedExtensions{
+             VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+             VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+-            VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
++            VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME,
++            VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
+         };
+         const VkDeviceCreateInfo deviceInfo{
+             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+@@ -343,6 +349,7 @@ VulkanDeviceFuncs vk::initVulkanDeviceFuncs(const VulkanInstanceFuncs& f, VkDevi
+         .CmdDispatch = dpa<PFN_vkCmdDispatch>(f, d, "vkCmdDispatch"),
+         .CmdCopyBufferToImage = dpa<PFN_vkCmdCopyBufferToImage>(f, d, "vkCmdCopyBufferToImage"),
+         .QueueSubmit = dpa<PFN_vkQueueSubmit>(f, d, "vkQueueSubmit"),
++        .QueueSubmit2KHR = dpa<PFN_vkQueueSubmit2KHR>(f, d, "vkQueueSubmit2KHR"),
+         .AllocateDescriptorSets = dpa<PFN_vkAllocateDescriptorSets>(f, d,
+             "vkAllocateDescriptorSets"),
+         .FreeDescriptorSets = dpa<PFN_vkFreeDescriptorSets>(f, d, "vkFreeDescriptorSets"),
 diff --git a/lsfg-vk-layer/src/entrypoint.cpp b/lsfg-vk-layer/src/entrypoint.cpp
 index 6256b9f..0af5f90 100644
 --- a/lsfg-vk-layer/src/entrypoint.cpp
@@ -956,7 +1211,7 @@ index 6256b9f..0af5f90 100644
              layer_info = nullptr;
  
 diff --git a/lsfg-vk-layer/src/instance.cpp b/lsfg-vk-layer/src/instance.cpp
-index 00da4d1..5ceea8f 100644
+index 00da4d1..dfbd87e 100644
 --- a/lsfg-vk-layer/src/instance.cpp
 +++ b/lsfg-vk-layer/src/instance.cpp
 @@ -84,7 +84,7 @@ bool Root::update() {
@@ -977,7 +1232,61 @@ index 00da4d1..5ceea8f 100644
          return;
  
      auto extensions = add_extensions(
-@@ -150,8 +150,10 @@ void Root::modifyDeviceCreateInfo(VkDeviceCreateInfo& createInfo,
+@@ -115,34 +115,48 @@ void Root::modifyDeviceCreateInfo(VkDeviceCreateInfo& createInfo,
+             "VK_KHR_external_memory_fd",
+             "VK_KHR_external_semaphore",
+             "VK_KHR_external_semaphore_fd",
+-            "VK_KHR_timeline_semaphore"
++            "VK_KHR_timeline_semaphore",
++            "VK_KHR_synchronization2"
+         }
+     );
+     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+     createInfo.ppEnabledExtensionNames = extensions.data();
+ 
+-    bool isFeatureEnabled = false;
++    bool timelineEnabled = false;
++    bool sync2Enabled = false;
+     auto* featureInfo = reinterpret_cast<VkBaseInStructure*>(const_cast<void*>(createInfo.pNext));
+     while (featureInfo) {
+         if (featureInfo->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES) {
+             auto* features = reinterpret_cast<VkPhysicalDeviceVulkan12Features*>(featureInfo);
+             features->timelineSemaphore = VK_TRUE;
+-            isFeatureEnabled = true;
++            timelineEnabled = true;
+         } else if (featureInfo->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES) {
+             auto* features = reinterpret_cast<VkPhysicalDeviceTimelineSemaphoreFeatures*>(featureInfo);
+             features->timelineSemaphore = VK_TRUE;
+-            isFeatureEnabled = true;
++            timelineEnabled = true;
++        } else if (featureInfo->sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR) {
++            auto* features = reinterpret_cast<VkPhysicalDeviceSynchronization2FeaturesKHR*>(featureInfo);
++            features->synchronization2 = VK_TRUE;
++            sync2Enabled = true;
+         }
+ 
+         featureInfo = const_cast<VkBaseInStructure*>(featureInfo->pNext);
+     }
+ 
++    VkPhysicalDeviceSynchronization2FeaturesKHR sync2Features{
++        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR,
++        .pNext = const_cast<void*>(createInfo.pNext),
++        .synchronization2 = VK_TRUE
++    };
++    if (!sync2Enabled)
++        createInfo.pNext = &sync2Features;
++
+     VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{
+         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+         .pNext = const_cast<void*>(createInfo.pNext),
+         .timelineSemaphore = VK_TRUE
+     };
+-    if (!isFeatureEnabled)
++    if (!timelineEnabled)
+         createInfo.pNext = &timelineFeatures;
+ 
+     finish();
+@@ -150,8 +164,10 @@ void Root::modifyDeviceCreateInfo(VkDeviceCreateInfo& createInfo,
  
  void Root::modifySwapchainCreateInfo(const vk::Vulkan& vk, VkSwapchainCreateInfoKHR& createInfo,
          const std::function<void(void)>& finish) const {
@@ -989,7 +1298,7 @@ index 00da4d1..5ceea8f 100644
  
      VkSurfaceCapabilitiesKHR caps{}; // NOLINT (enum value 0)
      auto res = vk.fi().GetPhysicalDeviceSurfaceCapabilitiesKHR(
-@@ -185,14 +187,15 @@ void Root::createSwapchainContext(const vk::Vulkan& vk,
+@@ -185,14 +201,15 @@ void Root::createSwapchainContext(const vk::Vulkan& vk,
              this->backend.emplace(
                  [gpu = profile.gpu](
                      const std::string& deviceName,
@@ -1040,18 +1349,26 @@ index 35083b6..e982dd3 100644
          /// @return true if the configuration was updated
          bool update();
 diff --git a/lsfg-vk-layer/src/swapchain.cpp b/lsfg-vk-layer/src/swapchain.cpp
-index 85033ae..320c75e 100644
+index 85033ae..c95960b 100644
 --- a/lsfg-vk-layer/src/swapchain.cpp
 +++ b/lsfg-vk-layer/src/swapchain.cpp
-@@ -11,6 +11,7 @@
+@@ -11,11 +11,15 @@
  #include "lsfg-vk-common/vulkan/vulkan.hpp"
  
  #include <algorithm>
++#include <array>
++//#include <chrono> // (disabled: diag)
 +#include <cmath>
  #include <cstddef>
  #include <cstdint>
  #include <exception>
-@@ -56,13 +57,20 @@ void layer::context_ModifySwapchainCreateInfo(const ls::GameConf& profile, uint3
+ #include <functional>
+ #include <optional>
++//#include <thread> // (disabled: diag)
+ #include <utility>
+ #include <vector>
+ 
+@@ -56,13 +60,20 @@ void layer::context_ModifySwapchainCreateInfo(const ls::GameConf& profile, uint3
          VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
  
      switch (profile.pacing) {
@@ -1074,7 +1391,7 @@ index 85033ae..320c75e 100644
      }
  }
  
-@@ -73,8 +81,15 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+@@ -73,8 +84,15 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
      const VkExtent2D extent = this->info.extent;
      const bool hdr = this->info.format > 57;
  
@@ -1091,7 +1408,7 @@ index 85033ae..320c75e 100644
  
      this->sourceImages.reserve(sourceFds.size());
      for (int& fd : sourceFds)
-@@ -98,7 +113,8 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+@@ -98,7 +116,8 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
              new ls::R<backend::Context>(backend.openContext(
                  { sourceFds.at(0), sourceFds.at(1) }, destinationFds, syncFd,
                  extent.width, extent.height,
@@ -1101,9 +1418,25 @@ index 85033ae..320c75e 100644
              )),
              [backend = &backend](ls::R<backend::Context>& ctx) {
                  backend->closeContext(ctx);
-@@ -120,7 +136,9 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+@@ -111,6 +130,7 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
      }
  
+     this->renderCommandBuffer.emplace(vk);
++    this->blitFence.emplace(vk);
+     this->renderFence.emplace(vk);
+     for (size_t i = 0; i < this->destinationImages.size(); i++) {
+         this->passes.emplace_back(RenderPass {
+@@ -119,8 +139,17 @@ Swapchain::Swapchain(const vk::Vulkan& vk, backend::Instance& backend,
+         });
+     }
+ 
++    // pre-allocate blit batch vectors
++    const size_t maxGen = this->destinationImages.size();
++    this->blitBatchSubmits.reserve(maxGen);
++    this->blitBatchWaitInfos.reserve(maxGen * 3);   // up to 3 waits per element
++    this->blitBatchCmdInfos.reserve(maxGen);
++    this->blitBatchSignalInfos.reserve(maxGen * 2); // up to 2 signals per element
++
      const size_t frames = std::max(this->info.images.size(), this->destinationImages.size() + 2);
 +    this->frameSemaphores.reserve(frames);
      for (size_t i = 0; i < frames; i++) {
@@ -1111,23 +1444,32 @@ index 85033ae..320c75e 100644
          this->postCopySemaphores.emplace_back(
              vk::Semaphore(vk),
              vk::Semaphore(vk)
-@@ -134,10 +152,12 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+@@ -134,13 +163,7 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
          const std::vector<VkSemaphore>& semaphores) {
      const auto& swapchainImage = this->info.images.at(imageIdx);
      const auto& sourceImage = this->sourceImages.at(this->fidx % 2);
+-
+-    // schedule frame generation
+-    try {
+-        this->instance.get().scheduleFrames(this->ctx.get());
+-    } catch (const std::exception& e) {
+-        throw ls::error("failed to schedule frames", e);
+-    }
 +    VkResult res = VK_SUCCESS;
  
-     // schedule frame generation
-+    size_t activeCount{};
-     try {
--        this->instance.get().scheduleFrames(this->ctx.get());
-+        activeCount = this->instance.get().scheduleFrames(this->ctx.get());
-     } catch (const std::exception& e) {
-         throw ls::error("failed to schedule frames", e);
-     }
-@@ -161,9 +181,11 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+     // update present mode when not using pacing
+     if (this->profile.pacing == ls::Pacing::None) {
+@@ -160,12 +183,21 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+ #pragma clang diagnostic pop
      }
  
++    // wait for completion of previous blit
++    if (this->fidx) {
++        if (!this->blitFence->wait(vk, 150ULL * 1000 * 1000))
++            throw ls::vulkan_error(VK_TIMEOUT, "vkWaitForFences() failed");
++        this->blitFence->reset(vk);
++    }
++
      // wait for completion of previous frame
 -    if (this->fidx && !this->renderFence->wait(vk, 150ULL * 1000 * 1000))
 -        throw ls::vulkan_error(VK_TIMEOUT, "vkWaitForFences() failed");
@@ -1138,9 +1480,22 @@ index 85033ae..320c75e 100644
 +        this->renderFence->reset(vk);
 +    }
  
-     // copy swapchain image into backend source image
+-    // copy swapchain image into backend source image
++    // copy swapchain image into backend source image (before scheduleFrames)
      const auto& cmdbuf = *this->renderCommandBuffer;
-@@ -197,108 +219,124 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+     cmdbuf.begin(vk);
+ 
+@@ -193,55 +225,82 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+             ),
++            barrierHelper(sourceImage.handle(),
++                VK_ACCESS_TRANSFER_WRITE_BIT,
++                VK_ACCESS_SHADER_READ_BIT,
++                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
++                VK_IMAGE_LAYOUT_GENERAL
++            ),
+         }
      );
  
      cmdbuf.end(vk);
@@ -1149,60 +1504,169 @@ index 85033ae..320c75e 100644
          semaphores, VK_NULL_HANDLE, 0,
 -        {}, this->syncSemaphore->handle(), this->idx++
 +        { this->frameSemaphores.at(ringIdx).handle() },
-+        this->syncSemaphore->handle(), this->idx++
++        this->syncSemaphore->handle(), this->idx++,
++        this->blitFence->handle(),
++        VK_PIPELINE_STAGE_TRANSFER_BIT
      );
  
 -    for (size_t i = 0; i < this->destinationImages.size(); i++) {
 -        auto& pcs = this->postCopySemaphores.at(this->idx % this->postCopySemaphores.size());
 -        auto& destinationImage = this->destinationImages.at(i);
--        auto& pass = this->passes.at(i);
--
++    // schedule frame generation (source images are now current)
++    size_t activeCount{};
++    try {
++        activeCount = this->instance.get().scheduleFrames(this->ctx.get());
++    } catch (const std::exception& e) {
++        throw ls::error("failed to schedule frames", e);
++    }
++
++    // --- frame pacing for adaptive mode (disabled: diag) ---
++    // TODO: re-enable after isolating Gamescope timing interaction
++    // const auto frameStart = std::chrono::steady_clock::now();
++    // std::chrono::duration<double> perOutput{0.0};
++    // if (this->profile.target_fps > 0 && activeCount > 1) {
++    //     double interval = backend::getEmaFrameInterval(this->ctx->get());
++    //     if (interval <= 0.0)
++    //         interval = 1.0 / static_cast<double>(this->profile.target_fps);
++    //     perOutput = std::chrono::duration<double>(interval / static_cast<double>(activeCount));
++    // }
++
++    const size_t generatedCount = activeCount > 0 ? activeCount - 1 : 0;
++
++    // Phase 1: acquire swapchain images + record command buffers
++    std::array<uint32_t, 8> aqImageIndices{};
++    for (size_t i = 0; i < generatedCount; i++) {
+         auto& pass = this->passes.at(i);
+ 
 -        // acquire swapchain image
 -        uint32_t aqImageIdx{};
 -        auto res = vk.df().AcquireNextImageKHR(vk.dev(), swapchain,
--            UINT64_MAX, pass.acquireSemaphore.handle(),
--            VK_NULL_HANDLE,
++        auto aqRes = vk.df().AcquireNextImageKHR(vk.dev(), swapchain,
+             UINT64_MAX, pass.acquireSemaphore.handle(),
+             VK_NULL_HANDLE,
 -            &aqImageIdx
--        );
++            &aqImageIndices[i]
+         );
 -        if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
 -            throw ls::vulkan_error(res, "vkAcquireNextImageKHR() failed");
 -
 -        const auto& aquiredSwapchainImage = this->info.images.at(aqImageIdx);
--
++        if (aqRes != VK_SUCCESS && aqRes != VK_SUBOPTIMAL_KHR)
++            throw ls::vulkan_error(aqRes, "vkAcquireNextImageKHR() failed");
+ 
 -        // copy backend destination image into swapchain image
--        auto& cmdbuf = pass.commandBuffer;
--        cmdbuf.begin(vk);
--
--        cmdbuf.blitImage(vk,
--            {
++        const auto& aquiredImage = this->info.images.at(aqImageIndices[i]);
+         auto& cmdbuf = pass.commandBuffer;
+         cmdbuf.begin(vk);
+ 
+         cmdbuf.blitImage(vk,
+             {
 -                barrierHelper(destinationImage.handle(),
 -                    VK_ACCESS_NONE,
--                    VK_ACCESS_TRANSFER_READ_BIT,
++                barrierHelper(this->destinationImages.at(i).handle(),
++                    VK_ACCESS_SHADER_WRITE_BIT,
+                     VK_ACCESS_TRANSFER_READ_BIT,
 -                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 -                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
--                ),
++                    VK_IMAGE_LAYOUT_GENERAL,
++                    VK_IMAGE_LAYOUT_GENERAL
+                 ),
 -                barrierHelper(aquiredSwapchainImage,
--                    VK_ACCESS_NONE,
--                    VK_ACCESS_TRANSFER_WRITE_BIT,
--                    VK_IMAGE_LAYOUT_UNDEFINED,
--                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
--                ),
--            },
++                barrierHelper(aquiredImage,
+                     VK_ACCESS_NONE,
+                     VK_ACCESS_TRANSFER_WRITE_BIT,
+                     VK_IMAGE_LAYOUT_UNDEFINED,
+                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                 ),
+             },
 -            { destinationImage.handle(), aquiredSwapchainImage },
 -            destinationImage.getExtent(),
--            {
++            { this->destinationImages.at(i).handle(), aquiredImage },
++            this->destinationImages.at(i).getExtent(),
+             {
 -                barrierHelper(aquiredSwapchainImage,
--                    VK_ACCESS_TRANSFER_WRITE_BIT,
--                    VK_ACCESS_MEMORY_READ_BIT,
--                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
--                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
--                ),
++                barrierHelper(aquiredImage,
+                     VK_ACCESS_TRANSFER_WRITE_BIT,
+                     VK_ACCESS_MEMORY_READ_BIT,
+                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+@@ -250,55 +309,79 @@ VkResult Swapchain::present(const vk::Vulkan& vk,
+             }
+         );
+ 
+-        std::vector<VkSemaphore> waitSemaphores{ pass.acquireSemaphore.handle() };
+-        if (i) { // non-first pass
+-            const auto& prevPCS = this->postCopySemaphores.at((this->idx - 1) % this->postCopySemaphores.size());
+-            waitSemaphores.push_back(prevPCS.second.handle());
+-        }
++        cmdbuf.end(vk);
++    }
+ 
+-        const std::vector<VkSemaphore> signalSemaphores{
++    // Phase 2: submit each generated frame individually
++    for (size_t i = 0; i < generatedCount; i++) {
++        auto& pcs = this->postCopySemaphores.at(
++            this->idx % this->postCopySemaphores.size());
++        auto& pass = this->passes.at(i);
++
++        std::vector<VkSemaphore> waitSemas{ pass.acquireSemaphore.handle() };
++        if (i > 0) {
++            const auto& prev = this->postCopySemaphores.at(
++                (this->idx - 1) % this->postCopySemaphores.size());
++            waitSemas.push_back(prev.second.handle());
++        }
++        const std::vector<VkSemaphore> signalSemas{
+             pcs.first.handle(),
+             pcs.second.handle()
+         };
+ 
+-        cmdbuf.end(vk);
+-        cmdbuf.submit(vk,
+-            waitSemaphores, this->syncSemaphore->handle(), this->idx,
+-            signalSemaphores, VK_NULL_HANDLE, 0,
+-            i == this->destinationImages.size() - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
++        pass.commandBuffer.submit(vk,
++            waitSemas, this->syncSemaphore->handle(), this->idx,
++            signalSemas, VK_NULL_HANDLE, 0,
++            (i == generatedCount - 1) ? this->renderFence->handle() : VK_NULL_HANDLE,
++            VK_PIPELINE_STAGE_TRANSFER_BIT
+         );
+ 
+-        // present swapchain image
+-        const VkPresentInfoKHR presentInfo{
+-            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+-            .pNext = i ? nullptr : next_chain,
+-            .waitSemaphoreCount = 1,
+-            .pWaitSemaphores = &pcs.first.handle(),
+-            .swapchainCount = 1,
+-            .pSwapchains = &swapchain,
+-            .pImageIndices = &aqImageIdx,
+-        };
+-        res = vk.df().QueuePresentKHR(queue,
+-            &presentInfo);
+-        if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+-            throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
+-
+         this->idx++;
+     }
+ 
+-    // present original swapchain image
+-    auto& lastPCS = this->postCopySemaphores.at((this->idx - 1) % this->postCopySemaphores.size());
+-    const VkPresentInfoKHR presentInfo{
+-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+-        .waitSemaphoreCount = 1,
+-        .pWaitSemaphores = &lastPCS.second.handle(),
+-        .swapchainCount = 1,
+-        .pSwapchains = &swapchain,
+-        .pImageIndices = &imageIdx,
+-    };
+-    auto res = vk.df().QueuePresentKHR(queue, &presentInfo);
+-    if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
+-        throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
++    // Phase 3: present generated frames + original frame
 +    for (size_t i = 0; i < activeCount; i++) {
 +        const bool isOriginal = (i == activeCount - 1);
 +
 +        if (isOriginal) {
-+            // present original frame: wait on previous pass's PCS
-+            // (or on the blit frameSemaphore when activeCount == 1)
 +            VkSemaphore waitSem = activeCount > 1
 +                ? this->postCopySemaphores.at(
 +                    (this->idx - 1) % this->postCopySemaphores.size()).second.handle()
@@ -1220,81 +1684,11 @@ index 85033ae..320c75e 100644
 +            res = vk.df().QueuePresentKHR(queue, &presentInfo);
 +            if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
 +                throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
-+
-+            // original does not consume a syncSem slot
 +        } else {
-+            auto& pcs = this->postCopySemaphores.at(this->idx % this->postCopySemaphores.size());
-+            auto& destinationImage = this->destinationImages.at(i);
-+            auto& pass = this->passes.at(i);
++            const auto& pcs = this->postCopySemaphores.at(
++                (this->idx - generatedCount + i) % this->postCopySemaphores.size());
++            const uint32_t aqImg = aqImageIndices[i];
 +
-+            // acquire swapchain image
-+            uint32_t aqImageIdx{};
-+            auto res = vk.df().AcquireNextImageKHR(vk.dev(), swapchain,
-+                UINT64_MAX, pass.acquireSemaphore.handle(),
-+                VK_NULL_HANDLE,
-+                &aqImageIdx
-+            );
-+            if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
-+                throw ls::vulkan_error(res, "vkAcquireNextImageKHR() failed");
-+
-+            const auto& aquiredSwapchainImage = this->info.images.at(aqImageIdx);
-+
-+            // copy backend destination image into swapchain image
-+            auto& cmdbuf = pass.commandBuffer;
-+            cmdbuf.begin(vk);
-+
-+            cmdbuf.blitImage(vk,
-+                {
-+                    barrierHelper(destinationImage.handle(),
-+                        VK_ACCESS_NONE,
-+                        VK_ACCESS_TRANSFER_READ_BIT,
-+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-+                        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-+                    ),
-+                    barrierHelper(aquiredSwapchainImage,
-+                        VK_ACCESS_NONE,
-+                        VK_ACCESS_TRANSFER_WRITE_BIT,
-+                        VK_IMAGE_LAYOUT_UNDEFINED,
-+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-+                    ),
-+                },
-+                { destinationImage.handle(), aquiredSwapchainImage },
-+                destinationImage.getExtent(),
-+                {
-+                    barrierHelper(aquiredSwapchainImage,
-+                        VK_ACCESS_TRANSFER_WRITE_BIT,
-+                        VK_ACCESS_MEMORY_READ_BIT,
-+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-+                        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-+                    ),
-+                }
-+            );
-+
-+            std::vector<VkSemaphore> waitSemaphores{ pass.acquireSemaphore.handle() };
-+            if (i) { // non-first pass
-+                const auto& prevPCS = this->postCopySemaphores.at(
-+                    (this->idx - 1) % this->postCopySemaphores.size());
-+                waitSemaphores.push_back(prevPCS.second.handle());
-             }
--        );
- 
--        std::vector<VkSemaphore> waitSemaphores{ pass.acquireSemaphore.handle() };
--        if (i) { // non-first pass
--            const auto& prevPCS = this->postCopySemaphores.at((this->idx - 1) % this->postCopySemaphores.size());
--            waitSemaphores.push_back(prevPCS.second.handle());
-+            const std::vector<VkSemaphore> signalSemaphores{
-+                pcs.first.handle(),
-+                pcs.second.handle()
-+            };
-+
-+            cmdbuf.end(vk);
-+            cmdbuf.submit(vk,
-+                waitSemaphores, this->syncSemaphore->handle(), this->idx,
-+                signalSemaphores, VK_NULL_HANDLE, 0,
-+                (i == activeCount - 2) ? this->renderFence->handle() : VK_NULL_HANDLE
-+            );
-+
-+            // present generated frame
 +            const VkPresentInfoKHR presentInfo{
 +                .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 +                .pNext = i ? nullptr : next_chain,
@@ -1302,75 +1696,46 @@ index 85033ae..320c75e 100644
 +                .pWaitSemaphores = &pcs.first.handle(),
 +                .swapchainCount = 1,
 +                .pSwapchains = &swapchain,
-+                .pImageIndices = &aqImageIdx,
++                .pImageIndices = &aqImg,
 +            };
 +            res = vk.df().QueuePresentKHR(queue, &presentInfo);
 +            if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
 +                throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
++        }
++    }
 +
-+            this->idx++;
-         }
--
--        const std::vector<VkSemaphore> signalSemaphores{
--            pcs.first.handle(),
--            pcs.second.handle()
--        };
--
--        cmdbuf.end(vk);
--        cmdbuf.submit(vk,
--            waitSemaphores, this->syncSemaphore->handle(), this->idx,
--            signalSemaphores, VK_NULL_HANDLE, 0,
--            i == this->destinationImages.size() - 1 ? this->renderFence->handle() : VK_NULL_HANDLE
--        );
--
--        // present swapchain image
--        const VkPresentInfoKHR presentInfo{
--            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
--            .pNext = i ? nullptr : next_chain,
--            .waitSemaphoreCount = 1,
--            .pWaitSemaphores = &pcs.first.handle(),
--            .swapchainCount = 1,
--            .pSwapchains = &swapchain,
--            .pImageIndices = &aqImageIdx,
--        };
--        res = vk.df().QueuePresentKHR(queue,
--            &presentInfo);
--        if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
--            throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
--
--        this->idx++;
-     }
- 
--    // present original swapchain image
--    auto& lastPCS = this->postCopySemaphores.at((this->idx - 1) % this->postCopySemaphores.size());
--    const VkPresentInfoKHR presentInfo{
--        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
--        .waitSemaphoreCount = 1,
--        .pWaitSemaphores = &lastPCS.second.handle(),
--        .swapchainCount = 1,
--        .pSwapchains = &swapchain,
--        .pImageIndices = &imageIdx,
--    };
--    auto res = vk.df().QueuePresentKHR(queue, &presentInfo);
--    if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)
--        throw ls::vulkan_error(res, "vkQueuePresentKHR() failed");
 +    this->fenceSignaled = (activeCount > 1);
  
      this->fidx++;
      return res;
 diff --git a/lsfg-vk-layer/src/swapchain.hpp b/lsfg-vk-layer/src/swapchain.hpp
-index 3c711a0..a30e566 100644
+index 3c711a0..7285a72 100644
 --- a/lsfg-vk-layer/src/swapchain.hpp
 +++ b/lsfg-vk-layer/src/swapchain.hpp
-@@ -65,6 +65,8 @@ namespace lsfgvk::layer {
+@@ -64,7 +64,10 @@ namespace lsfgvk::layer {
+         ls::lazy<vk::TimelineSemaphore> syncSemaphore;
  
          ls::lazy<vk::CommandBuffer> renderCommandBuffer;
++        ls::lazy<vk::Fence> blitFence;
          ls::lazy<vk::Fence> renderFence;
 +        std::vector<vk::Semaphore> frameSemaphores;
 +        bool fenceSignaled{false};
          struct RenderPass {
              vk::CommandBuffer commandBuffer;
              vk::Semaphore acquireSemaphore;
+@@ -72,6 +75,12 @@ namespace lsfgvk::layer {
+         std::vector<RenderPass> passes;
+         std::vector<std::pair<vk::Semaphore, vk::Semaphore>> postCopySemaphores;
+ 
++        // blit batch submit storage (pre-allocated, cleared each frame)
++        std::vector<VkSubmitInfo2> blitBatchSubmits;
++        std::vector<VkSemaphoreSubmitInfo> blitBatchWaitInfos;
++        std::vector<VkCommandBufferSubmitInfo> blitBatchCmdInfos;
++        std::vector<VkSemaphoreSubmitInfo> blitBatchSignalInfos;
++
+         ls::R<backend::Instance> instance;
+         ls::owned_ptr<ls::R<backend::Context>> ctx;
+         size_t idx{1};
 diff --git a/lsfg-vk-ui/rsc/UI.qml b/lsfg-vk-ui/rsc/UI.qml
 index 5c5a96c..0db88d8 100644
 --- a/lsfg-vk-ui/rsc/UI.qml
