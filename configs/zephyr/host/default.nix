@@ -143,7 +143,7 @@
 
     #scx-loader.enable = false;
     scx-loader.settings = {
-      default_sched = null;
+      default_sched = "";
       #default_mode = "LowLatency";
     };
 
