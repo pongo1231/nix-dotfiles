@@ -141,11 +141,7 @@
       };
     };
 
-    #scx-loader.enable = false;
-    scx-loader.settings = {
-      default_sched = "";
-      #default_mode = "LowLatency";
-    };
+    scx-loader.enable = false;
 
     #opensnitch.enable = true;
 
