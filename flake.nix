@@ -3,7 +3,7 @@
     nixpkgs.url = "github:pongo1231/nixpkgs/mine";
     nixpkgs2.url = "github:pongo1231/nixpkgs/9bbd73f8ea1e9414f77df7e94c88f92c70643f5b";
     nixpkgs3.url = "github:nixos/nixpkgs/nixos-unstable-small";
-    nixpkgs4.url = "github:pongo1231/nixpkgs/e12fdeef28ee6a54ba30be3a9389bd3ab90c38ac";
+    nixpkgs4.url = "github:pongo1231/nixpkgs/mine";
 
     flake-utils.url = "github:numtide/flake-utils";
 
