@@ -157,11 +157,13 @@ args:
     userborn.enable = true;
   }
   // lib.optionalAttrs (pkgs.stdenv.hostPlatform.system == "x86_64-linux") {
-    scx-loader = {
-      enable = lib.mkDefault true;
-      package = pkgs.scx.loader;
-      settings.default_sched = lib.mkDefault "scx_lavd";
-    };
+    /*
+      scx-loader = {
+        enable = lib.mkDefault true;
+        package = pkgs.scx.loader;
+        config.default_sched = lib.mkDefault "scx_lavd";
+      };
+    */
   };
 
   security = {
