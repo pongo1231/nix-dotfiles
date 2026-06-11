@@ -78,12 +78,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.1.0-rc6";
+                      modDirVersion = "7.1.0-rc7";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "e43ffb69e0438cddd72aaa30898b4dc446f664f8";
-                        hash = "sha256-qEQMrDrnBYWu2osCjAR3X4c9o8qAMPy3qfHP3KDUq7o=";
+                        rev = "9716c086c8e8b141d35aa61f2e96a2e83de212a7";
+                        hash = "sha256-NOTyDRvCP7BWXWiLN6caAZ0wm1hBD34JqbQo2MZnzAw=";
                       };
                     };
                 };
@@ -159,6 +159,10 @@ in
         {
           name = "btrfs large folios";
           patch = patch /linux/7.1/btrfs-large-folios.patch;
+        }
+        {
+          name = "nouveau detach fix";
+          patch = patch /linux/7.1/nouveau-detach-fix.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [

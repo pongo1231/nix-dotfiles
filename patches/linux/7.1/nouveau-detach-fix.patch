@@ -1,0 +1,53 @@
+diff --git a/drivers/gpu/drm/nouveau/nouveau_chan.c b/drivers/gpu/drm/nouveau/nouveau_chan.c
+index 598513f60449..b0b10fce90b5 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_chan.c
++++ b/drivers/gpu/drm/nouveau/nouveau_chan.c
+@@ -70,6 +70,9 @@ nouveau_channel_idle(struct nouveau_channel *chan)
+ 		struct nouveau_fence *fence = NULL;
+ 		int ret;
+ 
++		if (!cli->drm->fence)
++			return -ENODEV;
++
+ 		ret = nouveau_fence_new(&fence, chan);
+ 		if (!ret) {
+ 			ret = nouveau_fence_wait(fence, false, false);
+diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouveau_drm.c
+index 517ff2c31dce..283fe2fbef8a 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_drm.c
++++ b/drivers/gpu/drm/nouveau/nouveau_drm.c
+@@ -597,17 +597,11 @@ nouveau_drm_device_fini(struct nouveau_drm *drm)
+ 		nouveau_display_fini(dev, false, false);
+ 	nouveau_display_destroy(dev);
+ 
+-	nouveau_accel_fini(drm);
+-	nouveau_bios_takedown(dev);
+-
+-	nouveau_ttm_fini(drm);
+-	nouveau_vga_fini(drm);
+-
+ 	/*
+-	 * There may be existing clients from as-yet unclosed files. For now,
+-	 * clean them up here rather than deferring until the file is closed,
+-	 * but this likely not correct if we want to support hot-unplugging
+-	 * properly.
++	 * Clean up any remaining clients before tearing down the acceleration
++	 * and TTM subsystems, since client channel teardown (via
++	 * nouveau_abi16_fini -> nouveau_channel_idle -> nouveau_fence_emit)
++	 * requires the fence, TTM, and runlist infrastructure to still be alive.
+ 	 */
+ 	mutex_lock(&drm->clients_lock);
+ 	list_for_each_entry_safe(cli, temp_cli, &drm->clients, head) {
+@@ -621,6 +615,12 @@ nouveau_drm_device_fini(struct nouveau_drm *drm)
+ 	}
+ 	mutex_unlock(&drm->clients_lock);
+ 
++	nouveau_accel_fini(drm);
++	nouveau_bios_takedown(dev);
++
++	nouveau_ttm_fini(drm);
++	nouveau_vga_fini(drm);
++
+ 	nouveau_cli_fini(&drm->client);
+ 	destroy_workqueue(drm->sched_wq);
+ 	mutex_destroy(&drm->clients_lock);
