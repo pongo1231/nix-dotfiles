@@ -7,8 +7,8 @@
     (
       final: prev:
       let
-        # The shaders-path.patch targets src/Utils/DirHelpers.cpp which no longer
-        # exists; GetUsrDir() moved to src/reshade_effect_manager.cpp
+        # The shaders-path.patch targets src/reshade_effect_manager.cpp but
+        # GetUsrDir() moved back to src/Utils/DirHelpers.cpp
         fixGamescopePatches = prev': {
           patches = [
             ../../../patches/gamescope/wlroots-libinput-switch.patch
@@ -16,7 +16,7 @@
           ++ builtins.filter (p: !(prev.lib.hasSuffix "shaders-path.patch" (toString p))) prev'.patches;
 
           postPatch = ''
-            substituteInPlace src/reshade_effect_manager.cpp --replace-fail 'return "/usr";' 'return "'$out'";'
+            substituteInPlace src/Utils/DirHelpers.cpp --replace-fail 'return "/usr";' 'return "'$out'";'
             patchShebangs subprojects/libdisplay-info/tool/gen-search-table.py
             substituteInPlace src/Utils/Process.cpp --subst-var-by "gamescopereaper" "$out/bin/gamescopereaper"
             patchShebangs default_extras_install.sh
