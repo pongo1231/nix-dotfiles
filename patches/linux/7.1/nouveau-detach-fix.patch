@@ -13,7 +13,7 @@ index 598513f60449..b0b10fce90b5 100644
  		if (!ret) {
  			ret = nouveau_fence_wait(fence, false, false);
 diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouveau_drm.c
-index 517ff2c31dce..283fe2fbef8a 100644
+index 517ff2c31dce..cae8f72a3e86 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_drm.c
 +++ b/drivers/gpu/drm/nouveau/nouveau_drm.c
 @@ -597,17 +597,11 @@ nouveau_drm_device_fini(struct nouveau_drm *drm)
@@ -45,9 +45,196 @@ index 517ff2c31dce..283fe2fbef8a 100644
 +	nouveau_accel_fini(drm);
 +	nouveau_bios_takedown(dev);
 +
-+	nouveau_ttm_fini(drm);
++	nouveau_ttm_fini_hw(drm);
 +	nouveau_vga_fini(drm);
 +
  	nouveau_cli_fini(&drm->client);
  	destroy_workqueue(drm->sched_wq);
  	mutex_destroy(&drm->clients_lock);
+@@ -702,6 +702,7 @@ nouveau_drm_device_init(struct nouveau_drm *drm)
+ 	nouveau_accel_fini(drm);
+ 	nouveau_bios_takedown(dev);
+ fail_bios:
++	nouveau_ttm_fini_hw(drm);
+ 	nouveau_ttm_fini(drm);
+ fail_ttm:
+ 	nouveau_vga_fini(drm);
+@@ -714,16 +715,16 @@ nouveau_drm_device_init(struct nouveau_drm *drm)
+ static void
+ nouveau_drm_device_del(struct nouveau_drm *drm)
+ {
+-	if (drm->dev)
+-		drm_dev_put(drm->dev);
+-
+ 	nvif_mmu_dtor(&drm->mmu);
+ 	nvif_device_dtor(&drm->device);
+ 	nvif_client_dtor(&drm->_client);
+ 	nvif_parent_dtor(&drm->parent);
+-
+ 	mutex_destroy(&drm->client_mutex);
+-	kfree(drm);
++
++	if (drm->dev && !IS_ERR(drm->dev))
++		drm_dev_put(drm->dev);
++	else
++		kfree(drm);
+ }
+ 
+ static struct nouveau_drm *
+@@ -1360,6 +1361,15 @@ nouveau_driver_fops = {
+ 	.fop_flags = FOP_UNSIGNED_OFFSET,
+ };
+ 
++static void
++nouveau_drm_release(struct drm_device *dev)
++{
++	struct nouveau_drm *drm = nouveau_drm(dev);
++
++	nouveau_ttm_fini(drm);
++	kfree(drm);
++}
++
+ static struct drm_driver
+ driver_stub = {
+ 	.driver_features = DRIVER_GEM |
+@@ -1369,6 +1379,7 @@ driver_stub = {
+ 			   DRIVER_RENDER,
+ 	.open = nouveau_drm_open,
+ 	.postclose = nouveau_drm_postclose,
++	.release = nouveau_drm_release,
+ 
+ #if defined(CONFIG_DEBUG_FS)
+ 	.debugfs_init = nouveau_drm_debugfs_init,
+diff --git a/drivers/gpu/drm/nouveau/nouveau_drv.h b/drivers/gpu/drm/nouveau/nouveau_drv.h
+index 1c2523e2f92e..06ecd9e46f43 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_drv.h
++++ b/drivers/gpu/drm/nouveau/nouveau_drv.h
+@@ -241,6 +241,7 @@ struct nouveau_drm {
+ 		struct nouveau_channel *chan;
+ 		struct nvif_object copy;
+ 		int mtrr;
++		u8 family;
+ 		int type_vram;
+ 		int type_host[2];
+ 		int type_ncoh[2];
+diff --git a/drivers/gpu/drm/nouveau/nouveau_gem.c b/drivers/gpu/drm/nouveau/nouveau_gem.c
+index 20dba02d6175..5f61f7e8ec8f 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_gem.c
++++ b/drivers/gpu/drm/nouveau/nouveau_gem.c
+@@ -84,6 +84,7 @@ nouveau_gem_object_del(struct drm_gem_object *gem)
+ 	ret = pm_runtime_get_sync(dev);
+ 	if (WARN_ON(ret < 0 && ret != -EACCES)) {
+ 		pm_runtime_put_autosuspend(dev);
++		ttm_bo_fini(&nvbo->bo);
+ 		return;
+ 	}
+ 
+diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nouveau_ttm.c
+index ad01f922aa86..5820d163ea9c 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_ttm.c
++++ b/drivers/gpu/drm/nouveau/nouveau_ttm.c
+@@ -199,14 +199,23 @@ nouveau_ttm_init_vram(struct nouveau_drm *drm)
+ 	}
+ }
+ 
++static void
++nouveau_ttm_evict_manager(struct nouveau_drm *drm, struct ttm_resource_manager *man)
++{
++	ttm_resource_manager_set_used(man, false);
++	ttm_resource_manager_evict_all(&drm->ttm.bdev, man);
++}
++
+ static void
+ nouveau_ttm_fini_vram(struct nouveau_drm *drm)
+ {
+ 	struct ttm_resource_manager *man = ttm_manager_type(&drm->ttm.bdev, TTM_PL_VRAM);
+ 
+-	if (drm->client.device.info.family >= NV_DEVICE_INFO_V0_TESLA) {
+-		ttm_resource_manager_set_used(man, false);
+-		ttm_resource_manager_evict_all(&drm->ttm.bdev, man);
++	if (!man)
++		return;
++
++	if (drm->ttm.family >= NV_DEVICE_INFO_V0_TESLA) {
++		nouveau_ttm_evict_manager(drm, man);
+ 		ttm_resource_manager_cleanup(man);
+ 		ttm_set_driver_manager(&drm->ttm.bdev, TTM_PL_VRAM, NULL);
+ 		kfree(man);
+@@ -246,12 +255,14 @@ nouveau_ttm_fini_gtt(struct nouveau_drm *drm)
+ {
+ 	struct ttm_resource_manager *man = ttm_manager_type(&drm->ttm.bdev, TTM_PL_TT);
+ 
+-	if (drm->client.device.info.family < NV_DEVICE_INFO_V0_TESLA &&
++	if (!man)
++		return;
++
++	if (drm->ttm.family < NV_DEVICE_INFO_V0_TESLA &&
+ 	    drm->agp.bridge)
+ 		ttm_range_man_fini(&drm->ttm.bdev, TTM_PL_TT);
+ 	else {
+-		ttm_resource_manager_set_used(man, false);
+-		ttm_resource_manager_evict_all(&drm->ttm.bdev, man);
++		nouveau_ttm_evict_manager(drm, man);
+ 		ttm_resource_manager_cleanup(man);
+ 		ttm_set_driver_manager(&drm->ttm.bdev, TTM_PL_TT, NULL);
+ 		kfree(man);
+@@ -267,6 +278,8 @@ nouveau_ttm_init(struct nouveau_drm *drm)
+ 	struct drm_device *dev = drm->dev;
+ 	int typei, ret;
+ 
++	drm->ttm.family = drm->client.device.info.family;
++
+ 	ret = nouveau_ttm_init_host(drm, 0);
+ 	if (ret)
+ 		return ret;
+@@ -348,18 +361,34 @@ nouveau_ttm_init(struct nouveau_drm *drm)
+ }
+ 
+ void
+-nouveau_ttm_fini(struct nouveau_drm *drm)
++nouveau_ttm_fini_hw(struct nouveau_drm *drm)
+ {
+ 	struct nvkm_device *device = nvxx_device(drm);
++	struct ttm_resource_manager *man;
+ 
+-	nouveau_ttm_fini_vram(drm);
+-	nouveau_ttm_fini_gtt(drm);
++	man = ttm_manager_type(&drm->ttm.bdev, TTM_PL_VRAM);
++	if (man)
++		nouveau_ttm_evict_manager(drm, man);
+ 
+-	ttm_device_fini(&drm->ttm.bdev);
++	man = ttm_manager_type(&drm->ttm.bdev, TTM_PL_TT);
++	if (man)
++		nouveau_ttm_evict_manager(drm, man);
+ 
+ 	arch_phys_wc_del(drm->ttm.mtrr);
+ 	drm->ttm.mtrr = 0;
+ 	arch_io_free_memtype_wc(device->func->resource_addr(device, NVKM_BAR1_FB),
+ 				device->func->resource_size(device, NVKM_BAR1_FB));
++}
++
++void
++nouveau_ttm_fini(struct nouveau_drm *drm)
++{
++	if (!drm->ttm.bdev.funcs)
++		return;
++
++	nouveau_ttm_fini_vram(drm);
++	nouveau_ttm_fini_gtt(drm);
+ 
++	ttm_device_fini(&drm->ttm.bdev);
++	drm->ttm.bdev.funcs = NULL;
+ }
+diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.h b/drivers/gpu/drm/nouveau/nouveau_ttm.h
+index 2f0efda7ccdb..9b24bd078212 100644
+--- a/drivers/gpu/drm/nouveau/nouveau_ttm.h
++++ b/drivers/gpu/drm/nouveau/nouveau_ttm.h
+@@ -16,6 +16,7 @@ struct ttm_tt *nouveau_sgdma_create_ttm(struct ttm_buffer_object *bo,
+ 					u32 page_flags);
+ 
+ int  nouveau_ttm_init(struct nouveau_drm *drm);
++void nouveau_ttm_fini_hw(struct nouveau_drm *drm);
+ void nouveau_ttm_fini(struct nouveau_drm *drm);
+ 
+ int  nouveau_ttm_global_init(struct nouveau_drm *);
