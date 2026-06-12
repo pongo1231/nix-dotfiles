@@ -119,4 +119,10 @@ in
       (lib.cmakeFeature "LSFGVK_BUILD_UI" "ON")
     ];
   });
+
+  kdePackages = prev.kdePackages.overrideScope (kfinal: kprev: {
+    kwin = kprev.kwin.overrideAttrs (prevAttrs: {
+      patches = (prevAttrs.patches or [ ]) ++ [ (patch /kwin/lazy-render-device.patch) ];
+    });
+  });
 }
