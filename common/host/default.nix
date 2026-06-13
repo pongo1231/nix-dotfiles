@@ -225,20 +225,9 @@ args:
       };
 
     sessionVariables = {
-      GTK_USE_PORTAL = 1;
-
-      MOZ_ENABLE_WAYLAND = 1;
-
       NIXPKGS_ALLOW_UNFREE = 1;
       NIXPKGS_ALLOW_INSECURE = 1;
 
-      PROTON_ENABLE_WAYLAND = 1;
-      PROTON_USE_NTSYNC = 1;
-      PROTON_USE_WOW64 = 1;
-      PROTON_DXVK_LOWLATENCY = 1;
-      SDL_VIDEODRIVER = "wayland,x11";
-      VKD3D_CONFIG = "descriptor_heap,enable_experimental_features";
-      PROTON_VKD3D_HEAP = 1;
       DXVK_NVAPI_VKREFLEX = 1;
       LOW_LATENCY_LAYER = 1;
     };
