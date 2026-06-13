@@ -127,4 +127,8 @@ in
       });
     }
   );
+
+  swapspace = prev.swapspace.overrideAttrs (prev: {
+    patches = (prev.patches or [ ]) ++ [ (patch /swapspace/slop.patch) ];
+  });
 }

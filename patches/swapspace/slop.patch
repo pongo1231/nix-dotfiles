@@ -1,0 +1,934 @@
+diff --git a/configure.ac b/configure.ac
+index 970cff0..1d959ea 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -16,7 +16,7 @@ AC_PROG_MKDIR_P
+ AC_SYS_LARGEFILE
+ 
+ # Checks for header files.
+-AC_CHECK_HEADERS([fcntl.h limits.h locale.h stdlib.h string.h sys/param.h sys/statvfs.h syslog.h unistd.h])
++AC_CHECK_HEADERS([fcntl.h limits.h locale.h stdlib.h string.h sys/param.h sys/statvfs.h syslog.h unistd.h sys/epoll.h sys/timerfd.h sys/signalfd.h sys/mman.h sys/prctl.h sys/sysmacros.h])
+ 
+ # Checks for typedefs, structures, and compiler characteristics.
+ AC_CHECK_HEADER_STDBOOL
+@@ -28,7 +28,7 @@ AC_TYPE_SSIZE_T
+ # Checks for library functions.
+ AC_FUNC_FORK
+ AC_FUNC_REALLOC
+-AC_CHECK_FUNCS([atexit getcwd getpagesize memset setlocale strchr strerror strtol strtoul])
++AC_CHECK_FUNCS([atexit getcwd getpagesize memset setlocale strchr strerror strtol strtoul epoll_create1 timerfd_create signalfd mlockall prctl])
+ 
+ # Check for swapon and swapoff
+ AC_CHECK_FUNC([swapon],[
+diff --git a/src/main.c b/src/main.c
+index 250e027..734d874 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -36,7 +36,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include <sys/types.h>
+ 
+ #include <fcntl.h>
+-#include <unistd.h>
++#include <sys/epoll.h>
++#include <sys/mman.h>
++#include <sys/prctl.h>
++#include <sys/signalfd.h>
++#include <sys/timerfd.h>
+ 
+ #include "config.h"
+ #include "log.h"
+@@ -50,8 +54,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ char localbuf[16384];
+ time_t runclock = 0;
+ 
+-/// Have we received a kill/HUP/power signal?
+-static volatile bool stop = false;
++static bool stop = false;
+ 
+ static char pidfile[PATH_MAX] = "/var/run/swapspace.pid";
+ static bool make_pidfile = false;
+@@ -119,7 +122,8 @@ static bool writepid(pid_t pid)
+ {
+   snprintf(localbuf, sizeof(localbuf), "%d\n", pid);
+   const size_t len = strlen(localbuf);
+-  if (unlikely(write(pidfd, localbuf, len) < len))
++  const ssize_t written = write(pidfd, localbuf, len);
++  if (unlikely(written < 0 || (size_t)written < len))
+   {
+     log_perr_str(LOG_ERR, "Could not write pidfile", pidfile, errno);
+     return false;
+@@ -137,7 +141,7 @@ static bool startpidfile(void)
+ {
+   assert(pidfd == -1);
+   if (!make_pidfile) return true;
+-  pidfd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL, O_WRONLY);
++  pidfd = open(pidfile, O_WRONLY|O_CREAT|O_EXCL, 0644);
+   if (unlikely(pidfd == -1))
+   {
+     if (errno == EEXIST)
+@@ -156,16 +160,6 @@ static bool startpidfile(void)
+ }
+ 
+ 
+-/// Signal handler that requests clean exit
+- /*
+-  * doc/unix-ipc-sucks.md
+- */
+-static void sighand_exit(int sig)
+-{
+-  stop = true;
+-}
+-
+-
+ /// Write process id to pidfile if requested, and close it.  Clobbers localbuf.
+ /**
+  * @return Success (which is trivially achieved if no pidfile is requested)
+@@ -189,56 +183,18 @@ static pid_t daemonize(void)
+ }
+ 
+ 
+-/// Was a dump of statistics requested?
+-static volatile bool print_status=false;
+-
+-/// Was an immediate adjustment requested?
+-static volatile bool adjust_swap=false;
+-
+-
+-/// Signal handler that requests generation of a status report to stdout
+-static void sighand_status(int sig)
+-{
+-  print_status = true;
+-}
+-
+-/// Signal handler that initiates immediate swapspace adjustment
+-static void sighand_diet(int sig)
+-{
+-  adjust_swap = true;
+-}
+-
+-
+-static void install_sighandler(int signum, void (*handler)(int))
+-{
+-  struct sigaction sa;
+-  memset(&sa, 0, sizeof(sa));
+-  sa.sa_handler = handler;
+-  sigaction(signum, &sa, NULL);
+-}
+-
++#ifndef PR_SET_IO_FLUSHER
++#define PR_SET_IO_FLUSHER 57
++#endif
+ 
+-/// Install signal handlers
+-static void install_sigs(void)
++static void self_protect(void)
+ {
+-#ifdef SIGXFSZ
+-  // Some systems may send signal if our swapfiles get too large, but we have
+-  // our own ways of dealing with that eventuality.  Ignore the signal.
+-  signal(SIGXFSZ, SIG_IGN);
+-#endif
++  int fd = open("/proc/self/oom_score_adj", O_WRONLY);
++  if (fd >= 0) { ssize_t r = write(fd, "-1000", 5); (void)r; close(fd); }
+ 
+-  // Install exit handler.  These may not be repeatable, i.e. if the same signal
+-  // comes in again, we will probably just be terminated.  But that's not
+-  // unreasonable, come to think of it.
+-  signal(SIGTERM, sighand_exit);
+-  signal(SIGHUP, sighand_exit);
+-#ifdef SIGPWR
+-  signal(SIGPWR, sighand_exit);
+-#endif
++  mlockall(MCL_CURRENT | MCL_FUTURE);
+ 
+-  // These handlers must be repeatable.
+-  install_sighandler(SIGUSR1, sighand_status);
+-  install_sighandler(SIGUSR2, sighand_diet);
++  prctl(PR_SET_IO_FLUSHER, 1, 0, 0, 0);
+ }
+ 
+ 
+@@ -284,6 +240,8 @@ int main(int argc, char *argv[])
+ 
+   if (!configure(argc, argv)) return EXIT_FAILURE;
+ 
++  self_protect();
++
+   if (unlikely(!read_proc_swaps()) ||
+       unlikely(!activate_old_swaps()) ||
+       unlikely(!check_memory_status()))
+@@ -291,7 +249,9 @@ int main(int argc, char *argv[])
+ 
+   if (erase) return retire_all() ? EXIT_SUCCESS : EXIT_FAILURE;
+ 
+-  install_sigs();
++#ifdef SIGXFSZ
++  signal(SIGXFSZ, SIG_IGN);
++#endif
+ 
+   if (unlikely(!startpidfile())) return EXIT_FAILURE;
+ 
+@@ -330,6 +290,8 @@ int main(int argc, char *argv[])
+        * pidfile is in a stable state when the parent exits.
+        */
+       lseek(pidfd, 0, SEEK_SET);
++      if (ftruncate(pidfd, 0) == -1)
++        log_perr_str(LOG_WARNING, "Could not truncate pidfile", pidfile, errno);
+ #ifndef NO_CONFIG
+       if (verbose) logm(LOG_DEBUG, "got process id %d", pid);
+ #endif
+@@ -341,23 +303,147 @@ int main(int argc, char *argv[])
+ 
+   if (godaemon)
+   {
+-    close(STDERR_FILENO);
+-    close(STDOUT_FILENO);
++    int devnull = open("/dev/null", O_RDWR);
++    if (devnull >= 0)
++    {
++      dup2(devnull, STDIN_FILENO);
++      dup2(devnull, STDOUT_FILENO);
++      dup2(devnull, STDERR_FILENO);
++      if (devnull > STDERR_FILENO) close(devnull);
++    }
+ 
+-    // From here on std output is pointless in daemon mode.  Use syslog instead.
+     log_start(argv[0]);
+   }
+ 
+-  // Central loop
+-  for (++runclock; !stop; ++runclock)
++  sigset_t mask;
++  sigemptyset(&mask);
++  sigaddset(&mask, SIGTERM);
++  sigaddset(&mask, SIGHUP);
++  sigaddset(&mask, SIGUSR1);
++  sigaddset(&mask, SIGUSR2);
++#ifdef SIGPWR
++  sigaddset(&mask, SIGPWR);
++#endif
++  sigprocmask(SIG_BLOCK, &mask, NULL);
++
++  int epfd = epoll_create1(EPOLL_CLOEXEC);
++  if (unlikely(epfd < 0))
++  {
++    log_perr(LOG_CRIT, "Could not create epoll instance", errno);
++    return EXIT_FAILURE;
++  }
++  struct epoll_event ev;
++
++  int psi_fd = open("/proc/pressure/memory", O_RDWR | O_NONBLOCK);
++  if (psi_fd >= 0)
++  {
++    const char trigger[] = "some 100000 1000000";
++    if (write(psi_fd, trigger, sizeof(trigger) - 1) < 0)
++    {
++      close(psi_fd);
++      psi_fd = -1;
++    }
++    else
++    {
++      ev.events = EPOLLPRI;
++      ev.data.fd = psi_fd;
++      epoll_ctl(epfd, EPOLL_CTL_ADD, psi_fd, &ev);
++    }
++  }
++
++  int tfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
++  if (unlikely(tfd < 0))
++  {
++    log_perr(LOG_CRIT, "Could not create timer", errno);
++    close(epfd);
++    return EXIT_FAILURE;
++  }
++  struct itimerspec its;
++  memset(&its, 0, sizeof(its));
++  its.it_value.tv_sec = 1;
++  its.it_interval.tv_sec = (psi_fd >= 0) ? 10 : 1;
++  timerfd_settime(tfd, 0, &its, NULL);
++  ev.events = EPOLLIN;
++  ev.data.fd = tfd;
++  epoll_ctl(epfd, EPOLL_CTL_ADD, tfd, &ev);
++
++  int sfd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
++  if (unlikely(sfd < 0))
+   {
+-    if (unlikely(print_status))		print_status = false,	dump_stats();
+-    else if (unlikely(adjust_swap))	adjust_swap = false,	request_diet();
+-    else 			        handle_requirements();
++    log_perr(LOG_CRIT, "Could not create signalfd", errno);
++    close(tfd);
++    close(epfd);
++    return EXIT_FAILURE;
++  }
++  ev.events = EPOLLIN;
++  ev.data.fd = sfd;
++  epoll_ctl(epfd, EPOLL_CTL_ADD, sfd, &ev);
+ 
+-    sleep(1);
++  bool psi_active = false;
++  time_t psi_last_event = 0;
++
++  struct epoll_event events[4];
++  while (!stop)
++  {
++    int n = epoll_wait(epfd, events, 4, -1);
++    runclock = time(NULL);
++    for (int i = 0; i < n && !stop; i++)
++    {
++      if (events[i].data.fd == psi_fd)
++      {
++        char buf[256];
++        while (read(psi_fd, buf, sizeof(buf)) > 0);
++        psi_last_event = runclock;
++        if (!psi_active)
++        {
++          psi_active = true;
++          its.it_interval.tv_sec = 1;
++          its.it_value.tv_sec = 1;
++          timerfd_settime(tfd, 0, &its, NULL);
++        }
++      }
++      else if (events[i].data.fd == tfd)
++      {
++        uint64_t exp;
++        ssize_t s = read(tfd, &exp, sizeof(exp));
++        (void)s;
++        handle_requirements();
++        if (psi_active && runclock - psi_last_event > 30)
++        {
++          psi_active = false;
++          its.it_interval.tv_sec = 10;
++          its.it_value.tv_sec = 10;
++          timerfd_settime(tfd, 0, &its, NULL);
++        }
++      }
++      else if (events[i].data.fd == sfd)
++      {
++        struct signalfd_siginfo si;
++        while (read(sfd, &si, sizeof(si)) == (ssize_t)sizeof(si))
++        {
++          switch (si.ssi_signo)
++          {
++          case SIGUSR1:
++            dump_stats();
++            break;
++          case SIGUSR2:
++            request_diet();
++            handle_requirements();
++            break;
++          default:
++            stop = true;
++            break;
++          }
++        }
++      }
++    }
+   }
+ 
++  close(sfd);
++  close(tfd);
++  if (psi_fd >= 0) close(psi_fd);
++  close(epfd);
++
+   int result = EXIT_SUCCESS;
+ 
+ #ifndef NO_CONFIG
+diff --git a/src/main.h b/src/main.h
+index b780a98..75f63c1 100644
+--- a/src/main.h
++++ b/src/main.h
+@@ -57,9 +57,6 @@ bool swapfs_large_enough(void);
+ extern bool quiet;
+ /// Print debug output when changing state and such?
+ extern bool verbose;
+-/// Use file zeroing or posix_fallocate?
+-extern bool zero;
+-
+ char *set_quiet(long long dummy);
+ char *set_verbose(long long dummy);
+ 
+diff --git a/src/memory.c b/src/memory.c
+index 71dcb17..7581aca 100644
+--- a/src/memory.c
++++ b/src/memory.c
+@@ -219,60 +219,74 @@ struct memstate
+ };
+ 
+ 
+-void imbibe_meminfo_entry(const struct meminfo_item *inf, struct memstate *st)
++static int imbibe_meminfo_entry(const struct meminfo_item *inf, struct memstate *st)
+ {
+   switch (inf->entry[0])
+   {
+   case 'B':
+-    if (strcmp(inf->entry, "Buffers")==0)         st->Buffers = inf->value;
++    if (strcmp(inf->entry, "Buffers")==0)       { st->Buffers = inf->value; return 1; }
+     break;
+   case 'C':
+-    if (strcmp(inf->entry, "Cached")==0)          st->Cached = inf->value;
++    if (strcmp(inf->entry, "Cached")==0)        { st->Cached = inf->value; return 1; }
+     break;
+   case 'D':
+-    if (strcmp(inf->entry, "Dirty")==0)           st->Dirty = inf->value;
++    if (strcmp(inf->entry, "Dirty")==0)         { st->Dirty = inf->value; return 1; }
+     break;
+   case 'M':
+     if (strncmp(inf->entry,"Mem",3) == 0)
+     {
+-      if (strcmp(inf->entry+3, "Total")==0)       st->MemTotal = inf->value;
+-      else if (strcmp(inf->entry+3, "Free")==0)   st->MemFree = inf->value;
++      if (strcmp(inf->entry+3, "Total")==0)     { st->MemTotal = inf->value; return 1; }
++      else if (strcmp(inf->entry+3, "Free")==0) { st->MemFree = inf->value; return 1; }
+       else if (strcmp(inf->entry+3, "Available")==0)
+       {
+         kernel_mem_available = true;
+         st->MemAvailable = inf->value;
++        return 1;
+       }
+     }
+     break;
+   case 'S':
+     if (strncmp(inf->entry,"Swap",4) == 0)
+     {
+-      if (strcmp(inf->entry+4, "Total")==0)       st->SwapTotal = inf->value;
+-      else if (strcmp(inf->entry+4, "Free")==0)   st->SwapFree = inf->value;
+-      else if (strcmp(inf->entry+4, "Cached")==0) st->SwapCached = inf->value;
++      if (strcmp(inf->entry+4, "Total")==0)     { st->SwapTotal = inf->value; return 1; }
++      else if (strcmp(inf->entry+4, "Free")==0) { st->SwapFree = inf->value; return 1; }
++      else if (strcmp(inf->entry+4, "Cached")==0) { st->SwapCached = inf->value; return 1; }
+     }
+-    if (strcmp(inf->entry,"Shmem")==0)            st->Shmem = inf->value;
++    if (strcmp(inf->entry,"Shmem")==0)          { st->Shmem = inf->value; return 1; }
+     break;
+   case 'W':
+-    if (strcmp(inf->entry,"Writeback")==0)        st->Writeback = inf->value;
++    if (strcmp(inf->entry,"Writeback")==0)      { st->Writeback = inf->value; return 1; }
+     break;
+   }
++  return 0;
+ }
+ 
+ 
+ static bool read_proc_meminfo(struct memstate *s)
+ {
+-  FILE *fp = fopen("/proc/meminfo", "r");
+-  if (unlikely(!fp))
++  static FILE *fp = NULL;
++  if (fp)
+   {
+-    log_perr(LOG_ERR, "Could not open /proc/meminfo for reading", errno);
+-    return false;
++    rewind(fp);
++  }
++  else
++  {
++    fp = fopen("/proc/meminfo", "r");
++    if (unlikely(!fp))
++    {
++      log_perr(LOG_ERR, "Could not open /proc/meminfo for reading", errno);
++      return false;
++    }
+   }
+ 
+   struct meminfo_item inf;
+-  while (read_meminfo_item(fp, &inf)) imbibe_meminfo_entry(&inf, s);
+-  fclose(fp);
+-  if (unlikely(inf.entry[0]))
++  int found = 0;
++  while (read_meminfo_item(fp, &inf))
++  {
++    found += imbibe_meminfo_entry(&inf, s);
++    if (found >= 11) break;
++  }
++  if (unlikely(found < 11 && inf.entry[0]))
+   {
+     log_perr(LOG_ERR, inf.entry, inf.value);
+     return false;
+@@ -329,8 +343,9 @@ static inline memsize_t cache_free(const struct memstate *st)
+ 
+ static inline memsize_t space_free(const struct memstate *st)
+ {
+-  /* Estimating "free" memory is not only hard, but subjective as well.  Ideally
+-   * we'd want some measure of "pressure"--which we don't seem to have.
++  /* Estimating "free" memory is not only hard, but subjective as well.  PSI
++   * (/proc/pressure/memory) now provides a pressure signal that drives our
++   * event loop, but we still need meminfo for sizing decisions.
+    *
+    * The big question is what to do about Cached.  This is where most bytes tend
+    * to go, and it grows unless and until memory requirements get really, really
+@@ -441,7 +456,7 @@ memsize_t memory_target(void)
+ 
+   assert(upper_freelimit > lower_freelimit);
+ 
+-  struct memstate st = { 0, 0, 0, 0, 0, 0, 0, 0 };
++  struct memstate st = { 0 };
+   if (unlikely(!read_proc_meminfo(&st))) return MEMSIZE_ERROR;
+ 
+   const int freepct = pct_free(&st);
+@@ -458,7 +473,7 @@ memsize_t memory_target(void)
+ 
+ memsize_t minimal_swapfile(void)
+ {
+-  struct memstate st = { 0, 0, 0, 0, 0, 0, 0, 0 };
++  struct memstate st = { 0 };
+   if (unlikely(!read_proc_meminfo(&st))) return MEMSIZE_ERROR;
+ 
+   const memsize_t total = space_total(&st);
+@@ -483,7 +498,7 @@ static void dump_memline(const char category[],
+ 
+ void dump_memory(void)
+ {
+-  struct memstate st = { 0, 0, 0, 0, 0, 0, 0, 0 };
++  struct memstate st = { 0 };
+   if (unlikely(!read_proc_meminfo(&st))) return;
+   check_memory_status();
+ 
+diff --git a/src/opts.c b/src/opts.c
+index 9120238..5cbba04 100644
+--- a/src/opts.c
++++ b/src/opts.c
+@@ -92,7 +92,11 @@ static const struct option options[] =
+   { "configfile",	'c', at_str,  1, PATH_MAX, set_configfile,
+   "Use configuration file s" },
+   { "cooldown",		'a', at_num,  0, LONG_MAX, set_cooldown,
+-  "Give allocation attempts n seconds to settle" },
++  "Set cooldown time (alias for cooldown_overfed)" },
++  { "cooldown_hungry",	'H', at_num,  0, LONG_MAX, set_cooldown_hungry,
++  "Seconds before hungry state returns to steady" },
++  { "cooldown_overfed",	'O', at_num,  0, LONG_MAX, set_cooldown_overfed,
++  "Seconds before overfed state deallocates" },
+   { "daemon",		'd', at_none, 0, 0, set_daemon,
+   "Run quietly in background" },
+   { "erase",		'e', at_none, 0, 0, set_erase,
+diff --git a/src/state.c b/src/state.c
+index 846c3ac..62b51f9 100644
+--- a/src/state.c
++++ b/src/state.c
+@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include "env.h"
+ 
+ #include <stdio.h>
++#include <time.h>
+ 
+ #include "log.h"
+ #include "main.h"
+@@ -31,46 +32,42 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include "support.h"
+ #include "swaps.h"
+ 
+-/* The allocation/deallocation algorithm is driven by a state machine.
+- */
+ 
+-/* TODO: Adaptive cooldown_time?
+- * Extend cooldown time if a swapfile is allocated shortly after deallocation in
+- * "overfed" state (say, within another timeout period), or if one is
+- * deallocated shortly (say, at most two timeout periods) after having been
+- * allocated.
+- * Reduce cooldown time if "hungry" and/or "overfed" states consistently timeout
+- * too soon (say, X times in the first half of the timeout period but never in
+- * the second)
+- */
++static time_t cooldown_hungry = 60;
++static time_t cooldown_overfed = 600;
+ 
+-/// Minimum cooldown time before returning to "steady state" allocation policy
+-static time_t cooldown_time = 600;
++static time_t deadline = 0;
+ 
+-/// Countdown timer for return to "steady state"
+-static time_t timer = 0;
+-
+-static inline void timer_reset(void) { timer = cooldown_time; }
+-static inline void timer_tick(void) { --timer; }
+-static inline bool timer_timeout(void) { return timer <= 0; }
++static inline void timer_reset_for(time_t cd) { deadline = time(NULL) + cd; }
++static inline bool timer_timeout(void) { return time(NULL) >= deadline; }
+ 
+ #ifndef NO_CONFIG
+ char *set_cooldown(long long duration)
+ {
+-  cooldown_time = (time_t)duration;
+-  timer_reset();
++  cooldown_overfed = (time_t)duration;
++  return NULL;
++}
++
++char *set_cooldown_hungry(long long duration)
++{
++  cooldown_hungry = (time_t)duration;
++  return NULL;
++}
++
++char *set_cooldown_overfed(long long duration)
++{
++  cooldown_overfed = (time_t)duration;
+   return NULL;
+ }
+ #endif
+ 
+ 
+-/// State machine describing transitions in allocation policy
+ enum State
+ {
+-  st_diet,	// Ran into disk limit; don't allocate
+-  st_hungry,	// Want more, or at least don't consider deallocation
+-  st_steady,	// Entirely neutral
+-  st_overfed	// Waiting to see if it's okay to deallocate
++  st_diet,
++  st_hungry,
++  st_steady,
++  st_overfed
+ };
+ 
+ static const char *Statenames[] =
+@@ -94,7 +91,15 @@ static void state_to(enum State s)
+   if (verbose) logm(LOG_DEBUG,"%s -> %s",Statenames[the_state],Statenames[s]);
+ #endif
+   the_state = s;
+-  timer_reset();
++  switch (s)
++  {
++  case st_hungry:
++    timer_reset_for(cooldown_hungry);
++    break;
++  default:
++    timer_reset_for(cooldown_overfed);
++    break;
++  }
+ }
+ 
+ 
+@@ -110,27 +115,15 @@ void handle_requirements(void)
+   const memsize_t reqbytes = memory_target();
+ #ifndef NO_CONFIG
+   if (verbose && reqbytes != oldreqbytes)
+-	  logm(LOG_DEBUG,"Required Bytes: %d", reqbytes);
++	  logm(LOG_DEBUG,"Required Bytes: %lld", reqbytes);
+ #endif
+-  timer_tick();
+ 
+   if (unlikely(reqbytes > 0) && likely(the_state != st_diet))
+   {
+-    /* In any state except "diet," where allocation is inhibited, a shortage of
+-     * memory means we forget what state we're in and jump straight to "hungry"
+-     * mode, allocating a new swapfile along the way.  If the allocation fails,
+-     * we bail out into "diet" mode next time, on alloc_swapfile()'s request.
+-     */
+     if (likely(alloc_swapfile(reqbytes))) state_to(st_hungry);
+   }
+   else if (unlikely(timer_timeout()))
+   {
+-    /* All states except "steady" are designed to time out eventually; in every
+-     * case that leads back to "steady" so we can make it a general rule that
+-     * timeout leads to "steady."
+-     * The only other action that accompanies timeout is when timing out of the
+-     * "overfed" state, which is where we normally deallocate.
+-     */
+ #ifndef NO_CONFIG
+     if (verbose) logm(LOG_DEBUG,"Timeout");
+ #endif
+@@ -140,32 +133,14 @@ void handle_requirements(void)
+   else switch (the_state)
+   {
+   case st_diet:
+-    /* If we overallocated and now find ourselves with more swap space than we
+-     * think we need, deallocate it right away.  Don't leave "diet" state just
+-     * yet in that case, however, or we may invite thrashing.
+-     */
+     if (unlikely(reqbytes < 0)) free_swapfile(-reqbytes);
+     break;
+   case st_hungry:
+-    /* The "hungry" state can either time out, or allocate more swap space and
+-     * loop back to itself, resetting the timer (or if allocation fails, bail
+-     * out to "diet").  In other words, all actions for this state have been
+-     * handled by the general cases above.
+-     */
+     break;
+   case st_steady:
+-    /* If we have more swap space than we need, go to "overfed" state which may
+-     * eventually lead to deallocation.
+-     */
+     if (unlikely(reqbytes < 0)) state_to(st_overfed);
+     break;
+   case st_overfed:
+-    /* There are two ways out of "overfed" state: either we find that we no
+-     * longer have more memory than we need, in which case we default back to
+-     * steady state; or we time out as per the general case described above,
+-     * having had excess swap space for an entire timer period and therefore
+-     * deallocating swap space.
+-     */
+     if (unlikely(reqbytes >= 0)) state_to(st_steady);
+     break;
+   }
+@@ -176,5 +151,6 @@ void handle_requirements(void)
+ void dump_state(void)
+ {
+   logm(LOG_INFO, "state: %s", Statenames[the_state]);
+-  if (timer > 0) logm(LOG_INFO, "timer: %ld", (long)timer);
++  time_t remaining = deadline - time(NULL);
++  if (remaining > 0) logm(LOG_INFO, "timer: %ld", (long)remaining);
+ }
+diff --git a/src/state.h b/src/state.h
+index a89d2eb..c994ea0 100644
+--- a/src/state.h
++++ b/src/state.h
+@@ -25,7 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ /// Perform one iteration of the allocation algorithm.  Clobbers localbuf.
+ void handle_requirements(void);
+ 
+-/// Log state information.  Clubbers localbuf.
++/// Log state information.  Clobbers localbuf.
+ void dump_state(void);
+ 
+ /// Request a transition to "diet" state
+@@ -33,7 +33,8 @@ void request_diet(void);
+ 
+ #ifndef NO_CONFIG
+ char *set_cooldown(long long duration);
++char *set_cooldown_hungry(long long duration);
++char *set_cooldown_overfed(long long duration);
+ #endif
+ 
+ #endif
+-
+diff --git a/src/support.c b/src/support.c
+index a425a49..7ff8db4 100644
+--- a/src/support.c
++++ b/src/support.c
+@@ -22,15 +22,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include "env.h"
+ 
+ #include <errno.h>
++#include <signal.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <unistd.h>
++
++#include <sys/wait.h>
+ 
+ #include "log.h"
+ #include "main.h"
+ #include "support.h"
+ 
+ #ifndef HAVE_SWAPON
+-/// Replacement function for system function.  Clobbers localbuf.
+ int swapon(const char path[], int flags)
+ {
+   return runcommand("/sbin/swapon", path);
+@@ -38,7 +41,6 @@ int swapon(const char path[], int flags)
+ #endif
+ 
+ #ifndef HAVE_SWAPOFF
+-/// Replacement function for system function.  Clobbers localbuf.
+ int swapoff(const char path[])
+ {
+   return runcommand("/sbin/swapoff", path);
+@@ -46,22 +48,27 @@ int swapoff(const char path[])
+ #endif
+ 
+ 
+-int runcommandformat(const char format[], const char cmd[], const char arg[])
++int runcommand(const char cmd[], const char arg[])
+ {
+-  const size_t bufsz = sizeof(localbuf);
+-  if (unlikely(snprintf(localbuf, bufsz, format, cmd, arg) >= bufsz))
++  if (verbose)
++    logm(LOG_DEBUG, "Running: %s %s", cmd, arg);
++
++  pid_t pid = fork();
++  if (pid == 0)
+   {
+-    errno = E2BIG;
+-    return -1;
++    sigset_t empty;
++    sigemptyset(&empty);
++    sigprocmask(SIG_SETMASK, &empty, NULL);
++    char *argv[] = { (char *)cmd, (char *)arg, NULL };
++    execvp(cmd, argv);
++    _exit(127);
+   }
+-  if (verbose)
++  if (pid < 0)
+   {
+-    logm(LOG_DEBUG, "Running: (%s)", localbuf);
++    log_perr(LOG_ERR, "Could not fork for command", errno);
++    return -1;
+   }
+-  return system(localbuf);
+-}
+-
+-int runcommand(const char cmd[], const char arg[])
+-{
+-  return runcommandformat("%s '%s'", cmd, arg);
++  int status;
++  waitpid(pid, &status, 0);
++  return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+ }
+diff --git a/src/support.h b/src/support.h
+index 2175d82..5b9b3b4 100644
+--- a/src/support.h
++++ b/src/support.h
+@@ -36,17 +36,11 @@ int swapon(const char path[], int flags);
+ int swapoff(const char path[]);
+ #endif
+ 
+-/// Run given shell command with given argument.  Clobbers localbuf.
+-/** A convenient front-end for system(), this composes a command line consisting
+- * of a command followed by a single argument (which will be quoted).
+- * @return -1 on failure to execute (check errno), or the command's return
+- * value.
++/// Run command with a single argument via fork+execvp.
++/** @return -1 on failure to fork/exec, or the command's exit status.
+  */
+ int runcommand(const char cmd[], const char arg[]);
+ 
+-/// Same as above, but with a controllable format string for more complex commands
+-int runcommandformat(const char format[], const char cmd[], const char arg[]);
+-
+ #define INTERNAL_STRINGIFY(VALUE) #VALUE
+ #define STRINGIFY(VALUE) INTERNAL_STRINGIFY(VALUE)
+ /// PATH_MAX value as a string constant
+diff --git a/src/swaps.c b/src/swaps.c
+index ac2b73f..b6441a0 100644
+--- a/src/swaps.c
++++ b/src/swaps.c
+@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include <sys/stat.h>
+ #include <sys/statvfs.h>
+ #include <sys/swap.h>
++#include <sys/sysmacros.h>
+ #include <sys/types.h>
+ #include <sys/ioctl.h>
+ #include <sys/vfs.h>
+@@ -81,7 +82,7 @@ static memsize_t trunc_to_page(memsize_t n)
+ /// Round n upwards to multiple of page size
+ static memsize_t ext_to_page(memsize_t n)
+ {
+-  return trunc_to_page(n) + getpagesize()-1;
++  return trunc_to_page(n + getpagesize()-1);
+ }
+ 
+ 
+@@ -187,7 +188,33 @@ bool to_swapdir(void)
+ }
+ 
+ 
+-/// Configure permissions and attributes correctly on the swap directory
++static int swap_flags = 0;
++
++static void detect_ssd(const char *path)
++{
++  struct stat st;
++  if (stat(path, &st) != 0) return;
++
++  char syspath[256];
++  snprintf(syspath, sizeof(syspath),
++           "/sys/dev/block/%d:%d/queue/rotational",
++           major(st.st_dev), minor(st.st_dev));
++
++  int fd = open(syspath, O_RDONLY);
++  if (fd < 0) return;
++
++  char val;
++  if (read(fd, &val, 1) == 1 && val == '0')
++  {
++#ifndef NO_CONFIG
++    if (!quiet) logm(LOG_INFO, "SSD detected, enabling SWAP_FLAG_DISCARD");
++#endif
++    swap_flags |= SWAP_FLAG_DISCARD;
++  }
++  close(fd);
++}
++
++
+ bool swapdir_config(void) {
+   int fd = open(swappath, O_RDONLY);
+   if (fd < 0) {
+@@ -199,6 +226,7 @@ bool swapdir_config(void) {
+   if (fstat(fd, &swapdirstat) < 0)
+   {
+     log_perr(LOG_ERR, "Unable to stat swap directory", errno);
++    close(fd);
+     return false;
+   }
+   if (swapdirstat.st_mode != mode)
+@@ -211,6 +239,7 @@ bool swapdir_config(void) {
+     if (chmod(swappath, mode) < 0)
+     {
+       log_perr(LOG_ERR, "Unable to change swap directory permissions", errno);
++      close(fd);
+       return false;
+     }
+   }
+@@ -219,12 +248,12 @@ bool swapdir_config(void) {
+   int err = ioctl(fd, FS_IOC_GETFLAGS, &attr);
+   if (err != 0)
+   {
+-    // Don't worry about attributes if they're not supported
+     if(errno != ENOTSUP)
+     {
+       log_perr(LOG_NOTICE, "Unable to get swap path attributes, "
+ 			"may not be able to create swap files", errno);
+     }
++    close(fd);
+     return true;
+   }
+ 
+@@ -260,6 +289,10 @@ bool swapdir_config(void) {
+ 			  "may not be able to create swap files", errno);
+     }
+   }
++  close(fd);
++
++  detect_ssd(swappath);
++
+   return true;
+ }
+ 
+@@ -379,14 +412,14 @@ memsize_t swapfs_size(void)
+   return fs_size(fsinfo.f_blocks, fsinfo.f_bsize);
+ }
+ 
+-/// Turn an existing file into an active swap.  Clobbers localbuf.
+-/**
+- * @return Whether file was activated successfully.
+- */
+ static bool enable_swapfile(const char file[])
+ {
+-  runcommand("mkswap", file);
+-  const bool ok = (swapon(file, 0) == 0);
++  if (runcommand("mkswap", file) != 0)
++  {
++    log_perr_str(LOG_ERR, "Could not format swapfile", file, errno);
++    return false;
++  }
++  const bool ok = (swapon(file, swap_flags) == 0);
+   if (unlikely(!ok))
+     log_perr_str(LOG_ERR, "Could not enable swapfile", file, errno);
+   return ok;
+diff --git a/swapspace.conf b/swapspace.conf
+index c67d79a..1043707 100644
+--- a/swapspace.conf
++++ b/swapspace.conf
+@@ -37,9 +37,16 @@
+ # Greatest allowed size for individual swapfiles
+ #max_swapsize=2t
+ 
+-# Duration (roughly in seconds) of the moratorium on swap allocation that is
+-# instated if disk space runs out, or the cooldown time after a new swapfile is
+-# successfully allocated before swapspace will consider deallocating swap space
+-# again.  The default cooldown period is about 10 minutes.
++# Duration (in seconds) of the cooldown after a new swapfile is allocated before
++# swapspace will consider deallocating swap space again.  Sets both
++# cooldown_hungry and cooldown_overfed when used alone.
+ #cooldown=600
+ 
++# Seconds the "hungry" state persists after allocation before returning to
++# steady state.  Shorter values respond faster when pressure subsides.
++#cooldown_hungry=60
++
++# Seconds the "overfed" state waits before deallocating excess swap.
++# Longer values are more conservative, reducing thrashing.
++#cooldown_overfed=600
++
