@@ -1,0 +1,1100 @@
+diff --git a/configure.ac b/configure.ac
+index 970cff0..0d4c3d3 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -39,10 +39,6 @@ AC_CHECK_FUNC([swapoff],[
+ 		AC_DEFINE([HAVE_SWAPOFF],[],[Define if system has swapoff()])
+ 		])
+ 
+-AC_CHECK_FUNC([posix_fallocate],[
+-		AC_DEFINE([HAVE_PFALLOCATE],[],[Define if system has posix_fallocate()])
+-		])
+-
+ # Check args for NO_CONFIG, NO_DEBUG
+ AC_ARG_ENABLE([noconfig],[
+ 		AS_HELP_STRING([--enable-noconfig],
+@@ -62,6 +58,11 @@ AC_ARG_ENABLE([nodebug],[
+ 		],
+ 		[])
+ 
++# Check for SELinux
++AC_CHECK_HEADERS([selinux/selinux.h],[
++		AC_DEFINE([HAVE_SELINUX],[],[Define if SELinux is available])
++		])
++
+ AC_CONFIG_FILES([Makefile
+                  src/Makefile])
+ AC_OUTPUT
+diff --git a/src/Makefile.am b/src/Makefile.am
+index f87f873..f769bc8 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -1,4 +1,4 @@
+-AM_CFLAGS = --std=gnu99 -DVARPREFIX='"$(localstatedir)"' -DETCPREFIX='"$(sysconfdir)"'
++AM_CFLAGS = -std=gnu17 -DVARPREFIX='"$(localstatedir)"' -DETCPREFIX='"$(sysconfdir)"'
+ 
+ sbin_PROGRAMS = swapspace
+ swapspace_SOURCES = log.c main.c memory.c opts.c state.c support.c swaps.c
+diff --git a/src/env.h b/src/env.h
+index 2b1e93f..a03556c 100644
+--- a/src/env.h
++++ b/src/env.h
+@@ -23,6 +23,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #ifndef SWAPSPACE_ENV_H
+ #define SWAPSPACE_ENV_H
+ 
++#define _GNU_SOURCE
++
+ #ifdef _LARGE_FILES
+ # define _LARGEFILE64_SOURCE
+ # define SEEK(fd,pos,whence) lseek64(fd,pos,whence)
+diff --git a/src/log.c b/src/log.c
+index b7317ce..870d9c3 100644
+--- a/src/log.c
++++ b/src/log.c
+@@ -18,6 +18,8 @@ You should have received a copy of the GNU General Public License
+ along with swapspace; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ */
++#include "env.h"
++
+ #include <errno.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+diff --git a/src/main.c b/src/main.c
+index 250e027..9fb38bb 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -32,11 +32,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include <string.h>
+ #include <unistd.h>
+ 
++#include <sys/epoll.h>
++#include <sys/mman.h>
+ #include <sys/param.h>
++#include <sys/prctl.h>
++#include <sys/signalfd.h>
++#include <sys/timerfd.h>
+ #include <sys/types.h>
+ 
+ #include <fcntl.h>
+-#include <unistd.h>
+ 
+ #include "config.h"
+ #include "log.h"
+@@ -50,8 +54,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ char localbuf[16384];
+ time_t runclock = 0;
+ 
+-/// Have we received a kill/HUP/power signal?
+-static volatile bool stop = false;
++/// Request clean shutdown from event loop
++static bool stop = false;
+ 
+ static char pidfile[PATH_MAX] = "/var/run/swapspace.pid";
+ static bool make_pidfile = false;
+@@ -156,16 +160,6 @@ static bool startpidfile(void)
+ }
+ 
+ 
+-/// Signal handler that requests clean exit
+- /*
+-  * doc/unix-ipc-sucks.md
+- */
+-static void sighand_exit(int sig)
+-{
+-  stop = true;
+-}
+-
+-
+ /// Write process id to pidfile if requested, and close it.  Clobbers localbuf.
+ /**
+  * @return Success (which is trivially achieved if no pidfile is requested)
+@@ -184,64 +178,18 @@ static pid_t daemonize(void)
+ {
+   const pid_t result = fork();
+   if (unlikely(result < 0)) perror("Could not fork off daemon process");
+-  else if (result == 0) setsid();
++  else if (result == 0)
++  {
++    setsid();
++    // Lock daemon in RAM — the swap manager cannot be swapped out
++    if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1)
++      perror("mlockall");
++    prctl(PR_SET_NAME, "swapspace", 0, 0, 0);
++  }
+   return result;
+ }
+ 
+ 
+-/// Was a dump of statistics requested?
+-static volatile bool print_status=false;
+-
+-/// Was an immediate adjustment requested?
+-static volatile bool adjust_swap=false;
+-
+-
+-/// Signal handler that requests generation of a status report to stdout
+-static void sighand_status(int sig)
+-{
+-  print_status = true;
+-}
+-
+-/// Signal handler that initiates immediate swapspace adjustment
+-static void sighand_diet(int sig)
+-{
+-  adjust_swap = true;
+-}
+-
+-
+-static void install_sighandler(int signum, void (*handler)(int))
+-{
+-  struct sigaction sa;
+-  memset(&sa, 0, sizeof(sa));
+-  sa.sa_handler = handler;
+-  sigaction(signum, &sa, NULL);
+-}
+-
+-
+-/// Install signal handlers
+-static void install_sigs(void)
+-{
+-#ifdef SIGXFSZ
+-  // Some systems may send signal if our swapfiles get too large, but we have
+-  // our own ways of dealing with that eventuality.  Ignore the signal.
+-  signal(SIGXFSZ, SIG_IGN);
+-#endif
+-
+-  // Install exit handler.  These may not be repeatable, i.e. if the same signal
+-  // comes in again, we will probably just be terminated.  But that's not
+-  // unreasonable, come to think of it.
+-  signal(SIGTERM, sighand_exit);
+-  signal(SIGHUP, sighand_exit);
+-#ifdef SIGPWR
+-  signal(SIGPWR, sighand_exit);
+-#endif
+-
+-  // These handlers must be repeatable.
+-  install_sighandler(SIGUSR1, sighand_status);
+-  install_sighandler(SIGUSR2, sighand_diet);
+-}
+-
+-
+ bool swapfs_large_enough(void)
+ {
+   const memsize_t minswapfile = minimal_swapfile();
+@@ -269,6 +217,84 @@ bool swapfs_large_enough(void)
+ }
+ 
+ 
++/// Set up epoll-based event loop: timer for periodic ticks, signalfd for signals
++static bool init_event_loop(int *efd_out, int *tfd_out, int *sfd_out)
++{
++  int efd = epoll_create1(EPOLL_CLOEXEC);
++  if (unlikely(efd == -1))
++  {
++    log_perr(LOG_ERR, "epoll_create1", errno);
++    return false;
++  }
++
++  int tfd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
++  if (unlikely(tfd == -1))
++  {
++    log_perr(LOG_ERR, "timerfd_create", errno);
++    close(efd);
++    return false;
++  }
++  struct itimerspec its = {
++    .it_interval = { .tv_sec = 1, .tv_nsec = 0 },
++    .it_value    = { .tv_sec = 1, .tv_nsec = 0 }
++  };
++  timerfd_settime(tfd, 0, &its, NULL);
++
++  struct epoll_event ev = { .events = EPOLLIN };
++
++  ev.data.fd = tfd;
++  if (unlikely(epoll_ctl(efd, EPOLL_CTL_ADD, tfd, &ev) == -1))
++  {
++    log_perr(LOG_ERR, "epoll_ctl(timerfd)", errno);
++    close(tfd); close(efd);
++    return false;
++  }
++
++  sigset_t mask;
++  sigemptyset(&mask);
++  sigaddset(&mask, SIGTERM);
++  sigaddset(&mask, SIGHUP);
++  sigaddset(&mask, SIGUSR1);
++  sigaddset(&mask, SIGUSR2);
++#ifdef SIGPWR
++  sigaddset(&mask, SIGPWR);
++#endif
++
++  // Ignore SIGXFSZ (file size limit) — we handle EFBIG ourselves
++#ifdef SIGXFSZ
++  signal(SIGXFSZ, SIG_IGN);
++#endif
++
++  if (unlikely(sigprocmask(SIG_BLOCK, &mask, NULL) == -1))
++  {
++    log_perr(LOG_ERR, "sigprocmask", errno);
++    close(tfd); close(efd);
++    return false;
++  }
++
++  int sfd = signalfd(-1, &mask, SFD_CLOEXEC);
++  if (unlikely(sfd == -1))
++  {
++    log_perr(LOG_ERR, "signalfd", errno);
++    close(tfd); close(efd);
++    return false;
++  }
++
++  ev.data.fd = sfd;
++  if (unlikely(epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &ev) == -1))
++  {
++    log_perr(LOG_ERR, "epoll_ctl(signalfd)", errno);
++    close(sfd); close(tfd); close(efd);
++    return false;
++  }
++
++  *efd_out = efd;
++  *tfd_out = tfd;
++  *sfd_out = sfd;
++  return true;
++}
++
++
+ int main(int argc, char *argv[])
+ {
+   assert(sizeof(localbuf) >= getpagesize());
+@@ -291,8 +317,6 @@ int main(int argc, char *argv[])
+ 
+   if (erase) return retire_all() ? EXIT_SUCCESS : EXIT_FAILURE;
+ 
+-  install_sigs();
+-
+   if (unlikely(!startpidfile())) return EXIT_FAILURE;
+ 
+   /* Do a first iteration here so we can report any startup errors, and if we're
+@@ -329,7 +353,7 @@ int main(int argc, char *argv[])
+        * from the parent, not the child process so that we're sure that the
+        * pidfile is in a stable state when the parent exits.
+        */
+-      lseek(pidfd, 0, SEEK_SET);
++      SEEK(pidfd, 0, SEEK_SET);
+ #ifndef NO_CONFIG
+       if (verbose) logm(LOG_DEBUG, "got process id %d", pid);
+ #endif
+@@ -348,16 +372,100 @@ int main(int argc, char *argv[])
+     log_start(argv[0]);
+   }
+ 
+-  // Central loop
++  // Set up event-driven loop
++  int efd, tfd, sfd;
++  if (unlikely(!init_event_loop(&efd, &tfd, &sfd)))
++    return EXIT_FAILURE;
++
++  // Try PSI pressure monitoring (kernel 4.20+, requires trigger write)
++  int psi_fd = open("/proc/pressure/memory", O_RDWR | O_NONBLOCK);
++  if (psi_fd != -1)
++  {
++    // Write trigger: "some" pressure, 100ms stall in 1s window
++    const char trigger[] = "some 100000 1000000";
++    if (write(psi_fd, trigger, sizeof(trigger) - 1) == sizeof(trigger) - 1)
++    {
++      struct epoll_event ev = { .events = EPOLLPRI };
++      ev.data.fd = psi_fd;
++      if (epoll_ctl(efd, EPOLL_CTL_ADD, psi_fd, &ev) == -1)
++      {
++        close(psi_fd);
++        psi_fd = -1;
++      }
++    }
++    else
++    {
++      close(psi_fd);
++      psi_fd = -1;
++    }
++  }
++
++  // Central event-driven loop
+   for (++runclock; !stop; ++runclock)
+   {
+-    if (unlikely(print_status))		print_status = false,	dump_stats();
+-    else if (unlikely(adjust_swap))	adjust_swap = false,	request_diet();
+-    else 			        handle_requirements();
++    struct epoll_event events[4];
++    int n = epoll_wait(efd, events, 4, -1);
++    if (unlikely(n == -1))
++    {
++      if (errno == EINTR) continue;
++      log_perr(LOG_ERR, "epoll_wait", errno);
++      break;
++    }
+ 
+-    sleep(1);
++    for (int i = 0; i < n; ++i)
++    {
++      if (events[i].data.fd == tfd)
++      {
++        uint64_t expirations;
++        if (read(tfd, &expirations, sizeof(expirations)) < 0) {}
++        handle_requirements();
++      }
++      else if (events[i].data.fd == sfd)
++      {
++        struct signalfd_siginfo si;
++        ssize_t nr = read(sfd, &si, sizeof(si));
++        if (unlikely(nr != sizeof(si))) continue;
++
++        switch (si.ssi_signo)
++        {
++        case SIGTERM:
++        case SIGHUP:
++#ifdef SIGPWR
++        case SIGPWR:
++#endif
++          stop = true;
++          break;
++        case SIGUSR1:
++          dump_stats();
++          break;
++        case SIGUSR2:
++          request_diet();
++          break;
++        }
++      }
++      else if (psi_fd != -1 && events[i].data.fd == psi_fd)
++      {
++        if (events[i].events & EPOLLERR)
++        {
++          close(psi_fd);   // auto-removed from epoll, trigger destroyed
++          psi_fd = -1;
++        }
++        else
++        {
++          lseek(psi_fd, 0, SEEK_SET);
++          char psi_buf[256];
++          if (read(psi_fd, psi_buf, sizeof(psi_buf) - 1) > 0) {}
++          handle_requirements();
++        }
++      }
++    }
+   }
+ 
++  if (psi_fd != -1) close(psi_fd);
++  close(sfd);
++  close(tfd);
++  close(efd);
++
+   int result = EXIT_SUCCESS;
+ 
+ #ifndef NO_CONFIG
+diff --git a/src/main.h b/src/main.h
+index b780a98..3d758e1 100644
+--- a/src/main.h
++++ b/src/main.h
+@@ -21,12 +21,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #ifndef SWAPSPACE_MAIN_H
+ #define SWAPSPACE_MAIN_H
+ 
++#include <stdbool.h>
+ #include <time.h>
+ 
+-/// I thought C99 had this built in... Maybe I'm doing something wrong.
+-typedef int bool;
+-enum { false=0, true=1 };
+-
+ #define KILO (1024LL)
+ #define MEGA (KILO*KILO)
+ #define GIGA (KILO*MEGA)
+@@ -57,7 +54,7 @@ bool swapfs_large_enough(void);
+ extern bool quiet;
+ /// Print debug output when changing state and such?
+ extern bool verbose;
+-/// Use file zeroing or posix_fallocate?
++/// Use fallocate for fast swapfile preallocation?
+ extern bool zero;
+ 
+ char *set_quiet(long long dummy);
+diff --git a/src/memory.c b/src/memory.c
+index 71dcb17..3a616b7 100644
+--- a/src/memory.c
++++ b/src/memory.c
+@@ -24,9 +24,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include <assert.h>
+ #include <ctype.h>
+ #include <errno.h>
++#include <fcntl.h>
+ #include <limits.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <unistd.h>
+ 
+ #include "log.h"
+ #include "memory.h"
+@@ -53,6 +55,17 @@ static int cache_elasticity=80;
+ // Track whether MemAvailable is present in /proc/meminfo
+ static bool kernel_mem_available = false;
+ 
++/// Check if zswap is active (kernel compresses swap pages in RAM first)
++static bool zswap_active(void)
++{
++  int fd = open("/sys/module/zswap/parameters/enabled", O_RDONLY);
++  if (fd == -1) return false;
++  char buf[2];
++  bool active = (read(fd, buf, sizeof(buf)) > 0 && buf[0] == 'Y');
++  close(fd);
++  return active;
++}
++
+ #ifndef NO_CONFIG
+ char *set_freetarget(long long pct)
+ {
+@@ -355,7 +368,10 @@ static inline memsize_t space_free(const struct memstate *st)
+    * considered in-use.
+    */
+   if (kernel_mem_available) {
+-    return st->MemAvailable + st->SwapFree;
++    memsize_t result = st->MemAvailable + st->SwapFree;
++    // zswap caches compressed pages in RAM, so SwapCached is more reclaimable
++    if (zswap_active()) result += st->SwapCached;
++    return result;
+   } else {
+     return st->MemFree +
+       st->SwapFree +
+@@ -379,54 +395,21 @@ static inline int pct_free(const struct memstate *st)
+ 
+ static memsize_t ideal_swapsize(memsize_t totalspace, memsize_t freespace)
+ {
+-  /* This is phrased rather oddly, and a fairly high rounding error is
+-   * introduced.
+-   *
+-   * The reason is to avoid overflows in the computation: we effectively compute
+-   * at a granularity of 100 bytes to avoid overflows, then multiply by 100
+-   * again to get back to an approximation of our original number.
+-   *
+-   * This might conceivably be a problem if freetarget is ridiculously close to
+-   * either freespace threshold.
+-   *
+-   * We try to find the ideal allocation size x>0 such that if we add x free
+-   * bytes (i.e. we add it to both freespace and totalspace), we end up at
+-   * exactly our freetarget.  In mathematical terms, i.e. without caring about
+-   * rounding or overflows:
+-   *
+-   * 	(freespace+x)/(totalspace+x) = freetarget/100			<=>
+-   * 	freespace+x = freetarget*(totalspace+x)/100			<=>
+-   * 	100*(freespace+x)/freetarget = totalspace+x			<=>
+-   * 	100*freespace/freetarget+100*x/freetarget = totalspace+x	<=>
+-   * 	100*freespace/freetarget-totalspace = x - 100*x/freetarget	<=>
+-   * 	x-100*x/freetarget = 100*freespace/freetarget - totalspace	<=>
+-   * 	x*(1-100/freetarget) = 100*freespace/freetarget - totalspace	<=>
+-   *
+-   * 	x = (100*freespace/freetarget - totalspace) / (1 - 100/freetarget)
+-   * 	  = (100*freespace - freetarget*totalspace) / (freetarget - 100)
+-   *
+-   * This latter expression we convert to an overflow-free form by dividing both
+-   * freespace and totalspace by some constant p, and multiplying by this same p
+-   * afterwards:
+-   *
+-   *  x/p = (100*freespace/p - freetarget*totalspace/p) / (freetarget-100)
+-   *
+-   * The natural choice for p is 100, since it gives up the exact minimum
+-   * precision while ensuring that both 100*freespace/p and (given that
+-   * freetarget<100) freetarget*totalspace/p remain within the range of
+-   * representable numbers, assuming that freespace and totalspace were
+-   * themselves representable to begin with.
++  /* Find the ideal allocation size x such that if we add x free bytes
++   * (i.e. we add it to both freespace and totalspace), we end up at
++   * exactly our freetarget.
+    *
+-   * For p==100 we get:
++   * (freespace+x)/(totalspace+x) = freetarget/100
+    *
+-   * x/100 = (100*freespace/100-freetarget*totalspace/100) / (freetarget-100)
+-   *       = (freespace - freetarget*totalspace/100) / (freetarget-100)
++   * Solving for x:
++   *   x = (100*freespace - freetarget*totalspace) / (freetarget - 100)
+    *
+-   * Note that one of the two divisions by p has disappeared.  To recover as
+-   * much of that lost precision of the remaining division-by-p, we round to the
+-   * nearest integer, not downwards:
++   * We use __int128 to avoid overflow without losing precision.
++   * freetarget is always < 100, so the denominator is negative.
+    */
+-  return 100 * ((freespace-freetarget*((totalspace+50)/100))/(freetarget-100));
++  __int128 num = (__int128)100 * freespace - (__int128)freetarget * totalspace;
++  int denom = freetarget - 100;
++  return (memsize_t)(num / denom);
+ }
+ 
+ 
+@@ -441,7 +424,7 @@ memsize_t memory_target(void)
+ 
+   assert(upper_freelimit > lower_freelimit);
+ 
+-  struct memstate st = { 0, 0, 0, 0, 0, 0, 0, 0 };
++  struct memstate st = {0};
+   if (unlikely(!read_proc_meminfo(&st))) return MEMSIZE_ERROR;
+ 
+   const int freepct = pct_free(&st);
+@@ -458,7 +441,7 @@ memsize_t memory_target(void)
+ 
+ memsize_t minimal_swapfile(void)
+ {
+-  struct memstate st = { 0, 0, 0, 0, 0, 0, 0, 0 };
++  struct memstate st = {0};
+   if (unlikely(!read_proc_meminfo(&st))) return MEMSIZE_ERROR;
+ 
+   const memsize_t total = space_total(&st);
+@@ -483,7 +466,7 @@ static void dump_memline(const char category[],
+ 
+ void dump_memory(void)
+ {
+-  struct memstate st = { 0, 0, 0, 0, 0, 0, 0, 0 };
++  struct memstate st = {0};
+   if (unlikely(!read_proc_meminfo(&st))) return;
+   check_memory_status();
+ 
+diff --git a/src/support.c b/src/support.c
+index a425a49..32bd9ed 100644
+--- a/src/support.c
++++ b/src/support.c
+@@ -21,47 +21,4 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ */
+ #include "env.h"
+ 
+-#include <errno.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-
+-#include "log.h"
+-#include "main.h"
+ #include "support.h"
+-
+-#ifndef HAVE_SWAPON
+-/// Replacement function for system function.  Clobbers localbuf.
+-int swapon(const char path[], int flags)
+-{
+-  return runcommand("/sbin/swapon", path);
+-}
+-#endif
+-
+-#ifndef HAVE_SWAPOFF
+-/// Replacement function for system function.  Clobbers localbuf.
+-int swapoff(const char path[])
+-{
+-  return runcommand("/sbin/swapoff", path);
+-}
+-#endif
+-
+-
+-int runcommandformat(const char format[], const char cmd[], const char arg[])
+-{
+-  const size_t bufsz = sizeof(localbuf);
+-  if (unlikely(snprintf(localbuf, bufsz, format, cmd, arg) >= bufsz))
+-  {
+-    errno = E2BIG;
+-    return -1;
+-  }
+-  if (verbose)
+-  {
+-    logm(LOG_DEBUG, "Running: (%s)", localbuf);
+-  }
+-  return system(localbuf);
+-}
+-
+-int runcommand(const char cmd[], const char arg[])
+-{
+-  return runcommandformat("%s '%s'", cmd, arg);
+-}
+diff --git a/src/support.h b/src/support.h
+index 2175d82..401fbdc 100644
+--- a/src/support.h
++++ b/src/support.h
+@@ -26,27 +26,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ 
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#include <sys/swap.h>
+ 
+ #include "config.h"
+ 
+-#ifndef HAVE_SWAPON
+-int swapon(const char path[], int flags);
+-#endif
+-#ifndef HAVE_SWAPOFF
+-int swapoff(const char path[]);
+-#endif
+-
+-/// Run given shell command with given argument.  Clobbers localbuf.
+-/** A convenient front-end for system(), this composes a command line consisting
+- * of a command followed by a single argument (which will be quoted).
+- * @return -1 on failure to execute (check errno), or the command's return
+- * value.
+- */
+-int runcommand(const char cmd[], const char arg[]);
+-
+-/// Same as above, but with a controllable format string for more complex commands
+-int runcommandformat(const char format[], const char cmd[], const char arg[]);
+-
+ #define INTERNAL_STRINGIFY(VALUE) #VALUE
+ #define STRINGIFY(VALUE) INTERNAL_STRINGIFY(VALUE)
+ /// PATH_MAX value as a string constant
+diff --git a/src/swaps.c b/src/swaps.c
+index ac2b73f..73bb519 100644
+--- a/src/swaps.c
++++ b/src/swaps.c
+@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include <assert.h>
+ #include <ctype.h>
+ #include <errno.h>
++#include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -33,16 +34,32 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include <fcntl.h>
+ #include <unistd.h>
+ 
++#include <sys/mman.h>
+ #include <sys/param.h>
+ #include <sys/stat.h>
+ #include <sys/statvfs.h>
+ #include <sys/swap.h>
++#include <sys/syscall.h>
+ #include <sys/types.h>
+ #include <sys/ioctl.h>
+ #include <sys/vfs.h>
++#include <linux/falloc.h>
++#include <linux/fiemap.h>
+ #include <linux/fs.h>
+ #include <linux/magic.h>
+ 
++// Fallback defines for older kernel headers
++#ifndef O_LARGEFILE
++#define O_LARGEFILE 0
++#endif
++#ifndef O_NOFOLLOW
++#define O_NOFOLLOW 0
++#endif
++
++#ifdef HAVE_SELINUX
++#include <selinux/selinux.h>
++#endif
++
+ #include "log.h"
+ #include "opts.h"
+ #include "state.h"
+@@ -50,19 +67,24 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ #include "swaps.h"
+ 
+ 
+-// Try to use O_LARGEFILE
+-#ifndef O_LARGEFILE
+-#define O_LARGEFILE 0
++// O_TMPFILE may not be defined on older headers
++#ifndef O_TMPFILE
++#define O_TMPFILE (020000000 | O_DIRECTORY)
+ #endif
+ 
+-// Don't follow symlinks, if possible; they may pose a security risk
+-#ifndef O_NOFOLLOW
+-#define O_NOFOLLOW 0
+-#endif
++// I/O priority constants (avoid header conflicts)
++#define IOPRIO_CLASS_SHIFT 13
++#define IOPRIO_CLASS_IDLE 3
++#define IOPRIO_CLASS_BE 2
++#define IOPRIO_WHO_PROCESS 1
++#define IOPRIO_PRIO_VALUE(c, d) (((c) << IOPRIO_CLASS_SHIFT) | (d))
+ 
+ static char swappath[PATH_MAX] = VARPREFIX"/lib/swapspace";
+ static size_t swappath_len;
+ 
++/// Can we allocate swapfiles using fast preallocation on this filesystem?
++static bool pfalloc_ok = true;
++
+ 
+ /// Smallest allowed swapfile size
+ static memsize_t min_swapsize = 4*MEGA;
+@@ -199,6 +221,7 @@ bool swapdir_config(void) {
+   if (fstat(fd, &swapdirstat) < 0)
+   {
+     log_perr(LOG_ERR, "Unable to stat swap directory", errno);
++    close(fd);
+     return false;
+   }
+   if (swapdirstat.st_mode != mode)
+@@ -211,6 +234,7 @@ bool swapdir_config(void) {
+     if (chmod(swappath, mode) < 0)
+     {
+       log_perr(LOG_ERR, "Unable to change swap directory permissions", errno);
++      close(fd);
+       return false;
+     }
+   }
+@@ -225,6 +249,7 @@ bool swapdir_config(void) {
+       log_perr(LOG_NOTICE, "Unable to get swap path attributes, "
+ 			"may not be able to create swap files", errno);
+     }
++    close(fd);
+     return true;
+   }
+ 
+@@ -260,10 +285,154 @@ bool swapdir_config(void) {
+ 			  "may not be able to create swap files", errno);
+     }
+   }
++  close(fd);
+   return true;
+ }
+ 
+ 
++// ---- Swap header writing (replaces external mkswap) ----
++
++#define SWAP_MAGIC "SWAPSPACE2"
++#define SWAP_MAGIC_SZ (sizeof(SWAP_MAGIC) - 1)
++#define SWAP_BOOTBITS_SZ 1024
++
++/// Write a valid swap header to the file descriptor
++/// The file must already be filled with data (zero or otherwise).
++/// The first page is overwritten with the swap header.
++static bool write_swap_header(int fd, off_t size_bytes)
++{
++  const long pagesize = getpagesize();
++  const uint32_t npages = (uint32_t)(size_bytes / pagesize);
++
++  assert(sizeof(localbuf) >= (size_t)pagesize);
++
++  memset(localbuf, 0, pagesize);
++
++  uint32_t v;
++  // version = 1 at offset 1024
++  v = 1;
++  memcpy(localbuf + SWAP_BOOTBITS_SZ, &v, sizeof(v));
++  // last_page = npages - 1 at offset 1028
++  v = npages - 1;
++  memcpy(localbuf + SWAP_BOOTBITS_SZ + 4, &v, sizeof(v));
++  // nr_badpages at offset 1032 is already 0 (from memset)
++  // uuid at offset 1036 is already 0
++  // volume_name at offset 1052 is already 0
++
++  // Magic string at end of page
++  memcpy(localbuf + pagesize - SWAP_MAGIC_SZ, SWAP_MAGIC, SWAP_MAGIC_SZ);
++
++  return (pwrite(fd, localbuf, pagesize, 0) == pagesize);
++}
++
++
++/// Check swap file extents via FIEMAP (logs warnings, does not block)
++/// Returns false only if extent issues mean fast allocation should be retried
++/// with the write-loop method.
++static bool check_swap_extents(int fd)
++{
++  struct fiemap *fm = calloc(1, sizeof(*fm) + sizeof(struct fiemap_extent));
++  if (!fm) return true;
++
++  fm->fm_start = 0;
++  fm->fm_length = FIEMAP_MAX_OFFSET;
++  fm->fm_extent_count = 1;
++
++  if (ioctl(fd, FS_IOC_FIEMAP, fm) == -1)
++  {
++    // FIEMAP not supported on this filesystem — not an error
++    free(fm);
++    return true;
++  }
++
++  bool ok = true;
++  if (fm->fm_mapped_extents == 0)
++  {
++    logm(LOG_WARNING, "Swap file has no allocated extents (may be sparse)");
++    ok = false;
++  }
++  else if (fm->fm_extents[0].fe_flags & FIEMAP_EXTENT_UNWRITTEN)
++  {
++    logm(LOG_WARNING,
++        "Swap file has unwritten/delayed extents; disabling fast allocation");
++    ok = false;
++  }
++  else if (fm->fm_extents[0].fe_flags & FIEMAP_EXTENT_SHARED)
++  {
++    logm(LOG_WARNING,
++        "Swap file has shared extents (CoW/reflink not supported for swap)");
++    ok = false;
++  }
++
++  free(fm);
++  return ok;
++}
++
++
++/// Sync file data to disk before calling swapon
++static void sync_swapfile(int fd, off_t size)
++{
++  sync_file_range(fd, 0, size,
++      SYNC_FILE_RANGE_WAIT_BEFORE |
++      SYNC_FILE_RANGE_WRITE |
++      SYNC_FILE_RANGE_WAIT_AFTER);
++  fdatasync(fd);
++}
++
++
++/// Turn an existing file into an active swap.  Clobbers localbuf.
++/**
++ * @return Whether file was activated successfully.
++ */
++static bool enable_swapfile(const char file[])
++{
++  int fd = open(file, O_RDWR | O_LARGEFILE);
++  if (unlikely(fd == -1))
++  {
++    log_perr_str(LOG_ERR, "Could not open swapfile for header write", file, errno);
++    return false;
++  }
++
++  off_t size = SEEK(fd, 0, SEEK_END);
++  if (unlikely(size == -1))
++  {
++    log_perr_str(LOG_ERR, "Could not determine swapfile size", file, errno);
++    close(fd);
++    return false;
++  }
++
++  if (unlikely(!write_swap_header(fd, size)))
++  {
++    log_perr_str(LOG_ERR, "Could not write swap header to", file, errno);
++    close(fd);
++    return false;
++  }
++
++  sync_swapfile(fd, size);
++
++  check_swap_extents(fd);  // may disable fast allocation, but we still try swapon
++
++#ifdef HAVE_SELINUX
++  if (is_selinux_enabled())
++    setfilecon(file, "swapfile_t");
++#endif
++
++  close(fd);
++
++  const bool ok = (swapon(file, 0) == 0);
++  if (unlikely(!ok))
++  {
++    if (errno == EINVAL)
++    {
++      pfalloc_ok = false;
++      logm(LOG_NOTICE, "Quick swapfile creation disabled.");
++    }
++    log_perr_str(LOG_ERR, "Could not enable swapfile", file, errno);
++  }
++  return ok;
++}
++
++
+ struct Swapfile
+ {
+   memsize_t size;
+@@ -290,8 +459,6 @@ static struct Swapfile swapfiles[MAX_SWAPFILES+1];
+ /// Have we been able to verify that /proc/swaps is in the expected format?
+ static bool proc_swaps_read_ok = false;
+ 
+-/// Can we allocate swapfiles using posix_allocate on this filesystem?
+-static bool pfalloc_ok = true;
+ 
+ /// Print status information to stdout
+ void dump_stats(void)
+@@ -379,18 +546,6 @@ memsize_t swapfs_size(void)
+   return fs_size(fsinfo.f_blocks, fsinfo.f_bsize);
+ }
+ 
+-/// Turn an existing file into an active swap.  Clobbers localbuf.
+-/**
+- * @return Whether file was activated successfully.
+- */
+-static bool enable_swapfile(const char file[])
+-{
+-  runcommand("mkswap", file);
+-  const bool ok = (swapon(file, 0) == 0);
+-  if (unlikely(!ok))
+-    log_perr_str(LOG_ERR, "Could not enable swapfile", file, errno);
+-  return ok;
+-}
+ 
+ /// Write arbitrary data to swapfile.  Clobbers localbuf.
+ /** Fill a swapfile with the specified number of bytes of data.  We don't care
+@@ -413,11 +568,14 @@ static memsize_t write_data(int fd, memsize_t bytes, bool persevere)
+ {
+   // Round upwards to multiple of page size
+   bytes = ext_to_page(bytes);
+-#ifdef HAVE_PFALLOCATE
+- // Have posix_fallocate().  Much faster way of getting the file populated.
+- if (pfalloc_ok && posix_fallocate(fd, 0, bytes) == 0) return bytes;
+- // We have no error backchannel here, so on failure, try the old way.
+-#endif
++
++  // Try fast preallocation (fallocate on Linux, no POSIX fallback needed)
++  if (pfalloc_ok && fallocate(fd, 0, 0, bytes) == 0)
++  {
++    madvise(localbuf, sizeof(localbuf), MADV_FREE);
++    return bytes;
++  }
++
+   /* Zero buffer before using it to write data to swapfile.  This doesn't do
+    * much for security (if an attacker can get to your swapfiles you don't have
+    * a lot of that anyway) but perhaps some filesystems may recognize all-zero
+@@ -439,6 +597,7 @@ static memsize_t write_data(int fd, memsize_t bytes, bool persevere)
+ 
+   // Byte count may end up a little low if write() returns -1.  That's okay.
+ 
++  madvise(localbuf, sizeof(localbuf), MADV_FREE);
+   return written;
+ }
+ 
+@@ -449,9 +608,16 @@ static memsize_t write_data(int fd, memsize_t bytes, bool persevere)
+  */
+ static memsize_t fill_swapfile(const char file[], int fd, memsize_t size)
+ {
+-  //
++  // Set I/O priority to idle so we don't compete with apps under memory pressure
++  syscall(SYS_ioprio_set, IOPRIO_WHO_PROCESS, 0,
++      IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0));
++
+   memsize_t bytes = write_data(fd, size, false);
+ 
++  // Restore I/O priority
++  syscall(SYS_ioprio_set, IOPRIO_WHO_PROCESS, 0,
++      IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0));
++
+   if (unlikely(bytes < size))
+   {
+     const int err = errno;
+@@ -483,8 +649,12 @@ static memsize_t fill_swapfile(const char file[], int fd, memsize_t size)
+   return bytes;
+ }
+ 
++
+ /// Create file to be used as swap.  Clobbers localbuf.
+ /**
++ * Tries O_TMPFILE for atomic creation (kernel 3.11+); falls back to
++ * O_CREAT|O_EXCL.
++ *
+  * @param filename File to be created
+  * @param size Desired size in bytes (but already rounded to page size)
+  * @return Size of new swapfile, which may differ from requested size.  Zero
+@@ -501,23 +671,49 @@ static memsize_t make_swapfile(const char file[], memsize_t size)
+ 
+   size = MIN(size, max_swapsize);
+ 
+-  unlink(file);
++  // Try O_TMPFILE first for atomic creation
++  int fd = open(swappath, O_TMPFILE | O_RDWR | O_LARGEFILE, S_IRUSR | S_IWUSR);
++  bool is_tmpfile = (fd != -1);
+ 
+-  const int fd=open(file, O_WRONLY|O_CREAT|O_EXCL|O_LARGEFILE, S_IRUSR|S_IWUSR);
+-  if (unlikely(fd == -1))
++  if (!is_tmpfile)
++  {
++    // Fallback: traditional create-or-fail
++    unlink(file);
++    fd = open(file, O_WRONLY | O_CREAT | O_EXCL | O_LARGEFILE, S_IRUSR | S_IWUSR);
++    if (unlikely(fd == -1))
++    {
++      log_perr_str(LOG_ERR, "Could not create swapfile", file, errno);
++      return 0;
++    }
++  }
++
++  memsize_t actual = fill_swapfile(file, fd, size);
++  if (unlikely(!actual))
+   {
+-    log_perr_str(LOG_ERR, "Could not create swapfile", file, errno);
++    close(fd);
++    if (!is_tmpfile) unlink(file);
+     return 0;
+   }
+ 
+-  if (unlikely(!fill_swapfile(file, fd, size)))
++  // Allow kernel to drop zero-filled pages from page cache
++  posix_fadvise(fd, 0, actual, POSIX_FADV_DONTNEED);
++
++  // If created via O_TMPFILE, atomically link into place
++  if (is_tmpfile)
+   {
+-    size = 0;
+-    unlink(file);
++    unlink(file);  // remove stale file if it exists
++    char fdpath[64];
++    snprintf(fdpath, sizeof(fdpath), "/proc/self/fd/%d", fd);
++    if (linkat(AT_FDCWD, fdpath, AT_FDCWD, file, AT_SYMLINK_FOLLOW) == -1)
++    {
++      log_perr_str(LOG_ERR, "Could not finalize swapfile", file, errno);
++      close(fd);
++      return 0;
++    }
+   }
+-  close(fd);
+ 
+-  return size;
++  close(fd);
++  return actual;
+ }
+ 
+ 
+@@ -759,16 +955,6 @@ static bool retire_swapfile(int file)
+   assert(file >= 0);
+   assert(file < MAX_SWAPFILES);
+ 
+-  /* If swapoff() fails, we may be in an awkward situation.  If we don't delete
+-   * the swapfile, we may be leaving an unused swapfile behind on the disk.
+-   * That would not be very nice of us.  If the swapfile is still in use, on the
+-   * other hand, then we run into another problem.  Since swapoff() works by
+-   * filename, if we are able to delete the file then we won't be able to
+-   * deactivate it without disabling swapping altogether.
+-   *
+-   * Finally, we also need to avoid reusing names of deleted swapfiles while
+-   * they are still in use or things would get horribly confused.
+-   */
+   char namebuf[30];
+   snprintf(namebuf, sizeof(namebuf), "%d", file);
+ #ifndef NO_CONFIG
+@@ -786,7 +972,9 @@ static bool retire_swapfile(int file)
+ 
+ #ifndef NO_CONFIG
+   if (fd != -1) {
+-    write_data(fd, swapfiles[file].size, true);
++    // Punch hole to deallocate all extents (faster than writing zeros)
++    fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
++        0, swapfiles[file].size);
+     close(fd);
+   }
+ #endif
+@@ -869,19 +1057,14 @@ bool alloc_swapfile(memsize_t size)
+   {
+     unlink(file);
+     swapfiles[newswap].size = 0;
+-    if (pfalloc_ok && errno == EINVAL)
++    if (!pfalloc_ok)
+     {
+-      logm(LOG_NOTICE, "Quick swapfile creation disabled.");
+-      // If we get EINVAL, then we can't actually use posix_fallocate
+-      pfalloc_ok = false;
+-      // Try again
++      // Fast allocation was disabled (by FIEMAP or swapon EINVAL).
++      // Retry with slow write-loop method which guarantees real allocation.
+       return alloc_swapfile(size-2*getpagesize());
+     }
+-    else
+-    {
+-      request_diet();
+-      return false;
+-    }
++    request_diet();
++    return false;
+   }
+ 
+   sequence_number = inc_swapno(sequence_number);
