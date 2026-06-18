@@ -48,6 +48,10 @@
 
           makeFlags = (prev.makeFlags or [ ]) ++ kernel.extraMakeFlags;
 
+          postPatch = (prev.postPatch or "") + ''
+            sed -i '/^#include <asm\/io.h>/a #include <asm/cpuid/api.h>' smu.c
+          '';
+
           installPhase = ''
             runHook preInstall
             install ryzen_smu.ko -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/ryzen_smu
