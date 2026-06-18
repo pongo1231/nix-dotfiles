@@ -321,12 +321,13 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1781200471,
-        "narHash": "sha256-U04yT7d481jOPgBsiiyRpXEzLUYe+Hle22zl2sKKxoY=",
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "4756a363342a9f1db4f3183ee0383847159b01aa",
-        "type": "github"
+        "lastModified": 1781773413,
+        "narHash": "sha256-SrgS82myG2iga1I9bL3KpqYg6EL99n9Ah6tr6c8t6HY=",
+        "ref": "mine",
+        "rev": "143600211f6c669a7a384616dd71496f560c56a1",
+        "revCount": 1018040,
+        "type": "git",
+        "url": "file:///home/pongo/Projects/nixpkgs"
       },
       "original": {
         "owner": "pongo1231",
