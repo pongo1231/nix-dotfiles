@@ -78,12 +78,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.1.0-rc7";
+                      modDirVersion = "7.1.0";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "2b414a95b8f7307d42173ba9e580d6d3e2bcbfce";
-                        hash = "sha256-YXgSQVdT0eMZE2imieh2Jd1YV4M27hm7ZYpeEBuAmuo=";
+                        rev = "e771677c937da5808f7b6c1f0e4a97ec1a84f8a8";
+                        hash = "sha256-flUyD2o54GchpBKoyfkjVDUntMD9yq/D4Ja7HhVNL4A=";
                       };
                     };
                 };
@@ -107,6 +107,7 @@ in
             UBSAN_BOUNDS y
             UBSAN_BOOL n
             UBSAN_ENUM n
+            BTRFS_EXPERIMENTAL y
           ''
           + lib.optionalString (pkgs.stdenv.hostPlatform.system == "aarch64-linux") ''
             CORESIGHT n
@@ -125,15 +126,7 @@ in
         }
         {
           name = "xe stutter fix";
-          patch = patch /linux/7.1/v5_20260505_matthew_brost_mm_drm_ttm_drm_xe_avoid_reclaim_eviction_loops_under_fragmentation.patch;
-        }
-        {
-          name = "drm-misc-next";
-          patch = patch /linux/7.1/drm-misc-next.patch;
-        }
-        {
-          name = "sched flatten the pick";
-          patch = patch /linux/7.1/v2_20260511_peterz_sched_flatten_the_pick.patch;
+          patch = patch /linux/v5_20260505_matthew_brost_mm_drm_ttm_drm_xe_avoid_reclaim_eviction_loops_under_fragmentation.patch;
         }
         {
           name = "kcompressd";
@@ -150,19 +143,8 @@ in
           };
         }
         {
-          name = "cache aware sched";
-          patch = pkgs.fetchpatch {
-            url = "https://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git/patch/?id=a26d9208c1376ac3877d9f12e697f83368e2af1c";
-            hash = "sha256-imJuGzjD3TVxXoeRaw0rx/lxWDYMtZr6Bk2SvvFlOwY=";
-          };
-        }
-        {
-          name = "btrfs large folios";
-          patch = patch /linux/7.1/btrfs-large-folios.patch;
-        }
-        {
           name = "nouveau detach fix";
-          patch = patch /linux/7.1/nouveau-detach-fix.patch;
+          patch = patch /linux/nouveau-detach-fix.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
