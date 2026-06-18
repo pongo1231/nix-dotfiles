@@ -1,8 +1,7 @@
-diff --git a/src/backends/drm/drm_gpu.cpp b/src/backends/drm/drm_gpu.cpp
-index 6c982b3b81..f246310475 100644
---- a/src/backends/drm/drm_gpu.cpp
-+++ b/src/backends/drm/drm_gpu.cpp
-@@ -122,12 +122,15 @@ DrmGpu::DrmGpu(DrmBackend *backend, int fd, std::unique_ptr<DrmDevice> &&device)
+diff -ruN kwin-6.7.0/src/backends/drm/drm_gpu.cpp kwin-patched/src/backends/drm/drm_gpu.cpp
+--- kwin-6.7.0/src/backends/drm/drm_gpu.cpp	2026-06-11 11:33:20.000000000 +0200
++++ kwin-patched/src/backends/drm/drm_gpu.cpp	2026-06-18 00:59:23.755195736 +0200
+@@ -122,12 +122,15 @@
          return crtc->sharpnessStrength.isValid();
      });
  
@@ -22,7 +21,7 @@ index 6c982b3b81..f246310475 100644
  }
  
  DrmGpu::~DrmGpu()
-@@ -142,7 +145,7 @@ DrmGpu::~DrmGpu()
+@@ -142,7 +145,7 @@
      m_connectors.clear();
      m_planes.clear();
      m_socketNotifier.reset();
@@ -31,7 +30,7 @@ index 6c982b3b81..f246310475 100644
      m_platform->session()->closeRestricted(m_fd);
  }
  
-@@ -341,6 +344,7 @@ bool DrmGpu::updateOutputs()
+@@ -341,6 +344,7 @@
              it = m_connectors.erase(it);
          }
      }
@@ -39,7 +38,7 @@ index 6c982b3b81..f246310475 100644
      return true;
  }
  
-@@ -608,8 +612,11 @@ void DrmGpu::removeOutput(DrmOutput *output)
+@@ -608,8 +612,11 @@
      m_pipelineMap.erase(output->connector());
      output->removePipeline();
      output->unref();
@@ -52,18 +51,12 @@ index 6c982b3b81..f246310475 100644
  }
  
  DrmBackend *DrmGpu::platform() const
-@@ -1037,38 +1044,46 @@ QList<OutputLayer *> DrmGpu::compatibleOutputLayers(BackendOutput *output) const
+@@ -1037,33 +1044,41 @@
  
  RenderDevice *DrmGpu::renderDevice() const
  {
 -    return m_renderDevice;
 +    return m_renderDevice.get();
- }
- 
- bool DrmGpu::hasRenderNode() const
- {
--    return m_softwareRenderDevice == nullptr;
-+    return m_hasHardwareRenderNode;
  }
  
 -void DrmGpu::setRenderDevice(RenderDevice *device)
@@ -112,11 +105,10 @@ index 6c982b3b81..f246310475 100644
  }
  
  DrmLease::DrmLease(DrmGpu *gpu, FileDescriptor &&fd, uint32_t lesseeId, const QList<DrmOutput *> &outputs)
-diff --git a/src/backends/drm/drm_gpu.h b/src/backends/drm/drm_gpu.h
-index e2a90a9275..fb3ac8ee7f 100644
---- a/src/backends/drm/drm_gpu.h
-+++ b/src/backends/drm/drm_gpu.h
-@@ -141,7 +141,7 @@ private:
+diff -ruN kwin-6.7.0/src/backends/drm/drm_gpu.h kwin-patched/src/backends/drm/drm_gpu.h
+--- kwin-6.7.0/src/backends/drm/drm_gpu.h	2026-06-11 11:33:20.000000000 +0200
++++ kwin-patched/src/backends/drm/drm_gpu.h	2026-06-18 00:59:09.090526449 +0200
+@@ -140,7 +140,7 @@
      void initDrmResources();
      void forgetBufferObject(QObject *buf);
      void doModeset();
@@ -125,7 +117,7 @@ index e2a90a9275..fb3ac8ee7f 100644
      void updateRenderDevice();
  
      DrmPipeline::Error checkCrtcAssignment(QList<DrmConnector *> connectors, const QList<DrmCrtc *> &crtcs, std::chrono::steady_clock::time_point deadline);
-@@ -165,8 +165,8 @@ private:
+@@ -164,8 +164,8 @@
      bool m_forceImplicitModifiers = false;
      bool m_sharpnessSupported = false;
      clockid_t m_presentationClock;
@@ -136,11 +128,10 @@ index e2a90a9275..fb3ac8ee7f 100644
      DrmBackend *const m_platform;
      std::optional<Version> m_nvidiaDriverVersion;
  
-diff --git a/src/core/gpumanager.cpp b/src/core/gpumanager.cpp
-index d82b58378e..0d8275bb9b 100644
---- a/src/core/gpumanager.cpp
-+++ b/src/core/gpumanager.cpp
-@@ -60,12 +60,12 @@ GpuManager::GpuManager()
+diff -ruN kwin-6.7.0/src/core/gpumanager.cpp kwin-patched/src/core/gpumanager.cpp
+--- kwin-6.7.0/src/core/gpumanager.cpp	2026-06-11 11:33:20.000000000 +0200
++++ kwin-patched/src/core/gpumanager.cpp	2026-06-18 00:59:30.253212151 +0200
+@@ -62,12 +62,12 @@
  
  GpuManager::~GpuManager()
  {
@@ -156,7 +147,7 @@ index d82b58378e..0d8275bb9b 100644
  }
  
  RenderDevice *GpuManager::compatibleRenderDevice(DrmDevice *dev) const
-@@ -81,10 +81,10 @@ RenderDevice *GpuManager::compatibleRenderDevice(dev_t id) const
+@@ -83,10 +83,10 @@
  
  RenderDevice *GpuManager::findDevice(dev_t id) const
  {
@@ -169,30 +160,27 @@ index d82b58378e..0d8275bb9b 100644
  }
  
  void GpuManager::updateCompatibilityMap()
-@@ -125,18 +125,17 @@ void GpuManager::updateCompatibilityMap()
- 
- RenderDevice *GpuManager::findCompatibleRenderDevice(drmDevicePtr device) const
+@@ -129,7 +129,7 @@
  {
--    auto matchingIt = std::ranges::find_if(m_renderDevices, [device](const auto &renderDevice) {
-+    auto matchingIt = std::ranges::find_if(m_openDevices, [device](const auto &renderDevice) {
-         return drmDevicesEqual(device, renderDevice->drmDevice()->libdrmDevice()) == 1;
-     });
--    if (matchingIt != m_renderDevices.end()) {
-+    if (matchingIt != m_openDevices.end()) {
-         return matchingIt->get();
-     }
--    // fallback for split display/render cases: devices with bus "platform" can be assumed to be compatible
      if (device->bustype == DRM_BUS_PLATFORM) {
--        matchingIt = std::ranges::find_if(m_renderDevices, [](const auto &renderDevice) {
-+        matchingIt = std::ranges::find_if(m_openDevices, [](const auto &renderDevice) {
+         // devices with bus "platform" can be assumed to be compatible.
+-        auto candidates = m_renderDevices | std::views::filter([](const auto &renderDevice) {
++        auto candidates = m_openDevices | std::views::filter([](const auto &renderDevice) {
              return renderDevice->drmDevice()->busType() == DRM_BUS_PLATFORM;
          });
--        if (matchingIt != m_renderDevices.end()) {
-+        if (matchingIt != m_openDevices.end()) {
-             return matchingIt->get();
-         }
+         if (candidates.empty()) {
+@@ -163,28 +163,74 @@
+         })->get();
      }
-@@ -146,19 +145,65 @@ RenderDevice *GpuManager::findCompatibleRenderDevice(drmDevicePtr device) const
+     // "normal" GPUs have at most one render node matching the KMS node
+-    const auto it = std::ranges::find_if(m_renderDevices, [device](const auto &renderDevice) {
++    const auto it = std::ranges::find_if(m_openDevices, [device](const auto &renderDevice) {
+         return drmDevicesEqual(device, renderDevice->drmDevice()->libdrmDevice()) == 1;
+     });
+-    return it != m_renderDevices.end() ? it->get() : nullptr;
++    return it != m_openDevices.end() ? it->get() : nullptr;
+ }
+ 
  void GpuManager::scanForRenderDevices()
  {
      const auto devices = m_udev->listRenderNodes();
@@ -266,7 +254,7 @@ index d82b58378e..0d8275bb9b 100644
  }
  
  void GpuManager::handleUdevEvent()
-@@ -171,33 +216,33 @@ void GpuManager::handleUdevEvent()
+@@ -197,33 +243,33 @@
              continue;
          }
          if (!udevDevice->devNode().contains(DRM_RENDER_MINOR_NAME)) {
@@ -320,11 +308,10 @@ index d82b58378e..0d8275bb9b 100644
          }
      }
  }
-diff --git a/src/core/gpumanager.h b/src/core/gpumanager.h
-index b6882fc8b5..d6147ad392 100644
---- a/src/core/gpumanager.h
-+++ b/src/core/gpumanager.h
-@@ -24,6 +24,12 @@ class Udev;
+diff -ruN kwin-6.7.0/src/core/gpumanager.h kwin-patched/src/core/gpumanager.h
+--- kwin-6.7.0/src/core/gpumanager.h	2026-06-11 11:33:20.000000000 +0200
++++ kwin-patched/src/core/gpumanager.h	2026-06-18 00:59:09.090652734 +0200
+@@ -24,6 +24,12 @@
  class UdevMonitor;
  class DrmDevice;
  
@@ -337,7 +324,7 @@ index b6882fc8b5..d6147ad392 100644
  class KWIN_EXPORT GpuManager : public QObject
  {
      Q_OBJECT
-@@ -34,11 +40,13 @@ public:
+@@ -34,11 +40,13 @@
      explicit GpuManager();
      ~GpuManager();
  
@@ -352,7 +339,7 @@ index b6882fc8b5..d6147ad392 100644
      /**
       * NOTE that the list is automatically updated through
       * udev, there is usually no need to call this.
-@@ -55,7 +63,7 @@ public:
+@@ -55,7 +63,7 @@
      std::optional<DmaBufAttributes> createUdmabuf(const ShmAttributes *attributes) const;
  
  Q_SIGNALS:
@@ -361,7 +348,7 @@ index b6882fc8b5..d6147ad392 100644
      void renderDeviceRemoved(RenderDevice *device);
  
  private:
-@@ -68,7 +76,8 @@ private:
+@@ -68,7 +76,8 @@
      const std::unique_ptr<Udev> m_udev;
      const std::unique_ptr<UdevMonitor> m_udevMonitor;
      const std::unique_ptr<QSocketNotifier> m_udevNotifier;

@@ -41,11 +41,6 @@
       url = "github:Mic92/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    mimocode = {
-      url = "github:XiaomiMiMo/MiMo-Code";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =

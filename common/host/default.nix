@@ -156,11 +156,7 @@ args:
 
     userborn.enable = true;
 
-    scx-loader = {
-      enable = true;
-      # needed to prevent scx-loader from failing because of empty config file
-      config.bla = "bla";
-    };
+    scx-loader.enable = true;
   };
 
   security = {
