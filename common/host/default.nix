@@ -157,6 +157,8 @@ args:
     userborn.enable = true;
 
     scx-loader.enable = lib.mkDefault true;
+
+    btrfs.autoReclaim.enable = true;
   };
 
   security = {
