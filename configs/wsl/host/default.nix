@@ -35,6 +35,8 @@
 
   hardware.graphics.enable = true;
 
+  services.scx-loader.enable = false;
+
   environment.systemPackages = with pkgs; [
     wget # for vs code server
   ];

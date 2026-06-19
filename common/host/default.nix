@@ -156,7 +156,7 @@ args:
 
     userborn.enable = true;
 
-    scx-loader.enable = true;
+    scx-loader.enable = lib.mkDefault true;
   };
 
   security = {
