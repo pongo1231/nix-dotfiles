@@ -133,14 +133,13 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nou
 index ad01f922aa86..5820d163ea9c 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_ttm.c
 +++ b/drivers/gpu/drm/nouveau/nouveau_ttm.c
-@@ -199,14 +199,23 @@ nouveau_ttm_init_vram(struct nouveau_drm *drm)
+@@ -199,14 +199,22 @@ nouveau_ttm_init_vram(struct nouveau_drm *drm)
  	}
  }
  
 +static void
 +nouveau_ttm_evict_manager(struct nouveau_drm *drm, struct ttm_resource_manager *man)
 +{
-+	ttm_resource_manager_set_used(man, false);
 +	ttm_resource_manager_evict_all(&drm->ttm.bdev, man);
 +}
 +

@@ -82,8 +82,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "e771677c937da5808f7b6c1f0e4a97ec1a84f8a8";
-                        hash = "sha256-flUyD2o54GchpBKoyfkjVDUntMD9yq/D4Ja7HhVNL4A=";
+                        rev = "1a3746ccbb0a97bed3c06ccde6b880013b1dddc1";
+                        hash = "sha256-4k0PM3tRIY0li+IAJUG9A4tMkJcEDUu8Ha9tsUTKcmc=";
                       };
                     };
                 };
@@ -137,10 +137,7 @@ in
         }
         {
           name = "le9uo";
-          patch = pkgs.fetchpatch {
-            url = "https://raw.githubusercontent.com/firelzrd/le9uo/refs/heads/main/le9uo_patches/stable/base/0001-linux7.1-rc1-le9uo-1.15.patch";
-            hash = "sha256-RznwkUJC1pUTv6KJbCH8WYgLmdFvGl5XM17nJ3j9FFs=";
-          };
+          patch = patch /linux/le9uo-1.15.patch;
         }
         {
           name = "nouveau detach fix";
