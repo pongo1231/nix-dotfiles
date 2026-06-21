@@ -118,7 +118,7 @@
     beesd.filesystems = {
       "-" = {
         spec = "/";
-        hashTableSizeMB = 2048;
+        hashTableSizeMB = 1024;
         #extraOptions = [ "-c 1" ];
       };
 
