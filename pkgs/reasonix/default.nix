@@ -6,8 +6,8 @@
 }:
 let
   src = fetchurl {
-    url = "https://github.com/esengine/DeepSeek-Reasonix/archive/fa0a75f3fcfc64422b7872379faf8c52568b6106.tar.gz";
-    hash = "sha256-YcfWHiljXPU2UAYEtYwW6awfVDqIlpQtLmzSMOH9RPI=";
+    url = "https://github.com/esengine/DeepSeek-Reasonix/archive/051239b633604195c8449f13df31024dee7d3cc9.tar.gz";
+    hash = "sha256-WTcDCglrJB9j/Z/qKOsai0ZnX0pKYzlmd3vCf9wl5cQ=";
   };
 
   vendor = stdenv.mkDerivation {
@@ -16,10 +16,11 @@ let
 
     nativeBuildInputs = [ go ];
 
-    outputHash = "sha256-As/FStEPaBn/opFJjg0Bclq8vy/unZGdNZJKmaR4p2A=";
+    outputHash = "sha256-YEI500JHH6+6mHkGrXpcQVEKJiKJinL1lpR7vBv4xg4=";
     outputHashMode = "recursive";
 
     buildPhase = ''
+      export GOTOOLCHAIN=local
       export GOPATH=$TMPDIR/go
       export GOMODCACHE=$TMPDIR/go/pkg/mod
       export GOCACHE=$TMPDIR/go/cache
@@ -46,6 +47,9 @@ stdenv.mkDerivation {
   '';
 
   buildPhase = ''
+    export GOTOOLCHAIN=local
+    export GOPATH=$TMPDIR/go
+    export GOMODCACHE=$TMPDIR/go/pkg/mod
     export GOCACHE=$TMPDIR/go/cache
     CGO_ENABLED=0 go build -mod=vendor -ldflags "-s -w" -o bin/reasonix ./cmd/reasonix
     CGO_ENABLED=0 go build -mod=vendor -ldflags "-s -w" -o bin/reasonix-plugin-example ./cmd/reasonix-plugin-example
