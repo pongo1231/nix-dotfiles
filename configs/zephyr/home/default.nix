@@ -24,7 +24,6 @@
     looking-glass-client
     protontricks
     inputs.nixpkgs3.legacyPackages.${pkgs.stdenv.hostPlatform.system}.zed-editor
-    opencode
-    onnxruntime
+    pi-coding-agent
   ];
 }
