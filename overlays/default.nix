@@ -131,4 +131,23 @@ in
   swapspace = prev.swapspace.overrideAttrs (prev: {
     patches = (prev.patches or [ ]) ++ [ (patch /swapspace/slop.patch) ];
   });
+
+  pi-coding-agent =
+    let
+      src = prev.fetchFromGitHub {
+        owner = "earendil-works";
+        repo = "pi";
+        tag = "v0.80.2";
+        hash = "sha256-aKtgPc3rwHEp856jP3N7nImph0CSG+gsWq9OVci3hmE=";
+      };
+    in
+    prev.pi-coding-agent.overrideAttrs (old: {
+      version = "0.80.2";
+      inherit src;
+      npmDeps = prev.fetchNpmDeps {
+        inherit src;
+        name = "pi-coding-agent-0.80.2-npm-deps";
+        hash = "sha256-1EGs8lX8XoAnRtS+pw4lBRm24U/vtVB2loVRmZyd4Z8=";
+      };
+    });
 }
