@@ -1,0 +1,842 @@
+From: Jianyong Wu <wujianyong@hygon.cn>
+Subject: sched: Extend cache aware scheduling into topology aware scheduling
+
+This series extends the existing cache-aware scheduling (CONFIG_SCHED_CACHE)
+to be topology-aware, considering NUMA distances between LLCs when making
+migration decisions.
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+
+---
+[PATCH RFC 1/8] sched/topo: Add some llc related helpers
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:52 +0800
+Message-Id: <20260625030759.25928-2-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/include/linux/topology.h b/include/linux/topology.h
+index 709a2dcf4c73..75297ea4106b 100644
+--- a/include/linux/topology.h
++++ b/include/linux/topology.h
+@@ -177,6 +177,11 @@ static inline int cpu_to_mem(int cpu)
+ 
+ #endif	/* [!]CONFIG_HAVE_MEMORYLESS_NODES */
+ 
++#ifdef CONFIG_SCHED_CACHE
++int llc_to_node(int llc);
++int llc_distance(int llc1, int llc2);
++#endif
++
+ #if defined(topology_die_id) && defined(topology_die_cpumask)
+ #define TOPOLOGY_DIE_SYSFS
+ #endif
+diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
+index 622e2e01974c..5c18d910a9b7 100644
+--- a/kernel/sched/topology.c
++++ b/kernel/sched/topology.c
+@@ -685,6 +685,11 @@ DEFINE_PER_CPU(struct sched_domain __rcu *, sd_asym_cpucapacity);
+ DEFINE_STATIC_KEY_FALSE(sched_asym_cpucapacity);
+ DEFINE_STATIC_KEY_FALSE(sched_cluster_active);
+ 
++#ifdef CONFIG_SCHED_CACHE
++static int __rcu *llc_to_node_map;
++static void rebuild_llc_node_map(int size);
++#endif
++
+ static void update_top_cache_domain(int cpu)
+ {
+ 	struct sched_domain_shared *sds = NULL;
+@@ -856,6 +861,58 @@ DEFINE_STATIC_KEY_FALSE(sched_cache_active);
+ /* user wants cache aware scheduling [0 or 1] */
+ int sysctl_sched_cache_user = 1;
+ 
++int llc_to_node(int llc)
++{
++	int node = -1;
++	int *map = NULL;
++
++	rcu_read_lock();
++	map = rcu_dereference(llc_to_node_map);
++	if (map && llc >= 0 && llc <= max_lid)
++		node = map[llc];
++	rcu_read_unlock();
++
++	return node;
++}
++
++int llc_distance(int llc1, int llc2)
++{
++	int numa1, numa2;
++
++	numa1 = llc_to_node(llc1);
++	numa2 = llc_to_node(llc2);
++	if (numa1 < 0 || numa2 < 0)
++		return -1;
++
++	return node_distance(numa1, numa2);
++}
++
++static void rebuild_llc_node_map(int size)
++{
++	int *new_map, *old_map;
++	int cpu, llc = -1;
++
++	new_map = kcalloc(size, sizeof(int), GFP_KERNEL);
++	if (!new_map)
++		return;
++
++	for_each_possible_cpu(cpu) {
++		int tmp = per_cpu(sd_llc_id, cpu);
++
++		if (tmp == llc)
++			continue;
++
++		llc = tmp;
++		if (llc >= 0 && llc < size)
++			new_map[llc] = cpu_to_node(cpu);
++	}
++
++	old_map = rcu_dereference_protected(llc_to_node_map, true);
++	rcu_assign_pointer(llc_to_node_map, new_map);
++	synchronize_rcu();
++	kfree(old_map);
++}
++
+ /*
+  * Get the effective LLC size in bytes that @cpu's bottom sched_domain
+  * can use. A CPU within a cpuset partition can only use a proportion
+@@ -925,6 +982,7 @@ static bool alloc_sd_llc(const struct cpumask *cpu_map,
+ 		}
+ 	}
+ 
++	rebuild_llc_node_map(max_lid + 1);
+ 	return true;
+ err:
+ 	for_each_cpu(i, cpu_map) {
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 2/8] sched/fair: Introduce helpers for cross-domain
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:53 +0800
+Message-Id: <20260625030759.25928-3-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index d78467ec6ee1..dfca39c63333 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -10563,6 +10563,107 @@ static enum llc_mig can_migrate_llc(int src_cpu, int dst_cpu,
+ 	return mig_llc;
+ }
+ 
++/*
++ * Like get_llc_stats but for sched domain that above LLC level.
++ * Based on get_llc_stats, we can accumulate utility and cap for
++ * sched domain in the granularity of LLC.
++ */
++static bool get_sd_stats(struct sched_domain *sd, unsigned long *util_out, unsigned long *cap_out)
++{
++	struct cpumask mask;
++	int cpu;
++	unsigned long util_tmp, cap_tmp, util = 0, cap = 0;
++	struct sched_domain *sd_tmp;
++
++	if (!sd || !util_out || !cap_out)
++		return false;
++
++	cpumask_copy(&mask, sched_domain_span(sd));
++	for_each_cpu(cpu, &mask) {
++		if (!get_llc_stats(cpu, &util_tmp, &cap_tmp))
++			return false;
++
++		sd_tmp = rcu_dereference(per_cpu(sd_llc, cpu));
++		cpumask_andnot(&mask, &mask, sched_domain_span(sd_tmp));
++		util += util_tmp;
++		cap += cap_tmp;
++	}
++
++	*util_out = util;
++	*cap_out = cap;
++
++	return true;
++}
++
++/* Decide if a sched domain is overload. */
++static bool is_domain_overload(struct sched_domain *sd)
++{
++	int ret;
++	unsigned long util = 0, cap = 0;
++
++	get_sd_stats(sd, &util, &cap);
++
++	ret = !fits_llc_capacity(util, cap);
++
++	return ret;
++}
++
++/*
++ * Decide if migration should happen on a specific node.
++ * The node here is a generic conception for a set of cpu.
++ * It usually indicates one of sched domain for LLC level and above.
++ */
++static enum llc_mig __maybe_unused can_migrate_node(int src_cpu, int dst_cpu,
++			struct task_struct *p, bool to_pref)
++{
++	struct sched_domain *domain;
++	unsigned long dst_util, dst_cap, tsk_util = 0;
++	int k = 0;
++
++	if (!get_llc_stats(dst_cpu, &dst_util, &dst_cap))
++		return mig_unrestricted;
++
++	if (p)
++		tsk_util = task_util(p);
++
++	dst_util = dst_util + tsk_util;
++
++	if (to_pref) {
++		if (fits_llc_capacity(dst_util, dst_cap))
++			return mig_llc;
++		else
++			return mig_unrestricted;
++	}
++	/*
++	 * If the dest node decrase locality, decide if it should migrate by testing that
++	 * if it is the closest place that is not overload.
++	 */
++	for_each_domain(src_cpu, domain) {
++		/* Skip sched domain at MC and below */
++		if (domain->flags & SD_SHARE_LLC)
++			continue;
++
++		/* Allow migration if we found dest cpu in this sched domain */
++		if (cpumask_test_cpu(dst_cpu, sched_domain_span(domain)))
++			return mig_llc;
++
++		/*
++		 * For the special case: the workload is small and the dest cpu may far away
++		 * from src cpu. If the current node is capable for the load but overload
++		 * while the remote node is capable for the load and not overload. Give a
++		 * chance for the remote node.
++		 */
++		if (p && (domain->span_weight > get_nr_threads(p) && k++))
++			return mig_unrestricted;
++
++		/* Don't migrate if there is a better place to live */
++		if (!is_domain_overload(domain))
++			return mig_forbid;
++	}
++
++	return mig_unrestricted;
++}
++
+ /*
+  * Check if task p can migrate from source LLC to
+  * destination LLC in terms of cache aware load balance.
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 3/8] sched/fair: Introduce rq affinity gain calculation
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:54 +0800
+Message-Id: <20260625030759.25928-4-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index dfca39c63333..da6e2b5e6306 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -11789,6 +11789,7 @@ sched_reduced_capacity(struct rq *rq, struct sched_domain *sd)
+ }
+ 
+ #ifdef CONFIG_SCHED_CACHE
++extern int max_lid;
+ /*
+  * Record the statistics for this scheduler group for later
+  * use. These values guide load balancing on aggregating tasks
+@@ -11867,6 +11868,82 @@ static bool update_llc_busiest(struct lb_env *env,
+ 	 */
+ 	return sgs->nr_pref_dst_llc > busiest->nr_pref_dst_llc;
+ }
++
++/*
++ * Get all LLCs that are closer to the destination LLC than to the
++ * source LLC.
++ * @affi_llcs: array to store LLCs satisfying the above condition
++ * @dist: array to store Di for each LLC in affi_llcs, computed as:
++ *
++ * Di = llc_distance(src_llc, LLCi) - llc_distance(dst_llc, LLCi)   (1)
++ * where i is the index of affi_llcs.
++ */
++static int get_affi_llcs(int src_llc, int dst_llc, int *affi_llcs, int *dist)
++{
++	int j = 0, dis1, dis2;
++
++	if (src_llc == dst_llc)
++		return 0;
++
++	if (llc_to_node(src_llc) == llc_to_node(dst_llc)) {
++		affi_llcs[0] = dst_llc;
++		dist[0] = 2;
++		return 1;
++	}
++	for (int i = 0; i <= max_lid; i++) {
++		dis1 = llc_distance(src_llc, i);
++		dis2 = llc_distance(dst_llc, i);
++		if (dis1 < 0 || dis2 < 0)
++			continue;
++		if (dis1 > dis2) {
++			dist[j] = clamp(dis1 - dis2, 4, 1024);
++			affi_llcs[j++] = i;
++		}
++	}
++
++	return j;
++}
++
++/*
++ * To find a src sched group/rq during load balancing, we need a method to
++ * calculate the benefit of each rq. For sched cache, we focus more  on
++ * affinity improvement.
++ *
++ * This provides a way to quantify the affinity improvement for each rq
++ * by assigning an affinity score to each rq.
++ *
++ * Calculate the affinity score for a rq given src llc and dst llc.
++ * It is computed as:
++ * Di = llc_distance(src_llc, LLCi) - llc_distance(dst_llc, LLCi)   (1)
++ * W_i = Rt_i * 1024 / Di              (2)
++ * p = sum_i(W_i)                         (3)
++ *
++ * where i is the index of an LLC, Di is obtained from get_affi_llcs, and
++ * Rt_i is the number of tasks on the rq with LLCi as their preferred LLC,
++ * obtainable from rq->sd->pf.
++ */
++static int __maybe_unused cal_affinity_score(struct rq *rq, int src_cpu, int dst_llc,
++			int *affi_llcs, int *dist, int *last_llc, int *num)
++{
++	struct sched_domain *sd_tmp = rcu_dereference(rq->sd);
++	int wt = 0, src_llc;
++
++	if (!affi_llcs || !dist || !last_llc || !num)
++		return 0;
++
++	src_llc = llc_id(src_cpu);
++	if (*last_llc != src_llc) {
++		*last_llc = src_llc;
++		memset(affi_llcs, 0, (max_lid + 1) * sizeof(int));
++		memset(dist, 0, (max_lid + 1) * sizeof(int));
++		*num = get_affi_llcs(llc_id(src_cpu), dst_llc, affi_llcs, dist);
++	}
++
++	for (int i = 0; i < *num; i++)
++		wt += (sd_tmp->llc_counts[affi_llcs[i]] << 10) / dist[i];
++
++	return wt;
++}
+ #else
+ static inline void record_sg_llc_stats(struct lb_env *env, struct sg_lb_stats *sgs,
+ 				       struct sched_group *group)
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 4/8] sched/fair: Pick optimal src rq/group using
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:55 +0800
+Message-Id: <20260625030759.25928-5-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index da6e2b5e6306..9141e6c8eba8 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -10613,7 +10613,7 @@ static bool is_domain_overload(struct sched_domain *sd)
+  * The node here is a generic conception for a set of cpu.
+  * It usually indicates one of sched domain for LLC level and above.
+  */
+-static enum llc_mig __maybe_unused can_migrate_node(int src_cpu, int dst_cpu,
++static enum llc_mig can_migrate_node(int src_cpu, int dst_cpu,
+ 			struct task_struct *p, bool to_pref)
+ {
+ 	struct sched_domain *domain;
+@@ -11852,8 +11852,8 @@ static inline bool llc_balance(struct lb_env *env, struct sg_lb_stats *sgs,
+ 		return false;
+ 
+ 	if (sgs->nr_pref_dst_llc &&
+-	    can_migrate_llc(cpumask_first(sched_group_span(group)),
+-			    env->dst_cpu, 0, true) == mig_llc)
++	    can_migrate_node(cpumask_first(sched_group_span(group)),
++			    env->dst_cpu, NULL, true) == mig_llc)
+ 		return true;
+ 
+ 	return false;
+@@ -11922,7 +11922,7 @@ static int get_affi_llcs(int src_llc, int dst_llc, int *affi_llcs, int *dist)
+  * Rt_i is the number of tasks on the rq with LLCi as their preferred LLC,
+  * obtainable from rq->sd->pf.
+  */
+-static int __maybe_unused cal_affinity_score(struct rq *rq, int src_cpu, int dst_llc,
++static int cal_affinity_score(struct rq *rq, int src_cpu, int dst_llc,
+ 			int *affi_llcs, int *dist, int *last_llc, int *num)
+ {
+ 	struct sched_domain *sd_tmp = rcu_dereference(rq->sd);
+@@ -11980,6 +11980,11 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+ {
+ 	int i, nr_running, local_group, sd_flags = env->sd->flags;
+ 	bool balancing_at_rd = !env->sd->parent;
++#ifdef CONFIG_SCHED_CACHE
++	int last_llc = -1, llc_num;
++	int *cache_llc = kmalloc_array(max_lid + 1, sizeof(int), GFP_NOWAIT);
++	int *dist = kmalloc_array(max_lid + 1, sizeof(int), GFP_NOWAIT);
++#endif
+ 
+ 	memset(sgs, 0, sizeof(*sgs));
+ 
+@@ -12009,7 +12014,8 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+ 			if (llc_id(i) != dst_llc) {
+ 				sd_tmp = rcu_dereference_all(rq->sd);
+ 				if (sd_tmp && (unsigned int)dst_llc < sd_tmp->llc_max)
+-					sgs->nr_pref_dst_llc += sd_tmp->llc_counts[dst_llc];
++					sgs->nr_pref_dst_llc += cal_affinity_score(rq, i,
++						dst_llc, cache_llc, dist, &last_llc, &llc_num);
+ 			}
+ 		}
+ #endif
+@@ -12050,6 +12056,10 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+ 		}
+ 	}
+ 
++#ifdef CONFIG_SCHED_CACHE
++	kfree(dist);
++	kfree(cache_llc);
++#endif
+ 	sgs->group_capacity = group->sgc->capacity;
+ 
+ 	sgs->group_weight = group->group_weight;
+@@ -13107,9 +13117,15 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
+ 	unsigned long busiest_util = 0, busiest_load = 0, busiest_capacity = 1;
+ 	unsigned int __maybe_unused busiest_pref_llc = 0;
+ 	struct sched_domain __maybe_unused *sd_tmp;
+-	unsigned int busiest_nr = 0;
+ 	int __maybe_unused dst_llc;
+-	int i;
++	int __maybe_unused *cache_llc, __maybe_unused *dist;
++	int __maybe_unused last_llc = -1, __maybe_unused llc_num, i;
++	unsigned int busiest_nr = 0;
++
++#ifdef CONFIG_SCHED_CACHE
++	cache_llc = kmalloc_array(max_lid + 1, sizeof(int), GFP_NOWAIT);
++	dist = kmalloc_array(max_lid + 1, sizeof(int), GFP_NOWAIT);
++#endif
+ 
+ 	for_each_cpu_and(i, sched_group_span(group), env->cpus) {
+ 		unsigned long capacity, load, util;
+@@ -13243,7 +13259,8 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
+ 
+ 			if (sd_tmp && (unsigned)dst_llc < sd_tmp->llc_max) {
+ 				unsigned int this_pref_llc =
+-					sd_tmp->llc_counts[dst_llc];
++					cal_affinity_score(rq, i, dst_llc,
++						cache_llc, dist, &last_llc, &llc_num);
+ 
+ 				if (busiest_pref_llc < this_pref_llc) {
+ 					busiest_pref_llc = this_pref_llc;
+@@ -13256,6 +13273,10 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
+ 		}
+ 	}
+ 
++#ifdef CONFIG_SCHED_CACHE
++	kfree(cache_llc);
++	kfree(dist);
++#endif
+ 	return busiest;
+ }
+ 
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 5/8] sched/fair: Drop prefer_sibling restriction for
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:56 +0800
+Message-Id: <20260625030759.25928-6-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 9141e6c8eba8..9455170df1a4 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -13054,9 +13054,9 @@ static struct sched_group *sched_balance_find_src_group(struct lb_env *env)
+ 	 * Try to move all excess tasks to a sibling domain of the busiest
+ 	 * group's child domain.
+ 	 */
+-	if (sds.prefer_sibling && local->group_type == group_has_spare &&
+-	    (busiest->group_type == group_llc_balance ||
+-	    sibling_imbalance(env, &sds, busiest, local) > 1))
++	if (local->group_type == group_has_spare &&
++	    ((busiest->group_type == group_llc_balance) || (sds.prefer_sibling &&
++	    sibling_imbalance(env, &sds, busiest, local) > 1)))
+ 		goto force_balance;
+ 
+ 	if (busiest->group_type != group_overloaded) {
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 6/8] sched/fair: Judge migration eligibility via
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:57 +0800
+Message-Id: <20260625030759.25928-7-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 9455170df1a4..c72837d95cac 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -10515,54 +10515,6 @@ enum llc_mig {
+ 	mig_unrestricted	/* G: Don't restrict generic load balance migration */
+ };
+ 
+-/*
+- * Check if task can be moved from the source LLC to the
+- * destination LLC without breaking cache aware preferrence.
+- * src_cpu and dst_cpu are arbitrary CPUs within the source
+- * and destination LLCs, respectively.
+- */
+-static enum llc_mig can_migrate_llc(int src_cpu, int dst_cpu,
+-				    unsigned long tsk_util,
+-				    bool to_pref)
+-{
+-	unsigned long src_util, dst_util, src_cap, dst_cap;
+-
+-	if (!get_llc_stats(src_cpu, &src_util, &src_cap) ||
+-	    !get_llc_stats(dst_cpu, &dst_util, &dst_cap))
+-		return mig_unrestricted;
+-
+-	src_util = src_util < tsk_util ? 0 : src_util - tsk_util;
+-	dst_util = dst_util + tsk_util;
+-
+-	if (!fits_llc_capacity(dst_util, dst_cap) &&
+-	    !fits_llc_capacity(src_util, src_cap))
+-		return mig_unrestricted;
+-
+-	if (to_pref) {
+-		/*
+-		 * Don't migrate if we will get preferred LLC too
+-		 * heavily loaded and if the dest is much busier
+-		 * than the src, in which case migration will
+-		 * increase the imbalance too much.
+-		 */
+-		if (!fits_llc_capacity(dst_util, dst_cap) &&
+-		    util_greater(dst_util, src_util))
+-			return mig_forbid;
+-	} else {
+-		/*
+-		 * Don't migrate if we will leave preferred LLC
+-		 * too idle, or if this migration leads to the
+-		 * non-preferred LLC falls within sysctl_aggr_imb percent
+-		 * of preferred LLC, leading to migration again
+-		 * back to preferred LLC.
+-		 */
+-		if (fits_llc_capacity(src_util, src_cap) ||
+-		    !util_greater(src_util, dst_util))
+-			return mig_forbid;
+-	}
+-	return mig_llc;
+-}
+-
+ /*
+  * Like get_llc_stats but for sched domain that above LLC level.
+  * Based on get_llc_stats, we can accumulate utility and cap for
+@@ -10664,6 +10616,26 @@ static enum llc_mig can_migrate_node(int src_cpu, int dst_cpu,
+ 	return mig_unrestricted;
+ }
+ 
++/* Decide if the migration improve the affinity */
++static bool if_to_prefer(int src_cpu, int dst_cpu, int pref_llc)
++{
++	int src_dist, dst_dist;
++	bool to_pref = false;
++
++	src_dist = llc_distance(llc_id(src_cpu), pref_llc);
++	dst_dist = llc_distance(llc_id(dst_cpu), pref_llc);
++
++	if (src_dist < 0 || dst_dist < 0)
++		return false;
++
++	if (src_dist > dst_dist)
++		to_pref = true;
++	else if (src_dist == dst_dist && llc_id(dst_cpu) == pref_llc)
++		to_pref = true;
++
++	return to_pref;
++}
++
+ /*
+  * Check if task p can migrate from source LLC to
+  * destination LLC in terms of cache aware load balance.
+@@ -10691,15 +10663,10 @@ static enum llc_mig can_migrate_llc_task(int src_cpu, int dst_cpu,
+ 		return mig_unrestricted;
+ 	}
+ 
+-	if (cpus_share_cache(dst_cpu, cpu))
+-		to_pref = true;
+-	else if (cpus_share_cache(src_cpu, cpu))
+-		to_pref = false;
+-	else
+-		return mig_unrestricted;
++	to_pref = if_to_prefer(src_cpu, dst_cpu, llc_id(cpu));
+ 
+-	return can_migrate_llc(src_cpu, dst_cpu,
+-			       task_util(p), to_pref);
++	return can_migrate_node(src_cpu, dst_cpu,
++			       p, to_pref);
+ }
+ 
+ /*
+@@ -10713,33 +10680,35 @@ static enum llc_mig can_migrate_llc_task(int src_cpu, int dst_cpu,
+ static inline bool
+ alb_break_llc(struct lb_env *env)
+ {
++	int pref_llc = -1;
++	bool to_pref = false;
++
+ 	if (!sched_cache_enabled())
+ 		return false;
+ 
+ 	if (cpus_share_cache(env->src_cpu, env->dst_cpu))
+ 		return false;
+ 	/*
+-	 * All tasks prefer to stay on their current CPU.
+-	 * Do not pull a task from its preferred CPU if:
+-	 * 1. It is the only task running and does not exceed
+-	 *    imbalance allowance; OR
+-	 * 2. Migrating it away from its preferred LLC would violate
+-	 *    the cache-aware scheduling policy.
++	 * We need the preferred LLC to decide whether we can perform migration.
++	 * Therefore, we need to obtain task_struct, which is only meaningful
++	 * in the case that only one task on the rq.
++	 * For cases with more than one task on the rq, we need to check
++	 * this in can_migrate_task().
+ 	 */
+-	if (env->src_rq->nr_pref_llc_running &&
+-	    env->src_rq->nr_pref_llc_running == env->src_rq->cfs.h_nr_runnable) {
+-		unsigned long util = 0;
++	if (env->src_rq->nr_running == 1) {
+ 		struct task_struct *cur;
+ 
+-		if (env->src_rq->nr_running <= 1)
+-			return true;
+-
+ 		cur = rcu_dereference_all(env->src_rq->curr);
+-		if (cur && cur->sched_class == &fair_sched_class)
+-			util = task_util(cur);
++		if (!cur || !cur->mm)
++			return false;
+ 
+-		if (can_migrate_llc(env->src_cpu, env->dst_cpu,
+-				    util, false) == mig_forbid)
++		if (cur->sched_class == &fair_sched_class)
++			pref_llc = llc_id(cur->mm->sc_stat.cpu);
++
++		to_pref = if_to_prefer(env->src_cpu, env->dst_cpu, pref_llc);
++
++		if (can_migrate_node(env->src_cpu, env->dst_cpu,
++				    cur, to_pref) == mig_forbid)
+ 			return true;
+ 	}
+ 
+@@ -10891,14 +10860,11 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
+ 
+ 	/*
+ 	 * Aggressive migration if:
+-	 * 1) active balance
+-	 * 2) destination numa is preferred
++	 * 1) destination numa is preferred
++	 * 2) active balance
+ 	 * 3) task is cache cold, or
+ 	 * 4) too many balance attempts have failed.
+ 	 */
+-	if (env->flags & LBF_ACTIVE_LB)
+-		return 1;
+-
+ 	degrades = migrate_degrades_locality(p, env);
+ 	if (!degrades) {
+ 		/*
+@@ -10924,6 +10890,9 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
+ 		hot = degrades > 0;
+ 	}
+ 
++	if (env->flags & LBF_ACTIVE_LB)
++		return 1;
++
+ 	if (!hot || env->sd->nr_balance_failed > env->sd->cache_nice_tries) {
+ 		if (hot)
+ 			p->sched_task_hot = 1;
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 7/8] sched: Let sched cache take precedence over NUMA
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:58 +0800
+Message-Id: <20260625030759.25928-8-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
+index 40584b27ea0c..1882e901bab5 100644
+--- a/kernel/sched/debug.c
++++ b/kernel/sched/debug.c
+@@ -682,6 +682,8 @@ static __init int sched_init_debug(void)
+ 			   &llc_overaggr_pct);
+ 	debugfs_create_u32("imb_pct", 0644, llc,
+ 			   &llc_imb_pct);
++	debugfs_create_bool("override_numa_balance", 0644, llc,
++			    &llc_override_numa_balance);
+ #endif
+ 
+ 	debugfs_create_file("debug", 0444, debugfs_sched, NULL, &sched_debug_fops);
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index c72837d95cac..171df11d0234 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -1409,6 +1409,12 @@ __read_mostly unsigned int llc_epoch_period	= EPOCH_PERIOD;
+ __read_mostly unsigned int llc_epoch_affinity_timeout = EPOCH_LLC_AFFINITY_TIMEOUT;
+ __read_mostly unsigned int llc_imb_pct		= 20;
+ __read_mostly unsigned int llc_overaggr_pct	= 50;
++bool llc_override_numa_balance			= true;
++
++static inline bool sched_cache_override_numa(void)
++{
++	return sched_cache_enabled() && llc_override_numa_balance;
++}
+ 
+ static int llc_id(int cpu)
+ {
+@@ -1672,7 +1678,8 @@ static int get_pref_llc(struct task_struct *p, struct mm_struct *mm)
+ 		 * than sched_setnuma() at least -- and thus the
+ 		 * conflict only exists for a short period of time.
+ 		 */
+-		if (static_branch_likely(&sched_numa_balancing) &&
++		if (!sched_cache_override_numa() &&
++		    static_branch_likely(&sched_numa_balancing) &&
+ 		    p->numa_preferred_nid >= 0 &&
+ 		    cpu_to_node(mm_sched_cpu) != p->numa_preferred_nid)
+ 			mm_sched_llc = -1;
+@@ -3947,6 +3954,13 @@ void task_numa_fault(int last_cpupid, int mem_node, int pages, int flags)
+ 	if (!static_branch_likely(&sched_numa_balancing))
+ 		return;
+ 
++	/*
++	 * We just want to migrate page other than migrate task
++	 * once sched cache override numa balance is enabled.
++	 */
++	if (sched_cache_override_numa())
++		return;
++
+ 	/* for example, ksmd faulting in a user's mm */
+ 	if (!p->mm)
+ 		return;
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index c7c2dea65edd..44d1278b16d4 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -4100,6 +4100,7 @@ extern unsigned int llc_epoch_period;
+ extern unsigned int llc_epoch_affinity_timeout;
+ extern unsigned int llc_imb_pct;
+ extern unsigned int llc_overaggr_pct;
++extern bool llc_override_numa_balance;
+ 
+ static inline bool sched_cache_enabled(void)
+ {
+-- 
+2.34.1
+
+
+---
+[PATCH RFC 8/8] sched/debug: Print task preferred LLC for
+From: Jianyong Wu <wujianyong@hygon.cn>
+Date: Thu, 25 Jun 2026 11:07:59 +0800
+Message-Id: <20260625030759.25928-9-wujianyong@hygon.cn>
+
+Signed-off-by: Jianyong Wu <wujianyong@hygon.cn>
+---
+diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
+index 1882e901bab5..ae3e39a9e3ca 100644
+--- a/kernel/sched/debug.c
++++ b/kernel/sched/debug.c
+@@ -9,7 +9,9 @@
+ #include <linux/debugfs.h>
+ #include <linux/nmi.h>
+ #include <linux/log2.h>
++#include <linux/sched/clock.h>
+ #include "sched.h"
++#include <linux/sched/debug.h>
+ 
+ /*
+  * This allows printing both to /sys/kernel/debug/sched/debug and
+@@ -1306,7 +1308,6 @@ void print_numa_stats(struct seq_file *m, int node, unsigned long tsf,
+ }
+ #endif
+ 
+-
+ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
+ {
+ #ifdef CONFIG_NUMA_BALANCING
+@@ -1322,6 +1323,28 @@ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
+ #endif /* CONFIG_NUMA_BALANCING */
+ }
+ 
++static void sched_show_cache(struct task_struct *p, struct seq_file *m)
++{
++#ifdef CONFIG_SCHED_CACHE
++	struct mm_struct *mm = p->mm;
++	int sc_cpu, sc_llc, sc_node, pref_llc, pref_node;
++
++	if (!mm)
++		return;
++
++	sc_cpu = READ_ONCE(mm->sc_stat.cpu);
++	sc_llc  = (sc_cpu >= 0) ? per_cpu(sd_llc_id, sc_cpu) : -1;
++	sc_node = (sc_cpu >= 0) ? cpu_to_node(sc_cpu) : -1;
++	pref_llc  = READ_ONCE(p->preferred_llc);
++	pref_node = (pref_llc >= 0) ? llc_to_node(pref_llc) : -1;
++
++	SEQ_printf(m, "sc_stat_cpu=%d, sc_llc=%d, sc_node=%d\n",
++		   sc_cpu, sc_llc, sc_node);
++	SEQ_printf(m, "preferred_llc=%d, preferred_llc_node=%d\n",
++		   pref_llc, pref_node);
++#endif /* CONFIG_SCHED_CACHE */
++}
++
+ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
+ 						  struct seq_file *m)
+ {
+@@ -1441,6 +1464,7 @@ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
+ 	}
+ 
+ 	sched_show_numa(p, m);
++	sched_show_cache(p, m);
+ }
+ 
+ void proc_sched_set_task(struct task_struct *p)
+-- 
+2.34.1
+

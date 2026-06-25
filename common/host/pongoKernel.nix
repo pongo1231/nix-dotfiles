@@ -82,8 +82,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "1a3746ccbb0a97bed3c06ccde6b880013b1dddc1";
-                        hash = "sha256-4k0PM3tRIY0li+IAJUG9A4tMkJcEDUu8Ha9tsUTKcmc=";
+                        rev = "ab9de95c9cf952332ab79453b4b5d1bfca8e514f";
+                        hash = "sha256-aKSvAyn4rfXa7zWlm4BZ9n124C0vpWHA5CQrXuDXQJg=";
                       };
                     };
                 };
@@ -108,6 +108,7 @@ in
             UBSAN_BOOL n
             UBSAN_ENUM n
             BTRFS_EXPERIMENTAL y
+            AD4130 n
           ''
           + lib.optionalString (pkgs.stdenv.hostPlatform.system == "aarch64-linux") ''
             CORESIGHT n
@@ -142,6 +143,13 @@ in
         {
           name = "nouveau detach fix";
           patch = patch /linux/nouveau-detach-fix.patch;
+        }
+        {
+          name = "sched: topology-aware cache scheduling";
+          patch = patch /linux/20260625_wujianyong_sched_extend_cache_aware_scheduling_into_topology_aware_scheduling.patch;
+          extraConfig = ''
+            SCHED_CACHE y
+          '';
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
