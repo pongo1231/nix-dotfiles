@@ -50,17 +50,12 @@ in
                       inputs.nixpkgs4.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
                 in
                 prev'.kernel.override {
-                  buildPackages = pkgs'.buildPackages // {
-                    inherit (llvmBuild) stdenv;
-                  };
-
                   inherit (llvmTarget) stdenv;
                   inherit (pkgs') pkgsBuildBuild;
 
                   ignoreConfigErrors = true;
 
                   extraMakeFlags = [
-                    "LLVM=1"
                     "CC=${llvmBuild.clang-unwrapped}/bin/clang"
                     "LD=${llvmBuild.lld}/bin/ld.lld"
                     "AR=${llvmBuild.llvm}/bin/llvm-ar"
@@ -74,16 +69,16 @@ in
 
                   argsOverride =
                     let
-                      version = "7.1-git";
+                      version = "7.2-git";
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.1.0";
+                      modDirVersion = "7.2.0-rc1";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "ab9de95c9cf952332ab79453b4b5d1bfca8e514f";
-                        hash = "sha256-aKSvAyn4rfXa7zWlm4BZ9n124C0vpWHA5CQrXuDXQJg=";
+                        rev = "dc59e4fea9d83f03bad6bddf3fa2e52491777482";
+                        hash = "sha256-e5AFEDSa+k++KEcaEfz4l6ueCU8v+WfGw1AwNqzJ/L4=";
                       };
                     };
                 };
