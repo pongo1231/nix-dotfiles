@@ -1,8 +1,123 @@
 diff --git a/dbfile.c b/dbfile.c
-index cf8deb3..50f26fd 100644
+index cf8deb3..4c32bcd 100644
 --- a/dbfile.c
 +++ b/dbfile.c
-@@ -1292,7 +1292,7 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+@@ -503,6 +503,11 @@ struct dbhandle *dbfile_open_handle(char *filename)
+ "where fileid = ?1 and loff <= ?2 and (loff + len) > ?2;"
+ 	dbfile_prepare_stmt(get_file_extent, GET_FILE_EXTENT);
+ 
++#define GET_ALL_FILE_EXTENTS						\
++"select loff, poff, len from extents "					\
++"where fileid = ?1 order by loff"
++	dbfile_prepare_stmt(get_all_file_extents, GET_ALL_FILE_EXTENTS);
++
+ #define GET_NONDUPE_EXTENTS						\
+ "select extents.loff, len, poff "					\
+ "FROM extents join files on files.id = extents.fileid "			\
+@@ -1250,40 +1255,84 @@ int dbfile_load_extent_hashes(struct dbhandle *db, struct results_tree *res,
+ 	return 0;
+ }
+ 
+-int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
+-				uint64_t loff, struct file_extent *extent)
++static int load_and_cache_all_extents(struct dbhandle *db,
++				    struct filerec *file)
+ {
+ 	int ret;
+-	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_file_extent;
++	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt =
++		db->stmts.get_all_file_extents;
++	unsigned int count = 0, capacity = 0;
++	struct file_extent *extents = NULL;
+ 
+ 	ret = sqlite3_bind_int64(stmt, 1, file->fileid);
+ 	if (ret) {
+-		perror_sqlite(ret, "binding value");
++		perror_sqlite(ret, "binding fileid");
+ 		return ret;
+ 	}
+ 
+-	ret = sqlite3_bind_int64(stmt, 2, loff);
+-	if (ret) {
+-		perror_sqlite(ret, "binding value");
++	while ((ret = sqlite3_step(stmt)) == SQLITE_ROW) {
++		if (count == capacity) {
++			struct file_extent *new_extents;
++			unsigned int new_capacity;
++
++			new_capacity = capacity ? capacity * 2 : 16;
++			new_extents = realloc(extents,
++					     new_capacity * sizeof(*extents));
++			if (!new_extents) {
++				free(extents);
++				return ENOMEM;
++			}
++			extents = new_extents;
++			capacity = new_capacity;
++		}
++
++		extents[count].loff = sqlite3_column_int64(stmt, 0);
++		extents[count].poff = sqlite3_column_int64(stmt, 1);
++		extents[count].len = sqlite3_column_int64(stmt, 2);
++		count++;
++	}
++
++	if (ret != SQLITE_DONE) {
++		perror_sqlite(ret, "loading all file extents");
++		free(extents);
+ 		return ret;
+ 	}
+ 
+-	ret = sqlite3_step(stmt);
++	file->extent_cache = extents;
++	file->num_extent_cache = count;
++	file->extent_cache_loaded = true;
++	return 0;
++}
+ 
+-	/* TODO: drop me when extent_dedupe_worker() is fixed */
+-	if (ret == SQLITE_DONE)
+-		return 0;
++int dbfile_load_one_file_extent(struct dbhandle *db, struct filerec *file,
++				uint64_t loff, struct file_extent *extent)
++{
++	int ret;
++	uint64_t cached_loff, cached_poff, cached_len;
+ 
+-	if (ret != SQLITE_ROW) {
+-		perror_sqlite(ret, "retrieving extent info");
+-		return ret;
++	g_mutex_lock(&file->extent_cache_mutex);
++
++	if (!file->extent_cache_loaded) {
++		ret = load_and_cache_all_extents(db, file);
++		if (ret) {
++			g_mutex_unlock(&file->extent_cache_mutex);
++			return ret;
++		}
+ 	}
+ 
+-	extent->poff = sqlite3_column_int64(stmt, 0);
+-	extent->loff = sqlite3_column_int64(stmt, 1);
+-	extent->len = sqlite3_column_int64(stmt, 2);
++	ret = filerec_find_cached_extent(file, loff,
++					 &cached_loff, &cached_poff,
++					 &cached_len);
++	g_mutex_unlock(&file->extent_cache_mutex);
+ 
+-	return 0;
++	if (ret == 0) {
++		extent->poff = cached_poff;
++		extent->loff = cached_loff;
++		extent->len = cached_len;
++		return 0;
++	}
++
++	return 0; /* Not found is not an error - see TODO comment below */
+ }
+ 
+ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+@@ -1292,7 +1341,7 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
  {
  	int ret;
  	_cleanup_(sqlite3_reset_stmt) sqlite3_stmt *stmt = db->stmts.get_nondupe_extents;
@@ -11,7 +126,7 @@ index cf8deb3..50f26fd 100644
  	struct file_extent *extents = NULL;
  
  	ret = sqlite3_bind_int64(stmt, 1, file->fileid);
-@@ -1301,33 +1301,40 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
+@@ -1301,33 +1350,40 @@ int dbfile_load_nondupe_file_extents(struct dbhandle *db, struct filerec *file,
  		goto out;
  	}
  
@@ -67,11 +182,34 @@ index cf8deb3..50f26fd 100644
  	return ret;
  }
  
+diff --git a/dbfile.h b/dbfile.h
+index 21e9f89..e3bb9e9 100644
+--- a/dbfile.h
++++ b/dbfile.h
+@@ -39,6 +39,7 @@ struct stmts {
+ 	sqlite3_stmt *get_duplicate_extents;
+ 	sqlite3_stmt *get_duplicate_files;
+ 	sqlite3_stmt *get_file_extent;
++	sqlite3_stmt *get_all_file_extents;
+ 	sqlite3_stmt *get_nondupe_extents;
+ 	sqlite3_stmt *delete_file;
+ 	sqlite3_stmt *select_file_changes;
 diff --git a/fiemap.c b/fiemap.c
-index 655797d..2814fd9 100644
+index 655797d..8b1bb09 100644
 --- a/fiemap.c
 +++ b/fiemap.c
-@@ -98,9 +98,9 @@ struct fiemap *do_fiemap(int fd)
+@@ -48,8 +48,9 @@ struct fiemap_extent *get_extent(struct fiemap *fiemap, size_t loff,
+ {
+ 	struct fiemap_extent *extent;
+ 	size_t ext_end_off;
++	unsigned int i = index ? *index : 0;
+ 
+-	for (unsigned int i = 0; i < fiemap->fm_mapped_extents; i++) {
++	for (; i < fiemap->fm_mapped_extents; i++) {
+ 		extent = &fiemap->fm_extents[i];
+ 		ext_end_off = extent->fe_logical + extent->fe_length - 1;
+ 		if (ext_end_off < loff)
+@@ -98,9 +99,9 @@ struct fiemap *do_fiemap(int fd)
  	return fiemap;
  }
  
@@ -83,7 +221,7 @@ index 655797d..2814fd9 100644
  	struct fiemap_extent *extent;
  
  	size_t extent_loff;
-@@ -108,10 +108,6 @@ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shar
+@@ -108,10 +109,6 @@ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shar
  
  	abort_on(start_off >= end_off);
  
@@ -94,7 +232,7 @@ index 655797d..2814fd9 100644
  	*shared = 0;
  
  	for (unsigned int i = 0; i < fiemap->fm_mapped_extents; i++) {
-@@ -133,3 +129,15 @@ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shar
+@@ -133,3 +130,15 @@ int fiemap_count_shared(int fd, size_t start_off, size_t end_off, uint64_t *shar
  	}
  	return 0;
  }
@@ -121,10 +259,266 @@ index 1918c6e..7bfdf86 100644
 +int fiemap_count_shared_in_fiemap(struct fiemap *fiemap, size_t start_off,
 +				  size_t end_off, uint64_t *shared);
  #endif	/* __FIEMAP_H__ */
+diff --git a/file_scan.c b/file_scan.c
+index 0760b9c..dbeafb5 100644
+--- a/file_scan.c
++++ b/file_scan.c
+@@ -756,15 +756,17 @@ static inline int is_block_zeroed(void *buf)
+ static int add_block_hash(struct hashes *hashes,
+ 			  uint64_t loff, unsigned char *digest)
+ {
+-	struct block_csum *retp;
++	if (hashes->blocks_index == hashes->blocks_count) {
++		struct block_csum *retp;
++		unsigned int new_count;
+ 
+-	if (hashes->blocks_index + 1 > hashes->blocks_count) {
+-		/* Somehow, we did not allocate enough memory */
+-		hashes->blocks_count++;
+-		retp = realloc(hashes->blocks, sizeof(struct block_csum) * hashes->blocks_count);
++		new_count = hashes->blocks_count ? hashes->blocks_count * 2 : 16;
++		retp = realloc(hashes->blocks,
++			       sizeof(struct block_csum) * new_count);
+ 		if (!retp)
+ 			return -ENOMEM;
+ 		hashes->blocks = retp;
++		hashes->blocks_count = new_count;
+ 	}
+ 
+ 	hashes->blocks[hashes->blocks_index].loff = loff;
+@@ -776,12 +778,14 @@ static int add_block_hash(struct hashes *hashes,
+ /*
+  * Check if the area should be scanned.
+  */
+-static bool is_area_ignored(struct fiemap *fiemap, size_t start, size_t len)
++static bool is_area_ignored(struct fiemap *fiemap, size_t start, size_t len,
++			     unsigned int *extent_idx)
+ {
+ 	size_t end = start + len;
+ 	struct fiemap_extent *current_extent;
++
+ 	while (start < end) {
+-		current_extent = get_extent(fiemap, start, NULL);
++		current_extent = get_extent(fiemap, start, extent_idx);
+ 
+ 		/* File changed since we fiemap */
+ 		if (!current_extent)
+@@ -800,9 +804,10 @@ static bool is_area_ignored(struct fiemap *fiemap, size_t start, size_t len)
+ /*
+  * Check if the block starting at off should be ignored.
+  */
+-static inline bool is_block_ignored(struct fiemap *fiemap, size_t off)
++static inline bool is_block_ignored(struct fiemap *fiemap, size_t off,
++				    unsigned int *extent_idx)
+ {
+-	return is_area_ignored(fiemap, off, blocksize);
++	return is_area_ignored(fiemap, off, blocksize, extent_idx);
+ }
+ 
+ static int process_block(char *buf, unsigned int bsize,
+@@ -824,15 +829,17 @@ static ssize_t process_blocks(struct scan_ctxt *ctxt, struct buffer *buffer,
+ 	int ret = 0;
+ 	unsigned int nb_blocks = buffer->dl_len / blocksize;
+ 	size_t curr_file_off = ctxt->off;
++	unsigned int extent_idx = 0;
+ 
+ 	/* We do not actually need to process the blocks */
+ 	if (!options.do_block_hash || buffer->faked)
+ 		return buffer->dl_len;
+ 
+ 	for (unsigned int i = 0; i < nb_blocks; i++) {
+-		if (!is_block_ignored(ctxt->fiemap, curr_file_off) &&
++		if (!is_block_ignored(ctxt->fiemap, curr_file_off,
++				      &extent_idx) &&
+ 		    !(options.skip_zeroes &&
+-		      is_block_zeroed(buffer->buf + buffer->dl_offset))) {
++		      is_block_zeroed(buffer->buf + i * blocksize))) {
+ 			ret = process_block(buffer->buf + i * blocksize,
+ 					    blocksize, curr_file_off, hashes);
+ 			if (ret)
+@@ -847,15 +854,18 @@ static ssize_t process_blocks(struct scan_ctxt *ctxt, struct buffer *buffer,
+ 
+ static int store_extent(struct scan_ctxt *ctxt, struct hashes *hashes, struct fiemap_extent *extent)
+ {
+-	struct extent_csum *retp;
+-
+-	if (hashes->extents_index + 1 > hashes->extents_count) {
+-		/* Somehow, we did not allocate enough memory */
+-		hashes->extents_count++;
+-		retp = realloc(hashes->extents, sizeof(struct extent_csum) * hashes->extents_count);
++	if (hashes->extents_index == hashes->extents_count) {
++		struct extent_csum *retp;
++		unsigned int new_count;
++
++		new_count = hashes->extents_count ?
++			hashes->extents_count * 2 : 16;
++		retp = realloc(hashes->extents,
++			       sizeof(struct extent_csum) * new_count);
+ 		if (!retp)
+ 			return -ENOMEM;
+ 		hashes->extents = retp;
++		hashes->extents_count = new_count;
+ 	}
+ 
+ 	if (extent->fe_flags & FIEMAP_SKIP_FLAGS) {
+@@ -883,9 +893,11 @@ static int process_extents(struct scan_ctxt *ctxt, struct buffer *buffer,
+ 	struct fiemap_extent *extent;
+ 	size_t ext_end_off;
+ 	size_t to_add;
++	unsigned int extent_idx = 0;
+ 
+ 	while (file_off < ctxt->off + bytes) {
+-		extent = get_extent(ctxt->fiemap, file_off, NULL);
++		extent = get_extent(ctxt->fiemap, file_off,
++				    &extent_idx);
+ 		if (!extent) {
+ 			eprintf("process_extents: unable to get extent\n");
+ 
+@@ -950,12 +962,14 @@ static int process_extents(struct scan_ctxt *ctxt, struct buffer *buffer,
+ static int fill_buffer(struct scan_ctxt *ctxt, struct buffer *buffer)
+ {
+ 	ssize_t ret;
++	unsigned int extent_idx = 0;
+ 
+ 	/*
+ 	 * The entire buffer could be ignored. Let's fast forward
+ 	 * and mark the buffer as faked
+ 	 */
+-	if (is_area_ignored(ctxt->fiemap, ctxt->off, buffer->size)
++	if (is_area_ignored(ctxt->fiemap, ctxt->off, buffer->size,
++			    &extent_idx)
+ 			&& ctxt->off + buffer->size <= ctxt->filesize) {
+ 		memset(buffer->buf, 0, buffer->size);
+ 		buffer->dl_len = buffer->size;
+diff --git a/filerec.c b/filerec.c
+index dde56a9..19f1967 100644
+--- a/filerec.c
++++ b/filerec.c
+@@ -26,6 +26,7 @@
+ #include "debug.h"
+ #include "memstats.h"
+ #include "fiemap.h"
++#include "dbfile.h"
+ 
+ #include "filerec.h"
+ 
+@@ -182,6 +183,10 @@ static struct filerec *filerec_alloc_insert(const char *filename,
+ 
+ 	file->fd = -1;
+ 	file->block_tree = RB_ROOT;
++	file->extent_cache = NULL;
++	file->num_extent_cache = 0;
++	file->extent_cache_loaded = false;
++	g_mutex_init(&file->extent_cache_mutex);
+ 	rb_init_node(&file->fileid_node);
+ 	file->fileid = fileid;
+ 	file->size = size;
+@@ -205,6 +210,8 @@ static void filerec_free(struct filerec *file)
+ {
+ 	if (file) {
+ 		free(file->filename);
++		free(file->extent_cache);
++		g_mutex_clear(&file->extent_cache_mutex);
+ 
+ 		/*
+ 		 * XXX: Enable this check when we are freeing
+@@ -338,3 +345,36 @@ int fiemap_scan_extent(struct extent *extent)
+ 	filerec_close(extent->e_file);
+ 	return ret;
+ }
++
++int filerec_find_cached_extent(struct filerec *file, uint64_t loff,
++			       uint64_t *extent_loff, uint64_t *poff,
++			       uint64_t *len)
++{
++	int lo, hi;
++
++	if (!file->extent_cache_loaded || !file->extent_cache)
++		return -1;
++
++	lo = 0;
++	hi = (int)file->num_extent_cache - 1;
++
++	while (lo <= hi) {
++		int mid = (lo + hi) / 2;
++		struct file_extent *e = &file->extent_cache[mid];
++
++		if (loff < e->loff)
++			hi = mid - 1;
++		else if (loff >= e->loff + e->len)
++			lo = mid + 1;
++		else {
++			if (extent_loff)
++				*extent_loff = e->loff;
++			if (poff)
++				*poff = e->poff;
++			if (len)
++				*len = e->len;
++			return 0;
++		}
++	}
++	return -1;
++}
+diff --git a/filerec.h b/filerec.h
+index 3936dee..832ef67 100644
+--- a/filerec.h
++++ b/filerec.h
+@@ -17,12 +17,15 @@
+ #define __FILEREC__
+ 
+ #include <stdint.h>
++#include <stdbool.h>
+ #include <time.h>
+ #include <glib.h>
+ #include <bsd/sys/queue.h>
+ #include "rbtree.h"
+ #include "results-tree.h"
+ 
++struct file_extent;
++
+ SLIST_HEAD(filerec_list, filerec);
+ extern struct filerec_list filerec_head;
+ 
+@@ -41,6 +44,16 @@ struct filerec {
+ 	uint64_t		size;
+ 	struct rb_root		block_tree;	/* root for hash blocks tree */
+ 
++	/*
++	 * Cached file extent map (loff, poff, len). Populated lazily by
++	 * dbfile_load_one_file_extent() on first lookup, used to avoid
++	 * per-block DB queries in search_extent(). Sorted by loff.
++	 */
++	struct file_extent	*extent_cache;
++	unsigned int		num_extent_cache;
++	bool			extent_cache_loaded;
++	GMutex			extent_cache_mutex;
++
+ 	SLIST_ENTRY(filerec)	rec_list;	/* all filerecs */
+ };
+ 
+@@ -82,4 +95,9 @@ void filerec_token_free(struct filerec_token *token);
+ struct filerec_token *filerec_token_new(struct filerec *file);
+ 
+ int fiemap_scan_extent(struct extent *extent);
++
++/* Look up a cached extent containing loff. Returns 0 on success. */
++int filerec_find_cached_extent(struct filerec *file, uint64_t loff,
++			       uint64_t *extent_loff, uint64_t *poff,
++			       uint64_t *len);
+ #endif /* __FILEREC__ */
 diff --git a/find_dupes.c b/find_dupes.c
-index 69a190c..6f879c2 100644
+index 69a190c..c9dfe48 100644
 --- a/find_dupes.c
 +++ b/find_dupes.c
+@@ -52,7 +52,7 @@ static inline unsigned long block_len(struct file_block *block)
+ 		return 0;
+ 
+ 	/* We are in the last "blocksize" part of the file */
+-	return (block->b_file->size - block->b_loff) % blocksize;
++	return block->b_file->size - block->b_loff;
+ }
+ 
+ static void record_match(struct results_tree *res, unsigned char *digest,
 @@ -119,6 +119,58 @@ static inline int end_of_block_list(struct file_block *b)
  	return !rb_next(&b->b_file_next);
  }
@@ -243,17 +637,280 @@ index 69a190c..6f879c2 100644
  				      dupe_extents);
  		if (ret)
  			break;
-@@ -336,8 +414,8 @@ static void search_file_extents(struct filerec *file, struct results_tree *dupe_
- 			PRIu64" len %"PRIu64" poff %"PRIu64"\n",
- 			i, extent->loff, extent->len, extent->poff);
- 		/*
+@@ -302,102 +380,70 @@ static int search_extent(struct filerec *file, struct file_extent *extent,
+  * We don't yet catch the case where a non duped extent straddles more
+  * than one extent.
+  */
+-static void search_file_extents(struct filerec *file, struct results_tree *dupe_extents)
+-{
+-	int ret;
+-	static __thread struct dbhandle *db = NULL;
+-	_cleanup_(freep) struct file_extent *extents = NULL;
+-	struct file_extent *extent;
+-	unsigned int num_extents, i;
+-
+-	if (!db) {
+-		db = dbfile_open_handle_thread(options.hashfile, &search_pool);
+-
+-		if (!db) {
+-			eprintf("ERROR: Couldn't open db file %s\n",
+-				options.hashfile == NULL ? "(null)" : options.hashfile);
+-			return;
+-		}
+-	}
+-
+-	/*
+-	 * Pick a non-deduped extent from file. The extent info
+-	 * returned here is what was given to us by fiemap.
+-	 */
+-	ret = dbfile_load_nondupe_file_extents(db, file, &extents, &num_extents);
+-	if (ret || !num_extents)
+-		return;
+-
+-	dprintf("search_file_extents: %s (size=%"PRIu64" ret %d num_extents: "
+-		"%u\n", file->filename, file->size, ret, num_extents);
+-	for(i = 0; i < num_extents; i++) {
+-		extent = &extents[i];
+-		dprintf("search_file_extents:   nondupe extent # %d loff %"
+-			PRIu64" len %"PRIu64" poff %"PRIu64"\n",
+-			i, extent->loff, extent->len, extent->poff);
+-		/*
 -		 * XXX: Here we should collapse contiguous extents
 -		 * into one larger one
-+		 * Keep partial search extent-local until the hashfile update
-+		 * path can refresh every row covered by a multi-extent match.
- 		 */
+-		 */
+-	}
+-	for(i = 0; i < num_extents; i++) {
+-		extent = &extents[i];
+-
+-		ret = search_extent(file, extent, dupe_extents, db);
+-		if (ret)
+-			return;
+-	}
+-}
+-
+ struct cmp_ctxt {
+ 	struct filerec *file;
++	struct file_extent extent;
+ 	struct results_tree *dupe_extents;
+ };
+ 
+-static void find_dupes_thread(struct cmp_ctxt *ctxt, void *priv [[maybe_unused]])
++static void find_dupes_thread(void *priv, void *not_used [[maybe_unused]])
+ {
++	struct cmp_ctxt *ctxt = priv;
+ 	struct results_tree *dupe_extents = ctxt->dupe_extents;
+ 	struct filerec *file = ctxt->file;
++	struct file_extent extent = ctxt->extent;
++	static __thread struct dbhandle *db = NULL;
+ 
+ 	free(ctxt);
+ 
+-	search_file_extents(file, dupe_extents);
++	if (!db) {
++		db = dbfile_open_handle_thread(options.hashfile, &search_pool);
++		if (!db) {
++			eprintf("ERROR: Couldn't open db file %s\n",
++				options.hashfile == NULL ? "(null)" :
++				options.hashfile);
++			psearch_update_processed_count(1);
++			return;
++		}
++	}
+ 
+-	/*
+-	 * Always bump the processed count, regardless of
+-	 * the function's outcome.
+-	 */
++	search_extent(file, &extent, dupe_extents, db);
+ 	psearch_update_processed_count(1);
+ }
+ 
+-int find_additional_dedupe(struct results_tree *dupe_extents)
++/*
++ * Load non-dupe extents for a file and push them to the search pool.
++ * Returns the number of extents pushed, or -1 on error.
++ */
++static int push_file_extents(struct filerec *file,
++			     struct results_tree *dupe_extents,
++			     struct dbhandle *db)
+ {
+-	int ret = 0;
++	int ret;
++	_cleanup_(freep) struct file_extent *extents = NULL;
++	unsigned int num_extents, i;
+ 	GError *err = NULL;
+-	struct filerec *file;
+ 
+-	qprintf("Using %u threads to search within extents for "
+-		"additional dedupe. This process will take some time, during "
+-		"which Duperemove can safely be ctrl-c'd.\n", options.cpu_threads);
++	if (file->size == 0)
++		return 0;
+ 
+-	psearch_run(num_filerec);
++	ret = dbfile_load_nondupe_file_extents(db, file, &extents,
++						&num_extents);
++	if (ret || !num_extents)
++		return 0;
+ 
+-	SLIST_FOREACH(file, &filerec_head, rec_list) {
+-		/*
+-		 * This is an empty file - or maybe an error somewhere ?
+-		 * Anyway, let's skip it and mark it as "processed"
+-		 */
+-		if (file->size == 0) {
+-			psearch_update_processed_count(1);
+-			continue;
+-		}
++	dprintf("search_file_extents: %s (size=%"PRIu64" ret %d "
++		"num_extents: %u\n", file->filename, file->size,
++		ret, num_extents);
+ 
++	for (i = 0; i < num_extents; i++) {
+ 		struct cmp_ctxt *ctxt = malloc(sizeof(*ctxt));
+ 
+ 		if (!ctxt)
+-			return ENOMEM;
++			return -1;
+ 
+ 		ctxt->file = file;
++		ctxt->extent = extents[i];
+ 		ctxt->dupe_extents = dupe_extents;
+ 
+ 		g_thread_pool_push(search_pool.pool, ctxt, &err);
+@@ -405,13 +451,61 @@ int find_additional_dedupe(struct results_tree *dupe_extents)
+ 			eprintf("Error from thread pool: %s\n ",
+ 				err->message);
+ 			g_error_free(err);
+-			return ENOMEM;
++			free(ctxt);
++			return -1;
+ 		}
  	}
- 	for(i = 0; i < num_extents; i++) {
+ 
++	return num_extents;
++}
++
++int find_additional_dedupe(struct results_tree *dupe_extents)
++{
++	struct filerec *file;
++	struct dbhandle *db;
++	uint64_t total = 0;
++
++	qprintf("Using %u threads to search within extents for "
++		"additional dedupe. This process will take some time, during "
++		"which Duperemove can safely be ctrl-c'd.\n",
++		options.cpu_threads);
++
++	db = dbfile_open_handle_thread(options.hashfile, &search_pool);
++	if (!db) {
++		eprintf("ERROR: Couldn't open db file %s\n",
++			options.hashfile == NULL ? "(null)" :
++			options.hashfile);
++		return EIO;
++	}
++
++	/* Count non-dupe extents for progress tracking. */
++	SLIST_FOREACH(file, &filerec_head, rec_list) {
++		_cleanup_(freep) struct file_extent *extents = NULL;
++		unsigned int n;
++
++		if (file->size == 0)
++			continue;
++		if (dbfile_load_nondupe_file_extents(db, file,
++						       &extents, &n) || !n)
++			continue;
++		total += n;
++	}
++
++	psearch_run(total ? total : num_filerec);
++
++	/* Dispatch one task per extent for load-balanced work. */
++	SLIST_FOREACH(file, &filerec_head, rec_list) {
++		int pushed = push_file_extents(file, dupe_extents, db);
++
++		if (file->size == 0 && pushed == 0)
++			psearch_update_processed_count(1);
++		else if (pushed < 0)
++			break;
++	}
++
+ 	psearch_join();
+ 
+-	return ret;
++	return 0;
+ }
+ 
+ void extents_search_init(void)
+diff --git a/hash-tree.c b/hash-tree.c
+index f54c5ea..d5c19e2 100644
+--- a/hash-tree.c
++++ b/hash-tree.c
+@@ -149,7 +149,6 @@ static int add_file_hash_head(struct dupe_blocks_list *dups,
+ 	rb_init_node(&head->h_node);
+ 	INIT_LIST_HEAD(&head->h_blocks);
+ 	insert_file_hash_head(dups, head);
+-	dups->dl_num_files++;
+ add:
+ 	/* This list get sorted later */
+ 	list_add_tail(&block->b_head_list, &head->h_blocks);
+@@ -266,7 +265,6 @@ int insert_hashed_block(struct hash_tree *tree,	unsigned char *digest,
+ 		memcpy(d->dl_hash, digest, DIGEST_LEN);
+ 		rb_init_node(&d->dl_node);
+ 		INIT_LIST_HEAD(&d->dl_list);
+-		INIT_LIST_HEAD(&d->dl_size_list);
+ 		d->dl_files_root = RB_ROOT;
+ 
+ 		insert_block_list(tree, d);
+@@ -287,8 +285,6 @@ int insert_hashed_block(struct hash_tree *tree,	unsigned char *digest,
+ 	insert_block_into_filerec(file, e);
+ 
+ 	d->dl_num_elem++;
+-	if (d->dl_num_elem > 1 && list_empty(&d->dl_size_list))
+-		list_add(&d->dl_size_list, &tree->size_list);
+ 	list_add_tail(&e->b_list, &d->dl_list);
+ 
+ 	tree->num_blocks++;
+@@ -317,7 +313,6 @@ int remove_hashed_block(struct hash_tree *tree,
+ 	blocklist->dl_num_elem--;
+ 	if (blocklist->dl_num_elem == 0) {
+ 		rb_erase(&blocklist->dl_node, &tree->root);
+-		list_del(&blocklist->dl_size_list);
+ 		tree->num_hashes--;
+ 
+ 		free_dupe_blocks_list(blocklist);
+@@ -333,7 +328,6 @@ void init_hash_tree(struct hash_tree *tree)
+ {
+ 	tree->root = RB_ROOT;
+ 	tree->num_blocks = tree->num_hashes = 0;
+-	INIT_LIST_HEAD(&tree->size_list);
+ }
+ 
+ void free_hash_tree(struct hash_tree *tree)
+diff --git a/hash-tree.h b/hash-tree.h
+index 98bd9b3..bba016d 100644
+--- a/hash-tree.h
++++ b/hash-tree.h
+@@ -23,19 +23,16 @@ extern unsigned int blocksize;
+ 
+ struct hash_tree {
+ 	struct rb_root	root;
+-	struct list_head size_list; /* This is for sorting by dl_num_elem  */
+ 	uint64_t	num_blocks;
+ 	uint64_t	num_hashes;
+ };
+ 
+ struct dupe_blocks_list {
+ 	struct rb_node		dl_node; /* sorted by hash */
+-	struct list_head	dl_size_list; /* sorted by dl_num_elem */
+ 
+ 	unsigned long long	dl_num_elem;
+ 	struct list_head	dl_list;
+ 
+-	unsigned int		dl_num_files;
+ 	struct rb_root		dl_files_root; /* stores file_hash_head nodes */
+ 
+ 	unsigned char		dl_hash[DIGEST_LEN];
 diff --git a/results-tree.c b/results-tree.c
 index f3f14cd..79227da 100644
 --- a/results-tree.c
