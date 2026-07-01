@@ -137,17 +137,17 @@ in
       src = prev.fetchFromGitHub {
         owner = "earendil-works";
         repo = "pi";
-        tag = "v0.80.2";
-        hash = "sha256-aKtgPc3rwHEp856jP3N7nImph0CSG+gsWq9OVci3hmE=";
+        tag = "v0.80.3";
+        hash = "sha256-wQTrWKsb2HCGwzSAFEk8NWSDpqxSY/lv1/R6ghcmbaA=";
       };
     in
     prev.pi-coding-agent.overrideAttrs (old: {
-      version = "0.80.2";
+      version = "0.80.3";
       inherit src;
       npmDeps = prev.fetchNpmDeps {
         inherit src;
-        name = "pi-coding-agent-0.80.2-npm-deps";
-        hash = "sha256-1EGs8lX8XoAnRtS+pw4lBRm24U/vtVB2loVRmZyd4Z8=";
+        name = "pi-coding-agent-0.80.3-npm-deps";
+        hash = "sha256-geh8LH88OZybFXkR/jDeTdew6TNMdFM6jhCSYKn//dU=";
       };
     });
 }
