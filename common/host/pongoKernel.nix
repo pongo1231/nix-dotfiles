@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "dc59e4fea9d83f03bad6bddf3fa2e52491777482";
-                        hash = "sha256-e5AFEDSa+k++KEcaEfz4l6ueCU8v+WfGw1AwNqzJ/L4=";
+                        rev = "1e9cdc2ea15adf4a821eefedabf6c0c8cf0b6a55";
+                        hash = "sha256-01uZPVFu//GBcl8+9qdeXOIzysTij8QswQKf03xtRH8=";
                       };
                     };
                 };
@@ -145,6 +145,13 @@ in
           extraConfig = ''
             SCHED_CACHE y
           '';
+        }
+        {
+          name = "small dio performance";
+          patch = pkgs.fetchpatch {
+            url = "https://git.kernel.org/pub/scm/linux/kernel/git/vfs/vfs.git/patch/?id=e1b77fb85836e5a9857ccf8079bb35d10ed8de5c";
+            hash = "sha256-WGKYYcCERWqPiBuDE5jyyXdew/slP0jMEm1YM1+dQk4=";
+          };
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
