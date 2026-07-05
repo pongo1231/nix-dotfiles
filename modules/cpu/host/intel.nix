@@ -3,7 +3,6 @@
   boot.kernelParams = [
     "intel_iommu=on"
     "iommu=pt"
-    "intel_pstate=passive"
   ];
 
   services.thermald.enable = true;
