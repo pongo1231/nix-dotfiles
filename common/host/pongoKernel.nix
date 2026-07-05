@@ -176,6 +176,8 @@ in
           patch = null;
           extraConfig = ''
             DRM_PANTHOR n
+            DRM_MSM n
+            DRM_POWERVR n
           '';
         }
       ];
