@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "1e9cdc2ea15adf4a821eefedabf6c0c8cf0b6a55";
-                        hash = "sha256-01uZPVFu//GBcl8+9qdeXOIzysTij8QswQKf03xtRH8=";
+                        rev = "7404ce51637231382873d0b55edabc2f3b841a9d";
+                        hash = "sha256-aipQBplLodPfiKUWFYnvNOz9/zSrSEZ4uVOg6Xz9Sjg=";
                       };
                     };
                 };
@@ -152,6 +152,10 @@ in
             url = "https://git.kernel.org/pub/scm/linux/kernel/git/vfs/vfs.git/patch/?id=e1b77fb85836e5a9857ccf8079bb35d10ed8de5c";
             hash = "sha256-WGKYYcCERWqPiBuDE5jyyXdew/slP0jMEm1YM1+dQk4=";
           };
+        }
+        {
+          name = "DRM scheduler kthread_worker";
+          patch = patch /linux/20260702_tvrtko_ursulin_drm_scheduler_kthread_worker_for_submission_latency_improvements.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
