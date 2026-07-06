@@ -73,12 +73,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.2.0-rc1";
+                      modDirVersion = "7.2.0-rc2";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "7404ce51637231382873d0b55edabc2f3b841a9d";
-                        hash = "sha256-aipQBplLodPfiKUWFYnvNOz9/zSrSEZ4uVOg6Xz9Sjg=";
+                        rev = "8cdeaa50eae8dad34885515f62559ee83e7e8dda";
+                        hash = "sha256-0DmLhD5AiuT/ryBhFIHUzs+7Avty/MYlBY0y6SZ7tTo=";
                       };
                     };
                 };
@@ -156,6 +156,10 @@ in
         {
           name = "DRM scheduler kthread_worker";
           patch = patch /linux/20260702_tvrtko_ursulin_drm_scheduler_kthread_worker_for_submission_latency_improvements.patch;
+        }
+        {
+          name = "sched/core tip";
+          patch = patch /linux/sched-core-tip.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
