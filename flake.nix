@@ -4,6 +4,7 @@
     nixpkgs2.url = "github:pongo1231/nixpkgs/9bbd73f8ea1e9414f77df7e94c88f92c70643f5b";
     nixpkgs3.url = "github:nixos/nixpkgs/nixos-unstable-small";
     nixpkgs4.follows = "nixpkgs";
+    nixpkgs5.url = "github:pongo1231/nixpkgs/0a1c70506e0c43c6e34b5bd985aee0d679ba6e3e";
 
     flake-utils.url = "github:numtide/flake-utils";
 

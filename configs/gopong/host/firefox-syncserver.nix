@@ -1,4 +1,5 @@
 {
+  inputs,
   withSecrets,
   config,
   pkgs,
@@ -24,24 +25,26 @@ withSecrets "pongo" { store = "gopong/firefox-syncserver.env"; } {
 
     firefox-syncserver = {
       enable = true;
-      package = pkgs.syncstorage-rs.overrideAttrs (
-        let
-          src = pkgs.fetchFromGitHub {
-            owner = "mozilla-services";
-            repo = "syncstorage-rs";
-            rev = "6af6d5c6b6b58edc5eb272926000ec93dbb7f2e1";
-            hash = "sha256-1rdsa5OJYxE69EVd+3JI8DsSSbJDAelBfTgHhQJzR+0=";
-          };
-        in
-        {
-          inherit src;
+      package =
+        inputs.nixpkgs5.legacyPackages.${pkgs.stdenv.hostPlatform.system}.syncstorage-rs.overrideAttrs
+          (
+            let
+              src = pkgs.fetchFromGitHub {
+                owner = "mozilla-services";
+                repo = "syncstorage-rs";
+                rev = "6af6d5c6b6b58edc5eb272926000ec93dbb7f2e1";
+                hash = "sha256-1rdsa5OJYxE69EVd+3JI8DsSSbJDAelBfTgHhQJzR+0=";
+              };
+            in
+            {
+              inherit src;
 
-          cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
-            inherit src;
-            hash = "sha256-9Dcf5mDyK/XjsKTlCPXTHoBkIq+FFPDg1zfK24Y9nHQ=";
-          };
-        }
-      );
+              cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
+                inherit src;
+                hash = "sha256-9Dcf5mDyK/XjsKTlCPXTHoBkIq+FFPDg1zfK24Y9nHQ=";
+              };
+            }
+          );
 
       secrets = config.sops.secrets."firefox-syncserver".path;
       singleNode = {

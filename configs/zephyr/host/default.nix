@@ -1,4 +1,5 @@
 {
+  inputs,
   module,
   config,
   pkgs,
@@ -143,7 +144,10 @@
 
     #opensnitch.enable = true;
 
-    technitium-dns-server.enable = true;
+    technitium-dns-server = {
+      enable = true;
+      package = inputs.nixpkgs5.legacyPackages.${pkgs.stdenv.hostPlatform.system}.technitium-dns-server;
+    };
     resolved.enable = false;
   };
 
