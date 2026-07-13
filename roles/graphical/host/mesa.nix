@@ -44,8 +44,8 @@
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "0e5b555e1854c662ffb02f3162d63b3832955a00";
-            hash = "sha256-XyJdg65RpAUvgqXPel6P2Ty7cNkip/FEKyJB4PlS6go=";
+            rev = "f534140fa599fda9adc8dd9833b14fee4b82241d";
+            hash = "sha256-EkL+5dEXY+EAh8zNdapaWvB+gOyQY5qqhX0H78XVILQ=";
           };
 
           patches = prev.patches ++ [
