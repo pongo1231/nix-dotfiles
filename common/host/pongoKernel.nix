@@ -73,12 +73,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.2.0-rc2";
+                      modDirVersion = "7.2.0-rc3";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "8cdeaa50eae8dad34885515f62559ee83e7e8dda";
-                        hash = "sha256-0DmLhD5AiuT/ryBhFIHUzs+7Avty/MYlBY0y6SZ7tTo=";
+                        rev = "a13c140cc289c0b7b3770bce5b3ad42ab35074aa";
+                        hash = "sha256-jWei6nbIWiO7D5IsSGF2CZl4LhzLg2cwXTNiqq79xtk=";
                       };
                     };
                 };
@@ -160,6 +160,10 @@ in
         {
           name = "sched/core tip";
           patch = patch /linux/sched-core-tip.patch;
+        }
+        {
+          name = "core/entry tip";
+          patch = patch /linux/core-entry-tip.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
