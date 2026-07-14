@@ -46,7 +46,7 @@ lib.mkMerge [
 
       nextcloud = {
         enable = true;
-        package = pkgs.nextcloud33;
+        package = pkgs.nextcloud34;
         hostName = "cloud.${config.networking.fqdn}";
         https = true;
 
