@@ -37,6 +37,7 @@
       heroic
       bottles
       prismlauncher
+      pi-coding-agent
     ];
   };
 }
