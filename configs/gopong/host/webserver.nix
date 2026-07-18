@@ -54,6 +54,10 @@ in
                 // {
                   "" = {
                     inherit root;
+                    locations."/mc/ws" = {
+                      proxyPass = "http://localhost:26768";
+                      proxyWebsockets = true;
+                    };
                   };
 
                   "chaos" = {
