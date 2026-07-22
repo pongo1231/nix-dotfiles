@@ -120,13 +120,13 @@
       "-" = {
         spec = "/";
         hashTableSizeMB = 1024;
-        #extraOptions = [ "-c 1" ];
+        extraOptions = [ "-c 1" ];
       };
 
       "ssd2" = {
         spec = "/run/media/ssd2";
         hashTableSizeMB = 512;
-        #extraOptions = [ "-c 1" ];
+        extraOptions = [ "-c 1" ];
       };
     };
 
