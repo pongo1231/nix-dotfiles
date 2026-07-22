@@ -159,6 +159,8 @@ args:
     scx-loader.enable = lib.mkDefault true;
 
     btrfs.autoReclaim.enable = true;
+
+    irqbalance.enable = true;
   };
 
   security = {
