@@ -3,14 +3,10 @@
   ...
 }:
 {
-  boot = {
-    kernelParams = [
-      "i915.enable_dpcd_backlight=1"
-      "xe.enable_dpcd_backlight=1"
-    ];
-
-    kernel.sysctl."dev.i915.perf_stream_paranoid" = 0;
-  };
+  boot.kernelParams = [
+    "i915.enable_dpcd_backlight=3"
+    "xe.enable_dpcd_backlight=3"
+  ];
 
   hardware = {
     graphics.extraPackages = with pkgs; [ intel-media-driver ];
