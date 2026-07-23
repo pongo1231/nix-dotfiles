@@ -113,7 +113,6 @@ args:
     dbus = {
       enable = true;
       implementation = "broker";
-      apparmor = "enabled";
     };
 
     openssh = {
@@ -163,11 +162,6 @@ args:
 
   security = {
     protectKernelImage = true;
-
-    apparmor = {
-      enable = true;
-      killUnconfinedConfinables = true;
-    };
 
     rtkit.enable = true;
 
