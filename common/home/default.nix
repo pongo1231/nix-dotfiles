@@ -88,7 +88,6 @@ args:
     sessionVariables.EDITOR = "micro";
 
     packages = with pkgs; [
-      ssh-to-age
       btop
       p7zip
       pciutils
@@ -108,27 +107,20 @@ args:
       nvd
       manix
       deadnix
-      nixos-generators
-      nix-melt
       nurl
       statix
       duperemove
       compsize
       git-extras
-      nix-output-monitor
       reptyr
       inputs.nix-alien.packages.${pkgs.stdenv.hostPlatform.system}.nix-alien
-      b4
-      nix-serve-ng
       ps_mem
       procps
       borgbackup
       dix
-      mosh
       bubblewrap
       nixos-shell
       udp-reverse-tunnel
-      npins
       psmisc
     ];
   };

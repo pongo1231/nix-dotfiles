@@ -65,6 +65,7 @@
             nixfmt
             nixd
             sops
+            ssh-to-age
           ];
         };
         packages = pkgs.extend overlay;
