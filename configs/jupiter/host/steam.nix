@@ -83,6 +83,8 @@
       enable = true;
       enableFHSEnvironment = true;
 
+      package = pkgs.decky-loader-prerelease;
+
       user = "pongo";
 
       extraPackages = with pkgs; [
