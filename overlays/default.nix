@@ -63,6 +63,17 @@ in
     ];
   };
 
+  # vaultwarden 1.36.0 ships a legacy `data` object in the cipher sync payload.
+  # Bitwarden clients v2026.6.4+ (WASM SDK 0.2.0, browser extension 2026.7.0)
+  # reuse `data` for blob encryption and now expect a string, so deserialization
+  # fails and the vault never loads ("invalid type ... expected a string").
+  # See https://github.com/dani-garcia/vaultwarden/pull/7434
+  vaultwarden = prev.vaultwarden.overrideAttrs (prevAttrs: {
+    patches = (prevAttrs.patches or [ ]) ++ [
+      (patch /vaultwarden/remove-old-compat-data.patch)
+    ];
+  });
+
   ryzenadj = prev.ryzenadj.overrideAttrs {
     src = final.fetchFromGitHub {
       owner = "FlyGoat";

@@ -1,0 +1,40 @@
+From 4a9bcb069465e20e487c5e8cad6fdad8b2301a94 Mon Sep 17 00:00:00 2001
+From: Timshel <github@mailtm.org>
+Date: Tue, 21 Jul 2026 17:59:40 +0000
+Subject: [PATCH] Remove old compatibility code (#7434)
+
+Co-authored-by: Timshel <timshel@users.noreply.github.com>
+---
+ src/db/models/cipher.rs | 12 ------------
+ 1 file changed, 12 deletions(-)
+
+diff --git a/src/db/models/cipher.rs b/src/db/models/cipher.rs
+index 8357c9ebf3..2fa6260ae2 100644
+--- a/src/db/models/cipher.rs
++++ b/src/db/models/cipher.rs
+@@ -306,16 +306,6 @@ impl Cipher {
+             type_data_json = Value::Null;
+         }
+ 
+-        // Clone the type_data and add some default value.
+-        let mut data_json = type_data_json.clone();
+-
+-        // NOTE: This was marked as *Backwards Compatibility Code*, but as of January 2021 this is still being used by upstream
+-        // data_json should always contain the following keys with every atype
+-        data_json["fields"] = json!(fields_json);
+-        data_json["name"] = json!(self.name);
+-        data_json["notes"] = json!(self.notes);
+-        data_json["passwordHistory"] = Value::Array(password_history_json.clone());
+-
+         let collection_ids = if let Some(cipher_sync_data) = cipher_sync_data {
+             if let Some(cipher_collections) = cipher_sync_data.cipher_collections.get(&self.uuid) {
+                 Cow::from(cipher_collections)
+@@ -355,8 +345,6 @@ impl Cipher {
+             "notes": self.notes,
+             "fields": fields_json,
+ 
+-            "data": data_json,
+-
+             "passwordHistory": password_history_json,
+ 
+             // All Cipher types are included by default as null, but only the matching one will be populated
