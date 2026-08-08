@@ -1,0 +1,17 @@
+diff --git a/meson.build b/meson.build
+index 75bed36..f26eec6 100644
+--- a/meson.build
++++ b/meson.build
+@@ -360,10 +360,8 @@ with_vdrm = [
+ ].contains(true)
+ 
+ if with_virtio_vk
+-  dep_venus_protocol = dependency('venus-protocol',
+-    version : '== 1.1',
+-    fallback : ['venus-protocol', 'dep_vn_protocol_driver'],
+-    required : true
++  dep_venus_protocol = declare_dependency(
++    include_directories: include_directories('src/virtio/venus-protocol')
+   )
+ endif
+ 
