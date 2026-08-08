@@ -10,7 +10,7 @@
     kernelParams = [
       "amd_iommu=on"
       "iommu=pt"
-      "amd_pstate=guided"
+      "amd_pstate=active"
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [
