@@ -38,14 +38,14 @@
         };
       }).overrideAttrs
         (prev: {
-          version = "26.1-git";
+          version = "26.2-git";
 
           src = pkgs.fetchFromGitLab {
             domain = "gitlab.freedesktop.org";
             owner = "mesa";
             repo = "mesa";
-            rev = "057132b93b6c1b0d4da2efac1b285e75e9aa0e29";
-            hash = "sha256-/HLA2Am1HTyBpabHgZRfja5muM40H8kOtofmOa/xf4c=";
+            rev = "fdaeb5a757599841ec9c95a548f8849066bd2fc3";
+            hash = "sha256-i5RDzDbR4lgwwaQ3DaSppdodKxZwBHjfZjcvRops5ls=";
           };
 
           venusProtocolSrc = pkgs.fetchFromGitLab {
