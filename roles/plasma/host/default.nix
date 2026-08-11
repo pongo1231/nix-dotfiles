@@ -32,7 +32,6 @@
         ocs-url
         krfb # for the "Virtual Display" button in kde connect to work
         maliit-keyboard
-        qtstyleplugin-kvantum
 
         # for KDE info center
         clinfo
