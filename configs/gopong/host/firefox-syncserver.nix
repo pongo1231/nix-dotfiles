@@ -47,6 +47,7 @@ withSecrets "pongo" { store = "gopong/firefox-syncserver.env"; } {
           );
 
       secrets = config.sops.secrets."firefox-syncserver".path;
+      database.type = "mysql";
       singleNode = {
         enable = true;
         hostname = "firefox-syncserver.${config.networking.fqdn}";
