@@ -73,12 +73,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.2.0-rc3";
+                      modDirVersion = "7.2.0-rc7";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "a13c140cc289c0b7b3770bce5b3ad42ab35074aa";
-                        hash = "sha256-jWei6nbIWiO7D5IsSGF2CZl4LhzLg2cwXTNiqq79xtk=";
+                        rev = "f5bbbfec59b4e2fb7520a91de3df8a6174325d6a";
+                        hash = "sha256-RlHXk1Vo2KkQQ4zlbdodgi9BqOtf9BfegE5jFyXTmAA=";
                       };
                     };
                 };
@@ -162,11 +162,19 @@ in
           patch = patch /linux/sched-core-tip.patch;
         }
         {
+          name = "sched: fix cluster scheduling in presence of asymmetric capacity (v6)";
+          patch = patch /linux/20260720_rneri_fix_cas_clusters_sched.patch;
+        }
+        {
           name = "core/entry tip";
           patch = patch /linux/core-entry-tip.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
+        {
+          name = "x86/kcfi: optimize call sequence";
+          patch = patch /linux/x86-kcfi-optimize-call-sequence.patch;
+        }
         {
           name = "x86_64 levels";
           patch = pkgs.fetchpatch {
