@@ -11,7 +11,10 @@
         # GetUsrDir() moved back to src/Utils/DirHelpers.cpp
         fixGamescopePatches = prev': {
           patches = [
-            ../../../patches/gamescope/wlroots-libinput-switch.patch
+            # wlroots-libinput-switch.patch was dropped: bundled wlroots in
+            # gamescope 3.16.25 refactored handle_switch_toggle() to use a
+            # switch_type_from_libinput() helper which returns false for
+            # unknown types (the fix the patch used to provide is now built-in).
           ]
           ++ builtins.filter (p: !(prev.lib.hasSuffix "shaders-path.patch" (toString p))) prev'.patches;
 
