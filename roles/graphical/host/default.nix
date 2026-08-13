@@ -8,7 +8,7 @@
 {
   imports = [
     ./bluetooth.nix
-    ./mesa.nix
+    ./mesa_git.nix
   ];
 
   boot = {
@@ -24,7 +24,6 @@
 
     graphics = {
       enable = true;
-      enable32Bit = true;
 
       extraPackages = with pkgs; [ lsfg-vk ];
     };
