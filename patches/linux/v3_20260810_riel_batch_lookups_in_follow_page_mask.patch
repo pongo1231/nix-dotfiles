@@ -1,0 +1,1735 @@
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 1/8] mm/gup: break out gup_fill_pages() helper
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:50 -0400
+Message-Id: <20260811025157.1632867-2-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+__get_user_pages() fills pages[] and flushes each page's caches in an
+open-coded loop.
+
+Move it into a gup_fill_pages() helper, which the follow_page_mask()
+call chain can then use to fill its own pages[] slots.
+
+No functional changes intended.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index 0692119b7904..7bb40be89529 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -633,6 +633,23 @@ static struct page *no_page_table(struct vm_area_struct *vma,
+ 	return NULL;
+ }
+ 
++static void gup_fill_pages(struct vm_area_struct *vma, unsigned long address,
++		struct page *page, unsigned long nr, struct page **pages)
++{
++	unsigned long i;
++
++	if (!pages)
++		return;
++
++	for (i = 0; i < nr; i++) {
++		struct page *subpage = page + i;
++
++		pages[i] = subpage;
++		flush_anon_page(vma, subpage, address + i * PAGE_SIZE);
++		flush_dcache_page(subpage);
++	}
++}
++
+ #ifdef CONFIG_PGTABLE_HAS_HUGE_LEAVES
+ /* FOLL_FORCE can write to even unwritable PUDs in COW mappings. */
+ static inline bool can_follow_write_pud(pud_t pud, struct page *page,
+@@ -1461,9 +1478,6 @@ static long __get_user_pages(struct mm_struct *mm,
+ 			page_increm = nr_pages;
+ 
+ 		if (pages) {
+-			struct page *subpage;
+-			unsigned int j;
+-
+ 			/*
+ 			 * This must be a large folio (and doesn't need to
+ 			 * be the whole folio; it can be part of it), do
+@@ -1493,12 +1507,7 @@ static long __get_user_pages(struct mm_struct *mm,
+ 				}
+ 			}
+ 
+-			for (j = 0; j < page_increm; j++) {
+-				subpage = page + j;
+-				pages[i + j] = subpage;
+-				flush_anon_page(vma, subpage, start + j * PAGE_SIZE);
+-				flush_dcache_page(subpage);
+-			}
++			gup_fill_pages(vma, start, page, page_increm, pages + i);
+ 		}
+ 
+ 		i += page_increm;
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 2/8] mm/gup: convert follow_page_mask() to return a
+ long
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:51 -0400
+Message-Id: <20260811025157.1632867-3-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_page_mask() and its helpers return a struct page pointer: NULL,
+ERR_PTR(), or the page found. Change the return type to long instead:
+0, a negative errno, or 1 with the page stored in a new pages[0] slot.
+
+This lets the return value carry a page count rather than a single
+struct page pointer.
+
+follow_huge_pud(), follow_huge_pmd() and follow_page_pte() now fill
+their slot with gup_fill_pages(); __get_user_pages() reads pages[i]
+back to still expand a large folio's remaining subpages itself. The
+vsyscall gate area, which bypasses follow_page_mask(), fills its own
+slot the same way.
+
+*page_mask and __get_user_pages()'s handling of a large folio's
+remaining subpages are untouched, and mm/gup_test.c
+(PIN_LONGTERM_BENCHMARK) shows no measurable difference for 4 kB,
+64 kB mTHP, or 2 MB THP.
+
+No functional changes intended.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 254 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 134 insertions(+), 120 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index 7bb40be89529..e4e6d0993424 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -608,15 +608,15 @@ static inline bool can_follow_write_common(struct page *page,
+ 	return page && PageAnon(page) && PageAnonExclusive(page);
+ }
+ 
+-static struct page *no_page_table(struct vm_area_struct *vma,
+-				  unsigned int flags, unsigned long address)
++static long no_page_table(struct vm_area_struct *vma,
++		unsigned int flags, unsigned long address)
+ {
+ 	if (!(flags & FOLL_DUMP))
+-		return NULL;
++		return 0;
+ 
+ 	/*
+ 	 * When core dumping, we don't want to allocate unnecessary pages or
+-	 * page tables.  Return error instead of NULL to skip handle_mm_fault,
++	 * page tables.  Return error instead of 0 to skip handle_mm_fault,
+ 	 * then get_dump_page() will return NULL to leave a hole in the dump.
+ 	 * But we can only make this optimization where a hole would surely
+ 	 * be zero-filled if handle_mm_fault() actually did handle it.
+@@ -625,12 +625,12 @@ static struct page *no_page_table(struct vm_area_struct *vma,
+ 		struct hstate *h = hstate_vma(vma);
+ 
+ 		if (!hugetlbfs_pagecache_present(h, vma, address))
+-			return ERR_PTR(-EFAULT);
++			return -EFAULT;
+ 	} else if ((vma_is_anonymous(vma) || !vma->vm_ops->fault)) {
+-		return ERR_PTR(-EFAULT);
++		return -EFAULT;
+ 	}
+ 
+-	return NULL;
++	return 0;
+ }
+ 
+ static void gup_fill_pages(struct vm_area_struct *vma, unsigned long address,
+@@ -663,9 +663,10 @@ static inline bool can_follow_write_pud(pud_t pud, struct page *page,
+ 	return can_follow_write_common(page, vma, flags);
+ }
+ 
+-static struct page *follow_huge_pud(struct vm_area_struct *vma,
+-				    unsigned long addr, pud_t *pudp,
+-				    int flags, unsigned long *page_mask)
++static long follow_huge_pud(struct vm_area_struct *vma,
++		unsigned long addr, pud_t *pudp,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	struct page *page;
+@@ -676,25 +677,27 @@ static struct page *follow_huge_pud(struct vm_area_struct *vma,
+ 	assert_spin_locked(pud_lockptr(mm, pudp));
+ 
+ 	if (!pud_present(pud))
+-		return NULL;
++		return 0;
+ 
+ 	if ((flags & FOLL_WRITE) &&
+ 	    !can_follow_write_pud(pud, pfn_to_page(pfn), vma, flags))
+-		return NULL;
++		return 0;
+ 
+ 	pfn += (addr & ~PUD_MASK) >> PAGE_SHIFT;
+ 	page = pfn_to_page(pfn);
+ 
+ 	if (!pud_write(pud) && gup_must_unshare(vma, flags, page))
+-		return ERR_PTR(-EMLINK);
++		return -EMLINK;
+ 
+ 	ret = try_grab_folio(page_folio(page), 1, flags);
+ 	if (ret)
+-		page = ERR_PTR(ret);
+-	else
+-		*page_mask = HPAGE_PUD_NR - 1;
++		return ret;
+ 
+-	return page;
++	*page_mask = HPAGE_PUD_NR - 1;
++
++	gup_fill_pages(vma, addr, page, 1, pages);
++
++	return 1;
+ }
+ 
+ /* FOLL_FORCE can write to even unwritable PMDs in COW mappings. */
+@@ -715,10 +718,10 @@ static inline bool can_follow_write_pmd(pmd_t pmd, struct page *page,
+ 	return !userfaultfd_huge_pmd_wp(vma, pmd);
+ }
+ 
+-static struct page *follow_huge_pmd(struct vm_area_struct *vma,
+-				    unsigned long addr, pmd_t *pmd,
+-				    unsigned int flags,
+-				    unsigned long *page_mask)
++static long follow_huge_pmd(struct vm_area_struct *vma,
++		unsigned long addr, pmd_t *pmd,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	pmd_t pmdval = *pmd;
+@@ -730,24 +733,24 @@ static struct page *follow_huge_pmd(struct vm_area_struct *vma,
+ 	page = pmd_page(pmdval);
+ 	if ((flags & FOLL_WRITE) &&
+ 	    !can_follow_write_pmd(pmdval, page, vma, flags))
+-		return NULL;
++		return 0;
+ 
+ 	/* Avoid dumping huge zero page */
+ 	if ((flags & FOLL_DUMP) && is_huge_zero_pmd(pmdval))
+-		return ERR_PTR(-EFAULT);
++		return -EFAULT;
+ 
+ 	if (pmd_protnone(*pmd) && !gup_can_follow_protnone(vma, flags))
+-		return NULL;
++		return 0;
+ 
+ 	if (!pmd_write(pmdval) && gup_must_unshare(vma, flags, page))
+-		return ERR_PTR(-EMLINK);
++		return -EMLINK;
+ 
+ 	VM_WARN_ON_ONCE_PAGE((flags & FOLL_PIN) && PageAnon(page) &&
+ 			     !PageAnonExclusive(page), page);
+ 
+ 	ret = try_grab_folio(page_folio(page), 1, flags);
+ 	if (ret)
+-		return ERR_PTR(ret);
++		return ret;
+ 
+ #ifdef CONFIG_TRANSPARENT_HUGEPAGE
+ 	if (pmd_trans_huge(pmdval) && (flags & FOLL_TOUCH))
+@@ -757,23 +760,26 @@ static struct page *follow_huge_pmd(struct vm_area_struct *vma,
+ 	page += (addr & ~HPAGE_PMD_MASK) >> PAGE_SHIFT;
+ 	*page_mask = HPAGE_PMD_NR - 1;
+ 
+-	return page;
++	gup_fill_pages(vma, addr, page, 1, pages);
++
++	return 1;
+ }
+ 
+ #else  /* CONFIG_PGTABLE_HAS_HUGE_LEAVES */
+-static struct page *follow_huge_pud(struct vm_area_struct *vma,
+-				    unsigned long addr, pud_t *pudp,
+-				    int flags, unsigned long *page_mask)
++static long follow_huge_pud(struct vm_area_struct *vma,
++		unsigned long addr, pud_t *pudp,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+-	return NULL;
++	return 0;
+ }
+ 
+-static struct page *follow_huge_pmd(struct vm_area_struct *vma,
+-				    unsigned long addr, pmd_t *pmd,
+-				    unsigned int flags,
+-				    unsigned long *page_mask)
++static long follow_huge_pmd(struct vm_area_struct *vma,
++		unsigned long addr, pmd_t *pmd,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+-	return NULL;
++	return 0;
+ }
+ #endif	/* CONFIG_PGTABLE_HAS_HUGE_LEAVES */
+ 
+@@ -816,15 +822,16 @@ static inline bool can_follow_write_pte(pte_t pte, struct page *page,
+ 	return !userfaultfd_pte_wp(vma, pte);
+ }
+ 
+-static struct page *follow_page_pte(struct vm_area_struct *vma,
+-		unsigned long address, pmd_t *pmd, unsigned int flags)
++static long follow_page_pte(struct vm_area_struct *vma,
++		unsigned long address, pmd_t *pmd, unsigned int flags,
++		struct page **pages)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	struct folio *folio;
+ 	struct page *page;
+ 	spinlock_t *ptl;
+ 	pte_t *ptep, pte;
+-	int ret;
++	long ret;
+ 
+ 	ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
+ 	if (!ptep)
+@@ -842,14 +849,14 @@ static struct page *follow_page_pte(struct vm_area_struct *vma,
+ 	 */
+ 	if ((flags & FOLL_WRITE) &&
+ 	    !can_follow_write_pte(pte, page, vma, flags)) {
+-		page = NULL;
++		ret = 0;
+ 		goto out;
+ 	}
+ 
+ 	if (unlikely(!page)) {
+ 		if (flags & FOLL_DUMP) {
+ 			/* Avoid special (like zero) pages in core dumps */
+-			page = ERR_PTR(-EFAULT);
++			ret = -EFAULT;
+ 			goto out;
+ 		}
+ 
+@@ -857,14 +864,13 @@ static struct page *follow_page_pte(struct vm_area_struct *vma,
+ 			page = pte_page(pte);
+ 		} else {
+ 			ret = follow_pfn_pte(vma, address, ptep, flags);
+-			page = ERR_PTR(ret);
+ 			goto out;
+ 		}
+ 	}
+ 	folio = page_folio(page);
+ 
+ 	if (!pte_write(pte) && gup_must_unshare(vma, flags, page)) {
+-		page = ERR_PTR(-EMLINK);
++		ret = -EMLINK;
+ 		goto out;
+ 	}
+ 
+@@ -873,10 +879,8 @@ static struct page *follow_page_pte(struct vm_area_struct *vma,
+ 
+ 	/* try_grab_folio() does nothing unless FOLL_GET or FOLL_PIN is set. */
+ 	ret = try_grab_folio(folio, 1, flags);
+-	if (unlikely(ret)) {
+-		page = ERR_PTR(ret);
++	if (unlikely(ret))
+ 		goto out;
+-	}
+ 
+ 	/*
+ 	 * We need to make the page accessible if and only if we are going
+@@ -886,8 +890,7 @@ static struct page *follow_page_pte(struct vm_area_struct *vma,
+ 	if (flags & FOLL_PIN) {
+ 		ret = arch_make_folio_accessible(folio);
+ 		if (ret) {
+-			unpin_user_page(page);
+-			page = ERR_PTR(ret);
++			gup_put_folio(folio, 1, flags);
+ 			goto out;
+ 		}
+ 	}
+@@ -902,24 +905,27 @@ static struct page *follow_page_pte(struct vm_area_struct *vma,
+ 		 */
+ 		folio_mark_accessed(folio);
+ 	}
++
++	gup_fill_pages(vma, address, page, 1, pages);
++	ret = 1;
+ out:
+ 	pte_unmap_unlock(ptep, ptl);
+-	return page;
++	return ret;
+ no_page:
+ 	pte_unmap_unlock(ptep, ptl);
+ 	if (!pte_none(pte))
+-		return NULL;
++		return 0;
+ 	return no_page_table(vma, flags, address);
+ }
+ 
+-static struct page *follow_pmd_mask(struct vm_area_struct *vma,
+-				    unsigned long address, pud_t *pudp,
+-				    unsigned int flags,
+-				    unsigned long *page_mask)
++static long follow_pmd_mask(struct vm_area_struct *vma,
++		unsigned long address, pud_t *pudp,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+ 	pmd_t *pmd, pmdval;
+ 	spinlock_t *ptl;
+-	struct page *page;
++	long ret;
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+ 	pmd = pmd_offset(pudp, address);
+@@ -929,7 +935,7 @@ static struct page *follow_pmd_mask(struct vm_area_struct *vma,
+ 	if (!pmd_present(pmdval))
+ 		return no_page_table(vma, flags, address);
+ 	if (likely(!pmd_leaf(pmdval)))
+-		return follow_page_pte(vma, address, pmd, flags);
++		return follow_page_pte(vma, address, pmd, flags, pages);
+ 
+ 	if (pmd_protnone(pmdval) && !gup_can_follow_protnone(vma, flags))
+ 		return no_page_table(vma, flags, address);
+@@ -942,28 +948,28 @@ static struct page *follow_pmd_mask(struct vm_area_struct *vma,
+ 	}
+ 	if (unlikely(!pmd_leaf(pmdval))) {
+ 		spin_unlock(ptl);
+-		return follow_page_pte(vma, address, pmd, flags);
++		return follow_page_pte(vma, address, pmd, flags, pages);
+ 	}
+ 	if (pmd_trans_huge(pmdval) && (flags & FOLL_SPLIT_PMD)) {
+ 		spin_unlock(ptl);
+ 		split_huge_pmd(vma, pmd, address);
+ 		/* If pmd was left empty, stuff a page table in there quickly */
+-		return pte_alloc(mm, pmd) ? ERR_PTR(-ENOMEM) :
+-			follow_page_pte(vma, address, pmd, flags);
++		return pte_alloc(mm, pmd) ? -ENOMEM :
++			follow_page_pte(vma, address, pmd, flags, pages);
+ 	}
+-	page = follow_huge_pmd(vma, address, pmd, flags, page_mask);
++	ret = follow_huge_pmd(vma, address, pmd, flags, page_mask, pages);
+ 	spin_unlock(ptl);
+-	return page;
++	return ret;
+ }
+ 
+-static struct page *follow_pud_mask(struct vm_area_struct *vma,
+-				    unsigned long address, p4d_t *p4dp,
+-				    unsigned int flags,
+-				    unsigned long *page_mask)
++static long follow_pud_mask(struct vm_area_struct *vma,
++		unsigned long address, p4d_t *p4dp,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+ 	pud_t *pudp, pud;
+ 	spinlock_t *ptl;
+-	struct page *page;
++	long ret;
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+ 	pudp = pud_offset(p4dp, address);
+@@ -972,22 +978,22 @@ static struct page *follow_pud_mask(struct vm_area_struct *vma,
+ 		return no_page_table(vma, flags, address);
+ 	if (pud_leaf(pud)) {
+ 		ptl = pud_lock(mm, pudp);
+-		page = follow_huge_pud(vma, address, pudp, flags, page_mask);
++		ret = follow_huge_pud(vma, address, pudp, flags, page_mask, pages);
+ 		spin_unlock(ptl);
+-		if (page)
+-			return page;
++		if (ret)
++			return ret;
+ 		return no_page_table(vma, flags, address);
+ 	}
+ 	if (unlikely(pud_bad(pud)))
+ 		return no_page_table(vma, flags, address);
+ 
+-	return follow_pmd_mask(vma, address, pudp, flags, page_mask);
++	return follow_pmd_mask(vma, address, pudp, flags, page_mask, pages);
+ }
+ 
+-static struct page *follow_p4d_mask(struct vm_area_struct *vma,
+-				    unsigned long address, pgd_t *pgdp,
+-				    unsigned int flags,
+-				    unsigned long *page_mask)
++static long follow_p4d_mask(struct vm_area_struct *vma,
++		unsigned long address, pgd_t *pgdp,
++		unsigned int flags, unsigned long *page_mask,
++		struct page **pages)
+ {
+ 	p4d_t *p4dp, p4d;
+ 
+@@ -998,7 +1004,7 @@ static struct page *follow_p4d_mask(struct vm_area_struct *vma,
+ 	if (!p4d_present(p4d) || p4d_bad(p4d))
+ 		return no_page_table(vma, flags, address);
+ 
+-	return follow_pud_mask(vma, address, p4dp, flags, page_mask);
++	return follow_pud_mask(vma, address, p4dp, flags, page_mask, pages);
+ }
+ 
+ /**
+@@ -1007,6 +1013,9 @@ static struct page *follow_p4d_mask(struct vm_area_struct *vma,
+  * @address: virtual address to look up
+  * @flags: flags modifying lookup behaviour
+  * @page_mask: a pointer to output page_mask
++ * @pages: array to receive the page found, refcounted per @flags, or NULL
++ *         to walk the page tables (e.g. to fault pages in) without
++ *         collecting or refcounting them
+  *
+  * @flags can have FOLL_ flags set, defined in <linux/mm.h>
+  *
+@@ -1017,17 +1026,17 @@ static struct page *follow_p4d_mask(struct vm_area_struct *vma,
+  *
+  * On output, @page_mask is set according to the size of the page.
+  *
+- * Return: the mapped (struct page *), %NULL if no mapping exists, or
+- * an error pointer if there is a mapping to something not represented
+- * by a page descriptor (see also vm_normal_page()).
++ * Return: 1 with @pages[0] filled in if a page was found, 0 if no mapping
++ * exists at @address, or a negative errno for a mapping to something not
++ * represented by a page descriptor (see also vm_normal_page()).
+  */
+-static struct page *follow_page_mask(struct vm_area_struct *vma,
+-			      unsigned long address, unsigned int flags,
+-			      unsigned long *page_mask)
++static long follow_page_mask(struct vm_area_struct *vma,
++		unsigned long address, unsigned int flags,
++		unsigned long *page_mask, struct page **pages)
+ {
+ 	pgd_t *pgd;
+ 	struct mm_struct *mm = vma->vm_mm;
+-	struct page *page;
++	long ret;
+ 
+ 	vma_pgtable_walk_begin(vma);
+ 
+@@ -1035,13 +1044,13 @@ static struct page *follow_page_mask(struct vm_area_struct *vma,
+ 	pgd = pgd_offset(mm, address);
+ 
+ 	if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd)))
+-		page = no_page_table(vma, flags, address);
++		ret = no_page_table(vma, flags, address);
+ 	else
+-		page = follow_p4d_mask(vma, address, pgd, flags, page_mask);
++		ret = follow_p4d_mask(vma, address, pgd, flags, page_mask, pages);
+ 
+ 	vma_pgtable_walk_end(vma);
+ 
+-	return page;
++	return ret;
+ }
+ 
+ static int get_gate_page(struct mm_struct *mm, unsigned long address,
+@@ -1391,6 +1400,7 @@ static long __get_user_pages(struct mm_struct *mm,
+ 	do {
+ 		struct page *page;
+ 		unsigned int page_increm;
++		long nr;
+ 
+ 		/* first iteration or cross vma bound */
+ 		if (!vma || start >= vma->vm_end) {
+@@ -1417,8 +1427,12 @@ static long __get_user_pages(struct mm_struct *mm,
+ 						pages ? &page : NULL);
+ 				if (ret)
+ 					goto out;
+-				page_mask = 0;
+-				goto next_page;
++				gup_fill_pages(vma, start, page, 1,
++					       pages ? pages + i : NULL);
++				i++;
++				start += PAGE_SIZE;
++				nr_pages--;
++				continue;
+ 			}
+ 
+ 			if (!vma) {
+@@ -1440,10 +1454,11 @@ static long __get_user_pages(struct mm_struct *mm,
+ 		}
+ 		cond_resched();
+ 
+-		page = follow_page_mask(vma, start, gup_flags, &page_mask);
+-		if (!page || PTR_ERR(page) == -EMLINK) {
++		nr = follow_page_mask(vma, start, gup_flags, &page_mask,
++				      pages ? &pages[i] : NULL);
++		if (!nr || nr == -EMLINK) {
+ 			ret = faultin_page(vma, start, gup_flags,
+-					   PTR_ERR(page) == -EMLINK, locked);
++					   nr == -EMLINK, locked);
+ 			switch (ret) {
+ 			case 0:
+ 				goto retry;
+@@ -1457,7 +1472,7 @@ static long __get_user_pages(struct mm_struct *mm,
+ 				goto out;
+ 			}
+ 			BUG();
+-		} else if (PTR_ERR(page) == -EEXIST) {
++		} else if (nr == -EEXIST) {
+ 			/*
+ 			 * Proper page table entry exists, but no corresponding
+ 			 * struct page. If the caller expects **pages to be
+@@ -1465,49 +1480,48 @@ static long __get_user_pages(struct mm_struct *mm,
+ 			 * for this page.
+ 			 */
+ 			if (pages) {
+-				ret = PTR_ERR(page);
++				ret = nr;
+ 				goto out;
+ 			}
+-		} else if (IS_ERR(page)) {
+-			ret = PTR_ERR(page);
++		} else if (nr < 0) {
++			ret = nr;
+ 			goto out;
+ 		}
+-next_page:
++
+ 		page_increm = 1 + (~(start >> PAGE_SHIFT) & page_mask);
+ 		if (page_increm > nr_pages)
+ 			page_increm = nr_pages;
+ 
+-		if (pages) {
++		/*
++		 * This must be a large folio (and doesn't need to
++		 * be the whole folio; it can be part of it), do
++		 * the refcount work for all the subpages too.
++		 *
++		 * NOTE: here the page may not be the head page
++		 * e.g. when start addr is not thp-size aligned.
++		 * try_grab_folio() should have taken care of tail
++		 * pages.
++		 */
++		if (pages && page_increm > 1) {
++			struct folio *folio = page_folio(pages[i]);
++
+ 			/*
+-			 * This must be a large folio (and doesn't need to
+-			 * be the whole folio; it can be part of it), do
+-			 * the refcount work for all the subpages too.
+-			 *
+-			 * NOTE: here the page may not be the head page
+-			 * e.g. when start addr is not thp-size aligned.
+-			 * try_grab_folio() should have taken care of tail
+-			 * pages.
++			 * Since we already hold refcount on the
++			 * large folio, this should never fail.
+ 			 */
+-			if (page_increm > 1) {
+-				struct folio *folio = page_folio(page);
+-
++			if (try_grab_folio(folio, page_increm - 1,
++					   gup_flags)) {
+ 				/*
+-				 * Since we already hold refcount on the
+-				 * large folio, this should never fail.
++				 * Release the 1st page ref if the
++				 * folio is problematic, fail hard.
+ 				 */
+-				if (try_grab_folio(folio, page_increm - 1,
+-						   gup_flags)) {
+-					/*
+-					 * Release the 1st page ref if the
+-					 * folio is problematic, fail hard.
+-					 */
+-					gup_put_folio(folio, 1, gup_flags);
+-					ret = -EFAULT;
+-					goto out;
+-				}
++				gup_put_folio(folio, 1, gup_flags);
++				ret = -EFAULT;
++				goto out;
+ 			}
+ 
+-			gup_fill_pages(vma, start, page, page_increm, pages + i);
++			gup_fill_pages(vma, start + PAGE_SIZE, pages[i] + 1,
++				       page_increm - 1, pages + i + 1);
+ 		}
+ 
+ 		i += page_increm;
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 3/8] mm/gup: split follow_page_pte_commit() out of
+ follow_page_pte()
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:52 -0400
+Message-Id: <20260811025157.1632867-4-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_page_pte() does two things once it has resolved a present PTE
+to a page: run the per-PTE safety checks (write-fault, unshare), then
+commit to that page: grab a ref, fault it in if pinning, mark it
+dirty/accessed, and hand it back to the caller.
+
+Split the second part into its own follow_page_pte_commit(), unchanged
+except for taking its inputs as parameters instead of local variables,
+so the checks and the commit can be applied at different granularities.
+
+No functional changes intended.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 78 +++++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 49 insertions(+), 29 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index e4e6d0993424..b755ceaac0f5 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -822,6 +822,52 @@ static inline bool can_follow_write_pte(pte_t pte, struct page *page,
+ 	return !userfaultfd_pte_wp(vma, pte);
+ }
+ 
++/*
++ * The caller has already run every per-PTE safety check (present,
++ * write-fault, gup_must_unshare()) on the PTE, so this only does the
++ * per-folio work: the refcount grab, the FOLL_PIN accessibility fault-in,
++ * dirty/accessed marking, and the array fill with the cache flush.
++ */
++static long follow_page_pte_commit(struct vm_area_struct *vma,
++		unsigned long address, struct folio *folio, struct page *page,
++		pte_t pte, unsigned int flags, struct page **pages)
++{
++	long ret;
++
++	/* try_grab_folio() does nothing unless FOLL_GET or FOLL_PIN is set. */
++	ret = try_grab_folio(folio, 1, flags);
++	if (unlikely(ret))
++		return ret;
++
++	/*
++	 * We need to make the page accessible if and only if we are going
++	 * to access its content (the FOLL_PIN case).  Please see
++	 * Documentation/core-api/pin_user_pages.rst for details.
++	 */
++	if (flags & FOLL_PIN) {
++		ret = arch_make_folio_accessible(folio);
++		if (ret) {
++			gup_put_folio(folio, 1, flags);
++			return ret;
++		}
++	}
++	if (flags & FOLL_TOUCH) {
++		if ((flags & FOLL_WRITE) &&
++		    !pte_dirty(pte) && !folio_test_dirty(folio))
++			folio_mark_dirty(folio);
++		/*
++		 * pte_mkyoung() would be more correct here, but atomic care
++		 * is needed to avoid losing the dirty bit: it is easier to use
++		 * folio_mark_accessed().
++		 */
++		folio_mark_accessed(folio);
++	}
++
++	gup_fill_pages(vma, address, page, 1, pages);
++
++	return 0;
++}
++
+ static long follow_page_pte(struct vm_area_struct *vma,
+ 		unsigned long address, pmd_t *pmd, unsigned int flags,
+ 		struct page **pages)
+@@ -877,36 +923,10 @@ static long follow_page_pte(struct vm_area_struct *vma,
+ 	VM_WARN_ON_ONCE_PAGE((flags & FOLL_PIN) && PageAnon(page) &&
+ 			     !PageAnonExclusive(page), page);
+ 
+-	/* try_grab_folio() does nothing unless FOLL_GET or FOLL_PIN is set. */
+-	ret = try_grab_folio(folio, 1, flags);
+-	if (unlikely(ret))
++	ret = follow_page_pte_commit(vma, address, folio, page, pte, flags,
++				     pages);
++	if (ret)
+ 		goto out;
+-
+-	/*
+-	 * We need to make the page accessible if and only if we are going
+-	 * to access its content (the FOLL_PIN case).  Please see
+-	 * Documentation/core-api/pin_user_pages.rst for details.
+-	 */
+-	if (flags & FOLL_PIN) {
+-		ret = arch_make_folio_accessible(folio);
+-		if (ret) {
+-			gup_put_folio(folio, 1, flags);
+-			goto out;
+-		}
+-	}
+-	if (flags & FOLL_TOUCH) {
+-		if ((flags & FOLL_WRITE) &&
+-		    !pte_dirty(pte) && !folio_test_dirty(folio))
+-			folio_mark_dirty(folio);
+-		/*
+-		 * pte_mkyoung() would be more correct here, but atomic care
+-		 * is needed to avoid losing the dirty bit: it is easier to use
+-		 * folio_mark_accessed().
+-		 */
+-		folio_mark_accessed(folio);
+-	}
+-
+-	gup_fill_pages(vma, address, page, 1, pages);
+ 	ret = 1;
+ out:
+ 	pte_unmap_unlock(ptep, ptl);
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 4/8] mm/gup: break out follow_one_pte() helper
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:53 -0400
+Message-Id: <20260811025157.1632867-5-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_page_pte() is 92 lines and does two separate things: work out
+which page a PTE maps, if any, and commit to the page it found. The
+first half reaches the second through five exit paths, two of which
+unwind the PTE lock in different ways.
+
+Split the resolve half into follow_one_pte(), which returns the page it
+resolved, NULL when the PTE cannot be followed, or the errno the caller
+must report. follow_page_pte() is left with one unlock and one exit.
+
+no_page_table() can look up the page cache, so the case that needs it is
+recorded and the call made after dropping the PTE lock, as before.
+
+No functional changes intended.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 100 +++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 56 insertions(+), 44 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index b755ceaac0f5..5af6a23285de 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -868,74 +868,86 @@ static long follow_page_pte_commit(struct vm_area_struct *vma,
+ 	return 0;
+ }
+ 
+-static long follow_page_pte(struct vm_area_struct *vma,
+-		unsigned long address, pmd_t *pmd, unsigned int flags,
+-		struct page **pages)
++/*
++ * Resolve one present PTE to the page it maps. Returns no page and no error
++ * when the PTE cannot be followed but the caller may fault it in, and a
++ * negative errno when the caller must report the failure.
++ */
++static long follow_one_pte(struct vm_area_struct *vma, unsigned long address,
++		pte_t *ptep, pte_t pte, unsigned int flags, struct page **pagep)
+ {
+-	struct mm_struct *mm = vma->vm_mm;
+-	struct folio *folio;
+ 	struct page *page;
+-	spinlock_t *ptl;
+-	pte_t *ptep, pte;
+-	long ret;
+ 
+-	ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
+-	if (!ptep)
+-		return no_page_table(vma, flags, address);
+-	pte = ptep_get(ptep);
++	*pagep = NULL;
++
+ 	if (!pte_present(pte))
+-		goto no_page;
++		return 0;
+ 	if (pte_protnone(pte) && !gup_can_follow_protnone(vma, flags))
+-		goto no_page;
++		return 0;
+ 
+ 	page = vm_normal_page(vma, address, pte);
+ 
+ 	/*
+ 	 * We only care about anon pages in can_follow_write_pte().
+ 	 */
+-	if ((flags & FOLL_WRITE) &&
+-	    !can_follow_write_pte(pte, page, vma, flags)) {
+-		ret = 0;
+-		goto out;
+-	}
++	if ((flags & FOLL_WRITE) && !can_follow_write_pte(pte, page, vma, flags))
++		return 0;
+ 
+ 	if (unlikely(!page)) {
+ 		if (flags & FOLL_DUMP) {
+ 			/* Avoid special (like zero) pages in core dumps */
+-			ret = -EFAULT;
+-			goto out;
+-		}
+-
+-		if (is_zero_pfn(pte_pfn(pte))) {
+-			page = pte_page(pte);
+-		} else {
+-			ret = follow_pfn_pte(vma, address, ptep, flags);
+-			goto out;
++			return -EFAULT;
+ 		}
++		if (!is_zero_pfn(pte_pfn(pte)))
++			return follow_pfn_pte(vma, address, ptep, flags);
++		page = pte_page(pte);
+ 	}
+-	folio = page_folio(page);
+ 
+-	if (!pte_write(pte) && gup_must_unshare(vma, flags, page)) {
+-		ret = -EMLINK;
+-		goto out;
+-	}
++	if (!pte_write(pte) && gup_must_unshare(vma, flags, page))
++		return -EMLINK;
+ 
+ 	VM_WARN_ON_ONCE_PAGE((flags & FOLL_PIN) && PageAnon(page) &&
+ 			     !PageAnonExclusive(page), page);
+ 
+-	ret = follow_page_pte_commit(vma, address, folio, page, pte, flags,
+-				     pages);
+-	if (ret)
+-		goto out;
+-	ret = 1;
+-out:
++	*pagep = page;
++	return 0;
++}
++
++static long follow_page_pte(struct vm_area_struct *vma,
++		unsigned long address, pmd_t *pmd, unsigned int flags,
++		struct page **pages)
++{
++	struct mm_struct *mm = vma->vm_mm;
++	bool need_no_page_table = false;
++	struct page *page;
++	spinlock_t *ptl;
++	pte_t *ptep, pte;
++	long ret;
++
++	ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
++	if (!ptep)
++		return no_page_table(vma, flags, address);
++	pte = ptep_get(ptep);
++
++	ret = follow_one_pte(vma, address, ptep, pte, flags, &page);
++	if (!ret && page) {
++		ret = follow_page_pte_commit(vma, address, page_folio(page),
++					     page, pte, flags, pages);
++		if (!ret)
++			ret = 1;
++	} else if (!ret && pte_none(pte)) {
++		/*
++		 * no_page_table() may look up the page cache, so it cannot run
++		 * under the PTE lock.
++		 */
++		need_no_page_table = true;
++	}
++
+ 	pte_unmap_unlock(ptep, ptl);
++
++	if (need_no_page_table)
++		return no_page_table(vma, flags, address);
+ 	return ret;
+-no_page:
+-	pte_unmap_unlock(ptep, ptl);
+-	if (!pte_none(pte))
+-		return 0;
+-	return no_page_table(vma, flags, address);
+ }
+ 
+ static long follow_pmd_mask(struct vm_area_struct *vma,
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 5/8] mm/gup: fill the pages array outside the
+ pud/pmd lock
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:54 -0400
+Message-Id: <20260811025157.1632867-6-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_huge_pud() and follow_huge_pmd() fill pages[] and flush the page's
+caches while still holding the pud or pmd lock. Neither flush_anon_page()
+nor flush_dcache_page() needs that lock.
+
+Have the huge paths store the page and let follow_pud_mask() and
+follow_pmd_mask() do the fill after they unlock, so the flushes happen
+outside the critical section.
+
+This should be safe because try_grab_folio() has already taken a folio
+reference before the unlock, so nothing can free the page while the fill
+runs, and the fill itself touches neither the page tables nor the pud or
+pmd entry it was reached through.
+
+No functional changes intended.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index 5af6a23285de..4036d3dc27df 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -695,7 +695,8 @@ static long follow_huge_pud(struct vm_area_struct *vma,
+ 
+ 	*page_mask = HPAGE_PUD_NR - 1;
+ 
+-	gup_fill_pages(vma, addr, page, 1, pages);
++	if (pages)
++		pages[0] = page;
+ 
+ 	return 1;
+ }
+@@ -760,7 +761,8 @@ static long follow_huge_pmd(struct vm_area_struct *vma,
+ 	page += (addr & ~HPAGE_PMD_MASK) >> PAGE_SHIFT;
+ 	*page_mask = HPAGE_PMD_NR - 1;
+ 
+-	gup_fill_pages(vma, addr, page, 1, pages);
++	if (pages)
++		pages[0] = page;
+ 
+ 	return 1;
+ }
+@@ -991,6 +993,14 @@ static long follow_pmd_mask(struct vm_area_struct *vma,
+ 	}
+ 	ret = follow_huge_pmd(vma, address, pmd, flags, page_mask, pages);
+ 	spin_unlock(ptl);
++
++	/*
++	 * The ref is already held, so the page cannot go away: fill the
++	 * array and flush caches without the pmd lock.
++	 */
++	if (ret > 0 && pages)
++		gup_fill_pages(vma, address, pages[0], ret, pages);
++
+ 	return ret;
+ }
+ 
+@@ -1012,6 +1022,12 @@ static long follow_pud_mask(struct vm_area_struct *vma,
+ 		ptl = pud_lock(mm, pudp);
+ 		ret = follow_huge_pud(vma, address, pudp, flags, page_mask, pages);
+ 		spin_unlock(ptl);
++		/*
++		 * The ref is already held, so the page cannot go away: fill
++		 * the array and flush caches without the lock.
++		 */
++		if (ret > 0 && pages)
++			gup_fill_pages(vma, address, pages[0], ret, pages);
+ 		if (ret)
+ 			return ret;
+ 		return no_page_table(vma, flags, address);
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 6/8] mm/gup: return a huge page's full count from
+ follow_page_mask()
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:55 -0400
+Message-Id: <20260811025157.1632867-7-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_huge_pud()/follow_huge_pmd() already know the huge page's full
+size but report it via a separate *page_mask output; __get_user_pages()
+does a second try_grab_folio() call and subpage loop for everything
+past the first page.
+
+Have the huge paths report their count as the return value instead,
+clamped to the huge page's size and @end. The merged grab returns
+whatever error try_grab_folio() gives, instead of forcing -EFAULT on the
+second call's failure.
+
+*page_mask and __get_user_pages()'s second-grab/subpage loop are now
+dead; remove them. The old silent page_increm clamp becomes a
+VM_WARN_ON_ONCE, since @end already bounds the count and refs/pages[]
+are already committed by the time the caller sees it -- truncating here
+would leak references, not just waste a comparison.
+
+follow_page_pte() is unaffected, still returning at most 1 page.
+
+The -EEXIST path needs an explicit nr = 1 when pages == NULL: it used to
+get that from page_mask staying 0 for a PFN-special PTE, but nr holds
+-EEXIST there, which would grow nr_pages instead of shrinking it.
+
+mm/gup_test.c (PIN_LONGTERM_BENCHMARK) shows no measurable change; the
+lock-hold-time improvement is by inspection, not measurement.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 150 +++++++++++++++++++++----------------------------------
+ 1 file changed, 58 insertions(+), 92 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index 4036d3dc27df..ea2bb379183e 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -664,14 +664,14 @@ static inline bool can_follow_write_pud(pud_t pud, struct page *page,
+ }
+ 
+ static long follow_huge_pud(struct vm_area_struct *vma,
+-		unsigned long addr, pud_t *pudp,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long addr, unsigned long end, pud_t *pudp,
++		unsigned int flags, struct page **pages)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	struct page *page;
+ 	pud_t pud = *pudp;
+ 	unsigned long pfn = pud_pfn(pud);
++	unsigned long off, nr;
+ 	int ret;
+ 
+ 	assert_spin_locked(pud_lockptr(mm, pudp));
+@@ -683,22 +683,23 @@ static long follow_huge_pud(struct vm_area_struct *vma,
+ 	    !can_follow_write_pud(pud, pfn_to_page(pfn), vma, flags))
+ 		return 0;
+ 
+-	pfn += (addr & ~PUD_MASK) >> PAGE_SHIFT;
++	off = PFN_DOWN(addr & ~PUD_MASK);
++	pfn += off;
+ 	page = pfn_to_page(pfn);
+ 
+ 	if (!pud_write(pud) && gup_must_unshare(vma, flags, page))
+ 		return -EMLINK;
+ 
+-	ret = try_grab_folio(page_folio(page), 1, flags);
++	nr = min(HPAGE_PUD_NR - off, PFN_DOWN(end - addr));
++
++	ret = try_grab_folio(page_folio(page), nr, flags);
+ 	if (ret)
+ 		return ret;
+ 
+-	*page_mask = HPAGE_PUD_NR - 1;
+-
+ 	if (pages)
+ 		pages[0] = page;
+ 
+-	return 1;
++	return nr;
+ }
+ 
+ /* FOLL_FORCE can write to even unwritable PMDs in COW mappings. */
+@@ -720,13 +721,13 @@ static inline bool can_follow_write_pmd(pmd_t pmd, struct page *page,
+ }
+ 
+ static long follow_huge_pmd(struct vm_area_struct *vma,
+-		unsigned long addr, pmd_t *pmd,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long addr, unsigned long end, pmd_t *pmd,
++		unsigned int flags, struct page **pages)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	pmd_t pmdval = *pmd;
+ 	struct page *page;
++	unsigned long off, nr;
+ 	int ret;
+ 
+ 	assert_spin_locked(pmd_lockptr(mm, pmd));
+@@ -749,7 +750,10 @@ static long follow_huge_pmd(struct vm_area_struct *vma,
+ 	VM_WARN_ON_ONCE_PAGE((flags & FOLL_PIN) && PageAnon(page) &&
+ 			     !PageAnonExclusive(page), page);
+ 
+-	ret = try_grab_folio(page_folio(page), 1, flags);
++	off = PFN_DOWN(addr & ~HPAGE_PMD_MASK);
++	nr = min(HPAGE_PMD_NR - off, PFN_DOWN(end - addr));
++
++	ret = try_grab_folio(page_folio(page), nr, flags);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -758,28 +762,25 @@ static long follow_huge_pmd(struct vm_area_struct *vma,
+ 		touch_pmd(vma, addr, pmd, flags & FOLL_WRITE);
+ #endif	/* CONFIG_TRANSPARENT_HUGEPAGE */
+ 
+-	page += (addr & ~HPAGE_PMD_MASK) >> PAGE_SHIFT;
+-	*page_mask = HPAGE_PMD_NR - 1;
++	page += off;
+ 
+ 	if (pages)
+ 		pages[0] = page;
+ 
+-	return 1;
++	return nr;
+ }
+ 
+ #else  /* CONFIG_PGTABLE_HAS_HUGE_LEAVES */
+ static long follow_huge_pud(struct vm_area_struct *vma,
+-		unsigned long addr, pud_t *pudp,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long addr, unsigned long end, pud_t *pudp,
++		unsigned int flags, struct page **pages)
+ {
+ 	return 0;
+ }
+ 
+ static long follow_huge_pmd(struct vm_area_struct *vma,
+-		unsigned long addr, pmd_t *pmd,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long addr, unsigned long end, pmd_t *pmd,
++		unsigned int flags, struct page **pages)
+ {
+ 	return 0;
+ }
+@@ -953,9 +954,8 @@ static long follow_page_pte(struct vm_area_struct *vma,
+ }
+ 
+ static long follow_pmd_mask(struct vm_area_struct *vma,
+-		unsigned long address, pud_t *pudp,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long address, unsigned long end, pud_t *pudp,
++		unsigned int flags, struct page **pages)
+ {
+ 	pmd_t *pmd, pmdval;
+ 	spinlock_t *ptl;
+@@ -991,7 +991,7 @@ static long follow_pmd_mask(struct vm_area_struct *vma,
+ 		return pte_alloc(mm, pmd) ? -ENOMEM :
+ 			follow_page_pte(vma, address, pmd, flags, pages);
+ 	}
+-	ret = follow_huge_pmd(vma, address, pmd, flags, page_mask, pages);
++	ret = follow_huge_pmd(vma, address, end, pmd, flags, pages);
+ 	spin_unlock(ptl);
+ 
+ 	/*
+@@ -1005,9 +1005,8 @@ static long follow_pmd_mask(struct vm_area_struct *vma,
+ }
+ 
+ static long follow_pud_mask(struct vm_area_struct *vma,
+-		unsigned long address, p4d_t *p4dp,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long address, unsigned long end, p4d_t *p4dp,
++		unsigned int flags, struct page **pages)
+ {
+ 	pud_t *pudp, pud;
+ 	spinlock_t *ptl;
+@@ -1020,11 +1019,13 @@ static long follow_pud_mask(struct vm_area_struct *vma,
+ 		return no_page_table(vma, flags, address);
+ 	if (pud_leaf(pud)) {
+ 		ptl = pud_lock(mm, pudp);
+-		ret = follow_huge_pud(vma, address, pudp, flags, page_mask, pages);
++		ret = follow_huge_pud(vma, address, end, pudp, flags, pages);
+ 		spin_unlock(ptl);
+ 		/*
+ 		 * The ref is already held, so the page cannot go away: fill
+-		 * the array and flush caches without the lock.
++		 * the array and flush caches without the lock. A 1 GB folio
++		 * can be up to HPAGE_PUD_NR pages, too long to flush under a
++		 * spinlock.
+ 		 */
+ 		if (ret > 0 && pages)
+ 			gup_fill_pages(vma, address, pages[0], ret, pages);
+@@ -1035,13 +1036,12 @@ static long follow_pud_mask(struct vm_area_struct *vma,
+ 	if (unlikely(pud_bad(pud)))
+ 		return no_page_table(vma, flags, address);
+ 
+-	return follow_pmd_mask(vma, address, pudp, flags, page_mask, pages);
++	return follow_pmd_mask(vma, address, end, pudp, flags, pages);
+ }
+ 
+ static long follow_p4d_mask(struct vm_area_struct *vma,
+-		unsigned long address, pgd_t *pgdp,
+-		unsigned int flags, unsigned long *page_mask,
+-		struct page **pages)
++		unsigned long address, unsigned long end, pgd_t *pgdp,
++		unsigned int flags, struct page **pages)
+ {
+ 	p4d_t *p4dp, p4d;
+ 
+@@ -1052,18 +1052,18 @@ static long follow_p4d_mask(struct vm_area_struct *vma,
+ 	if (!p4d_present(p4d) || p4d_bad(p4d))
+ 		return no_page_table(vma, flags, address);
+ 
+-	return follow_pud_mask(vma, address, p4dp, flags, page_mask, pages);
++	return follow_pud_mask(vma, address, end, p4dp, flags, pages);
+ }
+ 
+ /**
+- * follow_page_mask - look up a page descriptor from a user-virtual address
++ * follow_page_mask - look up pages at a user-virtual address
+  * @vma: vm_area_struct mapping @address
+  * @address: virtual address to look up
++ * @end: virtual address at which to stop batching contiguous pages
+  * @flags: flags modifying lookup behaviour
+- * @page_mask: a pointer to output page_mask
+- * @pages: array to receive the page found, refcounted per @flags, or NULL
+- *         to walk the page tables (e.g. to fault pages in) without
+- *         collecting or refcounting them
++ * @pages: array to receive the pages, refcounted per @flags, or NULL to
++ *         walk the page tables (e.g. to fault pages in) without collecting
++ *         or refcounting them
+  *
+  * @flags can have FOLL_ flags set, defined in <linux/mm.h>
+  *
+@@ -1072,15 +1072,15 @@ static long follow_p4d_mask(struct vm_area_struct *vma,
+  * trigger a fault with FAULT_FLAG_UNSHARE set. Note that unsharing is only
+  * relevant with FOLL_PIN and !FOLL_WRITE.
+  *
+- * On output, @page_mask is set according to the size of the page.
+- *
+- * Return: 1 with @pages[0] filled in if a page was found, 0 if no mapping
+- * exists at @address, or a negative errno for a mapping to something not
+- * represented by a page descriptor (see also vm_normal_page()).
++ * Return: the number of contiguous pages starting at @address that were
++ * placed into @pages (if non-NULL), which may be fewer than the pages
++ * requested via @end; 0 if no mapping exists at @address; or a negative
++ * errno for a mapping to something not represented by a page descriptor
++ * (see also vm_normal_page()).
+  */
+ static long follow_page_mask(struct vm_area_struct *vma,
+-		unsigned long address, unsigned int flags,
+-		unsigned long *page_mask, struct page **pages)
++		unsigned long address, unsigned long end,
++		unsigned int flags, struct page **pages)
+ {
+ 	pgd_t *pgd;
+ 	struct mm_struct *mm = vma->vm_mm;
+@@ -1088,13 +1088,12 @@ static long follow_page_mask(struct vm_area_struct *vma,
+ 
+ 	vma_pgtable_walk_begin(vma);
+ 
+-	*page_mask = 0;
+ 	pgd = pgd_offset(mm, address);
+ 
+ 	if (pgd_none(*pgd) || unlikely(pgd_bad(*pgd)))
+ 		ret = no_page_table(vma, flags, address);
+ 	else
+-		ret = follow_p4d_mask(vma, address, pgd, flags, page_mask, pages);
++		ret = follow_p4d_mask(vma, address, end, pgd, flags, pages);
+ 
+ 	vma_pgtable_walk_end(vma);
+ 
+@@ -1432,7 +1431,6 @@ static long __get_user_pages(struct mm_struct *mm,
+ {
+ 	long ret = 0, i = 0;
+ 	struct vm_area_struct *vma = NULL;
+-	unsigned long page_mask = 0;
+ 
+ 	if (!nr_pages)
+ 		return 0;
+@@ -1447,7 +1445,6 @@ static long __get_user_pages(struct mm_struct *mm,
+ 
+ 	do {
+ 		struct page *page;
+-		unsigned int page_increm;
+ 		long nr;
+ 
+ 		/* first iteration or cross vma bound */
+@@ -1502,8 +1499,8 @@ static long __get_user_pages(struct mm_struct *mm,
+ 		}
+ 		cond_resched();
+ 
+-		nr = follow_page_mask(vma, start, gup_flags, &page_mask,
+-				      pages ? &pages[i] : NULL);
++		nr = follow_page_mask(vma, start, start + nr_pages * PAGE_SIZE,
++				      gup_flags, pages ? &pages[i] : NULL);
+ 		if (!nr || nr == -EMLINK) {
+ 			ret = faultin_page(vma, start, gup_flags,
+ 					   nr == -EMLINK, locked);
+@@ -1525,56 +1522,25 @@ static long __get_user_pages(struct mm_struct *mm,
+ 			 * Proper page table entry exists, but no corresponding
+ 			 * struct page. If the caller expects **pages to be
+ 			 * filled in, bail out now, because that can't be done
+-			 * for this page.
++			 * for this page. Otherwise advance by the one page
++			 * follow_page_mask() looked at.
+ 			 */
+ 			if (pages) {
+ 				ret = nr;
+ 				goto out;
+ 			}
++			nr = 1;
+ 		} else if (nr < 0) {
+ 			ret = nr;
+ 			goto out;
+ 		}
+ 
+-		page_increm = 1 + (~(start >> PAGE_SHIFT) & page_mask);
+-		if (page_increm > nr_pages)
+-			page_increm = nr_pages;
+-
+-		/*
+-		 * This must be a large folio (and doesn't need to
+-		 * be the whole folio; it can be part of it), do
+-		 * the refcount work for all the subpages too.
+-		 *
+-		 * NOTE: here the page may not be the head page
+-		 * e.g. when start addr is not thp-size aligned.
+-		 * try_grab_folio() should have taken care of tail
+-		 * pages.
+-		 */
+-		if (pages && page_increm > 1) {
+-			struct folio *folio = page_folio(pages[i]);
+-
+-			/*
+-			 * Since we already hold refcount on the
+-			 * large folio, this should never fail.
+-			 */
+-			if (try_grab_folio(folio, page_increm - 1,
+-					   gup_flags)) {
+-				/*
+-				 * Release the 1st page ref if the
+-				 * folio is problematic, fail hard.
+-				 */
+-				gup_put_folio(folio, 1, gup_flags);
+-				ret = -EFAULT;
+-				goto out;
+-			}
+-
+-			gup_fill_pages(vma, start + PAGE_SIZE, pages[i] + 1,
+-				       page_increm - 1, pages + i + 1);
+-		}
++		/* Check that we didn't pin more pages than the caller will free. */
++		VM_WARN_ON_ONCE(nr > nr_pages);
+ 
+-		i += page_increm;
+-		start += page_increm * PAGE_SIZE;
+-		nr_pages -= page_increm;
++		i += nr;
++		start += nr * PAGE_SIZE;
++		nr_pages -= nr;
+ 	} while (nr_pages);
+ out:
+ 	return i ? i : ret;
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 7/8] mm/gup: walk multiple PTEs per
+ follow_page_pte() call
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:56 -0400
+Message-Id: <20260811025157.1632867-8-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_page_pte() looks at one PTE per call, so __get_user_pages() calls
+it once per page, restarting the pgd/p4d/pud/pmd descent and retaking the
+PTE lock each time.
+
+Walk every PTE from @address to the page-table/VMA/@end boundary in one
+call instead. Adjacent pages from different folios, or plain base pages
+with no folio relationship at all, are covered by the same call under one
+lock.
+
+A failure on the first PTE is returned as before. A failure after that
+ends the walk, and __get_user_pages() retrying the read gets the error.
+
+Measured with mm/gup_test.c, median get time over 16 iterations on a
+256 MB MADV_HUGEPAGE region in a 4 CPU VM. Folio size was confirmed
+through the per-size anon_fault_alloc counters, 4100 folios for 64 kB
+and 128 for 2 MB:
+
+  gup_test -L -m 256 -n 65536 -r 16 -t
+                        before      after
+  4 kB base pages      2753 us     1178 us   (2.3x)
+  64 kB mTHP           2946 us     1361 us   (2.2x)
+  2 MB THP (control)     72 us       70 us
+
+Base pages and mTHP gain about the same amount, because what is saved is
+the page-table descent that no longer restarts per page, not anything
+folio-specific. 2 MB THP does not reach follow_page_pte(), so it stays
+flat.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 62 ++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 42 insertions(+), 20 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index ea2bb379183e..c4233a7b8a48 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -916,38 +916,60 @@ static long follow_one_pte(struct vm_area_struct *vma, unsigned long address,
+ 	return 0;
+ }
+ 
++/*
++ * Walk the PTEs from the start address to the end of this page table or VMA,
++ * whichever comes first, and commit every page found.
++ *
++ * A failure on the first PTE is returned to the caller. A failure after that
++ * is a short read; __get_user_pages() retrying the read will get the error.
++ */
+ static long follow_page_pte(struct vm_area_struct *vma,
+-		unsigned long address, pmd_t *pmd, unsigned int flags,
+-		struct page **pages)
++		unsigned long address, unsigned long end, pmd_t *pmd,
++		unsigned int flags, struct page **pages)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	bool need_no_page_table = false;
+-	struct page *page;
++	pte_t *ptep, *orig_ptep;
++	unsigned long walk_end;
++	unsigned long nr = 0;
+ 	spinlock_t *ptl;
+-	pte_t *ptep, pte;
+-	long ret;
++	long ret = 0;
+ 
+-	ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
++	orig_ptep = ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
+ 	if (!ptep)
+ 		return no_page_table(vma, flags, address);
+-	pte = ptep_get(ptep);
+-
+-	ret = follow_one_pte(vma, address, ptep, pte, flags, &page);
+-	if (!ret && page) {
+-		ret = follow_page_pte_commit(vma, address, page_folio(page),
+-					     page, pte, flags, pages);
+-		if (!ret)
+-			ret = 1;
+-	} else if (!ret && pte_none(pte)) {
++
++	walk_end = min(pmd_addr_end(address, end), vma->vm_end);
++
++	for (; address < walk_end; address += PAGE_SIZE, ptep++) {
++		pte_t pte = ptep_get(ptep);
++		struct page *page;
++
++		ret = follow_one_pte(vma, address, ptep, pte, flags, &page);
++		if (!ret && page) {
++			ret = follow_page_pte_commit(vma, address,
++						     page_folio(page), page,
++						     pte, flags,
++						     pages ? pages + nr : NULL);
++			if (!ret) {
++				nr++;
++				continue;
++			}
++		}
++
+ 		/*
+ 		 * no_page_table() may look up the page cache, so it cannot run
+ 		 * under the PTE lock.
+ 		 */
+-		need_no_page_table = true;
++		if (!ret && pte_none(pte))
++			need_no_page_table = true;
++		break;
+ 	}
+ 
+-	pte_unmap_unlock(ptep, ptl);
++	pte_unmap_unlock(orig_ptep, ptl);
+ 
++	if (nr)
++		return nr;
+ 	if (need_no_page_table)
+ 		return no_page_table(vma, flags, address);
+ 	return ret;
+@@ -969,7 +991,7 @@ static long follow_pmd_mask(struct vm_area_struct *vma,
+ 	if (!pmd_present(pmdval))
+ 		return no_page_table(vma, flags, address);
+ 	if (likely(!pmd_leaf(pmdval)))
+-		return follow_page_pte(vma, address, pmd, flags, pages);
++		return follow_page_pte(vma, address, end, pmd, flags, pages);
+ 
+ 	if (pmd_protnone(pmdval) && !gup_can_follow_protnone(vma, flags))
+ 		return no_page_table(vma, flags, address);
+@@ -982,14 +1004,14 @@ static long follow_pmd_mask(struct vm_area_struct *vma,
+ 	}
+ 	if (unlikely(!pmd_leaf(pmdval))) {
+ 		spin_unlock(ptl);
+-		return follow_page_pte(vma, address, pmd, flags, pages);
++		return follow_page_pte(vma, address, end, pmd, flags, pages);
+ 	}
+ 	if (pmd_trans_huge(pmdval) && (flags & FOLL_SPLIT_PMD)) {
+ 		spin_unlock(ptl);
+ 		split_huge_pmd(vma, pmd, address);
+ 		/* If pmd was left empty, stuff a page table in there quickly */
+ 		return pte_alloc(mm, pmd) ? -ENOMEM :
+-			follow_page_pte(vma, address, pmd, flags, pages);
++			follow_page_pte(vma, address, end, pmd, flags, pages);
+ 	}
+ 	ret = follow_huge_pmd(vma, address, end, pmd, flags, pages);
+ 	spin_unlock(ptl);
+-- 
+2.55.0
+
+From git@z Thu Jan  1 00:00:00 1970
+Subject: [PATCH RFC v3 8/8] mm/gup: batch contiguous same-folio PTEs into
+ one refcount grab
+From: Rik van Riel <riel@surriel.com>
+Date: Mon, 10 Aug 2026 22:51:57 -0400
+Message-Id: <20260811025157.1632867-9-riel@surriel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+follow_page_pte() now walks a whole page table in one call, but still
+resolves and commits each PTE on its own, so a PTE-mapped large folio
+(mTHP) pays one try_grab_folio() per subpage.
+
+Add follow_pte_batch() and give follow_page_pte_commit() a run length.
+Each run starts with a full per-PTE resolve, then follow_pte_batch()
+finds how many more PTEs extend it with a pte_same() scan rather than a
+re-derivation of each page, and the run is committed with one refcount
+grab. Runs stop at folio boundaries, so plain base pages are unaffected.
+
+Gather the dirty bits from all the PTEs in a batch, in order to mark
+the folio dirty for FOLL_WRITE.
+
+Same benchmark as the previous change, with before again taken at the
+base of the series:
+
+  gup_test -L -m 256 -n 65536 -r 16 -t
+                        before      after
+  64 kB mTHP           2946 us      231 us  (12.8x)
+  4 kB base (control)  2753 us     1198 us   (2.3x)
+  2 MB THP (control)     72 us       71 us
+
+The 4 kB column is the previous change's 2.3x, unchanged: base pages
+share no folio, so there is nothing to batch. 64 kB mTHP goes from that
+change's 2.2x to 12.8x, a further 5.9x from committing a run with one
+refcount grab instead of one per subpage.
+
+Suggested-by: David Hildenbrand <david@kernel.org>
+Assisted-by: Claude:claude-opus-4-8
+Signed-off-by: Rik van Riel <riel@surriel.com>
+---
+ mm/gup.c | 58 ++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 50 insertions(+), 8 deletions(-)
+
+diff --git a/mm/gup.c b/mm/gup.c
+index c4233a7b8a48..106806634b3c 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -833,12 +833,13 @@ static inline bool can_follow_write_pte(pte_t pte, struct page *page,
+  */
+ static long follow_page_pte_commit(struct vm_area_struct *vma,
+ 		unsigned long address, struct folio *folio, struct page *page,
+-		pte_t pte, unsigned int flags, struct page **pages)
++		pte_t pte, unsigned long nr, unsigned int flags,
++		struct page **pages)
+ {
+ 	long ret;
+ 
+ 	/* try_grab_folio() does nothing unless FOLL_GET or FOLL_PIN is set. */
+-	ret = try_grab_folio(folio, 1, flags);
++	ret = try_grab_folio(folio, nr, flags);
+ 	if (unlikely(ret))
+ 		return ret;
+ 
+@@ -850,7 +851,7 @@ static long follow_page_pte_commit(struct vm_area_struct *vma,
+ 	if (flags & FOLL_PIN) {
+ 		ret = arch_make_folio_accessible(folio);
+ 		if (ret) {
+-			gup_put_folio(folio, 1, flags);
++			gup_put_folio(folio, nr, flags);
+ 			return ret;
+ 		}
+ 	}
+@@ -866,7 +867,7 @@ static long follow_page_pte_commit(struct vm_area_struct *vma,
+ 		folio_mark_accessed(folio);
+ 	}
+ 
+-	gup_fill_pages(vma, address, page, 1, pages);
++	gup_fill_pages(vma, address, page, nr, pages);
+ 
+ 	return 0;
+ }
+@@ -916,6 +917,35 @@ static long follow_one_pte(struct vm_area_struct *vma, unsigned long address,
+ 	return 0;
+ }
+ 
++/*
++ * Return how many PTEs map consecutive pages of the same folio and can be
++ * committed as one run. Always at least 1.
++ *
++ * The write-fault and unshare checks in follow_one_pte() are per PTE, but a
++ * writable run needs no repeat: a writable anon page is exclusive. A read-only
++ * run under FOLL_WRITE or FOLL_PIN does need the per-page check, so it stays
++ * one page at a time.
++ */
++static unsigned long follow_pte_batch(struct vm_area_struct *vma,
++		unsigned long address, unsigned long walk_end,
++		struct folio *folio, pte_t *ptep, pte_t *batch_pte, unsigned int flags)
++{
++	unsigned long max;
++
++	if (!folio_test_large(folio))
++		return 1;
++	if (!pte_write(*batch_pte) && (flags & (FOLL_WRITE | FOLL_PIN)))
++		return 1;
++
++	max = (walk_end - address) >> PAGE_SHIFT;
++	if (max <= 1)
++		return 1;
++
++	/* Merge young/dirty across batch so folio_mark_dirty sees any dirty. */
++	return folio_pte_batch_flags(folio, vma, ptep, batch_pte, max,
++				     FPB_RESPECT_WRITE | FPB_MERGE_YOUNG_DIRTY);
++}
++
+ /*
+  * Walk the PTEs from the start address to the end of this page table or VMA,
+  * whichever comes first, and commit every page found.
+@@ -947,12 +977,24 @@ static long follow_page_pte(struct vm_area_struct *vma,
+ 
+ 		ret = follow_one_pte(vma, address, ptep, pte, flags, &page);
+ 		if (!ret && page) {
+-			ret = follow_page_pte_commit(vma, address,
+-						     page_folio(page), page,
+-						     pte, flags,
++			struct folio *folio = page_folio(page);
++			unsigned long batch;
++
++			pte_t batch_pte = pte;
++
++			batch = follow_pte_batch(vma, address, walk_end, folio,
++						 ptep, &batch_pte, flags);
++			ret = follow_page_pte_commit(vma, address, folio, page,
++						     batch_pte, batch, flags,
+ 						     pages ? pages + nr : NULL);
+ 			if (!ret) {
+-				nr++;
++				nr += batch;
++				/*
++				 * The loop's own increment covers one PTE; skip
++				 * the rest of the batch.
++				 */
++				ptep += batch - 1;
++				address += (batch - 1) * PAGE_SIZE;
+ 				continue;
+ 			}
+ 		}
+-- 
+2.55.0
+

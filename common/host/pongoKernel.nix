@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "f5bbbfec59b4e2fb7520a91de3df8a6174325d6a";
-                        hash = "sha256-RlHXk1Vo2KkQQ4zlbdodgi9BqOtf9BfegE5jFyXTmAA=";
+                        rev = "3d6d817622b0a9721e3cc404df3469171582be13";
+                        hash = "sha256-gbOaNo4Llb0rkLANVxbOife6s4D/7KRI3CfXJvlBh4w=";
                       };
                     };
                 };
@@ -168,6 +168,10 @@ in
         {
           name = "core/entry tip";
           patch = patch /linux/core-entry-tip.patch;
+        }
+        {
+          name = "batch lookups in follow_page_mask()";
+          patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
