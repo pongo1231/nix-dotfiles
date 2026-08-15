@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "3d6d817622b0a9721e3cc404df3469171582be13";
-                        hash = "sha256-gbOaNo4Llb0rkLANVxbOife6s4D/7KRI3CfXJvlBh4w=";
+                        rev = "dac3e89a2c90c2feeb471e1f22a2512ad424b792";
+                        hash = "sha256-U0uGbOGgErFgfRvXCffS8dmqlyIJTCQqbopTvo2AyE8=";
                       };
                     };
                 };
@@ -154,8 +154,12 @@ in
           };
         }
         {
-          name = "DRM scheduler kthread_worker";
-          patch = patch /linux/20260702_tvrtko_ursulin_drm_scheduler_kthread_worker_for_submission_latency_improvements.patch;
+          name = "drm/sched fair policy fixups";
+          patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
+        }
+        {
+          name = "DRM scheduler kthread_worker (ported to multi-rq)";
+          patch = patch /linux/20260702_tvrtko_ursulin_drm_scheduler_kthread_worker_for_submission_latency_improvements_ported.patch;
         }
         {
           name = "sched/core tip";
