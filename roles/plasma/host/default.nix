@@ -31,7 +31,6 @@
         kcalc
         ocs-url
         krfb # for the "Virtual Display" button in kde connect to work
-        maliit-keyboard
 
         # for KDE info center
         clinfo
