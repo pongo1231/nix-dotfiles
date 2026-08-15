@@ -54,24 +54,20 @@ in
                 // {
                   "" = {
                     inherit root;
+
                     locations = {
                       "/mc/ws" = {
                         proxyPass = "http://localhost:26768";
                         proxyWebsockets = true;
                       };
 
-                      "/Terraria/" = {
-                        extraConfig = ''
+                      "/Terraria/".extraConfig = ''
+                        location ~ ^/Terraria/(index\.html|blazor\.boot\.json|extract-worker\.js)$ {
                           add_header Cross-Origin-Opener-Policy "same-origin" always;
                           add_header Cross-Origin-Embedder-Policy "require-corp" always;
-                          # index.html, blazor.boot.json and extract-worker.js must
-                          # never be cached: their contents change every publish and
-                          # a stale copy re-runs the old slow extraction path.
-                          location ~ ^/Terraria/(index\.html|blazor\.boot\.json|extract-worker\.js)$ {
-                            add_header Cache-Control "no-cache, no-store, must-revalidate" always;
-                          }
-                        '';
-                      };
+                          add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+                        }
+                      '';
                     };
                   };
 
