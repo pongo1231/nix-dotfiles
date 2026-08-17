@@ -25,8 +25,8 @@
             TIMELINE_LIMIT_QUARTERLY = 0;
             TIMELINE_LIMIT_MONTHLY = 0;
             TIMELINE_LIMIT_WEEKLY = 0;
-            TIMELINE_LIMIT_DAILY = 0;
-            TIMELINE_LIMIT_HOURLY = 168;
+            TIMELINE_LIMIT_DAILY = 7;
+            TIMELINE_LIMIT_HOURLY = 42;
           };
         }) subvols
       );
