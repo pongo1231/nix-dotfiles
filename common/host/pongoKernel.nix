@@ -69,16 +69,16 @@ in
 
                   argsOverride =
                     let
-                      version = "7.2-git";
+                      version = "7.3-git";
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.2.0-rc7";
+                      modDirVersion = "7.2.0";
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "dac3e89a2c90c2feeb471e1f22a2512ad424b792";
-                        hash = "sha256-U0uGbOGgErFgfRvXCffS8dmqlyIJTCQqbopTvo2AyE8=";
+                        rev = "1200d84f4c0a929a0780180d25063d93773be79c";
+                        hash = "sha256-5MIBVnNQfu9hjfbxRGMLsNlCzXn+db4m4+sgb/qkTfI=";
                       };
                     };
                 };
@@ -104,6 +104,7 @@ in
             UBSAN_ENUM n
             BTRFS_EXPERIMENTAL y
             AD4130 n
+            BINFMT_MISC_BPF y
           ''
           + lib.optionalString (pkgs.stdenv.hostPlatform.system == "aarch64-linux") ''
             CORESIGHT n
@@ -147,13 +148,6 @@ in
           '';
         }
         {
-          name = "small dio performance";
-          patch = pkgs.fetchpatch {
-            url = "https://git.kernel.org/pub/scm/linux/kernel/git/vfs/vfs.git/patch/?id=e1b77fb85836e5a9857ccf8079bb35d10ed8de5c";
-            hash = "sha256-WGKYYcCERWqPiBuDE5jyyXdew/slP0jMEm1YM1+dQk4=";
-          };
-        }
-        {
           name = "drm/sched fair policy fixups";
           patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
         }
@@ -177,6 +171,14 @@ in
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
         }
+        {
+          name = "smp: reduce preemption-disabled sections in smp_call_function*()";
+          patch = patch /linux/smp-preemption-tip.patch;
+        }
+        {
+          name = "vram management improvements (vramstuff-rebase)";
+          patch = patch /linux/vramstuff-rebase-combined.patch;
+        }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         {
@@ -192,6 +194,38 @@ in
           extraConfig = ''
             X86_64_VERSION 3
           '';
+        }
+        {
+          name = "x86/fpu: check for missing AVX and AVX-512 xstate bits";
+          patch = patch /linux/0001-x86-fpu-check-missing-avx.patch;
+        }
+        {
+          name = "um: check for missing AVX and AVX-512 xstate bits";
+          patch = patch /linux/0002-um-check-missing-avx.patch;
+        }
+        {
+          name = "crypto: x86 - stop using cpu_has_xfeatures()";
+          patch = patch /linux/0003-crypto-x86-stop-using-cpu_has_xfeatures.patch;
+        }
+        {
+          name = "lib/crypto: x86 - stop using cpu_has_xfeatures()";
+          patch = patch /linux/0004-lib-crypto-x86-stop-using-cpu_has_xfeatures.patch;
+        }
+        {
+          name = "lib/crc: x86 - stop using cpu_has_xfeatures()";
+          patch = patch /linux/0005-lib-crc-x86-stop-using-cpu_has_xfeatures.patch;
+        }
+        {
+          name = "x86/fpu: remove cpu_has_xfeatures()";
+          patch = patch /linux/0006-x86-fpu-remove-cpu_has_xfeatures.patch;
+        }
+        {
+          name = "xor: remove redundant X86_FEATURE_OSXSAVE check";
+          patch = patch /linux/0007-xor-remove-redundant-osxsave-check.patch;
+        }
+        {
+          name = "xor: add AVX-512 optimized xor_gen()";
+          patch = patch /linux/0008-xor-add-avx512-xor_gen.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "aarch64-linux") [
