@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "1200d84f4c0a929a0780180d25063d93773be79c";
-                        hash = "sha256-5MIBVnNQfu9hjfbxRGMLsNlCzXn+db4m4+sgb/qkTfI=";
+                        rev = "4352b8aee98005853aa63f57d6377282de17a33f";
+                        hash = "sha256-OwH11w0fYPB+dYDgvdJ8NE4VODYXT83TR49Ssc6bcLc=";
                       };
                     };
                 };
@@ -121,10 +121,7 @@ in
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
         }
-        {
-          name = "xe stutter fix";
-          patch = patch /linux/v5_20260505_matthew_brost_mm_drm_ttm_drm_xe_avoid_reclaim_eviction_loops_under_fragmentation.patch;
-        }
+
         {
           name = "kcompressd";
           patch = pkgs.fetchpatch {
@@ -151,18 +148,7 @@ in
           name = "drm/sched fair policy fixups";
           patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
         }
-        {
-          name = "DRM scheduler kthread_worker (ported to multi-rq)";
-          patch = patch /linux/20260702_tvrtko_ursulin_drm_scheduler_kthread_worker_for_submission_latency_improvements_ported.patch;
-        }
-        {
-          name = "sched/core tip";
-          patch = patch /linux/sched-core-tip.patch;
-        }
-        {
-          name = "sched: fix cluster scheduling in presence of asymmetric capacity (v6)";
-          patch = patch /linux/20260720_rneri_fix_cas_clusters_sched.patch;
-        }
+
         {
           name = "core/entry tip";
           patch = patch /linux/core-entry-tip.patch;
@@ -171,20 +157,8 @@ in
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
         }
-        {
-          name = "smp: reduce preemption-disabled sections in smp_call_function*()";
-          patch = patch /linux/smp-preemption-tip.patch;
-        }
-        {
-          name = "vram management improvements (vramstuff-rebase)";
-          patch = patch /linux/vramstuff-rebase-combined.patch;
-        }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
-        {
-          name = "x86/kcfi: optimize call sequence";
-          patch = patch /linux/x86-kcfi-optimize-call-sequence.patch;
-        }
         {
           name = "x86_64 levels";
           patch = pkgs.fetchpatch {
