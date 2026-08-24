@@ -34,16 +34,16 @@
           domain = "gitlab.freedesktop.org";
           owner = "mesa";
           repo = "mesa";
-          rev = "7f760b878f2686de303b5d07512ad3a2ca1ab441";
-          hash = "sha256-JbaSZtxKJuo+Xtp783kU2m3dKGPczpTs3R0M/YqS7gc=";
+          rev = "0dadb17223fa30175c5996f093fe0e830f87e3c2";
+          hash = "sha256-qDJPBNJqT7Pcn6KNAcjmHj4XY7UosmM12OFQ/siPO6A=";
         };
 
         venusProtocolSrc = pkgs.fetchFromGitLab {
           domain = "gitlab.freedesktop.org";
           owner = "virgl";
           repo = "venus-protocol";
-          rev = "e94b12f301b9eb27ebead757128a18420b4f7994";
-          hash = "sha256-bRpb8eSgfbOdfKOlxA4P23yEAr0Q7Iq3fh34gZnwKjQ=";
+          rev = "ecb4794b878415385789bc437112aa1c5eb9e512";
+          hash = "sha256-SGs9ECIPL+dagiJ5IeY1fVLY7HevXFxCm8EKBFEALew=";
         };
 
         patches = prev.patches ++ [
