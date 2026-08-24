@@ -120,13 +120,13 @@ in
     ];
   });
 
-  kdePackages = prev.kdePackages.overrideScope (
+  /*kdePackages = prev.kdePackages.overrideScope (
     kfinal: kprev: {
       kwin = kprev.kwin.overrideAttrs (prevAttrs: {
         patches = (prevAttrs.patches or [ ]) ++ [ (patch /kwin/lazy-render-device.patch) ];
       });
     }
-  );
+  );*/
 
   swapspace = prev.swapspace.overrideAttrs (prev: {
     patches = (prev.patches or [ ]) ++ [ (patch /swapspace/slop.patch) ];
