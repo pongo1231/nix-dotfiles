@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "4352b8aee98005853aa63f57d6377282de17a33f";
-                        hash = "sha256-OwH11w0fYPB+dYDgvdJ8NE4VODYXT83TR49Ssc6bcLc=";
+                        rev = "73e3f0710014fe6d4ed98cfc02292f6121db7558";
+                        hash = "sha256-p2g62VrhmWhklS5QvC2YCJbSYCIsjaXxODQ34AyfUhc=";
                       };
                     };
                 };
@@ -156,6 +156,10 @@ in
         {
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
+        }
+        {
+          name = "zstd: probe the CPU for BMI2 support only once";
+          patch = patch /linux/20260826_usama_arif_zstd_probe_the_cpu_for_bmi2_support_once_not_per_context.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
