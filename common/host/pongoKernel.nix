@@ -77,8 +77,8 @@ in
                       src = final.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "73e3f0710014fe6d4ed98cfc02292f6121db7558";
-                        hash = "sha256-p2g62VrhmWhklS5QvC2YCJbSYCIsjaXxODQ34AyfUhc=";
+                        rev = "1b78070aaef63512688aebfbc82365ef9d6660f1";
+                        hash = "sha256-hvYsiNlxntitDZ5aerj0hejQpKxdMsIyPa1rhf8Vkq8=";
                       };
                     };
                 };
@@ -124,10 +124,7 @@ in
 
         {
           name = "kcompressd";
-          patch = pkgs.fetchpatch {
-            url = "https://raw.githubusercontent.com/firelzrd/kcompressd-unofficial/refs/heads/main/patches/stable/0001-linux7.1-rc1-kcompressd-unofficial-0.5.patch";
-            hash = "sha256-eb7teGa9HXfyLMqdn5aO3YNelCz69ipoVvIRe2e49ic=";
-          };
+          patch = patch /linux/kcompressd-final.patch;
         }
         {
           name = "le9uo";
