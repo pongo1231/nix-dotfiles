@@ -71,6 +71,10 @@
     ];
 
     plymouth.enable = false;
+
+    binfmt.emulatedSystems = [
+      "aarch64-linux"
+    ];
   };
 
   fileSystems = {
