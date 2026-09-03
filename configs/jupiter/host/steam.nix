@@ -30,7 +30,7 @@
   jovian = {
     devices.steamdeck = {
       enable = true;
-      #enableVendorDrivers = false;
+      enableVendorDrivers = false;
       enableKernelPatches = false;
     };
 
