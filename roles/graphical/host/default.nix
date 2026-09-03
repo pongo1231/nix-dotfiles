@@ -8,7 +8,7 @@
 {
   imports = [
     ./bluetooth.nix
-    #./mesa_git.nix
+    ./mesa_git.nix
   ];
 
   boot = {
