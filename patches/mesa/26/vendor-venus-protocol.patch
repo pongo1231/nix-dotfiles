@@ -7,7 +7,7 @@ index 75bed36..f26eec6 100644
  
  if with_virtio_vk
 -  dep_venus_protocol = dependency('venus-protocol',
--    version : '== 1.1',
+-    version : '== 1.1.1',
 -    fallback : ['venus-protocol', 'dep_vn_protocol_driver'],
 -    required : true
 +  dep_venus_protocol = declare_dependency(

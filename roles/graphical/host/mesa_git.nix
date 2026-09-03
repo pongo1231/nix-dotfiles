@@ -34,8 +34,8 @@
           domain = "gitlab.freedesktop.org";
           owner = "mesa";
           repo = "mesa";
-          rev = "0dadb17223fa30175c5996f093fe0e830f87e3c2";
-          hash = "sha256-qDJPBNJqT7Pcn6KNAcjmHj4XY7UosmM12OFQ/siPO6A=";
+          rev = "563e2c17064064c259002c853f9a9cdd48193108";
+          hash = "sha256-Lbqefz1nqOYVsqnHFRPXGXT4+frdIHpFBGQy0ERJ03I=";
         };
 
         venusProtocolSrc = pkgs.fetchFromGitLab {
