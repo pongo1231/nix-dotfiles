@@ -42,6 +42,11 @@
       url = "github:Mic92/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    opencode = {
+      url = "github:anomalyco/opencode/beta";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

@@ -1,4 +1,5 @@
 {
+  inputs,
   pkgs,
   ...
 }:
@@ -84,7 +85,7 @@
       heroic
       bottles
       prismlauncher
-      pi-coding-agent
+      inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.opencode
     ];
   };
 }
