@@ -73,12 +73,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.2.0";
-                      src = final.fetchFromGitHub {
+                      modDirVersion = "7.3.0-rc2";
+                      src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "1b78070aaef63512688aebfbc82365ef9d6660f1";
-                        hash = "sha256-hvYsiNlxntitDZ5aerj0hejQpKxdMsIyPa1rhf8Vkq8=";
+                        rev = "df2908090cda368b01ff43709f51890076c56157";
+                        hash = "sha256-y/K7PDeY36Rq9T1dJ/FUjvWQ54rm6ZZYZM2/NxK7Wvs=";
                       };
                     };
                 };
