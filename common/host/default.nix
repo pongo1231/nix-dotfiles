@@ -125,9 +125,7 @@ args:
 
     journald = {
       storage = "volatile";
-      extraConfig = ''
-        RuntimeMaxUse=5M
-      '';
+      settings.Journal.RuntimeMaxUse = "5M";
     };
 
     swapspace.enable = true;
