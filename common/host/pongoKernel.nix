@@ -105,6 +105,7 @@ in
             BTRFS_EXPERIMENTAL y
             AD4130 n
             BINFMT_MISC_BPF y
+            DRM_GUD n
           ''
           + lib.optionalString (pkgs.stdenv.hostPlatform.system == "aarch64-linux") ''
             CORESIGHT n
