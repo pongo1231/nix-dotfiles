@@ -123,9 +123,9 @@ args:
       };
     };
 
-    journald = {
+    journald.settings.Journal = {
       storage = "volatile";
-      settings.Journal.RuntimeMaxUse = "5M";
+      RuntimeMaxUse = "5M";
     };
 
     swapspace.enable = true;
