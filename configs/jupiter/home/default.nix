@@ -85,7 +85,6 @@
       heroic
       bottles
       prismlauncher
-      inputs.opencode.packages.${pkgs.stdenv.hostPlatform.system}.opencode
     ];
   };
 }
