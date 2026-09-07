@@ -10,6 +10,7 @@ args:
 {
   imports = [
     inputs.nix-index-database.homeModules.nix-index
+    inputs.omp.homeManagerModules.default
 
     ../nix.nix
     ../overlay.nix
@@ -60,6 +61,11 @@ args:
       enableBashIntegration = true;
       enableFishIntegration = true;
       nix-direnv.enable = true;
+    };
+
+    omp = {
+      enable = true;
+      settings.startup.quiet = true;
     };
   };
 
