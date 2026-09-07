@@ -65,7 +65,18 @@ in
                         location ~ ^/Terraria/(index\.html|blazor\.boot\.json|extract-worker\.js)$ {
                           add_header Cross-Origin-Opener-Policy "same-origin" always;
                           add_header Cross-Origin-Embedder-Policy "require-corp" always;
+                          add_header Cross-Origin-Resource-Policy "cross-origin" always;
                           add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+                        }
+
+                        location ~ ^/Terraria/_framework/.*\.mjs$ {
+                          add_header Cross-Origin-Opener-Policy "same-origin" always;
+                          add_header Cross-Origin-Embedder-Policy "require-corp" always;
+                          add_header Cross-Origin-Resource-Policy "cross-origin" always;
+                        }
+
+                        location ~ ^/Terraria/_framework/.*\.(wasm|js|dat|json)$ {
+                          add_header Cross-Origin-Resource-Policy "cross-origin" always;
                         }
                       '';
                     };
