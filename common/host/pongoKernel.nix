@@ -77,8 +77,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "df2908090cda368b01ff43709f51890076c56157";
-                        hash = "sha256-y/K7PDeY36Rq9T1dJ/FUjvWQ54rm6ZZYZM2/NxK7Wvs=";
+                        rev = "893e11787f78e43b534e252249ac3fff4d1333f8";
+                        hash = "sha256-BzhF1xF22E7Nji9lx6WxVuaTQ3JJdYKjZf+/a4bmyxg=";
                       };
                     };
                 };
@@ -158,6 +158,10 @@ in
         {
           name = "zstd: probe the CPU for BMI2 support only once";
           patch = patch /linux/20260826_usama_arif_zstd_probe_the_cpu_for_bmi2_support_once_not_per_context.patch;
+        }
+        {
+          name = "btrfs: zstd: avoid a copy in zstd_decompress_bio()";
+          patch = patch /linux/20260904_usama_arif_btrfs_zstd_avoid_a_copy_in_zstd_decompress_bio.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
