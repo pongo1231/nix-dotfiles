@@ -44,6 +44,10 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
         device = "/dev/sda";
       };
     };
+
+    binfmt.emulatedSystems = [
+      "aarch64-linux"
+    ];
   };
 
   fileSystems."/" = {
