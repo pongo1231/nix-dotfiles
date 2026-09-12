@@ -65,7 +65,13 @@ args:
 
     omp = {
       enable = true;
-      settings.startup.quiet = true;
+      settings = {
+        startup = {
+          quiet = true;
+          checkUpdate = false;
+        };
+        hideThinkingBlock = true;
+      };
     };
   };
 
