@@ -11,6 +11,7 @@
 
     (module /cpu/amd.nix)
     (import (module /gpu) [ "amd" ])
+    (import (module /snapper.nix) { })
 
     ./steam.nix
   ];
