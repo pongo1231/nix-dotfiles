@@ -73,12 +73,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0-rc2";
+                      modDirVersion = "7.3.0-rc3";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "893e11787f78e43b534e252249ac3fff4d1333f8";
-                        hash = "sha256-BzhF1xF22E7Nji9lx6WxVuaTQ3JJdYKjZf+/a4bmyxg=";
+                        rev = "704340f1cd0dcef829eb62f5b48ae95a2ce17bdf";
+                        hash = "sha256-fT8ZxP1DAhjR2N+UpGTBU40+ev18bNN5heaF4Ml5ARE=";
                       };
                     };
                 };
@@ -156,12 +156,20 @@ in
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
         }
         {
-          name = "zstd: probe the CPU for BMI2 support only once";
-          patch = patch /linux/20260826_usama_arif_zstd_probe_the_cpu_for_bmi2_support_once_not_per_context.patch;
+          name = "zstd: use x86 feature infrastructure for BMI2 dispatch";
+          patch = patch /linux/20260901_usama_arif_zstd_use_x86_feature_infrastructure_for_bmi2_dispatch.patch;
+        }
+        {
+          name = "crypto: zstd: avoid initializing the workspace twice";
+          patch = patch /linux/20260825_usama_arif_crypto_zstd_avoid_initializing_the_workspace_twice.patch;
         }
         {
           name = "btrfs: zstd: avoid a copy in zstd_decompress_bio()";
           patch = patch /linux/20260904_usama_arif_btrfs_zstd_avoid_a_copy_in_zstd_decompress_bio.patch;
+        }
+        {
+          name = "kbuild: significantly speed up kernel builds";
+          patch = patch /linux/20260914_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
