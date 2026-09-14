@@ -128,7 +128,10 @@ args:
       RuntimeMaxUse = "5M";
     };
 
-    swapspace.enable = true;
+    swapspace = {
+      enable = true;
+      settings.swappath = "/var/tmp/swapspace";
+    };
 
     fstrim.enable = true;
 
