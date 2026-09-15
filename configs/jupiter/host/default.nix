@@ -11,7 +11,7 @@
 
     (module /cpu/amd.nix)
     (import (module /gpu) [ "amd" ])
-    (import (module /snapper.nix) { })
+    (import (module /snapper.nix) { additionalSubvols = [ "/run/media/mmcblk0p1" ]; })
 
     ./steam.nix
   ];
