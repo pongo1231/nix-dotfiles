@@ -134,7 +134,6 @@ args:
       nixos-shell
       udp-reverse-tunnel
       psmisc
-      pi-coding-agent
     ];
   };
 }
