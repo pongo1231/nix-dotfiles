@@ -87,6 +87,4 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     hashTableSizeMB = 128;
     extraOptions = [ "-c 1" ];
   };
-
-  environment.systemPackages = with pkgs; [ snapperS ];
 }

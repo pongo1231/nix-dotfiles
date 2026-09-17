@@ -1,7 +1,10 @@
 {
   additionalSubvols ? [ ],
 }:
-{ ... }:
+{
+  pkgs,
+  ...
+}:
 {
   services.snapper = {
     persistentTimer = true;
@@ -31,4 +34,6 @@
         }) subvols
       );
   };
+
+  environment.systemPackages = with pkgs; [ snapperS ];
 }
