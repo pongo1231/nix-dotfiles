@@ -77,8 +77,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "704340f1cd0dcef829eb62f5b48ae95a2ce17bdf";
-                        hash = "sha256-fT8ZxP1DAhjR2N+UpGTBU40+ev18bNN5heaF4Ml5ARE=";
+                        rev = "9b87fdc9af2fbfcdb5c24a64139685ef80f6573f";
+                        hash = "sha256-gu4sw3BOQX1Nqtg3T90uOxXOp4O1GPJyR7U85Zvwgig=";
                       };
                     };
                 };
@@ -170,6 +170,10 @@ in
         {
           name = "kbuild: significantly speed up kernel builds";
           patch = patch /linux/20260914_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
+        }
+        {
+          name = "sched/fair: randomize equally shallow idle CPU picks";
+          patch = patch /linux/20260916_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [

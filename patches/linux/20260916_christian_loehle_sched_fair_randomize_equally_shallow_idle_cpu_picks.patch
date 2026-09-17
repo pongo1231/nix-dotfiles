@@ -1,0 +1,85 @@
+sched/fair: Randomize equally shallow idle CPU picks
+
+The slow-path CPU picker favours the most recently idle CPU as a proxy
+for cache warmth.
+
+A more recent idle stamp may make ongoing entry more likely. Among CPUs
+with equal advertised exit latency, this may favour the one with the
+highest wakeup cost: if entry cannot be aborted, it must finish entry and
+then exit, while an already-resident CPU only needs to exit. The same
+advertised worst-case latency covers both cases.
+
+idle_stamp does not track the current CPUIdle entry, so an older
+scheduler-idle CPU may also be re-entering.
+
+A recent scheduler-idle transition may also mark a short gap in recurring
+task activity, so the CPU may soon be busy again.
+
+Drop the timestamp tie-break, retaining the first idle candidate unless
+a lower advertised exit latency is found.
+
+Picking the first eligible idle CPU leaves a scan-order bias. Concurrent
+slow-path selectors can choose the same CPU before either task is enqueued.
+
+Use reservoir sampling in the tie branch, resetting the candidate count
+when a lower advertised exit latency is found. Use the per-CPU scheduler
+PRNG and reciprocal_scale() to avoid variable division or a second scan.
+
+This reduces deterministic convergence without reserving the chosen CPU.
+
+Signed-off-by: Christian Loehle <christian.loehle@arm.com>
+---
+ kernel/sched/fair.c | 24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 7455a83..6836a83 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -24,6 +24,7 @@
+ #include <linux/mmap_lock.h>
+ #include <linux/hugetlb_inline.h>
+ #include <linux/jiffies.h>
++#include <linux/math.h>
+ #include <linux/mm_api.h>
+ #include <linux/highmem.h>
+ #include <linux/hrtimer.h>
+@@ -8459,7 +8460,7 @@ sched_balance_find_dst_group_cpu(struct sched_group *group, struct task_struct *
+ {
+ 	unsigned long load, min_load = ULONG_MAX;
+ 	unsigned int min_exit_latency = UINT_MAX;
+-	u64 latest_idle_timestamp = 0;
++	unsigned int nr_candidates = 0;
+ 	int least_loaded_cpu = this_cpu;
+ 	int shallowest_idle_cpu = -1;
+ 	int i;
+@@ -8481,23 +8482,14 @@ sched_balance_find_dst_group_cpu(struct sched_group *group, struct task_struct *
+ 		if (available_idle_cpu(i)) {
+ 			struct cpuidle_state *idle = idle_get_state(rq);
+ 			if (idle && idle->exit_latency < min_exit_latency) {
+-				/*
+-				 * We give priority to a CPU whose idle state
+-				 * has the smallest exit latency irrespective
+-				 * of any idle timestamp.
+-				 */
+ 				min_exit_latency = idle->exit_latency;
+-				latest_idle_timestamp = rq->idle_stamp;
+-				shallowest_idle_cpu = i;
+-			} else if ((!idle || idle->exit_latency == min_exit_latency) &&
+-				   rq->idle_stamp > latest_idle_timestamp) {
+-				/*
+-				 * If equal or no active idle state, then
+-				 * the most recently idled CPU might have
+-				 * a warmer cache.
+-				 */
+-				latest_idle_timestamp = rq->idle_stamp;
+ 				shallowest_idle_cpu = i;
++				nr_candidates = 1;
++			} else if (!idle || idle->exit_latency == min_exit_latency) {
++				nr_candidates++;
++				if (nr_candidates == 1 ||
++				    !reciprocal_scale(sched_rng(), nr_candidates))
++					shallowest_idle_cpu = i;
+ 			}
+ 		} else if (shallowest_idle_cpu == -1) {
+ 			load = cpu_load(cpu_rq(i));
