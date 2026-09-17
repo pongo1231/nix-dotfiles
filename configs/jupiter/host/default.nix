@@ -138,8 +138,6 @@
     };
 
     scx.enable = false;
-
-    scx-loader.config.default_sched = "scx_lavd";
   };
 
   environment.systemPackages = with pkgs; [ steamdeck-firmware ];
