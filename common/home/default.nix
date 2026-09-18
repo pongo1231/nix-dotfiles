@@ -87,7 +87,7 @@ args:
     }) inputs)
     // {
       "distrobox/distrobox.conf".text = ''
-        container_image_default="docker.io/library/archlinux"
+        container_image="docker.io/library/archlinux"
         #non_interactive="1"
       '';
     };

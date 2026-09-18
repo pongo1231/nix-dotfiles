@@ -89,6 +89,8 @@ in
 
   reasonix = final.callPackage (pkg /reasonix) { };
 
+  distrobox = final.callPackage (pkg /distrobox) { };
+
   lsfg-vk = prev.lsfg-vk.overrideAttrs (prevAttrs: {
     src = final.fetchFromGitHub {
       owner = "PancakeTAS";
