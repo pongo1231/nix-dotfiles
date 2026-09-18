@@ -163,11 +163,6 @@ args:
   systemd = {
     network.wait-online.enable = false;
 
-    coredump.settings.Coredump = {
-      Storage = "none";
-      ProcessSizeMax = 0;
-    };
-
     oomd = {
       enableRootSlice = true;
       enableSystemSlice = true;
