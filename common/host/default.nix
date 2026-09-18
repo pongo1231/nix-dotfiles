@@ -123,11 +123,6 @@ args:
       };
     };
 
-    journald.settings.Journal = {
-      storage = "volatile";
-      RuntimeMaxUse = "5M";
-    };
-
     swapspace = {
       enable = true;
       settings.swappath = "/var/tmp/swapspace";
