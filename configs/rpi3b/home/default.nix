@@ -1,0 +1,3 @@
+{ ... }: {
+  programs.omp.enable = false;
+}
