@@ -29,9 +29,9 @@ in
           let
             pkgs' =
               if cfg.crossCompile != null then
-                inputs.nixpkgs4.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
+                inputs.nixpkgs-kernel.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
               else
-                inputs.nixpkgs4.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+                inputs.nixpkgs-kernel.legacyPackages.${pkgs.stdenv.hostPlatform.system};
           in
           pkgs'.linuxPackages_testing.extend (
             final': prev': {
@@ -39,15 +39,15 @@ in
                 let
                   llvm =
                     if cfg.crossCompile != null then
-                      inputs.nixpkgs4.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
+                      inputs.nixpkgs-kernel.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
                     else
-                      inputs.nixpkgs4.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
+                      inputs.nixpkgs-kernel.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
                   llvmTarget = pkgs'.llvmPackages_latest;
                   llvmBuild =
                     if cfg.crossCompile != null then
                       inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
                     else
-                      inputs.nixpkgs4.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
+                      inputs.nixpkgs-kernel.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
                 in
                 prev'.kernel.override {
                   inherit (llvmTarget) stdenv;

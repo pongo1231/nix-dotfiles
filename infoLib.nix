@@ -66,7 +66,7 @@ let
       roles;
 in
 {
-  inherit mergeInfo mergeInfos roleInfos;
+  inherit mergeInfos;
 
   rolesInfo =
     roles:
@@ -75,7 +75,6 @@ in
     in
     {
       roles = lib.unique resolved.roles;
-      infos = resolved.infos;
       info = mergeInfos resolved.infos;
     };
 }

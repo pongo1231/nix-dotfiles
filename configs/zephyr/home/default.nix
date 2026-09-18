@@ -1,5 +1,4 @@
 {
-  inputs,
   pkgs,
   ...
 }:
@@ -8,6 +7,6 @@
 
   home.packages = with pkgs; [
     winboat
-    inputs.nixpkgs3.legacyPackages.${pkgs.stdenv.hostPlatform.system}.zed-editor
+    zed-editor
   ];
 }

@@ -13,7 +13,6 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
 
     ./webserver.nix
     ./postgresql.nix
-    ./webserver.nix
     ./mailserver.nix
     ./nextcloud.nix
     ./vaultwarden.nix

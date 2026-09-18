@@ -118,7 +118,6 @@
   services = {
     sunshine = {
       enable = true;
-      package = pkgs.sunshine;
       capSysAdmin = true;
       autoStart = false;
     };
@@ -137,6 +136,7 @@
       };
     };
 
+    # jovian's steam module defaults this to true; keep it off since scx-loader is enabled
     scx.enable = false;
   };
 

@@ -27,7 +27,6 @@
     audacious
     jamesdsp
     nextcloud-client
-    syncthing
     thunderbird
   ];
 }

@@ -437,38 +437,6 @@
         "type": "github"
       }
     },
-    "nixpkgs3": {
-      "locked": {
-        "lastModified": 1789558842,
-        "narHash": "sha256-qKFz1CjjK8wobzjpyhjcX6zhCwpUcttRcEsZdBn+tU8=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "41461f1b1c2490802fd85c0419f2f1f82a0194cd",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "ref": "nixos-unstable-small",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs5": {
-      "locked": {
-        "lastModified": 1783506222,
-        "narHash": "sha256-zb73EpacTxsEwJPpsm8aLWR+OMC8748w1nQS7O7C/ic=",
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "0a1c70506e0c43c6e34b5bd985aee0d679ba6e3e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "0a1c70506e0c43c6e34b5bd985aee0d679ba6e3e",
-        "type": "github"
-      }
-    },
     "omp": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -504,12 +472,10 @@
         "nix-index-database": "nix-index-database_2",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs",
-        "nixpkgs2": "nixpkgs2",
-        "nixpkgs3": "nixpkgs3",
-        "nixpkgs4": [
+        "nixpkgs-kernel": [
           "nixpkgs"
         ],
-        "nixpkgs5": "nixpkgs5",
+        "nixpkgs2": "nixpkgs2",
         "omp": "omp",
         "sops-nix": "sops-nix"
       }

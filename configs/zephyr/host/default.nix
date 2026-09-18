@@ -1,5 +1,4 @@
 {
-  inputs,
   module,
   config,
   pkgs,
@@ -109,14 +108,11 @@
 
     sunshine = {
       enable = true;
-      package = pkgs.sunshine;
       capSysAdmin = true;
       autoStart = false;
     };
 
     asusd.enable = true;
-
-    supergfxd.enable = false;
 
     beesd.filesystems = {
       "-" = {
@@ -148,7 +144,6 @@
 
     technitium-dns-server = {
       enable = true;
-      package = inputs.nixpkgs5.legacyPackages.${pkgs.stdenv.hostPlatform.system}.technitium-dns-server;
     };
     resolved.enable = false;
   };

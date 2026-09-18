@@ -27,74 +27,7 @@ args:
   home = {
     username = user;
     homeDirectory = "/home/${user}";
-  };
 
-  programs = {
-    fzf = {
-      enable = true;
-      enableFishIntegration = true;
-      tmux.enableShellIntegration = true;
-    };
-
-    git = {
-      enable = true;
-      lfs.enable = true;
-
-      settings = {
-        pull.rebase = true;
-        am.threeWay = true;
-      };
-    };
-
-    nix-index-database.comma.enable = true;
-
-    tmux = {
-      enable = true;
-      clock24 = true;
-      extraConfig = ''
-        set -ga terminal-overrides ',xterm*:smcup@:rmcup@'
-      '';
-    };
-
-    direnv = {
-      enable = true;
-      enableBashIntegration = true;
-      enableFishIntegration = true;
-      nix-direnv.enable = true;
-    };
-
-    omp = {
-      enable = true;
-      settings = {
-        startup = {
-          quiet = true;
-          checkUpdate = false;
-        };
-        hideThinkingBlock = true;
-      };
-    };
-  };
-
-  services.ssh-agent = {
-    enable = true;
-    defaultMaximumIdentityLifetime = 60;
-  };
-
-  xdg.configFile =
-    (lib.mapAttrs' (name: flake: {
-      name = "nix/inputs/${name}";
-      value.source = flake.outPath;
-    }) inputs)
-    // {
-      "distrobox/distrobox.conf".text = ''
-        container_image="docker.io/library/archlinux"
-        #non_interactive="1"
-      '';
-    };
-
-  fonts.fontconfig.enable = false;
-
-  home = {
     stateVersion = "25.11";
 
     sessionVariables.EDITOR = "micro";
@@ -136,4 +69,65 @@ args:
       psmisc
     ];
   };
+
+  programs = {
+    fzf = {
+      enable = true;
+      tmux.enableShellIntegration = true;
+    };
+
+    git = {
+      enable = true;
+      lfs.enable = true;
+
+      settings = {
+        pull.rebase = true;
+        am.threeWay = true;
+      };
+    };
+
+    nix-index-database.comma.enable = true;
+
+    tmux = {
+      enable = true;
+      clock24 = true;
+      extraConfig = ''
+        set -ga terminal-overrides ',xterm*:smcup@:rmcup@'
+      '';
+    };
+
+    direnv = {
+      enable = true;
+    };
+
+    omp = {
+      enable = lib.mkDefault true;
+      settings = {
+        startup = {
+          quiet = true;
+          checkUpdate = false;
+        };
+        hideThinkingBlock = true;
+      };
+    };
+  };
+
+  services.ssh-agent = {
+    enable = true;
+    defaultMaximumIdentityLifetime = 60;
+  };
+
+  xdg.configFile =
+    (lib.mapAttrs' (name: flake: {
+      name = "nix/inputs/${name}";
+      value.source = flake.outPath;
+    }) inputs)
+    // {
+      "distrobox/distrobox.conf".text = ''
+        container_image="docker.io/library/archlinux"
+        #non_interactive="1"
+      '';
+    };
+
+  fonts.fontconfig.enable = false;
 }

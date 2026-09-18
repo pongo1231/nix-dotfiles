@@ -57,8 +57,6 @@ lib.mkMerge [
 
         caching = {
           apcu = false;
-          redis = true;
-          memcached = false;
         };
 
         settings = {

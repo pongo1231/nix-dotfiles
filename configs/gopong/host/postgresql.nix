@@ -2,17 +2,10 @@
 {
   services.postgresql = {
     enable = true;
-    ensureDatabases = [
-      "nextcloud"
-      "picsur"
-    ];
+    ensureDatabases = [ "nextcloud" ];
     ensureUsers = [
       {
         name = "nextcloud";
-        ensureDBOwnership = true;
-      }
-      {
-        name = "picsur";
         ensureDBOwnership = true;
       }
     ];

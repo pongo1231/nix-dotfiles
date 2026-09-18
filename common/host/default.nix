@@ -59,8 +59,6 @@ args:
       };
     };
 
-    initrd.systemd.enable = true;
-
     extraModprobeConfig = ''
       options snd_hda_intel power_save=1
       options kvm_amd avic=1 force_avic=1
@@ -70,7 +68,6 @@ args:
   networking = {
     inherit hostName;
 
-    dhcpcd.enable = false;
     useNetworkd = true;
 
     networkmanager = {
@@ -87,8 +84,6 @@ args:
   };
 
   time.timeZone = "Europe/Berlin";
-
-  i18n.defaultLocale = "en_US.UTF-8";
 
   console.useXkbConfig = true;
 
@@ -110,11 +105,6 @@ args:
     speechd.enable = lib.mkForce false;
     udev.extraRules = import ./udev.nix { inherit config lib; };
 
-    dbus = {
-      enable = true;
-      implementation = "broker";
-    };
-
     openssh = {
       enable = true;
       settings = {
@@ -127,8 +117,6 @@ args:
       enable = true;
       settings.swappath = "/var/tmp/swapspace";
     };
-
-    fstrim.enable = true;
 
     udisks2.settings."udisks2.conf".defaults = {
       btrfs_defaults = "noatime,lazytime,compress-force=zstd";
@@ -181,7 +169,6 @@ args:
     };
 
     oomd = {
-      enable = true;
       enableRootSlice = true;
       enableSystemSlice = true;
       enableUserSlices = true;
