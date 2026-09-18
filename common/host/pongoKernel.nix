@@ -233,6 +233,10 @@ in
       ];
     };
 
-    boot.kernelParams = [ "cfi=kcfi" ];
+    boot = {
+      kernelParams = [ "cfi=kcfi" ];
+
+      kernel.sysctl."vm.workingset_protection" = 1;
+    };
   };
 }
