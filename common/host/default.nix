@@ -156,6 +156,8 @@ args:
         Defaults timestamp_timeout=1
       '';
     };
+
+    polkit.enablePkexecWrapper = true;
   };
 
   virtualisation.podman.enable = true;
