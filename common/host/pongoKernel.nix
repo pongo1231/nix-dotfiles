@@ -240,7 +240,11 @@ in
 
       kernelParams = [ "cfi=kcfi" ];
 
-      kernel.sysctl."vm.workingset_protection" = 1;
+      kernel.sysctl = {
+        "vm.workingset_protection" = 1;
+        "vm.anon_min_ratio" = 1;
+        "vm.clean_min_ratio" = 4;
+      };
     }
     // {
       extraModulePackages = [ adios ];
