@@ -1,16 +1,25 @@
 {
   config,
-  lib,
 }:
+let
+  sched =
+    if config.pongo.pongoKernel.enable then
+      {
+        slow = "adios";
+        fast = "adios";
+      }
+    else
+      {
+        slow = "bfq";
+        fast = "kyber";
+      };
+in
 ''
-  # auto enable runtime pm for all pci devices
   SUBSYSTEM=="pci", ATTR{power/control}="auto"
 
-  # BFQ is recommended for slow storage such as rotational block devices and SD cards.
-  ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
-  ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="mmcblk?", ATTR{queue/scheduler}="bfq"
+  ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="${sched.slow}"
+  ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="mmcblk?", ATTR{queue/scheduler}="${sched.slow}"
 
-  # Kyber is recommended for faster storage such as NVME and SATA SSDs.
-  ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="0", KERNEL=="nvme?n?", ATTR{queue/scheduler}="kyber"
-  ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="0", KERNEL=="sd?", ATTR{queue/scheduler}="kyber"
+  ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="0", KERNEL=="nvme?n?", ATTR{queue/scheduler}="${sched.fast}"
+  ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="0", KERNEL=="sd?", ATTR{queue/scheduler}="${sched.fast}"
 ''

@@ -1,6 +1,7 @@
 {
   inputs,
   patch,
+  pkg,
   config,
   pkgs,
   lib,
@@ -8,6 +9,11 @@
 }:
 let
   cfg = config.pongo.pongoKernel;
+
+  adios = pkgs.callPackage (pkg /adios-iosched) {
+    kernel = config.boot.kernelPackages.kernel;
+    inherit (config.boot.kernelPackages) kernelModuleMakeFlags;
+  };
 in
 {
   options.pongo.pongoKernel = {
@@ -231,12 +237,17 @@ in
           '';
         }
       ];
-    };
 
-    boot = {
       kernelParams = [ "cfi=kcfi" ];
 
       kernel.sysctl."vm.workingset_protection" = 1;
+    }
+    // {
+      extraModulePackages = [ adios ];
+
+      kernelModules = [ "adios" ];
+
+      extraModprobeConfig = "alias adios-iosched adios";
     };
   };
 }
