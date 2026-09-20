@@ -11,6 +11,11 @@
   ];
 
   boot = {
+    kernelParams = [
+      "threadirqs"
+      "rcu_nocbs=0-N"
+    ];
+
     kernelModules = [ "ntsync" ];
 
     plymouth.enable = lib.mkDefault true;
