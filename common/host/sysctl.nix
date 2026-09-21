@@ -1,8 +1,4 @@
 config: {
-  "vm.page-cluster" = 0;
-  "vm.watermark_boost_factor" = 0;
-  "vm.watermark_scale_factor" = 125;
-
   # hardening
   "kernel.kptr_restrict" = 2;
   "kernel.dmesg_restrict" = 1;
