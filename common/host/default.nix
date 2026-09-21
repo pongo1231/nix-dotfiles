@@ -140,8 +140,6 @@ args:
     userborn.enable = true;
 
     scx-loader.enable = lib.mkDefault true;
-
-    btrfs.autoReclaim.enable = true;
   };
 
   security = {
@@ -176,6 +174,31 @@ args:
     services = {
       "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
       "mandb".wantedBy = lib.mkForce [ ];
+
+      btrfs-dynamic-reclaim = {
+        description = "Enable btrfs dynamic block group reclaim";
+        documentation = [ "man:btrfs(5)" ];
+        wantedBy = [ "multi-user.target" ];
+        after = [ "local-fs.target" ];
+        unitConfig.ConditionPathIsDirectory = "/sys/fs/btrfs";
+        serviceConfig.Type = "oneshot";
+
+        script = ''
+          for _ in $(seq 1 21); do
+            wrote=
+            for f in /sys/fs/btrfs/*/allocation/*/dynamic_reclaim; do
+              if [ -w "$f" ]; then
+                echo 1 > "$f"
+                wrote=1
+              fi
+            done
+            if [ -n "$wrote" ]; then
+              break
+            fi
+            sleep 1
+          done
+        '';
+      };
     };
   };
 

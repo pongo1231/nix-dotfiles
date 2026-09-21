@@ -22,4 +22,6 @@ in
 
   ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="0", KERNEL=="nvme?n?", ATTR{queue/scheduler}="${sched.fast}"
   ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/rotational}=="0", KERNEL=="sd?", ATTR{queue/scheduler}="${sched.fast}"
+
+  SUBSYSTEM=="bdi", KERNEL=="btrfs-*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="btrfs-dynamic-reclaim.service"
 ''
