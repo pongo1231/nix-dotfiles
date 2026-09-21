@@ -79,12 +79,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0-rc3";
+                      modDirVersion = "7.3.0-rc4";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "9b87fdc9af2fbfcdb5c24a64139685ef80f6573f";
-                        hash = "sha256-gu4sw3BOQX1Nqtg3T90uOxXOp4O1GPJyR7U85Zvwgig=";
+                        rev = "93f51579e7df248780214094418f205253383cc5";
+                        hash = "sha256-+Sn0tYDuDDEujGigwoUu02dtpXGNxuJmeAY03RE/TS8=";
                       };
                     };
                 };
@@ -174,8 +174,12 @@ in
           patch = patch /linux/20260904_usama_arif_btrfs_zstd_avoid_a_copy_in_zstd_decompress_bio.patch;
         }
         {
+          name = "fs: avoid spurious dentry ref/unref cycle on open";
+          patch = patch /linux/20260803_mateusz_guzik_fs_avoid_spurious_dentry_ref_unref_cycle_on_open.patch;
+        }
+        {
           name = "kbuild: significantly speed up kernel builds";
-          patch = patch /linux/20260914_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
+          patch = patch /linux/v3_20260917_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
         }
         {
           name = "sched/fair: randomize equally shallow idle CPU picks";

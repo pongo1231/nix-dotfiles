@@ -1,3 +1,89 @@
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 54F8831E852;
+	Thu, 17 Sep 2026 16:06:51 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661212; cv=none; b=dlcDNVfS9vOO/RdDH/RdBxnl7K3kvyJw8YwhDOqIKQoH30Sw32aJgr2zKDKf34Bt1FjJkivvKk2/u1b5z5fFGcLxyegxSpr2kSlepyDyFkdYDtJe3WXUeadzEnTjco06831uh5mKkQu5Oq8QxoLZHvytV8cKyrC8u4yQyTfUxDo=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661212; c=relaxed/simple;
+	bh=l1vzsOfhsFZq93BiP7aFzUsiv0IMtDncs4AVYzcTaZE=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=qfZnzf+uruhNKSeYLJ7sJPXCpdPmrr6n/0ajTgR86YO5UXysib3QnvixPPsfs2HKQIZVAeU3lUrNF7yUKt/tEUn47CgxtFoLGJhpl6xp6vxXwRrLPp4KlvNU5OEGNeusy+hhN1Aq+VpN4+HcTLW99i8vZr1g+SDMnKWNezLEi+4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=TSMYLQve; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="TSMYLQve"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 696041F000FF;
+	Thu, 17 Sep 2026 16:06:38 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661211;
+	bh=uki1B8//a8y/AGrwtR+zPRw8RRYXCi63rXRxRzPghWk=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=TSMYLQvevSmCMIQXZwH4IdgOEa03i1Y2ZGsU+7rSmg1QbUE8rcWHe/bU98D97TMD9
+	 LEiz+Mi3ivMNHMslS4SK/y0WYyPspGGN/gIAGxVkgbQehhQA2x0g3Azi99T9ozy+La
+	 oQ1W3hYVy7jcgnX0TezIbP+Dz/CQz4vVIK/+hHj1YLX6aIRQ5qSLbBNX4ysI4+lARw
+	 ZE37de5YgvYGLz6cok+wwYv2rW0VySI+Xv7uaVXjo+LtxBAyGggDwP1R5tevt5sWtH
+	 2RQSJfZxxeT3y3LKcH79e4qBYAOtrJHp15AlS1rS4hnW5UIJu8Q4L7XuXfB/ZOvrvO
+	 /1HkwrElUharQ==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:11 +0100
+Subject: [PATCH v3 01/20] kbuild: do not allocate .modinfo in vmlinux
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-1-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=4498; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=l1vzsOfhsFZq93BiP7aFzUsiv0IMtDncs4AVYzcTaZE=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P9pjAkMtjVYIrIsJlycfxL3+5fz1rlv5Dx3su9H+
+ qngxGNsHaUsDGJcDLJiiizPv4jvDxIJm9d5wd8NZg4rE8gQBi5OAZjIrwaG/w4MvdqCB8UOfk8/
+ GhH7YdGq9RbFze3Ta45qyLv82LZn8WNGht3t3y+/z5YLvZfw+nbHrrebsp+ZM5dtnr/Y+tPxc/5
+ GVWwA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 Commit 3e86e4d74c04 ("kbuild: keep .modinfo section in vmlinux.unstripped")
 placed MODULE_INFO() strings in the .modinfo section in vmlinux.unstripped,
 however it left the section allocatable, so it gets assigned an address and
@@ -94,6 +180,98 @@ index fcae1e432d9a..88881826335c 100644
  
  targets += modules.builtin.modinfo
  modules.builtin.modinfo: vmlinux.unstripped FORCE
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id C2E1259D617;
+	Thu, 17 Sep 2026 16:07:04 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661226; cv=none; b=VM59R6f2qBrEtag05UpLvp0+NWx+Je9ah6SJ+bGCRbJ604ihamgVAxQMWqwuLFFXrKVu8Zd/D7r+CQknDAc1TRP+bnjnRdAodgftmYy5Ep8CbOV28jYnHFmc8yNO0znlizkZLdReHleL51RNtj4kcTVwN4cmPkxTiOGASnHSDTI=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661226; c=relaxed/simple;
+	bh=zbRPUYikjG0pj4tnd7o4NOVhRtKN6z8Aq2ACsXCdP64=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=AqfwLt67vjf5xCglUFNJ/THSStrRYqTngXwG6Scc/BdU9/flPDxlgTSX3cKAx51XGEXUEI17tcOqh45Qeohh5mjeNg8kHNv17tPkKNk2IA/evLHpQxu8QIM5If5DPNbAarKVFg97CeJX+RM/kIaRaxqXkIWfR46gOHi+/QyLGS4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=Mg8IhnFh; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="Mg8IhnFh"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 802531F00898;
+	Thu, 17 Sep 2026 16:06:51 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661224;
+	bh=kGOn+Eyh5EbYfN97Nj1fX4pq3G8j0Vy2K55dfmdAeOE=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=Mg8IhnFhS8aIkv0q/rQJPKAhsa2w+W2pYG1h64/1iqZSRo2w8VYKqiy96zx7AOs2F
+	 D3dIvgx8P1jFZLbH6SKV+MnaM/NVapns9xpyl+vSv3YTNt8cKIL3wKE4e3/+jry4z4
+	 0YMfROA20c5xMFoHBinlTFXP+bJhI1hrv/77N9/7ay94PBMyazDd1hqyE5k+8Zb9Zk
+	 PsdBVMzvqZZoqWFjmyvXL9qsPU2tXf8fw6sqdkxcGZ/Fe4n0GV3CrVPfkjOj7u9+65
+	 uhzUgQv19Tc27fxjaPv/8DQ7COIKBHVq9D2pDKrnFeXMMVRLUffBvfDT+3DR7WUGbL
+	 FmJO+8ux5DXug==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:12 +0100
+Subject: [PATCH v3 02/20] kallsyms: index symbols by token to speed up
+ table compression
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-2-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=10123; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=zbRPUYikjG0pj4tnd7o4NOVhRtKN6z8Aq2ACsXCdP64=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P+tac2rXKc+N6ws94vJu/TKuOhH25jcLRzKV1zn3
+ v829A1bRykLgxgXg6yYIsvzL+L7g0TC5nVe8HeDmcPKBDKEgYtTACYisY3hD5f6A4merwl9vkGZ
+ +e/8H75wPFVzr2qPmdeD8kl7/YS1jBgZbtxgTOrwubTtyY6HqVOyorq/MB/ctjzDyq1TZaXVvE1
+ cTAA=
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 The kallsyms program compresses symbols by figuring out the most commonly
 used substrings in all of the input symbols then uses special character
@@ -399,6 +577,98 @@ index 494852ade6d8..350d118c3b9e 100644
  
  /* search the token with the maximum profit */
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 30F475921F8;
+	Thu, 17 Sep 2026 16:07:18 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661240; cv=none; b=ttYOlb3bUCHB+Yh224mYL7GvfpFcIQvg2z/GN67Vetc8ShBKWOHel371Gwc4l2GNGcIjyXCqY3G+IaA3c2RcJeq8aKXOBkOyuO4WNBzw5gg5ohmKU6xnyRFmVoWamKqTb2nj60Y0NFUJTlRZIHlcvA2L+ZhoYP1VFShAFQdpu9k=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661240; c=relaxed/simple;
+	bh=wBHd4SBkMFh4Wp/AlupHBf4nVlJ8vBqhljfsRCdgEuk=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=OX7TLKz0I37TBHXDCh1tn8Q2nMUrh8EIF5BQAbsurgAW6lzo/mwLseuO+lat38tQxGRwKdN1cXFLwt0ALDUz3ZXtGuk2TJH/ewWPhBgLl6ZuNDonoUHzz4AmXkTZyhpqSOryzALZwX8/YoS4kUt37D2LnFrakd9QqCcZ8NNPAnY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=aWCwLPzY; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="aWCwLPzY"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 0D9541F00893;
+	Thu, 17 Sep 2026 16:07:04 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661238;
+	bh=YV4wu9p7wOWGW2ofObz/mtiD3pkaku+erivxUCzfdl0=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=aWCwLPzYzBFzg2KQfJPL4XY0kjEp/yU4Adyu7/9mt4X4s61GYJ4D2s+YR4yb9GDKZ
+	 CURdAJpEpWMH6M3I+OCWmATFeMmgzN7pZ/idnG5abeWiyFgTro0n+IKf0SvaGXGJHM
+	 xCqq5exX0ryvrG0JXU6BfVCxYsunSRzKJzTt09BBU5EUPX/VcUarQ2v7DR3RoiomlJ
+	 7UL9phm4AndCE4EsDXj87tw0oopKBVbYEM5FxXH+Gv3+TkSgc6MfH321zyu6wJY0Zj
+	 LPcaAkhskqubX68/xrk4KHt0emUvqIb9f8kn5rrpZrXvKZIO0w7iLqdKWf5EDPyW3C
+	 D478/0t5XIaag==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:13 +0100
+Subject: [PATCH v3 03/20] kallsyms: output binary data to speed output and
+ kallsyms assembly
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-3-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=8693; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=wBHd4SBkMFh4Wp/AlupHBf4nVlJ8vBqhljfsRCdgEuk=;
+ b=kA0DAAoWz53NioHifxQByyZiAGqsD/2jFKMBFZ3cb/te+zKeZ18SgpiF2ApQIv2alGspB4dC0
+ oh1BAAWCgAdFiEE5/QXv1IUVp6J0E9Gz53NioHifxQFAmqsD/0ACgkQz53NioHifxQd1QEA2dW7
+ JVPO9ui61qmhbuflWLO6KkRUh16h/NhEKwYtrx8BAKwR1KmWmMleWwnsyJ/7OKbGve2jb7fvU2E
+ ezSLl+pUM
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 kallsyms generates an assembly file that consists mostly of .byte entries
 containing compressed names, token strings and name-sorted sequence
 numbers.
@@ -655,6 +925,98 @@ index ab0b8125c8cb..e88604150d2c 100755
  	info AS "${2}.o"
  	${CC} ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS} \
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id C519A5476FC;
+	Thu, 17 Sep 2026 16:07:31 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661253; cv=none; b=SQCP7sIW6SODM98bkQwoA63TswdSKAFI7K3uHGThv8JHvNKv3OV53Ppm4F6wGbiffTrjux5TUXIUr9CIJcYWXpoGCsrdB/yKbYaO1rgoWuwaLc6Uv9LW3ebopgmfulpGH6SVpN4lvl/i74t+T4V0gDftK24hsva+B4QWGO224uA=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661253; c=relaxed/simple;
+	bh=4iA14ccJ3tToIuW0JxnDcx57dEM9zZDephjwK3h1FOo=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=igm9XP3nBd/kvyIo8WJtPXfA7mlYKsCp2avqdxgO0LAD3YumSyx4TyKZaxmAYFhH18seTI6H41CU7PDIM1SI8w617VkqlRWp9s+IZsFVu3gffMhgdQ6pg7wEykT5EoincYSB6fF5kg1XS52E6CejKmfVX5nItJgxdIncRi8x61I=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=GWGLSD7z; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="GWGLSD7z"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 8E3221F00898;
+	Thu, 17 Sep 2026 16:07:18 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661251;
+	bh=01qdzsZbCvqL8FdMyc8gaErER1nQlt9KVctHGyxLt4o=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=GWGLSD7z6HhCoVc8RandRhUOJMGit8anM07+7UbL+fN1gfK471bcyLrDCsokaTbFY
+	 4Um4x0I9nfIqpNt0Wczf2QpCG50rycsf3e1daBzy5PM/my6T2R3t+CgNc0n5nif5O0
+	 7+QaSEXAK5F4IQWcFNp/fXsCCj+lo9UvWSsdV2a7pnl4Rox/5e0gU6pqC3cGIPm0i9
+	 D04zGHVBMlM89c54x2ZI6akY6KagLmRC66FedW3TLMEBPJd6CIapU2UIvAUoX7bJ0X
+	 UnCQDrb4VLC+86nVBLtrGT7t3j8PjpNKeaDiHvJHXtny9EB3SmOyiGX7QaAJ0MKzuO
+	 /TEajP/w18n/w==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:14 +0100
+Subject: [PATCH v3 04/20] kbuild: do not sort nm output where the order is
+ irrelevant
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-4-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=4994; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=4iA14ccJ3tToIuW0JxnDcx57dEM9zZDephjwK3h1FOo=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P9VFXvnq1zjzHTpiZ33i+71c5acV7S4NDNmpvL7f
+ RYHa/JPdZSyMIhxMciKKbI8/yK+P0gkbF7nBX83mDmsTCBDGLg4BWAiS68z/BW+GXxApuHFppvv
+ PmmwljWXLrYUWnrv7pyk4zMP/vuU6hfHyPD9IduKx9FXY5dl+Z5TmMrKvDupVnPPbANH67Z7F+w
+ iFvMDAA==
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 Unless instructed otherwise, nm sorts by name.
 
 There are places where this is unnecessary - an invocation from
@@ -765,6 +1127,99 @@ index e88604150d2c..970ca10f8fa9 100755
 +	${NM} -p -S ${1} > .tmp_vmlinux.nm-sort
  	${objtree}/scripts/sorttable -s .tmp_vmlinux.nm-sort ${1}
  }
+ 
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 875344ABBC5;
+	Thu, 17 Sep 2026 16:07:44 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661266; cv=none; b=s9kMJ/O65xUIibmRMuY/hItlwQTL9zrgIAdqxJoinRZ9j3o5+NY4/DPnEHx5ERuxgSsn5p6yv6FrWJB/m0gCJOYKRYOAGYWMyyIXE1syGzi4z2m39fLHwmF5NeNNLEoU+rlCYPC+d/zEmULe2zs+hOoal36ZMJCUd9qPXu11nl8=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661266; c=relaxed/simple;
+	bh=EBlEnSGuCnJVwiujMjlFOqeFXEqyFnYzRW7W0NWQNRY=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=h53AwQwYlJ6J9EXPZW43dfzWrgcH6oa96XdozcQRRcSv7dSvMId1GI6nzz9nIgMSiyRu7lyv71Tui6L25nOjHdKhMhkDQFMmIy8NcNZWmkHYoBkrRLfEV4NI7m94hDzkulfG7IZxQU1B6y5DpWXQ/FwAb5raKSEvXt+M+9DtXBA=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=I9uGOCfo; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="I9uGOCfo"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 9F4EB1F0089D;
+	Thu, 17 Sep 2026 16:07:31 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661264;
+	bh=kU2taAW2zjsL9Ma3CzB5TbBN6AIOAn4hVTWBK2Wl6c8=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=I9uGOCfodrENHeJqjtealpH2sPD96+1V0b62fRIO1NML82o+vqHGe+uiVxy+/Z4yU
+	 vBTMtlM2mElWSgU9NYKTNRUQCZKbKA5Vjl6dQKa03BTsnRdgSauuqtVL/HNDQYQnlm
+	 deMJ+Sd0hgXJmt+bG4833CVP093YawsaNnLqMrCkjE6/Tk/oinrymBG8UqJSY6z6Cs
+	 bTyEpp5afrzA5JYwi+t/KkaP0FS5l7jlKJLkUd2T2eWR7C2sQWXjuAHgikoGWPKTLH
+	 HzUig8SsQdhIJyaetq178ia8RECCOKBouVDBoJbX8RAahxYhEeDAZKESpNkd2is+WG
+	 iIIadmpx519cA==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:15 +0100
+Subject: [PATCH v3 05/20] kbuild: only emit vmlinux relocations when
+ required
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-5-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=2346; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=EBlEnSGuCnJVwiujMjlFOqeFXEqyFnYzRW7W0NWQNRY=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P91Tnh1QuRaSs/l3z1WIm572F9W9Gvt3R96n8Ob5
+ bpM7YXvHaUsDGJcDLJiiizPv4jvDxIJm9d5wd8NZg4rE8gQBi5OAZiImTMjwxIVG93TDwP84h8f
+ OMf2nEf2w06VeT8WCuRO/y7w/jPfKkOG/86CqmuiKv4v9VItPqS0527Tlwu6oi9L6qb2mKeFasc
+ ncwIA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 A kernel build consists of more than one linking pass on vmlinux.o and
 vmlinux, at minimum two, and with CONFIG_KALLSYMS and BTF enabled on x86-64
@@ -829,7 +1284,100 @@ index 970ca10f8fa9..ed5ff97c0667 100755
  		ldflags="${ldflags} ${wl}-Map=vmlinux.map"
  	fi
 
-Extend elf-parse to be able to read the symbol table of vmlinux in kallyms.
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 888AC4F4CEA;
+	Thu, 17 Sep 2026 16:07:57 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661279; cv=none; b=m0+tYrrx5pkJP5Kgaf3ruFJ2N5n7oyeSb5U/6UJca1qUaMljP3NVIWDZpvK2Ir8j8N0PV+3xqgUL5Sw/zOvbQhLTs3wb8cw70tXvcjSLFcC/J9hFpofQzzyAKVddAVmajKg/vqfw6PK0cTw8yOKjrtSJCuUhXJYwrQAUPNQguqU=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661279; c=relaxed/simple;
+	bh=dlGzVBpxKD5xCc0X51dwODyd6BlE3RIkdez/IXW6KMA=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=fTyYapT6B2C6KHeeDWhINMwFwG1UJ02a7kAev52LczcA+kCVnyVbjrg+QJw3tt6gmiXR2DexlRp3sfpzApRrRycb9qKt/Amy7678CzvQt3sEFkxBBkXTcwn4S92NKeLtm8U4fShkefTVWQOEMPn0oxOudqQONPqIf0gYRw0zHHs=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=GFGLpSvU; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="GFGLpSvU"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id D82281F00893;
+	Thu, 17 Sep 2026 16:07:44 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661277;
+	bh=alFiX9vQD3OGxf/KUE61SipnNAytymprfqLOpM5SESg=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=GFGLpSvUG1kugl8CawtOTVzl5N7RLiiJf2Ea60/04hAOHU+SKaR8ViB5TniUOMl+Y
+	 bmv4jvp/kzMGdMs6dWBm0PGgVFlWlDDpgfandNeeYvqyK/cyNL9UzVo1Qe5AKZ/OdK
+	 lvwNKgSQbquVwzrAdyJMmwZpWDprCZ+tvBwYXIhYWzR7fEaHo90Wwk4EJ0ltqXp0+9
+	 EWeLs2qatNJ2uuMzfNk6WNyt/K6t0CwyIRGoQLVpDevZMGBzS3Ca9uZYQyDBBkdAwa
+	 2xdmdaZ5zjIUC8vM/0imoF/K71g/MS7KzwFbqWBQSB5BlnG9TU7vE+z2TRa45m7fTr
+	 SAzWcWKeYCPyg==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:16 +0100
+Subject: [PATCH v3 06/20] elf-parse: add section flags, symbol binding and
+ a read-only mapping
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-6-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=6368; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=dlGzVBpxKD5xCc0X51dwODyd6BlE3RIkdez/IXW6KMA=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P/9eqr1BF9n7bKj2zc7WxutWn9ZfcKcX4siLjosP
+ yxdu+69WkcpC4MYF4OsmCLL8y/i+4NEwuZ1XvB3g5nDygQyhIGLUwAm0ljK8D+gVTlGJ/PRab1/
+ 8uvefxWI7XvMYndkpfHxjTxl87QufWpn+CuYmbj9hIcKi9SCG0q3bk6I9gr741T8svhj9c1Pa5q
+ /MvEBAA==
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
+Extend elf-parse to be able to read the symbol table of vmlinux in
+kallsyms.
 
 This requires the ability to open ELF files in read-only mode, so provide
 elf_map_ro() to do so.
@@ -1022,6 +1570,97 @@ index f4411e03069d..453286e63032 100644
  void elf_unmap(void *addr, size_t size);
  int elf_map_machine(void *addr);
  int elf_map_long_size(void *addr);
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id DD1E64DEC0A;
+	Thu, 17 Sep 2026 16:08:10 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661292; cv=none; b=EhuA0fA65FRt93+HJPBrIsdkUhd6Z4obx9/pJQvopYGC1V6DgnUgcXG3PGhrKzInGQAKA3z0YWlIBZssCUlMaTSrY9STdVYgw2b29Orzt7YU8hUXBRqJMn6Hn6Q1NLLCyKLdquPPGDKHjPEk0EdiNGQNsb5xri/OrBRDjw6TcrY=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661292; c=relaxed/simple;
+	bh=GWo0CxXaBWXcYOg19svJBPx8kLUj1IDVVHSapYXHYLA=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=szS9W9lXMgjLlgpnj6/KlLrvttT0Q0fosPtc9d7ChIZn8Dkbko9qO0q/aiM4AIdQdbY7kaUV7RcYlmjuKod5vs4ikDSJpzta32owTk27uh30Yc0MmWgQdyaZsnbrsqPoaH0TPxhtRSEpxGnP9HA93BZkPY1f5dn+59FePMJRubg=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=l4VeBu5Z; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="l4VeBu5Z"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id EFC711F000FF;
+	Thu, 17 Sep 2026 16:07:57 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661290;
+	bh=cvn2wYy3uEyrc5F4uhPGElNioqROTPt8RWPCqqERmNI=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=l4VeBu5ZU1qxd78HxiHY8NUgL8ytwcPnz3wtDDPWw9Z4OeMMlybYkJSrPDrsTYa3j
+	 9ZIBjab95XAIIHdkYbkWRFyiYLLsVcNIMgEClygE0J7LgMjdX2jSAa+UlrNE6fqX6w
+	 dktro6WeqXe1XEwvmdzN133csd+TLDi4K6WK50wrSu3XbL5ejAFYP5UE3TWL2NlzC8
+	 cqa7vS7SNPaE475/p/ybH5+0kaL/wDpjmIiQM7TIESbxgtbPF202y+KlZ47IDt511P
+	 FElD9EhndhEDVSsn3g3UDSoO7DzbsPde+JCBLS1DTM10Fj1ZQj6rwgzKGufwu/nOoi
+	 jPgA/9wDvhOAw==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:17 +0100
+Subject: [PATCH v3 07/20] kallsyms: reimplement mksysmap in C
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-7-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=24381; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=GWo0CxXaBWXcYOg19svJBPx8kLUj1IDVVHSapYXHYLA=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P+duink5ATztgLPorvB1S6NN5S/+xRPPrac5acAp
+ 5Dt0vSujlIWBjEuBlkxRZbnX8T3B4mEzeu84O8GM4eVCWQIAxenAExkTwsjw9Xoa4zNU2PCbpx/
+ HnB8/9LsY5m+mS8Cdr78ef1CNUuKXyzDP0vGFQdvf5QT36GUpvmao+LcBlZ5iy8q3+b3/9q3UOR
+ KIRMA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 mksysmap is a sed script consisting of 30 patterns which link-vmlinux.sh
 uses to generate *.syms files, and which kallsyms is then called against to
@@ -1866,6 +2505,98 @@ index 856b26ba2ac0..000000000000
 -/\.long_branch\./d
 -/\.plt_branch\./d
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id E474845517D;
+	Thu, 17 Sep 2026 16:08:23 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661305; cv=none; b=ggknnYVJoUwRIXv/43BnpKRoak/nq0yS9GiN1JPkz4Jx91pe/PnGJyvCxmtiZysz2rk44WXFok4AFR/K+lamwrUGg1HBKUWzWOmG+ntzfD22cRdy7Bw56MxdFrqtkNyQ6CTeglUX1k1sqpv418Z3KYJ65Yw7FiSZB7JDKEVHSoY=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661305; c=relaxed/simple;
+	bh=c87iVV1zeBni5F+nfbl6i4a6ieyR5SmyZw+q91uinWA=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=sXuRuXw9WUUrztL33aFw+Kk5q4HLmqnDLSgTVFNH0zY8MLO4j66IetF2gOWTFwXoXdgfHkocsc4DvH/iTFnjcmU4lBPfWOoSREpBc/m6gyDXxvi3XAhXx97JviuLdpjrkQ7R1+bCnuuwjW/C9XiIPsWSbBfgZIRmiDNf5s54Cww=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=ZrtFSQ1D; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="ZrtFSQ1D"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 400D21F00899;
+	Thu, 17 Sep 2026 16:08:11 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661303;
+	bh=1ZPmnc5+8fCi4Y57FKsAI3Lb+t0VOqD62dinOd1QwiM=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=ZrtFSQ1DQ7iKfw4Ma8dvRgyvnI1EqMWU5hz5bzfdP2S38htut8WMOINsQilvaYetv
+	 5tsVlkSYyiRiXbT+ejN1e5U/tllYJU/VLBYx4tLf2XGiTYoyFESCBIzND0h0ZwyjC/
+	 m8NaqZbzTJNenOPzSE82LqvSnSzjpN2jivgy1KnsJlRQF4T/9+rQrHEniiJN1XV6R1
+	 CLitxsoBh/RirpsvDp6fEIW9Hq6J3LhI9ic95Y9e3ULB5+LtR48bsoIu7+L0mwlg/v
+	 bZjz8yFgl5YfzLyx7tGTQGXinagUfp7PlVnmvNYW4xlTGcgel2WcQ1NUlvjjtMsdmD
+	 J74gGUNTXTXUw==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:18 +0100
+Subject: [PATCH v3 08/20] kbuild: cache list, composite object state per
+ object
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-8-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=3457; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=c87iVV1zeBni5F+nfbl6i4a6ieyR5SmyZw+q91uinWA=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P8789c2xe9Uw7O7Px4l75pueXLmDL37vyfWxP7it
+ q//nLN9fkcpC4MYF4OsmCLL8y/i+4NEwuZ1XvB3g5nDygQyhIGLUwAmMnMtI8NGy91nYnQfCz79
+ scf90bEDWyT9e07ql7gnX7fQsRVZrtrH8D9VS+Dvzs++AkydGcYTPOUPxTkrvbzyr9Q5q7V2kmT
+ Jd04A
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 When each object's command line is expanded, kbuild has to figure out on
 multiple occasions whether it's built-in or part of a module and which
 composite object it belongs to.
@@ -1945,6 +2676,98 @@ index 0a4fdd8bd975..2f447bc25e7b 100644
  
  modkern_cflags =                                          \
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 1FE494F96C5;
+	Thu, 17 Sep 2026 16:08:37 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661318; cv=none; b=KCveuRlmsZqhJSNCk8kRZ/5GfUAA0LbrOCqC2LSBLIVnOrlIWkYC94u18aBvsSJ1rZ9v9CMByudnCrKnUsTZCFW1m/qCkLlEB4MzJe/MaN8c9BBNw9/gJaTO7n1N8IKh1ec5nv36PhtyRHfpkf2i8hw2dY1/M+PYjFFyveDZRIo=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661318; c=relaxed/simple;
+	bh=yAbXrDXG7VdFDFRiFn8pVEd6adxTWGnW134OALwRIaA=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=s3Gw/MzBuHwW8Kg/Fg4vARvqi4ARHsNf2MAgDD5bLw7r79jldMFhGd4Xog4gqQ9oSoPRZSmMM5nPm7yTLBqoYu7zsS7+f0v0GNgL5YrXMoLG3td3PKlUUv6yAxs8Cgt2TntdE+z3pk4jQs4aTyx2Ie+Fd83/wZuEGkyVTYYwKTY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=J28jguIn; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="J28jguIn"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 570FD1F00893;
+	Thu, 17 Sep 2026 16:08:24 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661317;
+	bh=XFRcN9YvGWp0ap8rBqGLz/BcYo31TE+8eTevB9SR64s=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=J28jguIn/hZZoBVKIkql7H5GclDkG5XqgTg6LKBxAT8XuIUryEm8NTViwdtjjqkQM
+	 tHgsZQnUE6OqiFOXByPRAS9jwyWM8F0MDmyX7f0ACjdqvlS4LBkkR7xxVVexOGV/Y9
+	 NWyky9XneGDglH8/0QZfVbnrJ5FLalJGuCnJpt/WkpmHP29cYcOKSXF0OUkpkWLWKd
+	 ZZ+s0sn5NivyoM9+YxJeFcvhabkAhV+Fvaa/cpptLUuAEfRTm+A6jKAMMgbm4NDcWJ
+	 7tCBRgln5B7ytGp7nRPgez2Px02dfN1iWTpowjOJsN5o3t+ZwYNFX0uR8dyebz7Ph3
+	 Jr/kGqwjuk0ow==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:19 +0100
+Subject: [PATCH v3 09/20] kbuild: implement and use depcheck to check
+ dependency timestamps
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-9-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=15962; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=yAbXrDXG7VdFDFRiFn8pVEd6adxTWGnW134OALwRIaA=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P/zmKQbfvG5cHvptnPx/86V7ctUa/0cc/Jdco2ea
+ J7+3djzHaUsDGJcDLJiiizPv4jvDxIJm9d5wd8NZg4rE8gQBi5OAZiIw3lGhjksXBv3m8T1S199
+ k6J33mhdNydb5C4pIS0hvlW7fCXPRjIybDi7/oTRVgau6Gszq5OMlonE8TLM2Hs1NOj8ev1QvyO
+ inAA=
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 Each object's .cmd file lists its header dependencies, which often
 consists of over a thousand dependencies.
 
@@ -1994,8 +2817,8 @@ Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
  scripts/Makefile.build   |  14 +-
  scripts/basic/.gitignore |   1 +
  scripts/basic/Makefile   |   2 +-
- scripts/basic/depcheck.c | 443 +++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 459 insertions(+), 2 deletions(-)
+ scripts/basic/depcheck.c | 441 +++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 457 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile b/Makefile
 index dd4c10afbb7f..8105123bcf4d 100644
@@ -2058,10 +2881,10 @@ index fb8e2c38fbc7..ff98780e474d 100644
  # before running a Clang kernel build.
 diff --git a/scripts/basic/depcheck.c b/scripts/basic/depcheck.c
 new file mode 100644
-index 000000000000..ce5c4565ae31
+index 000000000000..622101c33650
 --- /dev/null
 +++ b/scripts/basic/depcheck.c
-@@ -0,0 +1,443 @@
+@@ -0,0 +1,441 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * depcheck - check the dependency timestamps of a directory's targets so that
@@ -2353,17 +3176,15 @@ index 000000000000..ce5c4565ae31
 +	const char *slash = strrchr(cmd_path, '/');
 +	const char *base = slash ? slash + 1 : cmd_path;
 +	const size_t dir_len = base - cmd_path;
-+	size_t name_len;
++	const size_t affix_len = strlen(".") + strlen(CMD_SUFFIX);
++	const size_t base_len = strlen(base);
 +
-+	if (base[0] != '.' || !str_ends_with(base, CMD_SUFFIX))
-+		return false;
-+
-+	name_len = strlen(base) - strlen(".") - strlen(CMD_SUFFIX);
-+	if (!name_len)
++	if (base[0] != '.' || !str_ends_with(base, CMD_SUFFIX) ||
++	    base_len <= affix_len)
 +		return false;
 +
 +	return snprintf(target, size, "%.*s%.*s", (int)dir_len, cmd_path,
-+			(int)name_len, base + 1) < (int)size;
++			(int)(base_len - affix_len), base + 1) < (int)size;
 +}
 +
 +/*
@@ -2505,6 +3326,98 @@ index 000000000000..ce5c4565ae31
 +
 +	return 0;
 +}
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 51D874E0214;
+	Thu, 17 Sep 2026 16:08:50 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661332; cv=none; b=qrTSxw2rKSFDOnz7S2wq3y4GUXe4J8cKYRUQ/BvlSKeCp6GpFckpoYe8fUUlKdWLwAmjWRrDp4V47TsIVE5VALa2H/Q3I8T7fDG6YGx2prnh6dghARVIgfuE27rGZQmZwLzAyNM4L7fACtTLiBEYRp12EKtxY/Liu9B+Ca13M3k=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661332; c=relaxed/simple;
+	bh=I4N/QGvfiqwISRNIr8XvyiUONyrL6kJU9dfDNPImVZI=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=QvHHSof4PsEtnJb2K1C0gZ1NHfhOXxGjKSyEP1UrcPQCG19ycImFkbpHcfp3CRsS82tvD6YtH/80Os70H50R2vFiFisIv0ohGaytYW1TFLuZ4x3IU2ikuwNHjx8RZe7MpRPL5yF7dC32K9A7zZFH8ezhHOQm7xCPu+ED8tSs2zU=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=ZDAidKjc; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="ZDAidKjc"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 798501F0089A;
+	Thu, 17 Sep 2026 16:08:37 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661330;
+	bh=kyV9tLD58BJ1dnw177aZoGUZ0P4tXoiPTGjshBkWPJc=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=ZDAidKjc1EtIxtzNUdY/iTnt7xogNeXI5HYMf+bwMPbPI/o0lRhQrYQ8y1JGmWRLy
+	 jSAtW3HYKV8XArFSiwMBr2AUi5cUismQvfYTNzazEnP2MCJ91BxCWWeGynbjwyQpqu
+	 RtOe5L2X/HI/1s0juL99bvUCLui459HjTRXl+Z9g7yjERLOEBWL+hyIt0Dk1knC3UI
+	 i342CVtyLrFhfbUxrSnjsmgcB8Dg3E09Tm7cmT5nyOjDnkYXyt8OcBwrCzCfZpKL9y
+	 jGtQtm8PqkRnRK1vD2YURbnGLkhMwEiBhepG0eAQ0SmgfO2hioga8/OkLes57mrBiY
+	 juwdb6o5Wrz1Q==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:20 +0100
+Subject: [PATCH v3 10/20] kbuild: move the toolchain checks into
+ init/Kconfig.toolchain
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-10-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=14277; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=I4N/QGvfiqwISRNIr8XvyiUONyrL6kJU9dfDNPImVZI=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P87fnq6gJGbs/cdVfdPnqLmxo9Dt23ccr9utrNJr
+ eB0q2VZHaUsDGJcDLJiiizPv4jvDxIJm9d5wd8NZg4rE8gQBi5OAZiI5y1Ghn419SnhOtP0KzJf
+ lW5zeS32hzM6UOTx/smf4j4cZbG5MYmRoen+MesJZktCEtQe3eS6eVXhiHKM9cwFIaLXe40myu9
+ 7yg4A
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 init/Kconfig opens with two hundred lines identifying the compiler,
 assembler, linker and rustc and probing which options they support, none of
@@ -2934,6 +3847,98 @@ index 000000000000..fac36246451f
 +	int
 +	default "$(PAHOLE_VERSION)"
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 942284E4C30;
+	Thu, 17 Sep 2026 16:09:03 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661345; cv=none; b=BBQBs/Bj/X0A87MWo+IStJPAiN9mpkR1MDyAmnswl/d7jp6FzOKtOcCCyHN9xebz9T4mnqwW+nX2iOlmyXCGIOhNE9AdtgkmW0ct/4OIDkyc9N+7urh0U6mBmQ6VLK25Er4+ED7huZ1RC7R4YjYsINBKmFkZ78BquAQbs21JPbU=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661345; c=relaxed/simple;
+	bh=k0t1jfB0LdEvB561bXcAq0tnUTQ1OLC0VT5CfmUIjJI=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=NSiCgNdmfF6jbyRQrbbKo1c/3gOQ8ndRWqjl5gCu2PgZoj1RnYUf0yPfLuZMw5zE8HkUUZlI4i87Biu49oIOnDYaLMsG1+mceTdB/N2PFqni18T5m9ZLd6R75iue4pdQ3282lpqsGPIkFYxEWQUxs/Aj0+vs5Yhhx9f2fUvqn3U=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=Z3EixN/Q; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="Z3EixN/Q"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id BA7DE1F00893;
+	Thu, 17 Sep 2026 16:08:50 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661343;
+	bh=sibtSrxhb2m91J5vGg2l4Bnm00Un/lxy0ENy9CcWpqI=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=Z3EixN/QhxThddu2k3iDpvJ3pljYMSEHq+/Tb1CSx29kAZcbT2bUlkcQXkb1yU0mb
+	 O/zlNpbrArVhGk5BvUjwKkUFCzuIuc4zBS4rEq/ZZ8/WrwFgTuT3E6Uk211T+8VmMf
+	 tCkumv/3bKTqPXn2JyD9WItM7Hyu+IjiQaMYODP/mb7AGAAD9TObQfxMjM1irzEIb0
+	 5jDh9zvVRPQTXhz2f1dJ/XQSM349ImbA/pgM1pJZ36vQcsRbxjt/49Ekz937CgwjNy
+	 1ecyGD3s19hpEQnjB/JxZvnV2mzEF3A2TiwL+ddc1YGq5SigbKfsulDx9it3aHJQhm
+	 fbNif/xvuvu0A==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:21 +0100
+Subject: [PATCH v3 11/20] kbuild: avoid re-running compiler and linker
+ probes
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-11-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=19000; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=k0t1jfB0LdEvB561bXcAq0tnUTQ1OLC0VT5CfmUIjJI=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P+btIHrXOS/mNg9kTKX7hyRzKrfdZHvyuczGbavv
+ jy0YYy91VHKwiDGxSArpsjy/Iv4/iCRsHmdF/zdYOawMoEMYeDiFICJnNdi+Kc9hflbW9eJ8kdS
+ TLyezN4nplqwOC9bzPH9acfKjEiWYD1GhnXLXGad3DTp2O+G0xOPleaw1oXdW7jEyo55Ap+lSe/
+ 2Ag4A
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 Each kernel make invocation begins with ~30 compiler and linker runs each
 of which performs duplicate probe for a number of compiler and linker
 options.
@@ -2945,7 +3950,7 @@ A convention already exists for this - CC_HAS_xxx, LD_HAS_xxx in Kconfig
 files (for example, CC_HAS_COUNTED_BY), so convert these probes to Kconfig
 options where appropriate.
 
-This change avoids a sublte issue with ppc32 (big endian) - clang doesn't
+This change avoids a subtle issue with ppc32 (big endian) - clang doesn't
 accept -fno-stack-clash-protection on this sub-target, so keep this option
 in the Makefile.
 
@@ -3357,6 +4362,98 @@ index 35af7d6c6d18..83d274fcbfaf 100644
 +KBUILD_CFLAGS += $(if $(CONFIG_CC_HAS_WNO_STRINGOP_TRUNCATION),-Wno-stringop-truncation)
  
  KBUILD_CFLAGS += -Wno-override-init # alias for -Wno-initializer-overrides in clang
+ 
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 94FA950128F;
+	Thu, 17 Sep 2026 16:09:16 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661357; cv=none; b=ryINjc3wv04TWdQEQRwP1H1fb5YsH4UndR+ycP3G6AZRRxsVqURgxy2rw1ef10QCEoTXOHjcagbq4XdPIDVlI2Zm3r7laDEstnPyPu9W8/9doAjXWgsF6NGJIw0OAR/zDuR124cMJV80WiX168X+w0GQfkQDhHYb8eRSEePg2qQ=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661357; c=relaxed/simple;
+	bh=Ec1/kqBneOXNUE0gtcHjI1qdlGW1hFvqVFIOwSgkaek=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=cQ4QKYB7eNYRp39+NSQqLfdWI3RRGnob2hcEhxeH10Uju9RewO3SD2GBbkfhgZk8pQcQabuBRkC9vIAfh4PYh0Hx5dFIJ9TbVMqdbdcysz9IIBOidTicnIQYB2eljaeOnpBYut42oE5QsoCXyiyTn8dV06pCTifij9MF1Ccu4Go=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=WhS1by2S; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="WhS1by2S"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id D5FD61F000FF;
+	Thu, 17 Sep 2026 16:09:03 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661356;
+	bh=B/2HtZkmT+u7/JWW+lpRsHLnC+c6qMifLdIPC//XmMc=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=WhS1by2S7B78AvylX6QFAyIjxUvuXD08hsZz4m4/BC8Rx0PVrGouqW6feex7zvHzM
+	 l60/dLPcpo9fvV1VXHadVGT2+Gf9xMbIMUqkZC51juGA00XAs1dmw0TkbADbsmbd7L
+	 qXYuloZL6012uHcgPe01sjfiYaar7dupH0AeRrJFTMj0c+44Qg87OwwgHAoY7RO1C1
+	 zfkuXBDBK6T3dfLVKGQv3N1oOh5wjuaLT7V1gHZWRcberEzqdqJNolRTvFfQSazvL1
+	 H1VmkxS+6fJob+5RQnJEF7hmn+J2XUwCh6A6ZTpk0QFPM6vwTQpvr+Q/+n7uN2ox+4
+	 C76cnOAe61xaw==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:22 +0100
+Subject: [PATCH v3 12/20] modpost: cache section relocation mismatch state
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-12-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=4714; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=Ec1/kqBneOXNUE0gtcHjI1qdlGW1hFvqVFIOwSgkaek=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P+ryj603Nm39dGf1hVTP+rqnEi9q27mMaXgg/K02
+ AucvcUyHaUsDGJcDLJiiizPv4jvDxIJm9d5wd8NZg4rE8gQBi5OAZhIEBvD//D3lclMpacDZp3t
+ 2XK0I/SO49wnm6e8Yq2uz9x87JVL2hOG/4WtpWn3I5qrawMaLy0o/8Szkeex6wTvJJmmKIfXL+0
+ usAEA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 For every relocation modpost invokes check_section_mismatch() to determine
 whether there is any kind of mismatch between the source and destination,
@@ -3505,6 +4602,97 @@ index 75374c64b8cc..0fd43c8a89ea 100644
  }
  
  static char *remove_dot(char *s)
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id AE43E5012B5;
+	Thu, 17 Sep 2026 16:09:29 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661372; cv=none; b=Sml/SQ9MhcCfVZuPJlTh3qkHYztpgI6pyQEAqUYnw1FZC3Aa2CBpWSgopFJr38PIHfz9cnwmrnhcBP8/9lf7u7NhcQscMgp2pGZ1THvVa35n39TmEatI/tA752f8sS8pyEA2M1ZIuGVtGJqoHUYylMRdhcNtlbCOMsQLdEmyINQ=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661372; c=relaxed/simple;
+	bh=mM6qrJi+cVkwndMp39wmsQKIMKkp0nPsvqIbvM/OFuU=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=XvUKmz2L0qyTyWzx7VBqRuaYiKx6SzLAl/dksSHQSIVyzrnon/TQmae5xErWsKlT7Ng+81HRM9AGJQjx96uB5FCoN7NH/OmFDijhwjYPGBUfYhwn8BQGGkbTMhax1unkIEzzzG8BdcFIu/r/J+r5bJr/E9iyK6s/Ng3VfSYv9Mo=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=mijW6dhR; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="mijW6dhR"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id EE3671F00899;
+	Thu, 17 Sep 2026 16:09:16 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661369;
+	bh=5D0inqb3arMqOdXRMMEKrYks8JhiYYXA9PyTulMg0WQ=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=mijW6dhRjHt59QwLmoVAnkaumt9EIR+ZTe8SDK+qFETLpJ3LfJ9li1iXyB1shjh5M
+	 BNgQEgKCADUrwpgFl0SDV5PizgRThqqRVdNsZY+F7hFSSaSF1TWYnGMnd6h10x1+f/
+	 kchYwAdnidpQJrxvSHz+6APi4NUxVNBjTXe1DKTTuth5yZmzCGU2u+Ti4euI8qr9Cj
+	 osJSZ1fvlrFBtlOerOtbaFA0ZizKXxuWxKfgvb/RpE59j5+TlE+VCz+OqpyQJO3PuU
+	 L4o/LSJreQcprKzewbESxlYv73VW4ZWgtbuB0TvudHnzvMYRE6ye/5nm07EfUl3gON
+	 jEF6e4JYtTdbQ==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:23 +0100
+Subject: [PATCH v3 13/20] modpost: emit module descriptors as assembly
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-13-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=31411; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=mM6qrJi+cVkwndMp39wmsQKIMKkp0nPsvqIbvM/OFuU=;
+ b=kA0DAAoWz53NioHifxQByyZiAGqsD/+hboRSGJVdXNMvOqRWyZ1TCV+BInb2x0g+HmTfcY8Vq
+ Yh1BAAWCgAdFiEE5/QXv1IUVp6J0E9Gz53NioHifxQFAmqsD/8ACgkQz53NioHifxS70wD9EIHG
+ TqRZw5IJTLKOHpUvX8Lk1IiJc5BbQ8CuonXjv80BAJj+udpw2ulmUHc6qxsmxN74GbIew4kzVRw
+ lFKxBuSkK
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 modpost generates a descriptor for every module in the form of a
 <module>.mod.c file with .modinfo strings, the __this_module descriptor,
@@ -4472,26 +5660,144 @@ index 41e38df96984..c33d0f58a9d4 100755
  # ignore arbitrary directories
  if [ -n "${IGNORE_DIRS}" ]; then
 
-Module finalisation on allmodconfig builds consists of a large number of
-very short-lived jobs, and the make job dispatcher cannot possibly dispatch
-jobs fast enough.
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id DA3DB4EB840;
+	Thu, 17 Sep 2026 16:09:42 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661384; cv=none; b=lFUWFpj2yZSKGIqevwO8ftJ9XYGaCwAuqlvIafIbbOA/HVllfADDSy/w3AqqbidMRvLUkkXsKrchE7fp/74ZmMD/jTvplltu74yogurkDuLmUCLQTikwrdQ+S4gAoLCO2TNvEXNlv6XVB2uVtdDnQHnLTQB8FVabnVIt2l3HMwE=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661384; c=relaxed/simple;
+	bh=RLQvuwM41WcrPKnU42zhRNFNmVgfkGG+NjknfyWXoEs=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=DJf2uVPGZvrMPR2vzlVIPsBk3EoXtdSuKdOIGd27GtJgThWXbr+fwJmZ5MQ7p3PQMzaXp8U3tW8l/tnJlMiT298pmKh/w8SyXD6scVTht0laQCjXjb/ieqkgMw8HnSJHhSkXQOpnzZ9l3VDMcW6Y9le7+eU0cwyPlpeoC5JAdc0=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=ScL4qLbi; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="ScL4qLbi"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 15E811F000FF;
+	Thu, 17 Sep 2026 16:09:29 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661382;
+	bh=5xWV9qPVBA53NbkJvCBIcKASWfrmhIW9Yj44HCnJWZE=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=ScL4qLbiZVwfot7DpKhh+O7lMtqBadEU0+rC0KGvgjKCkr327ni5YSnvqz7A9+1Jg
+	 yZsLSIFwN1//ROP8EvzVHFkCSfT75hdjMU1xs+SAe4tYO+DpmTO2xyC2MAsLovK+a6
+	 wT1pJUGyXHT6zAhUiueVxXdlEtfvK/JadN2SYt43IGlk0gSuruQuJ+tH8ZZsGKlubP
+	 HnwcDR4pMy//z6KLBx8KfGsa0DLdVa8MWNT+tTf3HZBH6LEqqCm4NcJqnYvmpYmkIY
+	 eKB3SHl881nKnmiAvMi0wKOshjeAjhiNajeA98AuR/SeKClAdBOTQge+ZJJQptNF2e
+	 R0a35RxAy6y1Q==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:24 +0100
+Subject: [PATCH v3 14/20] kbuild: batch module finalisation
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-14-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=4961; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=RLQvuwM41WcrPKnU42zhRNFNmVgfkGG+NjknfyWXoEs=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P83uuuzImrWs4oGRoM3LzJK1/bxdnt6PCpc/CNY/
+ t7X0rcnO0pZGMS4GGTFFFmefxHfHyQSNq/zgr8bzBxWJpAhDFycAjARthJGhh33Wc9M3vecPY5L
+ fvl73hYHJePz35d6B03203kt3SFeGcXIsLawonZZFHfZ9/Jb26clqf+98arCZZ5Slazrvrs+Wya
+ a8AEA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
+With the .mod.S change in place, module finalisation on allmodconfig builds
+consists of a large number of very short-lived jobs.
 
 For allmodconfig x86-64 this can be on the order of ~22,000 jobs of a few
 milliseconds in duration each.
 
-However per-job cost grows with the variables the instance holds, here the
-savedcmd_* of every .mod.o and .ko read back from the .cmd files, since it
-walks them all to build each child's environment.
+Each job entails processing ~22k .cmd files, so the combination of heavy
+overhead and small individual job results in a lot of unnecessary and
+repeated work even with all cores being utilised.
 
-This makes module finalisation very inefficient when large numbers of
-modules are being built.
+The solution is to batch by a number of jobs. Determining which value makes
+sense was done empirically.
 
-Fix this by splitting modules.order into chunks of 128 at a time, run in
-parallel.
+On a 128-thread threadripper box doing an allmodconfig build, best of
+2, *.ko, *.mod.o deleted each time:
+
+    modules per chunk    instances    wall
+    -----------------    ---------    ------
+                    1        11171    10.22s
+                    2         5586     6.72s
+                    4         2793     4.97s
+                    8         1397     4.26s
+                   16          699     4.05s
+                   32          350     4.05s
+                   64          175     4.07s
+                  128           88     4.05s
+                  256           44     4.03s
+                  512           22     4.18s
+
+Wall time flattens for 16-256 module batches.
+
+A slower/lower core machine will do better with fewer modules-per-batch, a
+faster/higher core machine will do better with more modules-per-batch.
+
+Therefore, take the midpoint which works in the most margin in either
+direction - 128 modules per batch.
+
+This naturally scales with module count too as the optimum gains are
+obtained with higher module count, so fewer batches in this case costs less
+overhead.
 
 Each instance holds only its own modules' variables and the top-level one
 reads no per-module .cmd files at all, the same rules serve both levels,
 and an instance is told its chunk with modfinal-first=<index>.
+
+Only the top-level instance builds .module-common.o, to the chunks it is a
+plain prerequisite, so no two instances ever write it.
 
 "make modules" with every *.mod.o and *.ko deleted goes from 28.9s to 15.9s
 with clang 22. No-op "make modules" goes from 5.6s to 4.8s, as checking the
@@ -4509,11 +5815,11 @@ Whole build, 128-thread Threadripper 9980X, best of N runs:
 Assisted-by: LLM
 Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
 ---
- scripts/Makefile.modfinal | 26 +++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
+ scripts/Makefile.modfinal | 30 +++++++++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
 
 diff --git a/scripts/Makefile.modfinal b/scripts/Makefile.modfinal
-index 75e9effdf02c..858fa798090b 100644
+index 75e9effdf02c..4d5e6e1a0ff9 100644
 --- a/scripts/Makefile.modfinal
 +++ b/scripts/Makefile.modfinal
 @@ -13,9 +13,30 @@ include $(srctree)/scripts/Makefile.lib
@@ -4547,18 +5853,123 @@ index 75e9effdf02c..858fa798090b 100644
  # modname and part-of-module are set to make c_flags define proper module flags
  modname = $(notdir $(@:.mod.o=))
  part-of-module = y
-@@ -58,7 +79,10 @@ ifdef CONFIG_DEBUG_INFO_BTF_MODULES
+@@ -29,8 +50,11 @@ quiet_cmd_as_mod_o = AS [M]  $@
+ %.mod.o: %.mod.S FORCE
+ 	$(call if_changed,as_mod_o)
+ 
++# Built by the top-level instance alone, the chunks take it as a plain file.
++ifndef modfinal-first
+ .module-common.o: $(srctree)/scripts/module-common.c FORCE
+ 	$(call if_changed_rule,cc_o_c)
++endif
+ 
+ ifneq ($(WARN_ON_UNUSED_TRACEPOINTS),)
+ cmd_check_tracepoint = $(objtree)/scripts/tracepoint-update --module $<;
+@@ -58,7 +82,11 @@ ifdef CONFIG_DEBUG_INFO_BTF_MODULES
  endif
  	+$(call cmd,check_tracepoint)
  
 -targets += $(modules:%.o=%.ko) $(modules:%.o=%.mod.o) .module-common.o
-+targets += .module-common.o
 +ifdef modfinal-first
 +targets += $(modules:%.o=%.ko) $(modules:%.o=%.mod.o)
++else
++targets += .module-common.o
 +endif
  
  # Add FORCE to the prerequisites of a target to force it to be always rebuilt.
  # ---------------------------------------------------------------------------
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 4769B4E73A9;
+	Thu, 17 Sep 2026 16:09:56 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661397; cv=none; b=kmf6HU4Z7mgF5cg0lmSyiAj6UwmJk9eLX6iJselhx/VvsOL/HisXRsRyQXDVHvET5LdafSCmbmfPh2c7hRMWHUhpguUY41eFUkMpahIIo9bxOoZ+o0A6PxsuyXz411GyW1b4pVYstpzpwv/F6g9s8IM3HBXSK1I/tewTUywvWNg=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661397; c=relaxed/simple;
+	bh=rqaxbRFTNtA+FfHVG7vWIuOFobBK2/fgyWI6HaVRe4E=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=LB8V9FkngYyGQIH+K3ZaAlmSZDI/Oxb2356UMwUKeDp77Hjatxb/lFvnbOLzhwZ+vm3BCOdhclsDmwhUxYMmBs7EzHkkghpa1FPwX6ZpXnH/ALqJULJOmNj4GrSkYp1MWlViebO7Fe30DtidtpNoHwY7JqkCH1ujMkLislag+cM=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=XjkJclNf; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="XjkJclNf"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 2B84D1F00893;
+	Thu, 17 Sep 2026 16:09:42 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661396;
+	bh=pIdXVDKtxt18Mak5g7MMon/porCKqzoMryJNJA9avpM=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=XjkJclNfpn1Huwi+qn0H1ZkvhnpZDvGve9OoMIe38GyUGgH8MasxAAJZhTPoGMnOu
+	 itF+yDGufhxfWZZzIhCNJ1y64gg/DrOfAadC/4rO0epEaARURQh1TEIUHj3gxjhWbH
+	 Z3t2dBMBX+p/5F3Yr+HcgvC1AnHyF6dZecHtNTxWX8SxGn4a2uWLkJvoBiVnmtKXg5
+	 YbRE6GszaQlhb+KavsODqraZ9T2kQ+tDv7DXZDfia9N9bvQU8gVq9ykVKzOYYrDQqB
+	 4snkfEKfftHYPoUJrbzGfE4sFsQfdSqev2VDrQtHVdE2iiLzJujhGt/rJTnNl5LHiS
+	 d550Nio8DzuQg==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:25 +0100
+Subject: [PATCH v3 15/20] objtool: cache relocations, do less work,
+ eliminate relocation hash
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-15-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=12860; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=rqaxbRFTNtA+FfHVG7vWIuOFobBK2/fgyWI6HaVRe4E=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P/f8OntZev3jsGrQm+EbWXye/VjRdoiffPIZSEPZ
+ G8vDMiK6ihlYRDjYpAVU2R5/kV8f5BI2LzOC/5uMHNYmUCGMHBxCsBEYpYwMrydmrbnvJG7TeKt
+ Ipdn32u+fXwx9cbml1a9/bMv7ZYwCepgZPg/vUAzKkG84oCJZPId8ZuO6l9v+bFpiUy/Ynl034w
+ tG9kA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 Instruction relocations are looked up by destination in objtool via a hash
 which is keyed on a 16-byte (OFFSET_STRIDE) window within the section being
@@ -4579,16 +5990,14 @@ This relies upon the entries within a section being sorted, which is the
 case for all sections supplied to objtool by the link step during the
 kernel build.
 
-For cases where sections are supplied out of order, grown one relocation
-at a time (e.g. livepatch) or created by objtool itself, fall back to using
-the existing hash mechanism.
+With this in place the relocation hash is unnecessary and removed. This
+saves ~90 MiB in peak memory usage for an allmodconfig build.
+
+If anything is processed out of order, fall back to a linear scan.
 
 DWARF sections are a special case - their relocations are never looked up
 by destination at all and only need to be on their symbol's list for
 elf_update_sym_relocs().
-
-So do not index or hash DWARF relocations at all - however add a mechanism
-such that if one were ever looked up, a linear scan will be used.
 
 This is meaningful in practice as on an x86-64 kernel build with
 CONFIG_DEBUG_INFO set objtool processing of vmlinux.o is dominated by DWARF
@@ -4598,13 +6007,13 @@ For an allmodconfig build ~9 million relocations were hashed, and ~8.2
 million of those were DWARF sections, which added overhead on cache miss
 and pollution of the hash table. This is now eliminated.
 
-The hash, when used, is read-mostly (every jump, call and memory operand)
-and several relocations share a key due to the 16-byte stride, so keep the
-hash sparse by scaling the hash by the number of objects to be hashed.
-
 The output of objtool before and after this change was confirmed to be
 byte-for-byte identical both for x86_64 defconfig and allmodconfig with
 gcc and clang.
+
+objtool on the gcc allmodconfig vmlinux.o goes from 10.5s to 9.0s, clang
+from 9.8s to 8.3s and gcc defconfig from 2.08s to 1.79s, with peak memory
+down ~90 MiB on allmodconfig.
 
 objtool on vmlinux.o is on the serial tail of every build that links
 vmlinux, no-op builds are unchanged.
@@ -4623,15 +6032,15 @@ Whole build, 128-thread Threadripper 9980X, best of N runs:
 Assisted-by: LLM
 Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
 ---
- tools/objtool/elf.c                 | 246 +++++++++++++++++++++++++++++++++---
- tools/objtool/include/objtool/elf.h |   2 +
- 2 files changed, 231 insertions(+), 17 deletions(-)
+ tools/objtool/elf.c                 | 204 ++++++++++++++++++++++++++++--------
+ tools/objtool/include/objtool/elf.h |  10 +-
+ 2 files changed, 162 insertions(+), 52 deletions(-)
 
 diff --git a/tools/objtool/elf.c b/tools/objtool/elf.c
-index a791f4ea6ec1..5ee11301a5a3 100644
+index a791f4ea6ec1..8524d287621b 100644
 --- a/tools/objtool/elf.c
 +++ b/tools/objtool/elf.c
-@@ -316,18 +316,117 @@ struct symbol *find_global_symbol_by_name(const struct elf *elf, const char *nam
+@@ -316,45 +316,165 @@ struct symbol *find_global_symbol_by_name(const struct elf *elf, const char *nam
  	return NULL;
  }
  
@@ -4642,7 +6051,7 @@ index a791f4ea6ec1..5ee11301a5a3 100644
 +	return !strncmp(sec->name, ".debug_", 7);
 +}
 +
-+/* Cache relocations at a 64 byte granularity. */
++/* Index the first relocation at or after each 64 byte window of the base. */
 +#define RELOC_CACHE_INDEX_SHIFT	6
 +
 +static unsigned long reloc_cache_index(unsigned long offset)
@@ -4650,130 +6059,146 @@ index a791f4ea6ec1..5ee11301a5a3 100644
 +	return offset >> RELOC_CACHE_INDEX_SHIFT;
 +}
 +
-+static unsigned int reloc_cache_nr_windows(const struct section *rsec)
++static void reloc_cache_free(struct section *rsec)
 +{
-+	const unsigned long size = sec_size(rsec->base);
++	free(rsec->reloc_cache);
++	rsec->reloc_cache = NULL;
++	rsec->nr_cache_windows = 0;
++	rsec->nr_indexed = 0;
++	rsec->sorted = false;
++}
 +
-+	return (size >> RELOC_CACHE_INDEX_SHIFT) + 1;
++/* Grow the index to cover the base section, new windows start past the end. */
++static int reloc_cache_resize(struct section *rsec)
++{
++	const unsigned int nr_windows = reloc_cache_index(sec_size(rsec->base)) + 1;
++	unsigned int *cache;
++
++	if (nr_windows <= rsec->nr_cache_windows)
++		return 0;
++
++	cache = realloc(rsec->reloc_cache, nr_windows * sizeof(*cache));
++	if (!cache) {
++		ERROR_GLIBC("realloc");
++		return -1;
++	}
++
++	while (rsec->nr_cache_windows < nr_windows)
++		cache[rsec->nr_cache_windows++] = rsec->nr_indexed;
++	rsec->reloc_cache = cache;
++
++	return 0;
++}
++
++/*
++ * Index the next relocation. It must follow the previous one in position and
++ * offset, otherwise the section is scanned from now on.
++ */
++static int reloc_cache_add(struct section *rsec, unsigned int reloc_idx)
++{
++	const unsigned long offset = reloc_offset(&rsec->relocs[reloc_idx]);
++	const unsigned long window = reloc_cache_index(offset);
++	unsigned long first_window = 0;
++
++	if (reloc_idx != rsec->nr_indexed)
++		goto unsorted;
++
++	if (reloc_idx) {
++		const unsigned long prev = reloc_offset(&rsec->relocs[reloc_idx - 1]);
++
++		if (offset < prev)
++			goto unsorted;
++		first_window = reloc_cache_index(prev) + 1;
++	}
++
++	if (reloc_cache_resize(rsec))
++		return -1;
++	if (window >= rsec->nr_cache_windows)
++		goto unsorted;
++
++	while (first_window <= window)
++		rsec->reloc_cache[first_window++] = reloc_idx;
++	rsec->nr_indexed = reloc_idx + 1;
++
++	return 0;
++
++unsorted:
++	reloc_cache_free(rsec);
++	return 0;
 +}
 +
 +static int init_reloc_cache(struct section *rsec)
 +{
 +	const unsigned int nr_relocs = sec_num_entries(rsec);
-+	const unsigned int nr_windows = reloc_cache_nr_windows(rsec);
-+	unsigned int reloc_idx, next_cache_idx = 0;
-+
-+	rsec->reloc_cache = malloc(nr_windows * sizeof(unsigned int));
-+	if (!rsec->reloc_cache) {
-+		ERROR_GLIBC("malloc");
-+		return -1;
-+	}
-+
-+	/* Populate relocation indexes reloc cache index -> reloc index. */
-+	for (reloc_idx = 0; reloc_idx < nr_relocs; reloc_idx++) {
-+		struct reloc *reloc = &rsec->relocs[reloc_idx];
-+		const unsigned long offset = reloc_offset(reloc);
-+		const unsigned long cache_idx = reloc_cache_index(offset);
-+
-+		if (cache_idx >= nr_windows)
-+			break;
-+
-+		while (next_cache_idx <= cache_idx)
-+			rsec->reloc_cache[next_cache_idx++] = reloc_idx;
-+	}
-+
-+	while (next_cache_idx < nr_windows)
-+		rsec->reloc_cache[next_cache_idx++] = nr_relocs;
++	unsigned int reloc_idx;
 +
 +	rsec->sorted = true;
++	for (reloc_idx = 0; reloc_idx < nr_relocs; reloc_idx++) {
++		if (reloc_cache_add(rsec, reloc_idx))
++			return -1;
++		if (!rsec->sorted)
++			break;
++	}
++
 +	return 0;
 +}
 +
-+static void free_reloc_cache(struct section *rsec)
++static bool reloc_in_range(struct reloc *reloc, unsigned long offset,
++			   unsigned int len)
 +{
-+	free(rsec->reloc_cache);
-+	rsec->reloc_cache = NULL;
-+	rsec->sorted = false;
++	return reloc_offset(reloc) >= offset && reloc_offset(reloc) < offset + len;
 +}
 +
++/* The index gives a lower bound, scan on from there. */
 +static struct reloc *find_reloc_sorted(struct section *rsec,
  				       unsigned long offset, unsigned int len)
  {
 -	struct reloc *reloc, *r = NULL;
 -	struct section *rsec;
 -	unsigned long o;
-+	struct reloc *relocs = rsec->relocs;
-+	const unsigned int nr_relocs = sec_num_entries(rsec);
 +	const unsigned long cache_idx = reloc_cache_index(offset);
-+	unsigned int reloc_idx, i;
++	unsigned int reloc_idx;
  
 -	rsec = sec->rsec;
 -	if (!rsec)
-+	if (cache_idx >= reloc_cache_nr_windows(rsec))
-+		return NULL;
-+
-+	reloc_idx = rsec->reloc_cache[cache_idx];
-+
-+	/*
-+	 * Scan through all relocations covered by cache entry to find the
-+	 * first at or after offset. Relocations are sorted by offset.
-+	 */
-+	for (i = reloc_idx; i < nr_relocs; i++) {
-+		struct reloc *reloc = &relocs[i];
-+		const unsigned long curr_offset = reloc_offset(reloc);
-+
-+		if (curr_offset >= offset)
-+			break;
-+
-+		reloc_idx++;
-+	}
-+
-+	/* Nothing found, or the first candidate lies beyond the range. */
-+	if (reloc_idx >= nr_relocs ||
-+	    reloc_offset(&relocs[reloc_idx]) >= offset + len)
++	if (cache_idx >= rsec->nr_cache_windows)
  		return NULL;
  
-+	/* If there are duplicate entries, return the last. */
-+	for (i = reloc_idx; i < nr_relocs - 1; i++) {
-+		struct reloc *reloc = &relocs[i];
-+		struct reloc *next_reloc = &relocs[i + 1];
-+
-+		if (reloc_offset(next_reloc) != reloc_offset(reloc))
-+			break;
-+		reloc_idx++;
-+	}
-+
-+	return &relocs[reloc_idx];
-+}
-+
-+/* Not indexed, so look it up in the hash. */
-+static struct reloc *find_reloc_hash(const struct elf *elf, struct section *rsec,
-+				     unsigned long offset, unsigned int len)
-+{
-+	unsigned long o;
-+	struct reloc *reloc, *r = NULL;
-+
- 	for_offset_range(o, offset, offset + len) {
- 		elf_hash_for_each_possible(elf, reloc, reloc, hash,
- 					   sec_offset_hash(rsec, o)) {
-@@ -347,14 +446,48 @@ struct reloc *find_reloc_by_dest_range(const struct elf *elf, struct section *se
- 	return r;
+-	for_offset_range(o, offset, offset + len) {
+-		elf_hash_for_each_possible(elf, reloc, reloc, hash,
+-					   sec_offset_hash(rsec, o)) {
+-			if (reloc->sec != rsec)
+-				continue;
++	for (reloc_idx = rsec->reloc_cache[cache_idx];
++	     reloc_idx < rsec->nr_indexed; reloc_idx++) {
++		struct reloc *reloc = &rsec->relocs[reloc_idx];
+ 
+-			if (reloc_offset(reloc) >= offset &&
+-			    reloc_offset(reloc) < offset + len) {
+-				if (!r || reloc_offset(reloc) < reloc_offset(r))
+-					r = reloc;
+-			}
+-		}
+-		if (r && (reloc_offset(r) & OFFSET_STRIDE_MASK) == o)
+-			return r;
++		if (reloc_offset(reloc) >= offset)
++			return reloc_in_range(reloc, offset, len) ? reloc : NULL;
+ 	}
+ 
+-	return r;
++	return NULL;
  }
  
 -struct reloc *find_reloc_by_dest(const struct elf *elf, struct section *sec, unsigned long offset)
-+/* Should never be invoked, provided as a backstop. */
++/* Out of order sections, only ever DWARF or one objtool grew that way. */
 +static struct reloc *find_reloc_linear(struct section *rsec,
 +				       unsigned long offset, unsigned int len)
  {
 -	return find_reloc_by_dest_range(elf, sec, offset, 1);
 +	struct reloc *reloc, *first = NULL;
 +
-+	WARN("%s: linear scan for sec %s with %u relocs at offset %lu len %u",
-+	     __func__, rsec->name, sec_num_entries(rsec), offset, len);
-+
 +	for_each_reloc(rsec, reloc) {
-+		if (reloc_offset(reloc) < offset ||
-+		    reloc_offset(reloc) >= offset + len)
++		if (!reloc->sec || !reloc_in_range(reloc, offset, len))
 +			continue;
 +
 +		if (!first || reloc_offset(reloc) < reloc_offset(first))
@@ -4797,9 +6222,6 @@ index a791f4ea6ec1..5ee11301a5a3 100644
 +	if (rsec->sorted)
 +		return find_reloc_sorted(rsec, offset, len);
 +
-+	if (rsec->hashed)
-+		return find_reloc_hash(elf, rsec, offset, len);
-+
 +	return find_reloc_linear(rsec, offset, len);
 +}
 +
@@ -4809,57 +6231,26 @@ index a791f4ea6ec1..5ee11301a5a3 100644
  }
  
  static int read_sections(struct elf *elf)
-@@ -1071,7 +1204,8 @@ struct reloc *elf_init_reloc(struct elf *elf, struct section *rsec,
+@@ -1071,7 +1191,8 @@ struct reloc *elf_init_reloc(struct elf *elf, struct section *rsec,
  	set_reloc_type(elf, reloc, type);
  	set_reloc_addend(elf, reloc, addend);
  
 -	elf_hash_add(reloc, &reloc->hash, reloc_hash(reloc));
-+	if (rsec->hashed)
-+		elf_hash_add(reloc, &reloc->hash, reloc_hash(reloc));
++	if (rsec->sorted && reloc_cache_add(rsec, reloc_idx))
++		return NULL;
  	set_sym_next_reloc(reloc, sym->relocs);
  	sym->relocs = reloc;
  
-@@ -1123,18 +1257,44 @@ struct reloc *elf_init_reloc_data_sym(struct elf *elf, struct section *sec,
- 			      elf_data_rela_type(elf));
- }
+@@ -1125,16 +1246,13 @@ struct reloc *elf_init_reloc_data_sym(struct elf *elf, struct section *sec,
  
-+static u64 raw_reloc_offset(const struct section *rsec, unsigned int idx)
-+{
-+	const void *entry = rsec->data->d_buf + idx * rsec->sh.sh_entsize;
-+
-+	if (rsec->sh.sh_entsize < sizeof(Elf64_Rel))
-+		return ((const Elf32_Rela *)entry)->r_offset;
-+
-+	return ((const Elf64_Rela *)entry)->r_offset;
-+}
-+
-+static bool reloc_sec_in_order(struct section *rsec)
-+{
-+	const unsigned int nr_relocs = sec_num_entries(rsec);
-+	u64 prev_offset = 0;
-+	unsigned int i;
-+
-+	for (i = 0; i < nr_relocs; i++) {
-+		/* Called before relocs exist, so look at raw entry. */
-+		const u64 offset = raw_reloc_offset(rsec, i);
-+
-+		if (offset < prev_offset)
-+			return false;
-+		prev_offset = offset;
-+	}
-+
-+	return true;
-+}
-+
  static int read_relocs(struct elf *elf)
  {
 -	unsigned long nr_reloc, max_reloc = 0;
-+	unsigned long nr_reloc, max_reloc = 0, nr_hashed = 0;
++	unsigned long nr_reloc, max_reloc = 0, nr_linear = 0;
  	struct section *rsec;
  	struct reloc *reloc;
  	unsigned int symndx;
  	struct symbol *sym;
-+	bool hashed;
  	int i;
  
 -	if (!elf_alloc_hash(reloc, elf->num_relocs))
@@ -4868,42 +6259,11 @@ index a791f4ea6ec1..5ee11301a5a3 100644
  	list_for_each_entry(rsec, &elf->sections, list) {
  		if (!is_reloc_sec(rsec))
  			continue;
-@@ -1147,6 +1307,28 @@ static int read_relocs(struct elf *elf)
- 
- 		rsec->base->rsec = rsec;
- 
-+		/* DWARF relocs are never looked up. */
-+		if (is_dwarf_section(rsec->base))
-+			continue;
-+		if (reloc_sec_in_order(rsec)) {
-+			rsec->sorted = true;
-+			continue;
-+		}
-+
-+		rsec->hashed = true;
-+		nr_hashed += sec_num_entries(rsec);
-+	}
-+
-+	/* Read mostly, so avoid collisions and keep the hash sparse. */
-+	if (!elf_alloc_hash(reloc, nr_hashed * OFFSET_STRIDE))
-+		return -1;
-+
-+	list_for_each_entry(rsec, &elf->sections, list) {
-+		if (!is_reloc_sec(rsec))
-+			continue;
-+
-+		hashed = rsec->hashed;
-+
- 		/* nr_alloc_relocs=0: libelf owns d_buf */
- 		rsec->nr_alloc_relocs = 0;
- 
-@@ -1168,18 +1350,23 @@ static int read_relocs(struct elf *elf)
+@@ -1168,19 +1286,26 @@ static int read_relocs(struct elf *elf)
  				return -1;
  			}
  
 -			elf_hash_add(reloc, &reloc->hash, reloc_hash(reloc));
-+			if (hashed)
-+				elf_hash_add(reloc, &reloc->hash, reloc_hash(reloc));
  			set_sym_next_reloc(reloc, sym->relocs);
  			sym->relocs = reloc;
  
@@ -4911,76 +6271,195 @@ index a791f4ea6ec1..5ee11301a5a3 100644
  		}
  		max_reloc = max(max_reloc, nr_reloc);
 +
-+		if (rsec->sorted && init_reloc_cache(rsec))
++		/* DWARF relocs are never looked up, so are not worth indexing. */
++		if (is_dwarf_section(rsec->base))
++			continue;
++		if (init_reloc_cache(rsec))
 +			return -1;
++		if (!rsec->sorted)
++			nr_linear += nr_reloc;
  	}
  
  	if (opts.stats) {
  		printf("max_reloc: %lu\n", max_reloc);
  		printf("num_relocs: %lu\n", elf->num_relocs);
-+		printf("num_relocs_hashed: %lu\n", nr_hashed);
- 		printf("reloc_bits: %d\n", elf->reloc_bits);
+-		printf("reloc_bits: %d\n", elf->reloc_bits);
++		printf("num_relocs_linear: %lu\n", nr_linear);
  	}
  
-@@ -1541,6 +1728,26 @@ struct section *elf_create_section(struct elf *elf, const char *name,
- 	return sec;
- }
- 
-+/* A relocation was appended, abandon relocation cache and use hash instead. */
-+static void copy_reloc_cache_to_hash(struct elf *elf, struct section *rsec,
-+				     unsigned int nr_relocs)
-+{
-+	unsigned int i;
-+
-+	if (rsec->hashed)
-+		return;
-+
-+	if (rsec->sorted)
-+		free_reloc_cache(rsec);
-+
-+	for (i = 0; i < nr_relocs; i++) {
-+		struct reloc *reloc = &rsec->relocs[i];
-+
-+		elf_hash_add(reloc, &reloc->hash, reloc_hash(reloc));
-+	}
-+	rsec->hashed = true;
-+}
-+
- static int elf_alloc_reloc(struct elf *elf, struct section *rsec)
- {
- 	struct reloc *old_relocs, *old_relocs_end, *new_relocs;
-@@ -1686,6 +1893,8 @@ struct section *elf_create_rela_section(struct elf *elf, struct section *sec,
- 
- 	sec->rsec = rsec;
- 	rsec->base = sec;
-+	/* Relocations objtool creates are looked up through the hash. */
-+	rsec->hashed = true;
- 
- 	return rsec;
- }
-@@ -1708,6 +1917,9 @@ struct reloc *elf_create_reloc(struct elf *elf, struct section *sec,
+ 	return 0;
+@@ -1327,8 +1452,7 @@ struct elf *elf_create_file(GElf_Ehdr *ehdr, const char *name)
+ 	if (!elf_alloc_hash(section,		1000) ||
+ 	    !elf_alloc_hash(section_name,	1000) ||
+ 	    !elf_alloc_hash(symbol,		10000) ||
+-	    !elf_alloc_hash(symbol_name,	10000) ||
+-	    !elf_alloc_hash(reloc,		100000))
++	    !elf_alloc_hash(symbol_name,	10000))
  		return NULL;
+ 
+ 	null		= elf_create_section(elf, NULL, 0, 0, SHT_NULL, 0, 0);
+@@ -1508,6 +1632,8 @@ struct section *elf_create_section(struct elf *elf, const char *name,
+ 	sec->sh.sh_type = type;
+ 	sec->sh.sh_addralign = align;
+ 	sec->sh.sh_flags = flags;
++	/* Relocations objtool adds are indexed as they come. */
++	sec->sorted = type == SHT_RELA;
+ 
+ 	if (name) {
+ 		sec->name = strdup(name);
+@@ -1633,16 +1759,6 @@ static int elf_alloc_reloc(struct elf *elf, struct section *rsec)
  	}
  
-+	/* A section read from the file is indexed, once grown it is hashed. */
-+	copy_reloc_cache_to_hash(elf, rsec, sec_num_entries(rsec));
-+
- 	if (elf_alloc_reloc(elf, rsec))
- 		return NULL;
- 
+ 	memcpy(new_relocs, old_relocs, nr_relocs_old * sizeof(struct reloc));
+-
+-	for (int i = 0; i < nr_relocs_old; i++) {
+-		struct reloc *old = &old_relocs[i];
+-		struct reloc *new = &new_relocs[i];
+-		u32 key = reloc_hash(old);
+-
+-		elf_hash_del(reloc, &old->hash, key);
+-		elf_hash_add(reloc, &new->hash, key);
+-	}
+-
+ 	free(old_relocs);
+ done:
+ 	rsec->relocs = new_relocs;
 diff --git a/tools/objtool/include/objtool/elf.h b/tools/objtool/include/objtool/elf.h
-index a82517a76a0f..946b411ff1b9 100644
+index a82517a76a0f..ba18e188fc5f 100644
 --- a/tools/objtool/include/objtool/elf.h
 +++ b/tools/objtool/include/objtool/elf.h
 @@ -59,6 +59,8 @@ struct section {
  	const char *name;
  	int idx;
  	bool _changed, text, rodata, noinstr, init, truncate;
-+	bool hashed, sorted;
-+	unsigned int *reloc_cache;
++	bool sorted;
++	unsigned int *reloc_cache, nr_cache_windows, nr_indexed;
  	struct reloc *relocs;
  	unsigned long nr_alloc_relocs;
  	struct section *twin;
+@@ -106,7 +108,6 @@ struct symbol {
+ };
+ 
+ struct reloc {
+-	struct elf_hash_node hash;
+ 	struct section *sec;
+ 	struct symbol *sym;
+ 	unsigned long _sym_next_reloc;
+@@ -127,13 +128,11 @@ struct elf {
+ 	int symbol_name_bits;
+ 	int section_bits;
+ 	int section_name_bits;
+-	int reloc_bits;
+ 
+ 	struct elf_hash_node **symbol_hash;
+ 	struct elf_hash_node **symbol_name_hash;
+ 	struct elf_hash_node **section_hash;
+ 	struct elf_hash_node **section_name_hash;
+-	struct elf_hash_node **reloc_hash;
+ 
+ 	struct section *section_data;
+ 	struct symbol *symbol_data;
+@@ -575,9 +574,4 @@ static inline u32 sec_offset_hash(struct section *sec, unsigned long offset)
+ 	return ol;
+ }
+ 
+-static inline u32 reloc_hash(struct reloc *reloc)
+-{
+-	return sec_offset_hash(reloc->sec, reloc_offset(reloc));
+-}
+-
+ #endif /* _OBJTOOL_ELF_H */
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 92A465038F5;
+	Thu, 17 Sep 2026 16:10:09 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661410; cv=none; b=FOyZfNDo8qxj4S9Kgu3/CCaB0OOe9prevhw9fmp6d72RfsTjTqQltrm6RAIGgmOK52edQXr8fUS3gWDuYdEiaS2pyXy3SoXCWa0yrp0QrUkQRCd+TlQSwyYuRWEK3SgFhlmsiAzNi2VAQ2tW7UpOihXaWA2UbaPuAVMRqAUTfs4=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661410; c=relaxed/simple;
+	bh=1MNx2aSSjSgi0WUnp9kWu6YKYuPNVv4LhqSB+6OA3nE=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=auA0g6heReGpNKsG7IGEzh/zy2tjo2/2+0tf9DqC1nLcXsAg4TS234/ft8C4ri2JZPnnxU65X0QvBllJBxIGT7eRnRzGybfNUm1MNErz1pQIqLoo4EWvxAvMac0y5ywNuBOnMr2vUWKsY8HGQPz/SRodpe1rUjTvdO/MOWtEDII=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=kxviieWi; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="kxviieWi"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id B00E81F000FF;
+	Thu, 17 Sep 2026 16:09:56 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661409;
+	bh=flxRB0RNwZz3AOlLZeEynIEfspQVvaUpjYF/Tjf2+64=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=kxviieWiLB+njzdiRAmZ4gjDiLOAqwxkAtsdCpg2V33UDq/ewexaLYYAXrGY3EeZA
+	 0YU5KO6l/ial6UMuw8ULcCJqfgMACY3UD6DZdDnCN/r65HaCnlD0EpUwfVAf/VsND8
+	 0kIay2s509xipYJtJ5F6ht34p+j8rmxLnfNzssTLgJS9NHVBRjcLWPXX6nBLYTQCY8
+	 sCi1uY0iM9feZgqGj6Zw4DLi5Ujh6Z93Thq2YGXFwBDkIBqhq4+o3X8GM8WJlCjt17
+	 Ncjz3yah8vmkfo29ZY7Bg3XUlIbTCxPPTHUtZ8fNHbFqmW1NN+TFoAq5CSWxidxc8b
+	 9LSPDxSpxb7TQ==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:26 +0100
+Subject: [PATCH v3 16/20] objtool: size the instruction hash to the text
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-16-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=5734; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=1MNx2aSSjSgi0WUnp9kWu6YKYuPNVv4LhqSB+6OA3nE=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P83++iV0+WpE26cumVdYGnAk+wZE1XPFxrXJSg9k
+ vj3Xkaso5SFQYyLQVZMkeX5F/H9QSJh8zov+LvBzGFlAhnCwMUpABOpXsDwv9jC/8Jqzzd/9BL5
+ QmwyDviJdHT4Fy3zmbz4vIHVys+V7owMTQWpLXIhN8xOtApzJd98e/HkrbfrK6//Ftp4Sdv26LQ
+ kVgA=
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 The instruction hash is a fixed 2^20 buckets, which for an x86-64
 allmodconfig vmlinux.o of ~16 million instructions leaves find_insn()
@@ -5147,19 +6626,113 @@ index a4e139dee7e9..71e048f8582a 100644
  	INIT_LIST_HEAD(&file.return_thunk_list);
  	INIT_LIST_HEAD(&file.static_call_list);
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9A87B4F3939;
+	Thu, 17 Sep 2026 16:10:22 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661424; cv=none; b=HgIKeSYeTJc/lMtoMIyQEdgdivg461xqGGK+U5r6PQd/qCi5MGOH0MxtZCYqfIkDaHu1lTkoHVKyk6HOxefpDpQz84R0cquyi1+I9q3vNRWNckdcpEl3K1Ka1h/tZxvNpd9M/nrCjA2/qGZ2G3DeMZ41GthQQPOvcsfMQ/tEC68=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661424; c=relaxed/simple;
+	bh=8efIJflAwt4iSBRIzHUposoQNlV2/MRSC4pkeCKRZm0=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=TLtr1diq17WwlXIZIkPMX4gMUS+5ZMrruW3WbfftOuKPh6/R+OBPjw0twP1nM0/T63S55YGRiZEcBfmjRmDLoZpYRtgvH0SeW2S4/dRb4Jz8vgOdri6kb+KMk+C3qjVdvvjxSqWKZbxJ2TtRzOM00LL0PgerVz1BsMONs5Ndxe4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=aJN1s+ae; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="aJN1s+ae"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id D45FC1F00893;
+	Thu, 17 Sep 2026 16:10:09 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661422;
+	bh=y3lS3it6i8el7UroKpujMbSgHg7zlmhYN7WFmk4X/Hw=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=aJN1s+aeJof0V6iaJbjf/g+FXtUt6VpR0VwQcHyVnKuUg46dShDedlh1ykz5+q4H9
+	 mI7GTxc4WjFWE8jtv+gl+0yQ3nr0IqdXVTjoBXK5owAZ0PRJLeymCZG8P1Jvlsj4FR
+	 F6oP8jsndbFhTmDOBd+HT30IQnTYrdDFWeG9xP9fIwK+SmdLasl4Jem8c50529jAlW
+	 9jRuy9CUy7IB464/7x4nKjWxb7iVohs9TokJ4KrENa2hoiPVyIgkPVHy9x7zb3z25l
+	 8caxh4aCx4yg2KwE/k0ihyAPW8kIhmMTCEq7CAYjkeRdWbIF6b9z7KmcLvo8OcL7EE
+	 /qmTKc75MjVnQ==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:27 +0100
+Subject: [PATCH v3 17/20] objtool: decode instructions and resolve branch
+ targets in parallel
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-17-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=27680; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=8efIJflAwt4iSBRIzHUposoQNlV2/MRSC4pkeCKRZm0=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P8/e+CsdNo75vPFJ0wvuqvvXeNm0e1YbC+2L+X/h
+ HOF91as7yhlYRDjYpAVU2R5/kV8f5BI2LzOC/5uMHNYmUCGMHBxCsBE9BwY/qnw7s+XsMiZKnik
+ PGRS3FuTKSymjjfqP7bHqk297Z0Xl8nwTzk6siAy+OSpK4Ishs1pCx8/r+f9NVEx7djfiPhFH3k
+ 9GAE=
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 During a kernel build objtool is used to decode vmlinux.o's instructions
 and resolve every jump and call destination.
 
 This forms a large part of the work objtool does during the build process,
 and it is all done in serial.
 
-Decode these in parallel at a function granularity to speed things up.
+Decode these in parallel at a function granularity to speed things up, but
+limit this to invocations that pass --link, and only where the there is 8
+MiB or more text to justify it.
+
+In practice this limits this to processing vmlinux.o in the kernel build
+and modules are processed as they were before.
 
 Only the instruction hash is shared between the threads and nothing is ever
 removed from it, so an insertion is a compare-and-swap on the bucket head.
-
-Threads are only created for objects with 8 MiB or more of text, meaning
-that runs involving smaller objects remain unaffected.
 
 Threading is limited to decoding and the jump pass, so the gain flattens
 out at 16 threads and any further threads were found to only add overhead.
@@ -5197,9 +6770,9 @@ Assisted-by: LLM
 Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
 ---
  tools/objtool/Makefile  |   2 +-
- tools/objtool/check.c   | 714 ++++++++++++++++++++++++++++++++++++------------
+ tools/objtool/check.c   | 717 ++++++++++++++++++++++++++++++++++++------------
  tools/objtool/objtool.c |  14 +-
- 3 files changed, 543 insertions(+), 187 deletions(-)
+ 3 files changed, 546 insertions(+), 187 deletions(-)
 
 diff --git a/tools/objtool/Makefile b/tools/objtool/Makefile
 index a4484fd22a96..2de50c3917ba 100644
@@ -5215,7 +6788,7 @@ index a4484fd22a96..2de50c3917ba 100644
  # Allow old libelf to be used:
  elfshdr := $(shell echo '$(pound)include <libelf.h>' | $(HOSTCC) $(OBJTOOL_CFLAGS) -x c -E - 2>/dev/null | grep elf_getshdr)
 diff --git a/tools/objtool/check.c b/tools/objtool/check.c
-index 62a3e1d4e9e5..a7499f247818 100644
+index 62a3e1d4e9e5..52af91e048a2 100644
 --- a/tools/objtool/check.c
 +++ b/tools/objtool/check.c
 @@ -7,6 +7,9 @@
@@ -5260,7 +6833,7 @@ index 62a3e1d4e9e5..a7499f247818 100644
  static unsigned long nr_insns;
  static unsigned long nr_insns_visited;
  
-+/* Only an object this large, e.g. vmlinux.o, is decoded on several threads. */
++/* Only the vmlinux.o link, and only if it is this large, runs on several threads. */
 +#define DECODE_THREADED_MIN_TEXT	SZ_8M
 +/* Only decoding and the branch passes are threaded, so more gains nothing. */
 +#define DECODE_MAX_THREADS		16
@@ -5269,7 +6842,7 @@ index 62a3e1d4e9e5..a7499f247818 100644
  /*
   * sec_offset_hash() keys on OFFSET_STRIDE windows, so the instructions of a
   * window share a chain and buckets beyond one per window would sit empty.
-@@ -451,24 +460,347 @@ static int alloc_insn_hash(struct objtool_file *file, unsigned long text_size)
+@@ -451,24 +460,350 @@ static int alloc_insn_hash(struct objtool_file *file, unsigned long text_size)
  	return 0;
  }
  
@@ -5576,6 +7149,9 @@ index 62a3e1d4e9e5..a7499f247818 100644
 +{
 +	const long nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 +
++	/* Modules are processed inside the parallel build, on one thread. */
++	if (!opts.link || opts.module)
++		return 1;
 +	if (text_size < DECODE_THREADED_MIN_TEXT || nr_cpus < 2)
 +		return 1;
 +
@@ -5623,7 +7199,7 @@ index 62a3e1d4e9e5..a7499f247818 100644
  
  		if (!is_text_sec(sec))
  			continue;
-@@ -493,41 +825,20 @@ static int decode_instructions(struct objtool_file *file)
+@@ -493,41 +828,20 @@ static int decode_instructions(struct objtool_file *file)
  		if (!strcmp(sec->name, ".init.text") && !opts.module)
  			sec->init = true;
  
@@ -5676,7 +7252,7 @@ index 62a3e1d4e9e5..a7499f247818 100644
  
  		sec_for_each_sym(sec, func) {
  			if (!is_notype_sym(func) && !is_func_sym(func))
-@@ -1570,133 +1881,147 @@ static bool is_first_func_insn(struct objtool_file *file,
+@@ -1570,133 +1884,147 @@ static bool is_first_func_insn(struct objtool_file *file,
  /*
   * Find the destination instructions for all jumps.
   */
@@ -5923,7 +7499,7 @@ index 62a3e1d4e9e5..a7499f247818 100644
  static struct symbol *find_call_destination(struct section *sec, unsigned long offset)
  {
  	struct symbol *call_dest;
-@@ -1711,59 +2036,82 @@ static struct symbol *find_call_destination(struct section *sec, unsigned long o
+@@ -1711,59 +2039,82 @@ static struct symbol *find_call_destination(struct section *sec, unsigned long o
  /*
   * Find the destination instructions for all calls.
   */
@@ -6045,7 +7621,7 @@ index 62a3e1d4e9e5..a7499f247818 100644
  	}
  
  	return 0;
-@@ -2732,6 +3080,8 @@ int decode_file(struct objtool_file *file)
+@@ -2732,6 +3083,8 @@ int decode_file(struct objtool_file *file)
  	if (read_annotate(file, __annotate_late))
  		return -1;
  
@@ -6094,91 +7670,99 @@ index 71e048f8582a..f472dfe7a773 100644
 +	pthread_mutex_unlock(&pv_ops_lock);
  	return 0;
  }
-
-Rust crates are compiled in a serial chain on the critical path - core,
-bindings, kernel crates and then the drivers - each a rustc invocation.
-
-With CONFIG_RUST set and every rust driver enabled, the entire chain takes
-around 25 seconds on a 128-thread machine, with the associated C code
-taking 24 seconds.
-
-Each time a change is made to any of the bindings, it triggers a rebuild.
-
-rustc has a parallel front end, enabled with -Zthreads, available since
-rust 1.84 [0] and therefore on every rustc the kernel supports.
-
-It is not yet stable and its output is not reproducible, so it cannot be
-used by default - stabilisation is being worked on [1].
-
-Add optional build parameter KBUILD_RUST_THREADS, which when set passes
-that many threads to rustc.
-
-The threads are taken from make's jobserver, so a parallel build is not
-oversubscribed. It was found that benefits level off at 8 threads (16 was
-found to be around the same, and 32 slower).
-
-Generated output was confirmed byte-for-byte identical.
-
-Observed build time changes with KBUILD_RUST_THREADS=8 (rustc 1.98, clang):
-
-                                        before    after
-  core.o                                   7.7s     4.9s
-  bindings.o                               4.3s     3.1s
-  kernel.o                                 2.0s     1.4s
-  clean build                             39.3s    34.6s
-  touch rust/kernel/lib.rs                12.9s    12.1s
-  touch rust/bindings/bindings_helper.h   19.5s    17.5s
-
-Whole build, 128-thread Threadripper 9980X, KBUILD_RUST_THREADS=8, best of
-N runs:
-
-                                         before   after     delta
-                                         -------------------------------
-  x86 defconfig+RUST, clean               41.0s    36.4s     -4.6s (-11%)
-  x86 defconfig+RUST, touch lib.rs         8.3s     7.7s    -0.56s (-7%)
-
-Link: https://github.com/rust-lang/rust/pull/132282 [0]
-Link: https://github.com/rust-lang/compiler-team/issues/1005 [1]
-Assisted-by: LLM
-Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
----
- Documentation/kbuild/kbuild.rst | 7 +++++++
- Makefile                        | 4 ++++
- 2 files changed, 11 insertions(+)
-
-diff --git a/Documentation/kbuild/kbuild.rst b/Documentation/kbuild/kbuild.rst
-index 5a9013bacfb7..9b2b127676c3 100644
---- a/Documentation/kbuild/kbuild.rst
-+++ b/Documentation/kbuild/kbuild.rst
-@@ -134,6 +134,13 @@ See make help for the full list.
  
- Setting "V=..." takes precedence over KBUILD_VERBOSE.
- 
-+KBUILD_RUST_THREADS
-+-------------------
-+The number of threads rustc's parallel front end may use, passed to it as
-+``-Zthreads``. Unset by default, as the parallel front end is not yet
-+stable and its output is not reproducible. The gain levels off at 8
-+threads.
-+
- KBUILD_EXTMOD
- -------------
- Set the directory to look for the kernel source when building external
-diff --git a/Makefile b/Makefile
-index 8263fc8a86b3..4ef504c1ace2 100644
---- a/Makefile
-+++ b/Makefile
-@@ -1206,6 +1206,10 @@ KBUILD_RUSTFLAGS += --remap-path-prefix=$(srcroot)/= --remap-path-scope=macro
- endif
- endif
- 
-+ifneq ($(KBUILD_RUST_THREADS),)
-+KBUILD_RUSTFLAGS += -Zthreads=$(KBUILD_RUST_THREADS)
-+endif
-+
- # include additional Makefiles when needed
- include-y			:= scripts/Makefile.warn
- include-$(CONFIG_DEBUG_INFO)	+= scripts/Makefile.debug
+
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9CFB73DA7E3;
+	Thu, 17 Sep 2026 16:10:35 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661436; cv=none; b=jkcnLmqdjnOCgYTH7a+5nRA+ZlxwXkOoLYS8Fj3l+8WB2sdj9bxK7++6u5HejvpcuFJY51FNMnw8K2OaMQ49sBZmqjI22PHZ16Qh4xxHNHjifMM+43fWNDzrjZRmKYi+CiTOaM0uQqtNuU3RCMV9kOefWDB8YmL4ghvZ6K/v2Io=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661436; c=relaxed/simple;
+	bh=kx145CbsbOZNlrJo3YNnQ6X8zzclemP0tqvdTYAGrNw=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=Kpop18k9z6ziSZ7KQ68FzXGhUkAaxyGWAyvThi/eV5UJWD7NBUBU5NSPpxaYQgXWcT5Tm/5MqhhcDIBW/bL3Gz0cXWWiyWNrydJFHWy00iIp4g9Vq/4uvqe5irgP3UAXPfhY6XionfxtCf/Vg3P51FJ2ZbN8KawRqU7KVB1wzcs=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=Jj2Apv/R; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="Jj2Apv/R"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id EA97C1F000FF;
+	Thu, 17 Sep 2026 16:10:22 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661435;
+	bh=RpyglNkLvgtO+g1zDJNpkY3JopuChXGi3ttcKAuST+8=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=Jj2Apv/RAB9TOG2YqrhGifprY538wgdFC6LQ/tMnOYMcmrGKhHrqeBpY8fw2FxUgu
+	 Jsf0NME0dBmqvfrPuhCWbKUVJMIB3f8lhz3WzrsEKudSQJnj7pIHWmaT1FmWBTh5j6
+	 56xVRnEkGOQ9uJkfgoLGHX5GQNJzv6lPH6IFQQUAxrzd3hlQ+t3ggoJpT1HyldoPcO
+	 ZRZAQo0sCNbr1rVsxQ8GmyYsus0FueyAoauXto0X/7INKe6xf8KRT+6FpTm6pBaCJQ
+	 HUJHPzTTm/nJ5aby5UK2I35kHtk4XnpyIAGgLFddfwp44Q7tavZu10yTPdQRi1GzAm
+	 nRxgbLwRE5vYQ==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:28 +0100
+Subject: [PATCH v3 18/20] rust: make exports.o depend on the headers
+ generated for it
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-18-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=1286; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=kx145CbsbOZNlrJo3YNnQ6X8zzclemP0tqvdTYAGrNw=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLW8P8/1p5f8WyTUldI8/e2/QX1qZN8rlboTPArUpns5
+ GevuPFcRykLgxgXg6yYIsvzL+L7g0TC5nVe8HeDmcPKBDKEgYtTACayQYqR4fh3vxsBLWfL9Ivn
+ mlecfnZyCa/kdrElv/cVvBIrbxDYcpDhn6Ggyc+l3C7z5H+ffP397vOJt8/fmiUnLb438Y0724f
+ aJl4A
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
 
 rust/exports.c includes the exports_*_generated.h listing the symbols of
 the core, bindings, kernel and helpers objects, but this is not expressed
@@ -6213,6 +7797,98 @@ index da1a7409d984..74d21ae6f383 100644
  # symbol versions generated from Rust objects.
  $(obj)/exports.o: private skip_gendwarfksyms = 1
 
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id BDEB050E587;
+	Thu, 17 Sep 2026 16:10:48 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661450; cv=none; b=hBQyQlJJRJIZojw2bsGkxm2zhXJINhh0+4FbUOe3Hn8W1JWcElSmNbS0LLwjxpnEl7x7WDp+w1FDEjmmGcnYj09ORGnmtJoSmPvZYwJs3QpLMg8kzsM370ZhMG93GRLmb0AEursjULbPbhKqoYl0WTIbT8kqw5jTjAUkZUyG4r0=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661450; c=relaxed/simple;
+	bh=ed2Yyw/iZdlR8zsOttNJurPt1jD2t74hXGroQgbemrM=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=AXZEpisicYRfwbW8vv+a7uJ929hqy8uif2YM+HB/MHgSKxiw6DPnJscTs40eVaLx6a8Nh9voXaiTbshTFilAMZiE6g8ta0wWLToFdhhGQDCOX1nDxlfisnoPG/yhAaJUtmxKTsKrS5YF0UgSGoRKXD7KRAQYk3rY6PAn1qlb2WQ=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=THLOBEP8; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="THLOBEP8"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 0C57B1F00893;
+	Thu, 17 Sep 2026 16:10:35 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661448;
+	bh=R/dI7mlJ74lyeS1TaG8sZDLjKTD6N4MtXCnU+NQQZlI=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=THLOBEP8cD0Prz+aYzKFLFiDAaCtSLcp3z2JIKOlETzeJSQAq2yTCrFCM1M/MmeGF
+	 KTKc7QJcFU+PfZ+3IllL04QD7xucC6NKS5c3A2G3i1CHq6CNQX3HD1BQSCMFQ6QatW
+	 6GQeGTKLZvgUsz8oJxGD4RFahsBVfnBU8fYI5kPV0C8CnqF+k35P1xz3gxJf3QX62o
+	 78XEx6aZB7HqanYAwR5KzWbKp7yGZohBCnNIihCFc4l3NskPz2uU/MLPu/+kwebmcN
+	 rfN+PSrh/J8ohhK1Gu6aRJv9yVlWvc+e6Nuh3b2xlEsLGSY62t4dyhQiYcXvz8MYjP
+	 AlKfjqdUL5suw==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:29 +0100
+Subject: [PATCH v3 19/20] kbuild: build rust crates in parallel with the
+ rest of the build
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-19-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=4034; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=ed2Yyw/iZdlR8zsOttNJurPt1jD2t74hXGroQgbemrM=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLWCDA8Kut9aPJ82zKWj9qnUzwcVLxWrrjtosDK/TXL6
+ oY/+y+zjlIWBjEuBlkxRZbnX8T3B4mEzeu84O8GM4eVCWQIAxenAEzE7xgjw8p7mrobDqbxhIYd
+ i21InSK/3H6d38Ggejaje3LcKjIhCQz/87etZFm/NNik7erMlzuWrG8IW7FTVr835seijNivKx/
+ 94QcA
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
 When CONFIG_RUST is specified make prepare builds all of the rust
 components before descending into the tree.
 
@@ -6235,11 +7911,11 @@ Finally, ensure that no rust code is located elsewhere and fail the build
 if any is found to ensure that nothing is missed in future.
 
 Care is taken to ensure the rust/ dependency is also established for any
-module being built to account for external rust modules which rely upon it.
+module being built to account for external rust modules which rely upon it,
+and that only one rust/ build will be performed at any one time.
 
-Care is taken to ensure that external rust modules can still be built
-against the tree - make modules_prepare ... (where ... are other goals)
-will build rust/ first.
+External rust modules builds are unaffected - make modules_prepare ...
+(where ... are other goals) will build rust/ first.
 
 Every Rust and C object was confirmed to be byte-for-byte identical after
 this change.
@@ -6255,9 +7931,9 @@ Assisted-by: LLM
 Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
 ---
  Kbuild                 |  5 +++++
- Makefile               | 11 ++++++++++-
+ Makefile               | 13 ++++++++++++-
  scripts/Makefile.build |  5 ++++-
- 3 files changed, 19 insertions(+), 2 deletions(-)
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
 diff --git a/Kbuild b/Kbuild
 index a6a0192dea08..9670556059dd 100644
@@ -6273,10 +7949,10 @@ index a6a0192dea08..9670556059dd 100644
 +$(KBUILD_RUST_DIRS): | rust
 +endif
 diff --git a/Makefile b/Makefile
-index 4ef504c1ace2..790ef23c5e8a 100644
+index 8263fc8a86b3..ede9cfeffd56 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -1429,11 +1429,14 @@ prepare0: archprepare
+@@ -1425,11 +1425,14 @@ prepare0: archprepare
  	$(Q)$(MAKE) $(build)=. prepare
  	$(Q)$(MAKE) $(build)=scripts/mod
  
@@ -6292,14 +7968,16 @@ index 4ef504c1ace2..790ef23c5e8a 100644
  endif
  
  PHONY += remove-stale-files
-@@ -1760,6 +1763,12 @@ modules: modules_prepare
+@@ -1756,6 +1759,14 @@ modules: modules_prepare
  # Target to prepare building external modules
  modules_prepare: prepare
  	$(Q)$(MAKE) $(build)=scripts scripts/module.lds
 +ifdef CONFIG_RUST
-+# Ensure rust/ is built before any external rust module which will rely upon it.
++# Avoid two instances of rust/ being built at any one time.
 +ifneq ($(filter modules_prepare,$(MAKECMDGOALS)),)
++ifeq ($(filter all vmlinux modules %Image% dtbs rustdoc rusttest,$(MAKECMDGOALS)),)
 +	$(Q)$(MAKE) $(build)=rust
++endif
 +endif
 +endif
  
@@ -6321,8 +7999,101 @@ index b9093b39cc2f..77351d6006fa 100644
 +	$(if $(rust-dir-ok),,$(error $@: Rust code in a directory not listed in KBUILD_RUST_DIRS, see the top Makefile))$(call cmd_and_fixdep,rustc_o_rs)
  	$(call cmd,gen_objtooldep)
  endef
+ 
 
-The gzip step of a kernel build is very lengthily, especially for larger
+-- 
+2.55.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from smtp.kernel.org (aws-us-west-2-korg-mail-alma10-1.taild15c8.ts.net [100.103.45.18])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 4064250E5B5;
+	Thu, 17 Sep 2026 16:11:01 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=100.103.45.18
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1789661463; cv=none; b=jyqUa6gpDs+Ei1+tNCbKGIzaLve/TjABHzUmb+MTcgtPKWAoafziMIys2xWTDOjrOwGsZht39wYmxbzyDnAT5Q95C2/bW7S15FSwaMs3+/qIMPk0UQQjXlOyIxW/MiP5stM+ztKK7OMQQVZSpp/X4PZ75RiBfnCp5H9EY1+CAwM=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1789661463; c=relaxed/simple;
+	bh=oEqv26NNp6DC+I1JyUl1cIrGQ+RyNw07N7F7X92kUw8=;
+	h=From:Date:Subject:MIME-Version:Content-Type:Message-Id:References:
+	 In-Reply-To:To:Cc; b=MzHg4ZzYSPJD3grSota+1p2xobjHyJzvKe1Qze7LtRZCsBnOyCU4GZYxlXLt0Vrd5CzGdbNGzZwQ/79Sunj3nXlffXgxUCksKzLgBrZnAjL++FlopZ2J95S64AVauXazGbhBHzM5kseVS4UJjVxo75M6/MBuY1yDI5VFdThVulI=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b=F1E2m9xP; arc=none smtp.client-ip=100.103.45.18
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=kernel.org header.i=@kernel.org header.b="F1E2m9xP"
+Received: by smtp.kernel.org (Postfix) with ESMTPSA id 202C21F000FF;
+	Thu, 17 Sep 2026 16:10:48 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=kernel.org;
+	s=k20260515; t=1789661461;
+	bh=zRS8A68HtauULKqM669Tk32r1+W1FP4YJiATZSr8tbY=;
+	h=From:Date:Subject:References:In-Reply-To:To:Cc;
+	b=F1E2m9xPSuxmyz+NzAE+hfwooNNJ6UWahNsEskV3Vi7ws3jsEMKSCxCEVXCHESlr7
+	 inIqCePqowrK38M9njm6VSZGSl1stDGpAf2J3nZI1FCvkxyPVH7SYEaPMZMKbMbsdZ
+	 HmPM4F35utA4agtvqryVuZYZalKb7yFdnsYXMZlWtkZgl5FCS8Brml6QSTXwhVXrzu
+	 RNr/7hwpw1dxi8CXQkyy/rzRA1/FxyVbXCsGjKYaZgaJ9Z2Oo1MYE1LEozZxSH/UU2
+	 jvIi8mwqk3lwDaTSp9uaxGhd8bDwo1tPfeQ+Fbo6G3A/7OUJXD3LKyhkVqqL9kEnC9
+	 e6LMEu4cMPLMQ==
+From: "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+Date: Thu, 17 Sep 2026 17:06:30 +0100
+Subject: [PATCH v3 20/20] kbuild: compress the kernel with pigz if
+ available
+Precedence: bulk
+X-Mailing-List: rust-for-linux@vger.kernel.org
+List-Id: <rust-for-linux.vger.kernel.org>
+List-Subscribe: <mailto:rust-for-linux+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:rust-for-linux+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Message-Id: <20260917-build-speedup-v3-20-9ecf4163ff36@kernel.org>
+References: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+In-Reply-To: <20260917-build-speedup-v3-0-9ecf4163ff36@kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, 
+ Nathan Chancellor <nathan@kernel.org>, Nicolas Schier <nsc@kernel.org>, 
+ Nick Desaulniers <ndesaulniers@google.com>, 
+ Bill Wendling <morbo@google.com>, Justin Stitt <justinstitt@google.com>, 
+ Masahiro Yamada <masahiroy@kernel.org>, Alexey Gladkov <legion@kernel.org>, 
+ Thomas Gleixner <tglx@kernel.org>, Ingo Molnar <mingo@redhat.com>, 
+ Borislav Petkov <bp@alien8.de>, Dave Hansen <dave.hansen@linux.intel.com>, 
+ x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, 
+ Paul Walmsley <pjw@kernel.org>, Palmer Dabbelt <palmer@dabbelt.com>, 
+ Albert Ou <aou@eecs.berkeley.edu>, Alexandre Ghiti <alex@ghiti.fr>, 
+ Arnd Bergmann <arnd@arndb.de>, Catalin Marinas <catalin.marinas@arm.com>, 
+ Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, 
+ Ard Biesheuvel <ardb@kernel.org>, 
+ Ilias Apalodimas <ilias.apalodimas@linaro.org>, 
+ Josh Poimboeuf <jpoimboe@kernel.org>, Peter Zijlstra <peterz@infradead.org>, 
+ Miguel Ojeda <ojeda@kernel.org>, Boqun Feng <boqun@kernel.org>, 
+ Gary Guo <gary@garyguo.net>, 
+ =?utf-8?q?Bj=C3=B6rn_Roy_Baron?= <bjorn3_gh@protonmail.com>, 
+ Benno Lossin <lossin@kernel.org>, Andreas Hindborg <a.hindborg@kernel.org>, 
+ Alice Ryhl <aliceryhl@google.com>, Trevor Gross <tmgross@umich.edu>, 
+ Danilo Krummrich <dakr@kernel.org>, 
+ Daniel Almeida <daniel.almeida@collabora.com>, 
+ Tamir Duberstein <tamird@kernel.org>, 
+ Alexandre Courbot <acourbot@nvidia.com>, 
+ =?utf-8?q?Onur_=C3=96zkan?= <work@onurozkan.dev>, 
+ Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, 
+ Kees Cook <kees@kernel.org>, "Gustavo A. R. Silva" <gustavoars@kernel.org>
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, 
+ llvm@lists.linux.dev, linux-riscv@lists.infradead.org, 
+ linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, 
+ linux-efi@vger.kernel.org, rust-for-linux@vger.kernel.org, 
+ linux-doc@vger.kernel.org, Jens Axboe <axboe@kernel.dk>, 
+ linux-hardening@vger.kernel.org, "Lorenzo Stoakes (ARM)" <ljs@kernel.org>
+X-Mailer: b4 0.14.3
+X-Developer-Signature: v=1; a=openpgp-sha256; l=10146; i=ljs@kernel.org;
+ h=from:subject:message-id; bh=oEqv26NNp6DC+I1JyUl1cIrGQ+RyNw07N7F7X92kUw8=;
+ b=owGbwMvMwCV2fu7ZrsZH9SKMp9WSGLLWCDBMKzOziPy24eti9mPTj2yKdPhg87fcUNzAa1aIy
+ doLhkuZO0pZGMS4GGTFFFmefxHfHyQSNq/zgr8bzBxWJpAhDFycAjCRqnuMDB+ab8/ULXUUV+OL
+ /HmyTLBM9WLX7o2sx+ueMmcXsD9mq2H4K6Dgvin1+uutN2xflfTpbKyVC/2zpUj3iEGYvm+HvlE
+ jJwA=
+X-Developer-Key: i=ljs@kernel.org; a=openpgp;
+ fpr=E7F417BF5214569E89D04F46CF9DCD8A81E27F14
+
+The gzip step of a kernel build is very lengthy, especially for larger
 builds such as allmodconfig.
 
 gzip itself cannot be run in parallel, however an alternative tool exists
@@ -6333,26 +8104,32 @@ On a 128-core Threadripper, gzip -9 of a 36 MiB x86-64 vmlinux.bin takes
 1.6s, and with pigz it takes 0.09s, so the performance increase is
 significant.
 
-It is already possible to specify KGZIP on the make command line to make
-use of pigz, however it seems sensible to make use of pigz if it is
-available.
+Therefore introduce the KPGZIP build variable which specifies the
+compressor to use for the kernel image and default it to pigz if available,
+or KGZIP otherwise (which itself defaults to gzip).
 
-Therefore default to using pigz if it is available on the system upon which
-the kernel is being built, otherwise fall back to gzip.
+Modules, packaging and the embedded kernel configuration (CONFIG_IKCONFIG)
+continue to use KGZIP which defaults to a single-threaded gzip instance.
 
-Modules are compressed one per make job at install time, so a parallel
-compressor gains nothing there and with -jN would run N times the core
-count in threads. Limit pigz to a single thread for module compression.
+Module compression is run in parallel by make, so pigz offers no benefit
+there, packaging sits outside the build and the embedded configuration is
+too small to matter.
 
-The output is byte-for-byte identical between pigz/gzip invocations, but
-gzip and pigz do not produce the same stream as one another.
+pigz is executed using scripts/jobserver-exec, which reserves the job slots
+make has free - necessary, as otherwise pigz would just grab unbounded
+CPUs.
 
-Therefore, for reproducible builds, the same set of tools should be used.
+The kernel image compression step is always performed at the end of the
+build so should typically have all job slots available.
 
-This seems to already be an implicit requirement in any case, but update
-the reproducible build documentation to make this clear.
+pigz always provides byte-for-byte identical output across runs regardless
+of thread count, but pigz and gzip are not guaranteed to generate the same
+binary output, so reproducible builds must use the same tools consistently.
 
-Also update the kbuild documentation to reflect the change.
+Also update Documentation/kbuild/kbuild.rst to describe KPGZIP and
+Documentation/process/changes.rst to list the optional pigz dependency.
+
+While there, add entries for the other compressor programs.
 
 Every x86 build ends with the compression of vmlinux.bin, 36MB for
 defconfig and over 200MB for allmodconfig, no-op builds are unchanged.
@@ -6370,33 +8147,39 @@ Whole build, 128-thread Threadripper 9980X, best of N runs:
   x86 allmodconfig, clean, gcc            294.1s   278.6s     -15.5s (-5%)
   x86 allmodconfig, clean, clang          283.9s   266.8s     -17.1s (-6%)
 
+Suggested-by: Kees Cook <kees@kernel.org>
 Link: https://zlib.net/pigz/
 Assisted-by: LLM
 Signed-off-by: Lorenzo Stoakes (ARM) <ljs@kernel.org>
 ---
- Documentation/kbuild/kbuild.rst              | 15 +++++++++++++++
- Documentation/kbuild/reproducible-builds.rst | 16 ++++++++++++++++
- Makefile                                     |  2 +-
- scripts/Makefile.modinst                     |  4 +++-
- 4 files changed, 35 insertions(+), 2 deletions(-)
+ Documentation/kbuild/kbuild.rst   | 17 +++++++++++++++++
+ Documentation/process/changes.rst |  8 ++++++++
+ Makefile                          |  5 ++++-
+ kernel/Makefile                   |  6 +++++-
+ scripts/Makefile.lib              |  4 ++--
+ scripts/jobserver-exec            |  3 ++-
+ tools/lib/python/jobserver.py     | 13 +++++++++++++
+ 7 files changed, 51 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/kbuild/kbuild.rst b/Documentation/kbuild/kbuild.rst
-index 9b2b127676c3..ebfc2945ac03 100644
+index 5a9013bacfb7..e71a692a559a 100644
 --- a/Documentation/kbuild/kbuild.rst
 +++ b/Documentation/kbuild/kbuild.rst
-@@ -110,6 +110,21 @@ HOSTLDLIBS
+@@ -110,6 +110,23 @@ HOSTLDLIBS
  ----------
  Additional libraries to link against when building host programs.
  
 +KGZIP
 +-----
-+The gzip compressor used for the compressed kernel image, compressed
-+modules and packaging.
++The gzip program used for compressed modules, packaging and the embedded
++kernel configuration. Defaults to gzip.
 +
-+Defaults to pigz (a parallel implementation of gzip) if it is available,
-+otherwise gzip. Set ``KGZIP=`` on the make command line to use another
-+program. Modules are compressed one per make job, so pigz is limited to a
-+single thread there.
++KPGZIP
++------
++The gzip program used for the compressed kernel image. Defaults to pigz (a
++parallel implementation of gzip), run under scripts/jobserver-exec so that it
++uses the job slots make has free, if pigz is installed, otherwise to
++``KGZIP``. Set ``KPGZIP=`` on the make command line to use another program.
 +
 +KBZIP2, KLZOP, LZMA, LZ4, XZ, ZSTD
 +----------------------------------
@@ -6406,59 +8189,152 @@ index 9b2b127676c3..ebfc2945ac03 100644
  .. _userkbuildflags:
  
  USERCFLAGS
-diff --git a/Documentation/kbuild/reproducible-builds.rst b/Documentation/kbuild/reproducible-builds.rst
-index bc1eb82211df..ec0135da4464 100644
---- a/Documentation/kbuild/reproducible-builds.rst
-+++ b/Documentation/kbuild/reproducible-builds.rst
-@@ -76,6 +76,22 @@ include generated files.  You should ensure the source tree is
- pristine by running ``make mrproper`` or ``git clean -d -f -x`` before
- building a source package.
+diff --git a/Documentation/process/changes.rst b/Documentation/process/changes.rst
+index 0aa232b117b5..28f2ca63318e 100644
+--- a/Documentation/process/changes.rst
++++ b/Documentation/process/changes.rst
+@@ -55,6 +55,7 @@ nfs-utils              1.0.5            showmount --version
+ openssl & libcrypto    1.0.0            openssl version
+ pahole                 1.26             pahole --version
+ pcmciautils            004              pccardctl -V
++pigz (optional)        2.4              pigz --version
+ PPP                    2.4.0            pppd --version
+ procps                 3.2.0            ps --version
+ Python                 3.9.x            python3 --version
+@@ -206,6 +207,13 @@ GNU AWK
+ GNU AWK is needed if you want kernel builds to generate address range data for
+ builtin modules (CONFIG_BUILTIN_MODULE_RANGES).
  
-+Compression tools
-+-----------------
++pigz (optional)
++---------------
 +
-+The compressed kernel image, compressed modules and packages are produced
-+using the program named by the make variable ``KGZIP`` (described in
-+Documentation/kbuild/kbuild.rst).
++pigz is a parallel implementation of gzip. If it is installed the compressed
++kernel image is produced with it rather than with gzip, see ``KPGZIP`` in
++Documentation/kbuild/kbuild.rst.
 +
-+It defaults to ``pigz`` if installed (a parallel implementation of gzip),
-+or ``gzip`` otherwise.
-+
-+The generated output between two invocations of identical builds with
-+either of the default tools will be byte-for-byte equivalent.
-+
-+However, for reproducible builds, ensure the same tool is used on all build
-+hosts, as different tools may generate different output from one another.
-+
- Module signing
- --------------
+ System utilities
+ ****************
  
 diff --git a/Makefile b/Makefile
-index 790ef23c5e8a..38c0cdc9f591 100644
+index ede9cfeffd56..d50bcb480134 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -561,7 +561,7 @@ PERL		= perl
- PYTHON3		= python3
- CHECK		= sparse
- BASH		= bash
--KGZIP		= gzip
-+KGZIP		:= $(if $(shell command -v pigz 2>/dev/null),pigz,gzip)
- KBZIP2		= bzip2
- KLZOP		= lzop
- LZMA		= lzma
-diff --git a/scripts/Makefile.modinst b/scripts/Makefile.modinst
-index 9ba45e5b32b1..58dafec8f910 100644
---- a/scripts/Makefile.modinst
-+++ b/scripts/Makefile.modinst
-@@ -145,8 +145,10 @@ endif
- #
- # Compression
- #
-+# Modules are compressed in parallel by make itself, so keep the compressor
-+# single-threaded when it is pigz.
+@@ -568,6 +568,9 @@ LZMA		= lzma
+ LZ4		= lz4
+ XZ		= xz
+ ZSTD		= zstd
++# The kernel image is compressed with pigz, on the job slots make has free,
++# if it is installed. Everything else uses KGZIP.
++KPGZIP		:= $(if $(shell command -v pigz 2>/dev/null),$(PYTHON3) $(abs_srctree)/scripts/jobserver-exec pigz -p %PARALLELISM%,$(KGZIP))
+ TAR		= tar
+ 
+ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
+@@ -648,7 +651,7 @@ export RUSTC RUSTDOC RUSTFMT RUSTC_OR_CLIPPY_QUIET RUSTC_OR_CLIPPY BINDGEN LLVM_
+ export HOSTRUSTC KBUILD_HOSTRUSTFLAGS
+ export CPP AR NM STRIP OBJCOPY OBJDUMP READELF PAHOLE RESOLVE_BTFIDS LEX YACC AWK INSTALLKERNEL
+ export PERL PYTHON3 CHECK CHECKFLAGS MAKE UTS_MACHINE HOSTCXX
+-export KGZIP KBZIP2 KLZOP LZMA LZ4 XZ ZSTD TAR
++export KGZIP KPGZIP KBZIP2 KLZOP LZMA LZ4 XZ ZSTD TAR
+ export KBUILD_HOSTCXXFLAGS KBUILD_HOSTLDFLAGS KBUILD_HOSTLDLIBS KBUILD_PROCMACROLDFLAGS LDFLAGS_MODULE
+ export KBUILD_USERCFLAGS KBUILD_USERLDFLAGS
+ 
+diff --git a/kernel/Makefile b/kernel/Makefile
+index 1e1a31673577..c64c82c96b40 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -153,9 +153,13 @@ obj-$(CONFIG_SCF_TORTURE_TEST) += scftorture.o
+ 
+ $(obj)/configs.o: $(obj)/config_data.gz
+ 
++# .config is small, so it is compressed with gzip rather than the image compressor.
++quiet_cmd_gzip_config = GZIP    $@
++      cmd_gzip_config = cat $(real-prereqs) | $(KGZIP) -n -f -9 > $@
++
+ targets += config_data config_data.gz
+ $(obj)/config_data.gz: $(obj)/config_data FORCE
+-	$(call if_changed,gzip)
++	$(call if_changed,gzip_config)
+ 
+ filechk_cat = cat $<
+ 
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index 2f447bc25e7b..8936925d4d50 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -332,11 +332,11 @@ quiet_cmd_ar = AR      $@
+ quiet_cmd_objcopy = OBJCOPY $@
+ cmd_objcopy = $(OBJCOPY) $(OBJCOPYFLAGS) $(OBJCOPYFLAGS_$(@F)) $< $@
+ 
+-# Gzip
++# Gzip, for the kernel image
+ # ---------------------------------------------------------------------------
+ 
  quiet_cmd_gzip = GZIP    $@
--      cmd_gzip = $(KGZIP) -n -f $<
-+      cmd_gzip = $(KGZIP) $(if $(filter pigz,$(notdir $(firstword $(KGZIP)))),-p 1) -n -f $<
- quiet_cmd_xz = XZ      $@
-       cmd_xz = $(XZ) --check=crc32 --lzma2=dict=1MiB -f $<
- quiet_cmd_zstd = ZSTD    $@
+-      cmd_gzip = cat $(real-prereqs) | $(KGZIP) -n -f -9 > $@
++      cmd_gzip = cat $(real-prereqs) | $(KPGZIP) -n -f -9 > $@
+ 
+ # Bzip2
+ # ---------------------------------------------------------------------------
+diff --git a/scripts/jobserver-exec b/scripts/jobserver-exec
+index 21b319e6c9a5..89119acb1b9e 100755
+--- a/scripts/jobserver-exec
++++ b/scripts/jobserver-exec
+@@ -4,7 +4,8 @@
+ """
+ Determines how many parallel tasks "make" is expecting, as it is
+ not exposed via any special variables, reserves them all, runs a subprocess
+-with PARALLELISM environment variable set, and releases the jobs back again.
++with PARALLELISM environment variable set and any %PARALLELISM% in its
++arguments replaced by the count, and releases the jobs back again.
+ 
+ See:
+     https://www.gnu.org/software/make/manual/html_node/POSIX-Jobserver.html#POSIX-Jobserver
+diff --git a/tools/lib/python/jobserver.py b/tools/lib/python/jobserver.py
+index 0b1ffdf9f7a3..7e94635bf7d9 100755
+--- a/tools/lib/python/jobserver.py
++++ b/tools/lib/python/jobserver.py
+@@ -29,6 +29,10 @@ $claim child to do the actual work.
+ The end goal here is to keep the total number of build tasks under the
+ limit established by the initial ``make -j$n_proc`` call.
+ 
++A command that takes its thread count on the command line rather than from
++the environment can use the ``%PARALLELISM%`` token in its arguments, which
++is replaced by the count, or by 1 when there is no jobserver.
++
+ See:
+     https://www.gnu.org/software/make/manual/html_node/POSIX-Jobserver.html#POSIX-Jobserver
+ """
+@@ -38,6 +42,8 @@ import os
+ import subprocess
+ import sys
+ 
++PARALLELISM_TOKEN = "%PARALLELISM%"
++
+ def warn(text, *args):
+     print(f'WARNING: {text}', *args, file = sys.stderr)
+ 
+@@ -182,6 +188,9 @@ class JobserverExec:
+         Run a command setting PARALLELISM env variable to the number of
+         available job slots (claim) + 1, e.g. it will reserve claim slots
+         to do the actual build work, plus one to monitor its children.
++
++        Any %PARALLELISM% in the command's arguments is replaced by the same
++        number, or by 1 when there is no jobserver.
+         """
+         self.open()             # Ensure that self.claim is set
+ 
+@@ -192,4 +201,8 @@ class JobserverExec:
+         if self.claim:
+             os.environ["PARALLELISM"] = str(self.claim)
+ 
++        if not isinstance(cmd, str):
++            parallelism = str(self.claim or 1)
++            cmd = [arg.replace(PARALLELISM_TOKEN, parallelism) for arg in cmd]
++
+         return subprocess.call(cmd, *args, **pwargs)
+
+-- 
+2.55.0
+
+
+
