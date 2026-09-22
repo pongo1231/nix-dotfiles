@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "93f51579e7df248780214094418f205253383cc5";
-                        hash = "sha256-+Sn0tYDuDDEujGigwoUu02dtpXGNxuJmeAY03RE/TS8=";
+                        rev = "f0100363d8c374bd8e9ea7c9ba02744f0b802ca4";
+                        hash = "sha256-Pjb47n7eLKvAQsZ58uOnSPjJpculGulHN64HLHKc1P4=";
                       };
                     };
                 };
@@ -142,6 +142,30 @@ in
           patch = patch /linux/nouveau-detach-fix.patch;
         }
         {
+          name = "sched/cache: keep nr_pref_llc_running in the runnable domain";
+          patch = patch /linux/20260922_tim_chen_sched_cache_keep_nr_pref_llc_running.patch;
+        }
+        {
+          name = "sched/cache: honor migrate_llc_task semantics in active load balance";
+          patch = patch /linux/20260922_lu_wang_sched_cache_honor_migrate_llc_task_in_active_lb.patch;
+        }
+        {
+          name = "sched/cache: decouple sched_cache_group from mm";
+          patch = patch /linux/20260922_tim_chen_sched_cache_decouple_sched_cache_group_from_mm.patch;
+        }
+        {
+          name = "sched/cache: introduce task_struct->sched_cache_grp (fix UAF)";
+          patch = patch /linux/20260922_tim_chen_sched_cache_introduce_sched_cache_grp_to_fix_uaf.patch;
+        }
+        {
+          name = "sched/cache: skip kernel threads for cache aware scheduling";
+          patch = patch /linux/20260922_yu_chen_sched_cache_skip_kernel_threads.patch;
+        }
+        {
+          name = "sched/cache: refresh LLC capacity across CPU hotplug";
+          patch = patch /linux/20260922_davi_chaves_sched_cache_refresh_llc_capacity_on_hotplug.patch;
+        }
+        {
           name = "sched: topology-aware cache scheduling";
           patch = patch /linux/20260625_wujianyong_sched_extend_cache_aware_scheduling_into_topology_aware_scheduling.patch;
           extraConfig = ''
@@ -153,10 +177,6 @@ in
           patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
         }
 
-        {
-          name = "core/entry tip";
-          patch = patch /linux/core-entry-tip.patch;
-        }
         {
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
@@ -183,7 +203,7 @@ in
         }
         {
           name = "sched/fair: randomize equally shallow idle CPU picks";
-          patch = patch /linux/20260916_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks.patch;
+          patch = patch /linux/20260917_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [

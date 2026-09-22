@@ -1,15 +1,32 @@
+From 5951d0612f0f3b3219e9339c72c42a53b1a35381 Mon Sep 17 00:00:00 2001
 From: pongo1231 <pongo@ecmec.eu>
-Subject: sched: Extend cache aware scheduling into topology aware scheduling
+Date: Tue, 22 Sep 2026 13:07:29 +0200
+Subject: [PATCH] sched: Extend cache aware scheduling into topology aware
+ scheduling
 
 Rebase of Jianyong Wu's 8-patch RFC series (cache-aware scheduling ->
-topology-aware scheduling) onto the current pongoKernel rev
-(df2908090cda368b01ff43709f51890076c56157). The series no longer applied
-cleanly because the upstream scheduler gained task_misfits_asym_cpu() and
-migrate_misfit handling after the series was written; those newer helpers
-are preserved in alb_break_llc().
+topology-aware scheduling) onto the current pongoKernel rev, now on top of
+the v2.6 sched/cache fix series (tip: sched/urgent).
+
+The series no longer applied cleanly because the upstream scheduler gained
+task_misfits_asym_cpu() and migrate_misfit handling after the series was
+written; those newer helpers are preserved in alb_break_llc().
+
+One hunk conflicted with the new upstream fix "sched/cache: Honor
+migrate_llc_task semantics in active load balance": can_migrate_task() now
+runs the NUMA/LLC degradation checks before the active-balance return, so
+active balance honours them, while upstream's migrate_llc_task_wrong_dst()
+guard on that return is kept.
 ---
+ include/linux/topology.h |   5 +
+ kernel/sched/debug.c     |  34 +++-
+ kernel/sched/fair.c      | 369 +++++++++++++++++++++++++++++----------
+ kernel/sched/sched.h     |   1 +
+ kernel/sched/topology.c  |  58 ++++++
+ 5 files changed, 373 insertions(+), 94 deletions(-)
+
 diff --git a/include/linux/topology.h b/include/linux/topology.h
-index 709a2dc..75297ea 100644
+index 709a2dcf4..75297ea41 100644
 --- a/include/linux/topology.h
 +++ b/include/linux/topology.h
 @@ -177,6 +177,11 @@ static inline int cpu_to_mem(int cpu)
@@ -25,7 +42,7 @@ index 709a2dc..75297ea 100644
  #define TOPOLOGY_DIE_SYSFS
  #endif
 diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
-index 72236db..d808c66 100644
+index 72236db67..03d4181b7 100644
 --- a/kernel/sched/debug.c
 +++ b/kernel/sched/debug.c
 @@ -9,7 +9,9 @@
@@ -55,20 +72,26 @@ index 72236db..d808c66 100644
  static void sched_show_numa(struct task_struct *p, struct seq_file *m)
  {
  #ifdef CONFIG_NUMA_BALANCING
-@@ -1403,6 +1406,28 @@ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
+@@ -1403,6 +1406,34 @@ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
  #endif /* CONFIG_NUMA_BALANCING */
  }
  
 +static void sched_show_cache(struct task_struct *p, struct seq_file *m)
 +{
 +#ifdef CONFIG_SCHED_CACHE
-+	struct mm_struct *mm = p->mm;
++	struct sched_cache_group *grp;
 +	int sc_cpu, sc_llc, sc_node, pref_llc, pref_node;
 +
-+	if (!mm)
++	rcu_read_lock();
++	grp = rcu_dereference(p->sched_cache_grp);
++	if (!grp) {
++		rcu_read_unlock();
 +		return;
++	}
 +
-+	sc_cpu = READ_ONCE(mm->sc_stat.cpu);
++	sc_cpu = READ_ONCE(grp->cpu);
++	rcu_read_unlock();
++
 +	sc_llc  = (sc_cpu >= 0) ? per_cpu(sd_llc_id, sc_cpu) : -1;
 +	sc_node = (sc_cpu >= 0) ? cpu_to_node(sc_cpu) : -1;
 +	pref_llc  = READ_ONCE(p->preferred_llc);
@@ -84,7 +107,7 @@ index 72236db..d808c66 100644
  void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
  						  struct seq_file *m)
  {
-@@ -1519,6 +1544,7 @@ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
+@@ -1519,6 +1550,7 @@ void proc_sched_show_task(struct task_struct *p, struct pid_namespace *ns,
  	}
  
  	sched_show_numa(p, m);
@@ -93,10 +116,10 @@ index 72236db..d808c66 100644
  
  void proc_sched_set_task(struct task_struct *p)
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index ade1ece..a18e321 100644
+index 57360f5cd..ead220587 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -1448,6 +1448,12 @@ __read_mostly unsigned int llc_epoch_period	= EPOCH_PERIOD;
+@@ -1456,6 +1456,12 @@ __read_mostly unsigned int llc_epoch_period	= EPOCH_PERIOD;
  __read_mostly unsigned int llc_epoch_affinity_timeout = EPOCH_LLC_AFFINITY_TIMEOUT;
  __read_mostly unsigned int llc_imb_pct		= 20;
  __read_mostly unsigned int llc_overaggr_pct	= 50;
@@ -109,7 +132,7 @@ index ade1ece..a18e321 100644
  
  static int llc_id(int cpu)
  {
-@@ -1711,7 +1717,8 @@ static int get_pref_llc(struct task_struct *p, struct mm_struct *mm)
+@@ -1879,7 +1885,8 @@ static int get_pref_llc(struct task_struct *p, struct sched_cache_group *grp)
  		 * than sched_setnuma() at least -- and thus the
  		 * conflict only exists for a short period of time.
  		 */
@@ -119,7 +142,7 @@ index ade1ece..a18e321 100644
  		    p->numa_preferred_nid >= 0 &&
  		    cpu_to_node(mm_sched_cpu) != p->numa_preferred_nid)
  			mm_sched_llc = -1;
-@@ -3992,6 +3999,13 @@ void task_numa_fault(int last_cpupid, int mem_node, int pages, int flags)
+@@ -4197,6 +4204,13 @@ void task_numa_fault(int last_cpupid, int mem_node, int pages, int flags)
  	if (!static_branch_likely(&sched_numa_balancing))
  		return;
  
@@ -133,7 +156,7 @@ index ade1ece..a18e321 100644
  	/* for example, ksmd faulting in a user's mm */
  	if (!p->mm)
  		return;
-@@ -10643,70 +10657,143 @@ enum llc_mig {
+@@ -10868,70 +10882,143 @@ enum llc_mig {
  	mig_unrestricted	/* G: Don't restrict generic load balance migration */
  };
  
@@ -324,7 +347,7 @@ index ade1ece..a18e321 100644
  }
  
  /*
-@@ -10741,15 +10828,10 @@ static enum llc_mig can_migrate_llc_task(struct lb_env *env,
+@@ -10966,15 +11053,10 @@ static enum llc_mig can_migrate_llc_task(struct lb_env *env,
  		return mig_unrestricted;
  	}
  
@@ -343,7 +366,7 @@ index ade1ece..a18e321 100644
  }
  
  /*
-@@ -10763,42 +10845,44 @@ static enum llc_mig can_migrate_llc_task(struct lb_env *env,
+@@ -10988,42 +11070,45 @@ static enum llc_mig can_migrate_llc_task(struct lb_env *env,
  static inline bool
  alb_break_llc(struct lb_env *env)
  {
@@ -390,13 +413,14 @@ index ade1ece..a18e321 100644
 -		 */
 -		if (env->migration_type == migrate_misfit)
 +		cur = rcu_dereference_all(env->src_rq->curr);
-+		if (!cur || !cur->mm)
++		if (!cur)
  			return false;
  
 -		if (env->src_rq->nr_running <= 1)
 -			return true;
 +		if (cur->sched_class == &fair_sched_class)
-+			pref_llc = llc_id(cur->mm->sc_stat.cpu);
++			pref_llc = get_pref_llc(cur,
++						rcu_dereference_all(cur->sched_cache_grp));
  
 -		cur = rcu_dereference_all(env->src_rq->curr);
 -		if (cur && cur->sched_class == &fair_sched_class)
@@ -411,7 +435,7 @@ index ade1ece..a18e321 100644
  			return true;
  	}
  
-@@ -10949,14 +11033,11 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
+@@ -11194,14 +11279,11 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
  
  	/*
  	 * Aggressive migration if:
@@ -423,22 +447,22 @@ index ade1ece..a18e321 100644
  	 * 4) too many balance attempts have failed.
  	 */
 -	if (env->flags & LBF_ACTIVE_LB)
--		return 1;
+-		return !migrate_llc_task_wrong_dst(p, env);
 -
  	degrades = migrate_degrades_locality(p, env);
  	if (!degrades) {
  		/*
-@@ -10982,6 +11063,9 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
+@@ -11227,6 +11309,9 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
  		hot = degrades > 0;
  	}
  
 +	if (env->flags & LBF_ACTIVE_LB)
-+		return 1;
++		return !migrate_llc_task_wrong_dst(p, env);
 +
  	if (!hot || env->sd->nr_balance_failed > env->sd->cache_nice_tries) {
  		if (hot)
  			p->sched_task_hot = 1;
-@@ -11847,6 +11931,7 @@ sched_reduced_capacity(struct rq *rq, struct sched_domain *sd)
+@@ -12092,6 +12177,7 @@ sched_reduced_capacity(struct rq *rq, struct sched_domain *sd)
  }
  
  #ifdef CONFIG_SCHED_CACHE
@@ -446,7 +470,7 @@ index ade1ece..a18e321 100644
  /*
   * Record the statistics for this scheduler group for later
   * use. These values guide load balancing on aggregating tasks
-@@ -11918,8 +12003,8 @@ static inline bool llc_balance(struct lb_env *env, struct sg_lb_stats *sgs,
+@@ -12163,8 +12249,8 @@ static inline bool llc_balance(struct lb_env *env, struct sg_lb_stats *sgs,
  		return false;
  
  	if (sgs->nr_pref_dst_llc &&
@@ -457,7 +481,7 @@ index ade1ece..a18e321 100644
  		return true;
  
  	return false;
-@@ -11934,6 +12019,82 @@ static bool update_llc_busiest(struct lb_env *env,
+@@ -12179,6 +12265,82 @@ static bool update_llc_busiest(struct lb_env *env,
  	 */
  	return sgs->nr_pref_dst_llc > busiest->nr_pref_dst_llc;
  }
@@ -540,7 +564,7 @@ index ade1ece..a18e321 100644
  #else
  static inline void record_sg_llc_stats(struct lb_env *env, struct sg_lb_stats *sgs,
  				       struct sched_group *group)
-@@ -11970,6 +12131,11 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+@@ -12215,6 +12377,11 @@ static inline void update_sg_lb_stats(struct lb_env *env,
  {
  	int i, nr_running, local_group, sd_flags = env->sd->flags;
  	bool balancing_at_rd = !env->sd->parent;
@@ -552,7 +576,7 @@ index ade1ece..a18e321 100644
  
  	memset(sgs, 0, sizeof(*sgs));
  
-@@ -11999,7 +12165,8 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+@@ -12244,7 +12411,8 @@ static inline void update_sg_lb_stats(struct lb_env *env,
  			if (llc_id(i) != dst_llc) {
  				sd_tmp = rcu_dereference_all(rq->sd);
  				if (sd_tmp && (unsigned int)dst_llc < sd_tmp->llc_max)
@@ -562,7 +586,7 @@ index ade1ece..a18e321 100644
  			}
  		}
  #endif
-@@ -12055,6 +12222,10 @@ static inline void update_sg_lb_stats(struct lb_env *env,
+@@ -12300,6 +12468,10 @@ static inline void update_sg_lb_stats(struct lb_env *env,
  		}
  	}
  
@@ -573,7 +597,7 @@ index ade1ece..a18e321 100644
  	sgs->group_capacity = group->sgc->capacity;
  
  	sgs->group_weight = group->group_weight;
-@@ -13049,9 +13220,9 @@ static struct sched_group *sched_balance_find_src_group(struct lb_env *env)
+@@ -13294,9 +13466,9 @@ static struct sched_group *sched_balance_find_src_group(struct lb_env *env)
  	 * Try to move all excess tasks to a sibling domain of the busiest
  	 * group's child domain.
  	 */
@@ -586,7 +610,7 @@ index ade1ece..a18e321 100644
  		goto force_balance;
  
  	if (busiest->group_type != group_overloaded) {
-@@ -13112,9 +13283,15 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
+@@ -13357,9 +13529,15 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
  	unsigned long busiest_util = 0, busiest_load = 0, busiest_capacity = 1;
  	unsigned int __maybe_unused busiest_pref_llc = 0;
  	struct sched_domain __maybe_unused *sd_tmp;
@@ -604,7 +628,7 @@ index ade1ece..a18e321 100644
  
  	for_each_cpu_and(i, sched_group_span(group), env->cpus) {
  		unsigned long capacity, load, util;
-@@ -13263,7 +13440,8 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
+@@ -13508,7 +13686,8 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
  
  			if (sd_tmp && (unsigned)dst_llc < sd_tmp->llc_max) {
  				unsigned int this_pref_llc =
@@ -614,7 +638,7 @@ index ade1ece..a18e321 100644
  
  				if (busiest_pref_llc < this_pref_llc) {
  					busiest_pref_llc = this_pref_llc;
-@@ -13276,6 +13454,10 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
+@@ -13521,6 +13700,10 @@ static struct rq *sched_balance_find_src_rq(struct lb_env *env,
  		}
  	}
  
@@ -626,7 +650,7 @@ index ade1ece..a18e321 100644
  }
  
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index e656c70..0cfc857 100644
+index e656c7059..0cfc8574f 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -4139,6 +4139,7 @@ extern unsigned int llc_epoch_period;
@@ -638,7 +662,7 @@ index e656c70..0cfc857 100644
  static inline bool sched_cache_enabled(void)
  {
 diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
-index 0248227..162132b 100644
+index 3dab02539..7b968b30f 100644
 --- a/kernel/sched/topology.c
 +++ b/kernel/sched/topology.c
 @@ -685,6 +685,11 @@ DEFINE_PER_CPU(struct sched_domain __rcu *, sd_asym_cpucapacity);

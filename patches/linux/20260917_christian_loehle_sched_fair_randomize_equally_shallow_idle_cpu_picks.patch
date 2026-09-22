@@ -1,0 +1,139 @@
+From linux-kernel  Thu Sep 17 15:39:14 2026
+From: Christian Loehle <christian.loehle () arm ! com>
+Date: Thu, 17 Sep 2026 15:39:14 +0000
+To: linux-kernel
+Subject: [PATCH v2 1/2] sched/fair: Drop idle recency from slow-path CPU selection
+Message-Id: <20260917153915.1563875-2-christian.loehle () arm ! com>
+X-MARC-Message: https://marc.info/?l=linux-kernel&m=178966557721578
+
+The slow-path CPU picker favours the most recently idle CPU as a proxy
+for cache warmth.
+
+A more recent idle stamp may make ongoing entry more likely. If entry
+cannot be aborted, that CPU must finish entry and then exit, potentially
+paying more than an already-resident CPU with the same advertised exit
+latency. The advertised worst-case latency covers both cases. idle_stamp
+does not timestamp the current CPUIdle entry, so this is only a heuristic.
+
+A recent scheduler-idle transition may also mark a short gap in recurring
+task activity, making the CPU likely to be busy again soon.
+
+Drop the timestamp tie-break and retain the first candidate unless a
+lower advertised exit latency is found.
+
+Signed-off-by: Christian Loehle <christian.loehle@arm.com>
+Reviewed-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 7455a83a6a99..ff5793bddc35 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -8459,7 +8459,6 @@ sched_balance_find_dst_group_cpu(struct sched_group *group, struct task_struct *
+ {
+ 	unsigned long load, min_load = ULONG_MAX;
+ 	unsigned int min_exit_latency = UINT_MAX;
+-	u64 latest_idle_timestamp = 0;
+ 	int least_loaded_cpu = this_cpu;
+ 	int shallowest_idle_cpu = -1;
+ 	int i;
+@@ -8481,22 +8480,10 @@ sched_balance_find_dst_group_cpu(struct sched_group *group, struct task_struct *
+ 		if (available_idle_cpu(i)) {
+ 			struct cpuidle_state *idle = idle_get_state(rq);
+ 			if (idle && idle->exit_latency < min_exit_latency) {
+-				/*
+-				 * We give priority to a CPU whose idle state
+-				 * has the smallest exit latency irrespective
+-				 * of any idle timestamp.
+-				 */
+ 				min_exit_latency = idle->exit_latency;
+-				latest_idle_timestamp = rq->idle_stamp;
+ 				shallowest_idle_cpu = i;
+ 			} else if ((!idle || idle->exit_latency == min_exit_latency) &&
+-				   rq->idle_stamp > latest_idle_timestamp) {
+-				/*
+-				 * If equal or no active idle state, then
+-				 * the most recently idled CPU might have
+-				 * a warmer cache.
+-				 */
+-				latest_idle_timestamp = rq->idle_stamp;
++				   shallowest_idle_cpu == -1) {
+ 				shallowest_idle_cpu = i;
+ 			}
+ 		} else if (shallowest_idle_cpu == -1) {
+-- 
+2.34.1
+
+From linux-kernel  Thu Sep 17 15:39:15 2026
+From: Christian Loehle <christian.loehle () arm ! com>
+Date: Thu, 17 Sep 2026 15:39:15 +0000
+To: linux-kernel
+Subject: [PATCH v2 2/2] sched/fair: Randomize equally shallow slow-path candidates
+Message-Id: <20260917153915.1563875-3-christian.loehle () arm ! com>
+X-MARC-Message: https://marc.info/?l=linux-kernel&m=178966174116713
+
+Picking the first eligible idle CPU leaves a scan-order bias. Concurrent
+slow-path selectors can choose the same CPU before either task is enqueued.
+
+Use reservoir sampling for equal exit latencies, resetting the candidate
+count when a shallower candidate appears. Use the per-CPU scheduler PRNG
+and reciprocal_scale() to avoid variable division or a second scan.
+
+Use a u64 latency key with U64_MAX for unpublished states. Published
+states take precedence; when none are found, sample among the idle CPUs
+without a published state.
+
+Signed-off-by: Christian Loehle <christian.loehle@arm.com>
+---
+ kernel/sched/fair.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index ff5793bddc35..810343f40316 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -24,6 +24,7 @@
+ #include <linux/mmap_lock.h>
+ #include <linux/hugetlb_inline.h>
+ #include <linux/jiffies.h>
++#include <linux/math.h>
+ #include <linux/mm_api.h>
+ #include <linux/highmem.h>
+ #include <linux/hrtimer.h>
+@@ -8458,7 +8459,8 @@ static int
+ sched_balance_find_dst_group_cpu(struct sched_group *group, struct task_struct *p, int this_cpu)
+ {
+ 	unsigned long load, min_load = ULONG_MAX;
+-	unsigned int min_exit_latency = UINT_MAX;
++	u64 min_exit_latency = U64_MAX;
++	unsigned int nr_candidates = 0;
+ 	int least_loaded_cpu = this_cpu;
+ 	int shallowest_idle_cpu = -1;
+ 	int i;
+@@ -8479,12 +8481,16 @@ sched_balance_find_dst_group_cpu(struct sched_group *group, struct task_struct *
+ 
+ 		if (available_idle_cpu(i)) {
+ 			struct cpuidle_state *idle = idle_get_state(rq);
+-			if (idle && idle->exit_latency < min_exit_latency) {
+-				min_exit_latency = idle->exit_latency;
+-				shallowest_idle_cpu = i;
+-			} else if ((!idle || idle->exit_latency == min_exit_latency) &&
+-				   shallowest_idle_cpu == -1) {
++			u64 exit_latency = idle ? idle->exit_latency : U64_MAX;
++
++			if (shallowest_idle_cpu == -1 || exit_latency < min_exit_latency) {
++				min_exit_latency = exit_latency;
+ 				shallowest_idle_cpu = i;
++				nr_candidates = 1;
++			} else if (exit_latency == min_exit_latency) {
++				nr_candidates++;
++				if (!reciprocal_scale(sched_rng(), nr_candidates))
++					shallowest_idle_cpu = i;
+ 			}
+ 		} else if (shallowest_idle_cpu == -1) {
+ 			load = cpu_load(cpu_rq(i));
+-- 
+2.34.1
+

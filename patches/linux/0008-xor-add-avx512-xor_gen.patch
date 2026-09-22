@@ -1,8 +1,8 @@
 diff --git a/lib/raid/xor/Makefile b/lib/raid/xor/Makefile
-index e8ecec3c09f9..4a0e5c6d8298 100644
+index 9b0fad459cdb..e1e3455c219d 100644
 --- a/lib/raid/xor/Makefile
 +++ b/lib/raid/xor/Makefile
-@@ -29,7 +29,7 @@ xor-$(CONFIG_SPARC32)		+= sparc/xor-sparc32.o
+@@ -31,7 +31,7 @@ xor-$(CONFIG_SPARC32)		+= sparc/xor-sparc32.o
  xor-$(CONFIG_SPARC64)		+= sparc/xor-sparc64.o sparc/xor-sparc64-glue.o
  xor-$(CONFIG_S390)		+= s390/xor.o
  xor-$(CONFIG_X86_32)		+= x86/xor-avx.o x86/xor-sse.o x86/xor-mmx.o
@@ -13,10 +13,10 @@ index e8ecec3c09f9..4a0e5c6d8298 100644
  CFLAGS_xor-neon.o		+= $(CC_FLAGS_FPU) -I$(src)/$(SRCARCH)
 diff --git a/lib/raid/xor/x86/xor-avx512.c b/lib/raid/xor/x86/xor-avx512.c
 new file mode 100644
-index 000000000000..556ccfea0298
+index 000000000000..c11d83441875
 --- /dev/null
 +++ b/lib/raid/xor/x86/xor-avx512.c
-@@ -0,0 +1,125 @@
+@@ -0,0 +1,122 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * AVX-512 optimized implementation of xor_gen()
@@ -58,7 +58,6 @@ index 000000000000..556ccfea0298
 +		     "vmovdqa64 %%zmm1, 64(%1,%0)\n"
 +		     "add $128, %0\n"
 +		     "jnz 1b\n"
-+		     "vzeroupper\n"
 +		     : "+&r"(i)
 +		     : "r"(p1 + bytes), "r"(p2 + bytes)
 +		     : "memory", "cc");
@@ -78,7 +77,6 @@ index 000000000000..556ccfea0298
 +		     "vmovdqa64 %%zmm1, 64(%1,%0)\n"
 +		     "add $128, %0\n"
 +		     "jnz 1b\n"
-+		     "vzeroupper\n"
 +		     : "+&r"(i)
 +		     : "r"(p1 + bytes), "r"(p2 + bytes), "r"(p3 + bytes)
 +		     : "memory", "cc");
@@ -96,7 +94,6 @@ index 000000000000..556ccfea0298
 +		     "vmovdqa64 %%zmm0, (%1,%0)\n"
 +		     "add $64, %0\n"
 +		     "jnz 1b\n"
-+		     "vzeroupper\n"
 +		     : "+&r"(i)
 +		     : "r"(p1 + bytes), "r"(p2 + bytes), "r"(p3 + bytes),
 +		       "r"(p4 + bytes)
@@ -116,7 +113,6 @@ index 000000000000..556ccfea0298
 +		     "vmovdqa64 %%zmm0, (%1,%0)\n"
 +		     "add $64, %0\n"
 +		     "jnz 1b\n"
-+		     "vzeroupper\n"
 +		     : "+&r"(i)
 +		     : "r"(p1 + bytes), "r"(p2 + bytes), "r"(p3 + bytes),
 +		       "r"(p4 + bytes), "r"(p5 + bytes)
@@ -135,6 +131,7 @@ index 000000000000..556ccfea0298
 +{
 +	kernel_fpu_begin();
 +	xor_gen_avx512_inner(dest, srcs, src_cnt, bytes);
++	asm volatile("vzeroupper");
 +	kernel_fpu_end();
 +}
 +
