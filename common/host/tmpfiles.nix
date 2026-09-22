@@ -5,4 +5,7 @@
   "w /sys/kernel/mm/lru_gen/min_ttl_ms - - - - 2000"
 
   "w /sys/kernel/mm/transparent_hugepage/defrag - - - - defer"
+
+  "w /sys/kernel/mm/transparent_hugepage/hugepages-*/enabled - - - - inherit"
+  "w /sys/kernel/mm/transparent_hugepage/hugepages-*/shmem_enabled - - - - inherit"
 ]
