@@ -45,6 +45,11 @@
       url = "github:can1357/oh-my-pi";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    igm5000 = {
+      url = "github:pongo1231/igm5000-qt";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =

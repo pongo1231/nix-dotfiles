@@ -8,6 +8,7 @@
 {
   imports = [
     inputs.jovian.nixosModules.default
+    inputs.igm5000.nixosModules.default
 
     (module /cpu/amd.nix)
     (import (module /gpu) [ "amd" ])

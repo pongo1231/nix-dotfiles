@@ -218,6 +218,26 @@
         "type": "github"
       }
     },
+    "igm5000": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1790196515,
+        "narHash": "sha256-v2AQboDMUxu2Rf4hYDAtIe5Ura6UNj+nl6/6JGwXWm0=",
+        "owner": "pongo1231",
+        "repo": "igm5000-qt",
+        "rev": "c28e0d27f9cb5823ef2c47b36fe2423036d3b7cb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pongo1231",
+        "repo": "igm5000-qt",
+        "type": "github"
+      }
+    },
     "jovian": {
       "inputs": {
         "nix-github-actions": "nix-github-actions",
@@ -466,6 +486,7 @@
       "inputs": {
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
+        "igm5000": "igm5000",
         "jovian": "jovian",
         "mailserver": "mailserver",
         "nix-alien": "nix-alien",
