@@ -1,5 +1,4 @@
 {
-  inputs,
   patch,
   pkg,
 }:
@@ -43,9 +42,7 @@ in
     ];
   });
 
-  snapperS =
-    inputs.nixpkgs2.legacyPackages.${final.stdenv.buildPlatform.system}.callPackage (pkg /snapperS)
-      { };
+  snapps = final.callPackage (pkg /snapps) { };
 
   mosh = prev.mosh.overrideAttrs (prevAttrs: {
     postPatch = (prevAttrs.postPatch or "") + ''

@@ -35,5 +35,5 @@
       );
   };
 
-  environment.systemPackages = with pkgs; [ snapperS ];
+  environment.systemPackages = with pkgs; [ snapps ];
 }

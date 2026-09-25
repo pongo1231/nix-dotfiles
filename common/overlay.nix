@@ -93,7 +93,7 @@ in
 
     (lib.optionalAttrs (configInfo.type == "host" || !configInfo.isNixosModule) {
       nixpkgs.overlays = [
-        (import ../overlays { inherit inputs patch pkg; })
+        (import ../overlays { inherit patch pkg; })
       ];
     })
   ];
