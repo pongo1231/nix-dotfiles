@@ -225,11 +225,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1790196515,
-        "narHash": "sha256-v2AQboDMUxu2Rf4hYDAtIe5Ura6UNj+nl6/6JGwXWm0=",
+        "lastModified": 1790334366,
+        "narHash": "sha256-8kjnkKu77vBPP7T+tbwOQ3w/heQ6Km9W5t4UoMOjrgw=",
         "owner": "pongo1231",
         "repo": "igm5000-qt",
-        "rev": "c28e0d27f9cb5823ef2c47b36fe2423036d3b7cb",
+        "rev": "9a60a0b98a0e863bdcaa6552d97081362b77d4f2",
         "type": "github"
       },
       "original": {
@@ -441,22 +441,6 @@
         "type": "github"
       }
     },
-    "nixpkgs2": {
-      "locked": {
-        "lastModified": 1776178144,
-        "narHash": "sha256-c6AMIpvUV1Bcu1Xd1aqKSc0Q2c+0yygolxuc7pLn4b8=",
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "9bbd73f8ea1e9414f77df7e94c88f92c70643f5b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "pongo1231",
-        "repo": "nixpkgs",
-        "rev": "9bbd73f8ea1e9414f77df7e94c88f92c70643f5b",
-        "type": "github"
-      }
-    },
     "omp": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -469,11 +453,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1790245907,
-        "narHash": "sha256-y4w1ofGn5Ug7uYJMBIMqe32aCUbZ6g+vZHuUluXfe0E=",
+        "lastModified": 1790343185,
+        "narHash": "sha256-MPzdAdkxv0Hn/7RfRbiUXBxPgo3xmqpIUbrYLtF2TeQ=",
         "owner": "can1357",
         "repo": "oh-my-pi",
-        "rev": "76895af43607da490e5a35f087530f1eebb9ecf9",
+        "rev": "ba344f5e69f28535e7e9a2cf09e5af3643861b73",
         "type": "github"
       },
       "original": {
@@ -496,7 +480,6 @@
         "nixpkgs-kernel": [
           "nixpkgs"
         ],
-        "nixpkgs2": "nixpkgs2",
         "omp": "omp",
         "sops-nix": "sops-nix"
       }
