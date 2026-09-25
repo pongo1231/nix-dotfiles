@@ -108,6 +108,12 @@ args:
           checkUpdate = false;
         };
         hideThinkingBlock = true;
+
+        theme.dark = "titanium";
+        symbolPreset = "unicode";
+        composer.shape = "band";
+        modelRoles.default = "deepseek/deepseek-v4-flash-vision-exp";
+        setupVersion = 2;
       };
     };
   };
