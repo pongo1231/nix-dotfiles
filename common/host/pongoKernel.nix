@@ -186,6 +186,10 @@ in
           patch = patch /linux/20260921_hao_li_mm_slub_refill_prefilled_sheaves_from_the_barn.patch;
         }
         {
+          name = "mm/memory_hotplug: make shrink_zone_span() more robust";
+          patch = patch /linux/20260920_david_hildenbrand_mm_memory_hotplug_make_shrink_zone_span_more_robust.patch;
+        }
+        {
           name = "zstd: use x86 feature infrastructure for BMI2 dispatch";
           patch = patch /linux/20260901_usama_arif_zstd_use_x86_feature_infrastructure_for_bmi2_dispatch.patch;
         }
@@ -196,6 +200,10 @@ in
         {
           name = "btrfs: zstd: avoid a copy in zstd_decompress_bio()";
           patch = patch /linux/20260904_usama_arif_btrfs_zstd_avoid_a_copy_in_zstd_decompress_bio.patch;
+        }
+        {
+          name = "lib/lz4: stop forking upstream LZ4, vendor it";
+          patch = patch /linux/v1_20260925_michal_wilczynski_lib_lz4_stop_forking_upstream_lz4_vendor_it.patch;
         }
         {
           name = "fs: avoid spurious dentry ref/unref cycle on open";
