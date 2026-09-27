@@ -638,21 +638,15 @@ _BTRFS_FILE_EXTENT_INLINE = 0
 _BTRFS_IOC_TREE_SEARCH_V2 = 0xC0709411
 _BTRFS_SEARCH_BATCH = 512
 _BTRFS_SEARCH_BUF = 1 << 16
-# How wide a bytenr range one extent-tree search may cover.  A range search
-# returns *every* extent item in the range, not just the ones asked about, so
-# batching by count alone degenerates into sweeping gigabytes whenever the
-# wanted extents are scattered (which is the normal case: a snapshot's files
-# were allocated at unrelated times).  Bounding the span keeps each search
-# proportional to the extents actually wanted.
-_BTRFS_REF_SPAN = 256 << 20
 # bytenr -> refs for the whole run.  The cap keeps a 64-snapshot run bounded;
 # a cleared cache only costs time, never correctness.
 _REF_CACHE_LIMIT = 1 << 21
-# Extent refcounts are only worth computing when the wanted set is small or
-# dense: a range search returns every extent item in the span it covers, so
-# scattered wanted bytenrs pay far more parsing than the answers are worth.
-# Beyond this many scanned items the pass gives up rather than crawl.
-_REF_SCAN_LIMIT = 400_000_000
+# A run of the tree is only worth it while it is still answering questions:
+# the walk stops as soon as every wanted bytenr in the range has an answer, and
+# this is the safety net for the case where it cannot (a wanted bytenr that no
+# longer has an extent item, so the walk has to reach the end of the range).
+# Exceeding it fails loudly rather than crawling.
+_REF_SCAN_LIMIT = 50_000_000
 _ref_cache: dict = {}
 
 
@@ -754,46 +748,43 @@ def _extent_refs(fd: int, bytenrs) -> dict:
     exclusive", which under-reports rather than over-reports.
     """
     wanted = {bytenr for bytenr in bytenrs if bytenr not in _ref_cache}
-    scanned = 0
     if wanted:
         if len(_ref_cache) > _REF_CACHE_LIMIT:
             _ref_cache.clear()
         ordered = sorted(wanted)
-        start = 0
-        while start < len(ordered):
-            # Grow the chunk while it stays both small in count and narrow in
-            # span, so the search reads roughly the extents it is asked about.
-            span_end = ordered[start] + _BTRFS_REF_SPAN
-            end = start + 1
-            while (
-                end < len(ordered)
-                and end - start < _BTRFS_SEARCH_BATCH
-                and ordered[end] <= span_end
-            ):
-                end += 1
-            chunk = ordered[start:end]
-            scanned += len(chunk)
+        remaining = set(ordered)
+        # One ordered walk over the whole wanted range.  Batching this by
+        # sub-ranges was measured to be counterproductive: the walk is
+        # dominated by the cost of reaching the range at all (seconds per
+        # descent on a large extent tree), so the cheapest shape is a single
+        # run that is abandoned as soon as every question is answered.
+        scanned = 0
+        for objectid, _offset, item_type, item in _iter_search(
+            fd,
+            _BTRFS_EXTENT_TREE,
+            ordered[0],
+            ordered[-1],
+            _BTRFS_EXTENT_ITEM_KEY,
+            _BTRFS_SHARED_DATA_REF_KEY,
+        ):
+            scanned += 1
             if scanned > _REF_SCAN_LIMIT:
                 raise SnappsError(
-                    "the extent refcount pass would scan "
-                    f"{scanned:,}+ extent-tree items for {len(ordered):,} extents; "
+                    f"the extent refcount pass gave up after scanning "
+                    f"{scanned:,} extent-tree items for {len(ordered):,} extents; "
                     "use the default mode (or --fast) instead"
                 )
-            for objectid, _offset, item_type, item in _iter_search(
-                fd,
-                _BTRFS_EXTENT_TREE,
-                chunk[0],
-                chunk[-1],
-                _BTRFS_EXTENT_ITEM_KEY,
-                _BTRFS_SHARED_DATA_REF_KEY,
-            ):
-                if item_type != _BTRFS_EXTENT_ITEM_KEY:
-                    continue
-                if len(item) < _BTRFS_EXTENT_ITEM_SIZE or objectid in _ref_cache:
-                    continue
-                _ref_cache[objectid] = struct.unpack_from("<Q", item, 0)[0]
-            start = end
-        # A bytenr with no extent item in its range was freed underneath us.
+            if item_type != _BTRFS_EXTENT_ITEM_KEY:
+                continue
+            if objectid not in remaining:
+                continue
+            if len(item) < _BTRFS_EXTENT_ITEM_SIZE:
+                continue
+            _ref_cache[objectid] = struct.unpack_from("<Q", item, 0)[0]
+            remaining.discard(objectid)
+            if not remaining:
+                break
+        # A bytenr with no extent item in range was freed underneath us.
         for bytenr in ordered:
             _ref_cache.setdefault(bytenr, None)
     return {bytenr: _ref_cache.get(bytenr) for bytenr in bytenrs}
@@ -1504,11 +1495,14 @@ def view_main(argv) -> int:
             "st_blocks, which ignores compression"
         )
         mode = "blocks"
-    if mode == "refs":
-        _progress(
-            "resolving global extent refcounts as well: exact sharing, but it "
-            "walks the extent tree"
-        )
+    _progress(
+        {
+            "sizes": "sizing entries from their own extents (compression-exact)",
+            "blocks": "sizing entries with st_blocks (--fast)",
+            "refs": "sizing entries from their extents and resolving global "
+            "refcounts (--extent-refs: exact sharing, walks the extent tree)",
+        }[mode]
+    )
 
     live_gen = subvolume_generation(live)
     exclusive = ExclusiveKeys()
