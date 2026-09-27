@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "f0100363d8c374bd8e9ea7c9ba02744f0b802ca4";
-                        hash = "sha256-Pjb47n7eLKvAQsZ58uOnSPjJpculGulHN64HLHKc1P4=";
+                        rev = "fd179f8a05be3ccae366b9b96e176b51fbe54aab";
+                        hash = "sha256-EmdN9ZdbwoHCdiFSUAGelPJm2eLlqfz9rRlW/YJ4GSA=";
                       };
                     };
                 };
@@ -180,6 +180,10 @@ in
         {
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
+        }
+        {
+          name = "mm/slub: refill prefilled sheaves from the barn";
+          patch = patch /linux/20260921_hao_li_mm_slub_refill_prefilled_sheaves_from_the_barn.patch;
         }
         {
           name = "zstd: use x86 feature infrastructure for BMI2 dispatch";
