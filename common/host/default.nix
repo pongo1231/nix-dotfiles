@@ -42,7 +42,7 @@ args:
     };
 
     tmp = {
-      useTmpfs = true;
+      #useTmpfs = true;
       tmpfsSize = "200%";
       tmpfsHugeMemoryPages = "within_size";
     };
