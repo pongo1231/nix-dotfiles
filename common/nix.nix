@@ -60,15 +60,3 @@
     };
   };
 }
-// lib.optionalAttrs (configInfo.type == "host") {
-  fileSystems."/nix/var/nix/b" = {
-    fsType = "tmpfs";
-    options = [
-      "noatime"
-      "lazytime"
-      "mode=0755"
-      "size=100G"
-      "huge=within_size"
-    ];
-  };
-}
