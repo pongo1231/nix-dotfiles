@@ -17,13 +17,13 @@
       (ryzen-smu.overrideAttrs (
         prev:
         let
-          version = "0.1.7-git";
+          version = "0.1.7-unstable-2026-08-15";
 
           src = pkgs.fetchFromGitHub {
             owner = "amkillam";
             repo = "ryzen_smu";
-            rev = "9f9569f889935f7c7294cc32c1467e5a4081701a";
-            hash = "sha256-i8T0+kUYsFMzYO3h6ffUXP1fgGOXymC4Ml2dArQLOdk=";
+            rev = "d2983668300dd2a598e5a7dc40e71ce0678cc270";
+            hash = "sha256-OmEoycRO3hGkqueLa0i6AzmwMEbdkkPrwJkMyYxOTek=";
           };
 
           monitor-cpu = kernel.stdenv.mkDerivation {
@@ -47,10 +47,6 @@
           inherit version src;
 
           makeFlags = (prev.makeFlags or [ ]) ++ kernel.extraMakeFlags;
-
-          postPatch = (prev.postPatch or "") + ''
-            sed -i '/^#include <asm\/io.h>/a #include <asm/cpuid/api.h>' smu.c
-          '';
 
           installPhase = ''
             runHook preInstall
