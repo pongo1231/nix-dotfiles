@@ -1,5 +1,4 @@
 {
-  inputs,
   module,
   config,
   pkgs,
@@ -8,8 +7,6 @@
 }:
 {
   imports = [
-    inputs.corecycler.nixosModules.default
-
     (module /cpu/amd.nix)
     (import (module /gpu) [
       "amd"
@@ -81,12 +78,6 @@
       spec = "/";
       hashTableSizeMB = 1024;
       extraOptions = [ "-c 1" ];
-    };
-
-    corecycler = {
-      enable = true;
-      deviceAccessUser = "pongo";
-      ryzenSmu = false;
     };
   };
 }
