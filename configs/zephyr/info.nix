@@ -1,6 +1,6 @@
 {
   roles = [
     "desktop"
-    "plasma"
+    "gnome"
   ];
 }

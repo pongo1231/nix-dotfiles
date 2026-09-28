@@ -1,4 +1,5 @@
 {
+  inputs,
   module,
   config,
   pkgs,
@@ -7,14 +8,16 @@
 }:
 {
   imports = [
-    (module /cpu/intel.nix)
+    inputs.corecycler.nixosModules.default
+
+    (module /cpu/amd.nix)
     (import (module /gpu) [
-      "intel"
+      "amd"
       #"nvidia"
     ])
     (module /libvirt.nix)
-    (import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
-    (import (module /snapper.nix) { additionalSubvols = [ "/run/media/ssd2" ]; })
+    #(import (module /samba.nix) { sharePath = "/home/pongo/Public"; })
+    (import (module /snapper.nix) { })
     (module /printing.nix)
   ];
 
@@ -27,39 +30,13 @@
       };
 
       availableKernelModules = [
+        "nvme"
         "xhci_pci"
         "thunderbolt"
-        "vmd"
-        "nvme"
-        "usbhid"
         "usb_storage"
         "sd_mod"
-        "rtsx_pci_sdmmc"
       ];
     };
-
-    kernelModules = [ "vfio-pci" ];
-
-    kernelParams = [
-      #"i915.force_probe=!7d51"
-      #"xe.force_probe=7d51"
-      #"irqaffinity=14,15"
-      "pcie_aspm=force"
-      "pcie_aspm.policy=powersupersave"
-    ];
-
-    extraModulePackages =
-      with config.boot.kernelPackages;
-      let
-        mod =
-          pkg:
-          pkg.overrideAttrs (prev: {
-            makeFlags = prev.makeFlags ++ kernel.extraMakeFlags;
-          });
-      in
-      [
-        (mod kvmfr)
-      ];
 
     binfmt.emulatedSystems = [
       "aarch64-linux"
@@ -85,21 +62,7 @@
         "lazytime"
       ];
     };
-
-    "/run/media/ssd2" = {
-      device = "/dev/disk/by-partlabel/SSD2";
-      fsType = "btrfs";
-      options = [
-        "x-systemd.device-timeout=5"
-        "nofail"
-        "noatime"
-        "lazytime"
-        "compress-force=zstd"
-      ];
-    };
   };
-
-  hardware.cpu.intel.updateMicrocode = config.hardware.enableRedistributableFirmware;
 
   services = {
     udev.extraRules = ''
@@ -114,68 +77,16 @@
 
     asusd.enable = true;
 
-    beesd.filesystems = {
-      "-" = {
-        spec = "/";
-        hashTableSizeMB = 1024;
-        extraOptions = [ "-c 1" ];
-      };
-
-      "ssd2" = {
-        spec = "/run/media/ssd2";
-        hashTableSizeMB = 512;
-        extraOptions = [ "-c 1" ];
-      };
+    beesd.filesystems."-" = {
+      spec = "/";
+      hashTableSizeMB = 1024;
+      extraOptions = [ "-c 1" ];
     };
 
-    keyd = {
+    corecycler = {
       enable = true;
-      keyboards.laptop = {
-        ids = [
-          "0b05:19b6:72b0430b"
-        ];
-        settings.main = {
-          "leftshift+leftmeta+f23" = "S-f10";
-        };
-      };
+      deviceAccessUser = "pongo";
+      ryzenSmu = false;
     };
-
-    #opensnitch.enable = true;
-
-    technitium-dns-server = {
-      enable = true;
-    };
-    resolved.enable = false;
-  };
-
-  networking = {
-    nameservers = [ "127.0.0.1" ];
-    networkmanager.dns = "none";
-  };
-
-  systemd.services = {
-    "enable-ksm".script =
-      "${pkgs.util-linux}/bin/taskset -pc 14,15 $(${pkgs.procps}/bin/pgrep -x ksmd)";
-  }
-  // lib.mapAttrs' (
-    name: fs:
-    lib.nameValuePair "beesd@${name}" {
-      serviceConfig.AllowedCPUs = "14,15";
-    }
-  ) config.services.beesd.filesystems;
-
-  environment = {
-    sessionVariables = {
-      MESA_VK_DEVICE_SELECT = "8086:7d51!";
-      KWIN_DRM_ALLOW_INTEL_COLORSPACE = 1;
-      KWIN_DRM_ALLOW_NVIDIA_COLORSPACE = 1;
-      KWIN_FORCE_ASSUME_HDR_SUPPORT = 1;
-    };
-
-    systemPackages = with pkgs; [
-      virtiofsd
-      plasma-panel-colorizer
-      freerdp
-    ];
   };
 }

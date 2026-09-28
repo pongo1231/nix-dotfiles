@@ -49,6 +49,11 @@
       url = "github:pongo1231/igm5000-qt";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    corecycler = {
+      url = "github:Daaboulex/linux-corecycler";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
