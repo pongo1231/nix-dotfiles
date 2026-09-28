@@ -18,15 +18,15 @@
   };
 
   home.packages = with pkgs; [
-    vesktop
-    libreoffice
-    gimp
-    audacity
-    remmina
-    moonlight-qt
-    audacious
-    jamesdsp
-    nextcloud-client
-    thunderbird
+    #vesktop
+    #libreoffice
+    #gimp
+    #audacity
+    #remmina
+    #moonlight-qt
+    #audacious
+    #jamesdsp
+    #nextcloud-client
+    #thunderbird
   ];
 }

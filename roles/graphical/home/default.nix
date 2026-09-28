@@ -43,12 +43,12 @@
     packages =
       with pkgs;
       [
-        vlc
+        #vlc
         ffmpeg
         appimage-run
-        syncthing
-        qbittorrent
-        weston
+        #syncthing
+        #qbittorrent
+        #weston
         virt-manager
         waypipe
         lsfg-vk
