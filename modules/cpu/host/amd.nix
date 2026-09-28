@@ -1,8 +1,15 @@
 {
+  curveOptimizerAllCore ? null,
+}:
+{
   config,
+  lib,
   pkgs,
   ...
 }:
+let
+  ryzenadj = pkgs.ryzenadj;
+in
 {
   boot = {
     kernelModules = [ "ryzen_smu" ];
@@ -59,7 +66,20 @@
     ];
   };
 
-  environment.systemPackages = with pkgs; [
-    ryzenadj
-  ];
+  environment.systemPackages = [ ryzenadj ];
+
+  systemd.services.amd-curve-optimizer = lib.mkIf (curveOptimizerAllCore != null) {
+    description = "Apply the all-core AMD Curve Optimizer offset";
+    after = [ "systemd-modules-load.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathExists = "/sys/kernel/ryzen_smu_drv/smu_args";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      echo "amd-curve-optimizer: all-core CO ${toString curveOptimizerAllCore}"
+      exec ${ryzenadj}/bin/ryzenadj --set-coall=$(( ${toString curveOptimizerAllCore} & 0xFFFF ))
+    '';
+  };
 }

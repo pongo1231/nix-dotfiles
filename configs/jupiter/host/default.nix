@@ -10,7 +10,7 @@
     inputs.jovian.nixosModules.default
     inputs.igm5000.nixosModules.default
 
-    (module /cpu/amd.nix)
+    (import (module /cpu/amd.nix) { })
     (import (module /gpu) [ "amd" ])
     (import (module /snapper.nix) { additionalSubvols = [ "/run/media/mmcblk0p1" ]; })
 

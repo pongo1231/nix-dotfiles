@@ -22,6 +22,12 @@ creation_rules:
         - *host_silverfish
         - *host_wsl
 
+  - path_regex: secrets/pongo/zephyr.yaml
+    key_groups:
+      - age:
+        - *admin_pongo
+        - *host_zephyr
+
   - path_regex: secrets/pongo/gopong/
     key_groups:
       - age:
