@@ -79,12 +79,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0-rc4";
+                      modDirVersion = "7.3.0-rc5";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "fd179f8a05be3ccae366b9b96e176b51fbe54aab";
-                        hash = "sha256-EmdN9ZdbwoHCdiFSUAGelPJm2eLlqfz9rRlW/YJ4GSA=";
+                        rev = "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e";
+                        hash = "sha256-NrTyfot19uJ1SulXU98z2V+leOjjjLmoueX8pnyvn+o=";
                       };
                     };
                 };
@@ -142,30 +142,6 @@ in
           patch = patch /linux/nouveau-detach-fix.patch;
         }
         {
-          name = "sched/cache: keep nr_pref_llc_running in the runnable domain";
-          patch = patch /linux/20260922_tim_chen_sched_cache_keep_nr_pref_llc_running.patch;
-        }
-        {
-          name = "sched/cache: honor migrate_llc_task semantics in active load balance";
-          patch = patch /linux/20260922_lu_wang_sched_cache_honor_migrate_llc_task_in_active_lb.patch;
-        }
-        {
-          name = "sched/cache: decouple sched_cache_group from mm";
-          patch = patch /linux/20260922_tim_chen_sched_cache_decouple_sched_cache_group_from_mm.patch;
-        }
-        {
-          name = "sched/cache: introduce task_struct->sched_cache_grp (fix UAF)";
-          patch = patch /linux/20260922_tim_chen_sched_cache_introduce_sched_cache_grp_to_fix_uaf.patch;
-        }
-        {
-          name = "sched/cache: skip kernel threads for cache aware scheduling";
-          patch = patch /linux/20260922_yu_chen_sched_cache_skip_kernel_threads.patch;
-        }
-        {
-          name = "sched/cache: refresh LLC capacity across CPU hotplug";
-          patch = patch /linux/20260922_davi_chaves_sched_cache_refresh_llc_capacity_on_hotplug.patch;
-        }
-        {
           name = "sched: topology-aware cache scheduling";
           patch = patch /linux/20260625_wujianyong_sched_extend_cache_aware_scheduling_into_topology_aware_scheduling.patch;
           extraConfig = ''
@@ -175,6 +151,10 @@ in
         {
           name = "drm/sched fair policy fixups";
           patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
+        }
+        {
+          name = "iommu/amd: PerfOpt IOMMU performance optimization support";
+          patch = patch /linux/v2_20260908_mario_limonciello_iommu_performance_optimization_support.patch;
         }
 
         {
