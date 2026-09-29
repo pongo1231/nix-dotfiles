@@ -1,0 +1,88 @@
+From b46e0966741143366b5e9aafd3e85e297fd2f365 Mon Sep 17 00:00:00 2001
+From: Joanne Koong <joannelkoong@gmail.com>
+Date: Wed, 16 Sep 2026 11:44:24 -0700
+Subject: [PATCH] fuse: enable large folios
+
+Enable large folios, capping the max order at the largest request fuse
+can issue, so a folio always fits within a single request. The order
+range minimum is 0, so under memory pressure the allocator falls back to
+smaller folios.
+
+Benchmarks (libfuse passthrough_hp, buffered fio, single job, 4 GiB
+file, medians, NUMA-pinned, performance governor, strictlimiting on by
+default):
+
+tmpfs backing (page-cache bound):
+  workload          bs      large folios off   on        delta
+  seq read,  cold,  128k    3110 MiB/s    4514 MiB/s     +45%
+  seq read,  cold,  1M      3079 MiB/s    5181 MiB/s     +68%
+  seq read,  warm,  128k    2438 MiB/s    4486 MiB/s     +84%
+  seq read,  warm,  1M      2403 MiB/s    5123 MiB/s    +113%
+  writeback write, seq,128k 1211 MiB/s    1699 MiB/s     +40%
+  writeback write, seq, 1M  1462 MiB/s    2208 MiB/s     +51%
+  writeback write, rand,128k 1101 MiB/s   1757 MiB/s     +60% +
+  writeback write, rand, 1M 1284 MiB/s    2228 MiB/s     +74% +
+
+xfs on NVMe backing (device bound for cold I/O):
+  workload          bs      large folios off   on        delta
+  seq read,  cold,  128k    2030 MiB/s    2172 MiB/s      +7% *
+  seq read,  cold,  1M      1999 MiB/s    2181 MiB/s      +9% *
+  seq read,  warm,  128k    2451 MiB/s    4939 MiB/s    +101%
+  seq read,  warm,  1M      2340 MiB/s    5639 MiB/s    +141%
+  writeback write, seq,128k  637 MiB/s     747 MiB/s     +17% *
+  writeback write, seq, 1M   694 MiB/s     833 MiB/s     +20% *
+  writeback write, rand,128k 1004 MiB/s   1648 MiB/s     +64% +
+  writeback write, rand, 1M 1171 MiB/s    2055 MiB/s     +75% +
+
+(*) device-bandwidth bound. Not much throughput gain but system cpu
+utilization was roughly halved
+(+) random write was tested as an overwrite of a hot region (under
+writeback, this is page-cache bound, so the gain comes from lower
+per-folio cpu overhead rather than higher backing-device throughput)
+
+Random reads (4k and 128k) and writethrough writes were neutral with
+no regression (no read-modify-write or read-amplification penalty from
+large folios)
+
+More information about the benchmark setup and results are in
+https://github.com/joannekoong/linux/commits/fuse_large_folios_benchmarks/
+
+Reviewed-by: Horst Birthelmer <hbirthelmer@ddn.com>
+Reviewed-by: Jingbo Xu <jefflexu@linux.alibaba.com>
+Signed-off-by: Joanne Koong <joannelkoong@gmail.com>
+Signed-off-by: Miklos Szeredi <mszeredi@redhat.com>
+---
+ fs/fuse/file.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+index 8083404f4cbcbd..c5e77e13bfdc30 100644
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -3140,6 +3140,7 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
+ {
+ 	struct fuse_inode *fi = get_fuse_inode(inode);
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
++	unsigned int max_folio_pages;
+ 
+ 	inode->i_fop = &fuse_file_operations;
+ 	inode->i_data.a_ops = &fuse_file_aops;
+@@ -3155,4 +3156,18 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
+ 
+ 	if (IS_ENABLED(CONFIG_FUSE_DAX))
+ 		fuse_dax_inode_init(inode, flags);
++
++	if (FUSE_IS_DAX(inode))
++		return;
++
++	/*
++	 * A folio is never split across requests so cap the order so that one
++	 * always fits in a single request.
++	 */
++	max_folio_pages = min3(fc->max_write >> PAGE_SHIFT,
++			       fc->max_read >> PAGE_SHIFT, fc->max_pages);
++
++	if (max_folio_pages)
++		mapping_set_folio_order_range(inode->i_mapping, 0,
++					      ilog2(max_folio_pages));
+ }

@@ -190,6 +190,10 @@ in
           patch = patch /linux/20260803_mateusz_guzik_fs_avoid_spurious_dentry_ref_unref_cycle_on_open.patch;
         }
         {
+          name = "fuse: enable large folios";
+          patch = patch /linux/20260916_joanne_koong_fuse_enable_large_folios.patch;
+        }
+        {
           name = "kbuild: significantly speed up kernel builds";
           patch = patch /linux/v3_20260917_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
         }
