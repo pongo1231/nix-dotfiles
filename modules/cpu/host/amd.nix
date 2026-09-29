@@ -70,12 +70,23 @@ in
 
   systemd.services.amd-curve-optimizer = lib.mkIf (curveOptimizerAllCore != null) {
     description = "Apply the all-core AMD Curve Optimizer offset";
-    after = [ "systemd-modules-load.service" ];
-    wantedBy = [ "multi-user.target" ];
+    after = [
+      "systemd-modules-load.service"
+      "suspend.target"
+      "hibernate.target"
+      "hybrid-sleep.target"
+    ];
+    wantedBy = [
+      "multi-user.target"
+      "suspend.target"
+      "hibernate.target"
+      "hybrid-sleep.target"
+    ];
     unitConfig.ConditionPathExists = "/sys/kernel/ryzen_smu_drv/smu_args";
     serviceConfig = {
       Type = "oneshot";
-      RemainAfterExit = true;
+      # Deliberately not RemainAfterExit: suspend.target is only reached after
+      # waking up, so being wanted by it re-runs this on resume.
     };
     script = ''
       echo "amd-curve-optimizer: all-core CO ${toString curveOptimizerAllCore}"
