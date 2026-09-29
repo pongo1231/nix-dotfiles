@@ -262,8 +262,8 @@ in
 
       kernel.sysctl = {
         "vm.workingset_protection" = 1;
-        "vm.anon_min_ratio" = 5;
-        "vm.clean_min_ratio" = 5;
+        #"vm.anon_min_ratio" = 5;
+        #"vm.clean_min_ratio" = 5;
       };
     }
     // {
