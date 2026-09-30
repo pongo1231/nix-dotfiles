@@ -57,7 +57,7 @@ in
 
   reasonix = final.callPackage (pkg /reasonix) { };
 
-  distrobox = final.callPackage (pkg /distrobox) { };
+  distrobox = final.callPackage (pkg /distrobox) { inherit patch; };
 
   lsfg-vk = prev.lsfg-vk.overrideAttrs (prevAttrs: {
     src = final.fetchFromGitHub {

@@ -1,0 +1,29 @@
+diff -r a/internal/inside-distrobox/assets/distrobox-export b/internal/inside-distrobox/assets/distrobox-export
+--- a/internal/inside-distrobox/assets/distrobox-export	2026-09-30 13:20:59.461145347 +0200
++++ b/internal/inside-distrobox/assets/distrobox-export	2026-09-30 13:20:59.526843342 +0200
+@@ -549,7 +549,11 @@
+ 		fi
+ 
+ 		desktop_original_file="$(basename "${desktop_file}")"
+-		desktop_home_file="${container_name}-$(basename "${desktop_file}")"
++		desktop_home_file="${desktop_original_file}"
++		if [ -e "/run/host${host_home}/.local/share/applications/${desktop_home_file}" ] &&
++			! grep -q -- "-n ${container_name} " "/run/host${host_home}/.local/share/applications/${desktop_home_file}"; then
++			desktop_home_file="${container_name}-${desktop_original_file}"
++		fi
+ 
+ 		# check if we're exporting or deleting
+ 		if [ "${exported_delete}" -ne 0 ]; then
+@@ -572,8 +576,10 @@
+ 				> "/run/host${host_home}/.local/share/applications/${desktop_home_file}"
+ 		# in the end we add the final quote we've opened in the "container_command_prefix"
+ 
+-		sed -i -e '/StartupWMClass=/d' -e "/\[Desktop Entry\]/a\StartupWMClass=${desktop_original_file%.desktop}" \
+-			"/run/host${host_home}/.local/share/applications/${desktop_home_file}"
++		if ! grep -q "^StartupWMClass=" "/run/host${host_home}/.local/share/applications/${desktop_home_file}"; then
++			sed -i "/\[Desktop Entry\]/a\StartupWMClass=${desktop_original_file%.desktop}" \
++				"/run/host${host_home}/.local/share/applications/${desktop_home_file}"
++		fi
+ 
+ 		# In case of an icon in a non canonical path, we need to replace the path
+ 		# in the desktop file.

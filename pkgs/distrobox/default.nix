@@ -3,6 +3,7 @@
   buildGoModule,
   fetchFromGitHub,
   installShellFiles,
+  patch,
 }:
 buildGoModule (finalAttrs: {
   pname = "distrobox";
@@ -16,6 +17,10 @@ buildGoModule (finalAttrs: {
   };
 
   vendorHash = "sha256-9/R3LTPzpmL8YEmwiCX1aAT6gNzdB10c4tXAzrnq5Zg=";
+
+  patches = [
+    (patch /distrobox/fix-gnome-app-matching.patch)
+  ];
 
   ldflags = [
     "-X github.com/89luca89/distrobox/pkg/version.Version=${finalAttrs.version}"
