@@ -45,6 +45,8 @@ withSecrets "pongo" { store = "zephyr.yaml"; } {
       ];
     };
 
+    kernelParams = [ "rcu_nocbs=0-N" ];
+
     binfmt.emulatedSystems = [
       "aarch64-linux"
     ];
