@@ -138,4 +138,6 @@ withSecrets "pongo" { store = "zephyr.yaml"; } {
       ''
     );
   */
+
+  environment.systemPackages = with pkgs; [ framework-tool ];
 }
