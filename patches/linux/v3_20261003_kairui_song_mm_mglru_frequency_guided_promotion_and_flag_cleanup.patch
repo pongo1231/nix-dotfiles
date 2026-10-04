@@ -1,0 +1,2989 @@
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 7d1c0ce18..885d6ee9d 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -113,7 +113,7 @@ struct mem_cgroup_per_node {
+ 	/* Fields which get updated often at the end. */
+ 	struct lruvec		lruvec;
+ 	CACHELINE_PADDING(_pad2_);
+-	unsigned long		lru_zone_size[MAX_NR_ZONES][NR_LRU_LISTS];
++	atomic_long_t		lru_zone_size[MAX_NR_ZONES][NR_LRU_LISTS];
+ 	struct mem_cgroup_reclaim_iter	iter;
+ 
+ 	/*
+@@ -126,6 +126,7 @@ struct mem_cgroup_per_node {
+ 	/* list of inherited objcgs, protected by objcg_lock */
+ 	struct list_head objcg_list;
+ 
++
+ #ifdef CONFIG_MEMCG_NMI_SAFETY_REQUIRES_ATOMIC
+ 	/* slab stats for nmi context */
+ 	atomic_t		slab_reclaimable;
+@@ -905,7 +906,7 @@ unsigned long mem_cgroup_get_zone_lru_size(struct lruvec *lruvec,
+ 	struct mem_cgroup_per_node *mz;
+ 
+ 	mz = container_of(lruvec, struct mem_cgroup_per_node, lruvec);
+-	return READ_ONCE(mz->lru_zone_size[zone_idx][lru]);
++	return atomic_long_read(&mz->lru_zone_size[zone_idx][lru]);
+ }
+ 
+ void __mem_cgroup_handle_over_high(gfp_t gfp_mask);
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 621c8653d..3ad1619ce 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -36,11 +36,10 @@ static __always_inline void __update_lru_size(struct lruvec *lruvec,
+ {
+ 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
+ 
+-	lockdep_assert_held(&lruvec->lru_lock);
+ 	WARN_ON_ONCE(nr_pages != (int)nr_pages);
+ 
+ 	mod_lruvec_state(lruvec, NR_LRU_BASE + lru, nr_pages);
+-	__mod_zone_page_state(&pgdat->node_zones[zid],
++	mod_zone_page_state(&pgdat->node_zones[zid],
+ 				NR_ZONE_LRU_BASE + lru, nr_pages);
+ }
+ 
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+index 856a7d075..372b966d4 100644
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -1522,35 +1522,19 @@ struct lruvec *folio_lruvec_lock_irqsave(struct folio *folio,
+  * @zid: zone id of the accounted pages
+  * @nr_pages: positive when adding or negative when removing
+  *
+- * This function must be called under lru_lock, just before a page is added
+- * to or just after a page is removed from an lru list.
++ * This function must be called when a page is added to or removed from
++ * an lru list. Caller need to protect the lruvec from being freed.
+  */
+ void mem_cgroup_update_lru_size(struct lruvec *lruvec, enum lru_list lru,
+ 				int zid, long nr_pages)
+ {
+ 	struct mem_cgroup_per_node *mz;
+-	unsigned long *lru_size;
+-	long size;
+ 
+ 	if (mem_cgroup_disabled())
+ 		return;
+ 
+ 	mz = container_of(lruvec, struct mem_cgroup_per_node, lruvec);
+-	lru_size = &mz->lru_zone_size[zid][lru];
+-
+-	if (nr_pages < 0)
+-		*lru_size += nr_pages;
+-
+-	size = *lru_size;
+-	if (WARN_ONCE(size < 0,
+-		"%s(%p, %d, %ld): lru_size %ld\n",
+-		__func__, lruvec, lru, nr_pages, size)) {
+-		VM_BUG_ON(1);
+-		*lru_size = 0;
+-	}
+-
+-	if (nr_pages > 0)
+-		*lru_size += nr_pages;
++	atomic_long_add(nr_pages, &mz->lru_zone_size[zid][lru]);
+ }
+ 
+ /**
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 3ad1619ce..4736998a1 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -185,11 +185,9 @@ static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *foli
+ 	VM_WARN_ON_ONCE(old_gen == -1 && new_gen == -1);
+ 
+ 	if (old_gen >= 0)
+-		WRITE_ONCE(lrugen->nr_pages[old_gen][type][zone],
+-			   lrugen->nr_pages[old_gen][type][zone] - delta);
++		atomic_long_sub(delta, &lrugen->nr_pages[old_gen][type][zone]);
+ 	if (new_gen >= 0)
+-		WRITE_ONCE(lrugen->nr_pages[new_gen][type][zone],
+-			   lrugen->nr_pages[new_gen][type][zone] + delta);
++		atomic_long_add(delta, &lrugen->nr_pages[new_gen][type][zone]);
+ 
+ 	/* addition */
+ 	if (old_gen < 0) {
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 94f9c3ff5..d5df04601 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -570,7 +570,7 @@ struct lru_gen_folio {
+ 	/* the multi-gen LRU lists, lazily sorted on eviction */
+ 	struct list_head folios[MAX_NR_GENS][ANON_AND_FILE][MAX_NR_ZONES];
+ 	/* the multi-gen LRU sizes, eventually consistent */
+-	long nr_pages[MAX_NR_GENS][ANON_AND_FILE][MAX_NR_ZONES];
++	atomic_long_t nr_pages[MAX_NR_GENS][ANON_AND_FILE][MAX_NR_ZONES];
+ 	/* the exponential moving average of refaulted */
+ 	unsigned long avg_refaulted[ANON_AND_FILE][MAX_NR_TIERS];
+ 	/* the exponential moving average of evicted+protected */
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index f11491ee9..b8180878b 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -3354,8 +3354,7 @@ static void reset_batch_size(struct lru_gen_mm_walk *walk)
+ 			continue;
+ 
+ 		walk->nr_pages[gen][type][zone] = 0;
+-		WRITE_ONCE(lrugen->nr_pages[gen][type][zone],
+-			   lrugen->nr_pages[gen][type][zone] + delta);
++		atomic_long_add(delta, &lrugen->nr_pages[gen][type][zone]);
+ 
+ 		if (lru_gen_is_active(lruvec, gen))
+ 			lru += LRU_ACTIVE;
+@@ -4044,8 +4043,8 @@ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq, int swappiness
+ 	for (type = 0; type < ANON_AND_FILE; type++) {
+ 		for (zone = 0; zone < MAX_NR_ZONES; zone++) {
+ 			enum lru_list lru = type * LRU_INACTIVE_FILE;
+-			long delta = lrugen->nr_pages[prev][type][zone] -
+-				     lrugen->nr_pages[next][type][zone];
++			long delta = atomic_long_read(&lrugen->nr_pages[prev][type][zone]) -
++				     atomic_long_read(&lrugen->nr_pages[next][type][zone]);
+ 
+ 			if (!delta)
+ 				continue;
+@@ -4163,7 +4162,8 @@ static unsigned long lruvec_evictable_size(struct lruvec *lruvec, int swappiness
+ 		for (seq = min_seq[type]; seq <= max_seq; seq++) {
+ 			gen = lru_gen_from_seq(seq);
+ 			for (zone = 0; zone < MAX_NR_ZONES; zone++)
+-				total += max(READ_ONCE(lrugen->nr_pages[gen][type][zone]), 0L);
++				total += max(atomic_long_read(&lrugen->nr_pages[gen][type][zone]),
++					     0L);
+ 		}
+ 	}
+ 
+@@ -4598,7 +4598,7 @@ static void __lru_gen_reparent_memcg(struct lruvec *child_lruvec, struct lruvec
+ 
+ 	for (i = 0; i < get_nr_gens(child_lruvec, type); i++) {
+ 		int gen = lru_gen_from_seq(child_lrugen->max_seq - i);
+-		long nr_pages = child_lrugen->nr_pages[gen][type][zone];
++		long nr_pages = atomic_long_read(&child_lrugen->nr_pages[gen][type][zone]);
+ 		int child_lru_active = lru_gen_is_active(child_lruvec, gen) ? LRU_ACTIVE : 0;
+ 		int parent_lru_active = lru_gen_is_active(parent_lruvec, gen) ? LRU_ACTIVE : 0;
+ 
+@@ -4606,9 +4606,8 @@ static void __lru_gen_reparent_memcg(struct lruvec *child_lruvec, struct lruvec
+ 		list_splice_tail_init(&child_lrugen->folios[gen][type][zone],
+ 				      &parent_lrugen->folios[gen][type][zone]);
+ 
+-		WRITE_ONCE(child_lrugen->nr_pages[gen][type][zone], 0);
+-		WRITE_ONCE(parent_lrugen->nr_pages[gen][type][zone],
+-			   parent_lrugen->nr_pages[gen][type][zone] + nr_pages);
++		atomic_long_set(&child_lrugen->nr_pages[gen][type][zone], 0);
++		atomic_long_add(nr_pages, &parent_lrugen->nr_pages[gen][type][zone]);
+ 
+ 		if (lru_gen_is_active(child_lruvec, gen) != lru_gen_is_active(parent_lruvec, gen)) {
+ 			__update_lru_size(child_lruvec, lru + child_lru_active, zone, -nr_pages);
+@@ -5644,7 +5643,8 @@ static int lru_gen_seq_show(struct seq_file *m, void *v)
+ 			char mark = full && seq < min_seq[type] ? 'x' : ' ';
+ 
+ 			for (zone = 0; zone < MAX_NR_ZONES; zone++)
+-				size += max(READ_ONCE(lrugen->nr_pages[gen][type][zone]), 0L);
++				size += max(atomic_long_read(&lrugen->nr_pages[gen][type][zone]),
++					    0L);
+ 
+ 			seq_printf(m, " %10lu%c", size, mark);
+ 		}
+diff --git a/include/linux/memcontrol.h b/include/linux/memcontrol.h
+index 885d6ee9d..b2b9b7c15 100644
+--- a/include/linux/memcontrol.h
++++ b/include/linux/memcontrol.h
+@@ -1494,6 +1494,45 @@ static inline void lruvec_lock_irq(struct lruvec *lruvec)
+ 	spin_lock_irq(&lruvec->lru_lock);
+ }
+ 
++/**
++ * folio_lruvec_live_get - get a live lruvec for a folio under RCU
++ * @folio: the folio
++ *
++ * Computes @folio's lruvec and walks up to the nearest live ancestor
++ * if the folio's memcg is dying.  Paired with folio_lruvec_live_put().
++ * The result may be stale: RCU keeps it alive but does not pin @folio
++ * to it.  That is fine as the counters are fixed up on reparenting.
++ *
++ * Return: the live lruvec, with rcu_read_lock held.
++ */
++static inline struct lruvec *folio_lruvec_live_get(struct folio *folio)
++{
++#ifdef CONFIG_MEMCG
++	struct lruvec *lruvec;
++	struct pglist_data *pgdat;
++	struct mem_cgroup *memcg;
++
++	rcu_read_lock();
++	lruvec = folio_lruvec(folio);
++	pgdat = lruvec_pgdat(lruvec);
++	memcg = lruvec_memcg(lruvec);
++	while (unlikely(memcg && css_is_dying(&memcg->css))) {
++		memcg = parent_mem_cgroup(memcg);
++		lruvec = mem_cgroup_lruvec(memcg, pgdat);
++	}
++	return lruvec;
++#else
++	return folio_lruvec(folio);
++#endif
++}
++
++static inline void folio_lruvec_live_put(struct lruvec *lruvec)
++{
++#ifdef CONFIG_MEMCG
++	rcu_read_unlock();
++#endif
++}
++
+ static inline struct lruvec *lruvec_live_lock_irq(struct lruvec *lruvec)
+ {
+ #ifdef CONFIG_MEMCG
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 4736998a1..ef5a30753 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -30,6 +30,17 @@ static inline int folio_is_file_lru(const struct folio *folio)
+ 	return !folio_test_swapbacked(folio);
+ }
+ 
++/**
++ * folio_flags_is_file_lru - Should the folio be on a file LRU or anon LRU?
++ * @flags: The folio's flags.
++ *
++ * Just like folio_is_file_lru but take the folio flags directly instead.
++ */
++static inline int folio_flags_is_file_lru(const unsigned long *flags)
++{
++	return !test_bit(PG_swapbacked, flags);
++}
++
+ static __always_inline void __update_lru_size(struct lruvec *lruvec,
+ 				enum lru_list lru, enum zone_type zid,
+ 				long nr_pages)
+@@ -133,27 +144,107 @@ static inline int lru_hist_from_seq(unsigned long seq)
+ 	return seq % NR_HIST_GENS;
+ }
+ 
+-static inline int lru_tier_from_refs(int refs, bool workingset)
++static inline int lru_tier_from_refs(unsigned int refs)
+ {
+-	VM_WARN_ON_ONCE(refs > BIT(LRU_REFS_WIDTH));
+-
+-	/* see the comment on MAX_NR_TIERS */
+-	return workingset ? MAX_NR_TIERS - 1 : order_base_2(refs);
++	BUILD_BUG_ON(fls(LRU_REFS_MAX - 1) > MAX_NR_TIERS - 1);
++	VM_WARN_ON_ONCE(refs > LRU_REFS_MAX);
++	if (refs < LRU_REFS_WORKINGSET)
++		return 0;
++	return fls(refs - 1);
+ }
+ 
+ static inline int folio_lru_refs(const struct folio *folio)
+ {
+ 	unsigned long flags = READ_ONCE(folio->flags.f);
+ 
+-	if (!(flags & BIT(PG_referenced)))
+-		return 0;
+-	/*
+-	 * Return the total number of accesses including PG_referenced. Also see
+-	 * the comment on LRU_REFS_FLAGS.
+-	 */
+-	return ((flags & LRU_REFS_MASK) >> LRU_REFS_PGOFF) + 1;
++/**
++ * lru_set_gen_flags - Set the LRU generation number to specified folio flags.
++ * @flags: pointer to the folio flags
++ * @gen: generation number, between 0 and (MAX_NR_GENS - 1), inclusive.
++ */
++static inline void lru_set_gen_flags(unsigned long *flags, int gen)
++{
++	BUILD_BUG_ON(LRU_GEN_MASK & LRU_REFS_MASK);
++	VM_WARN_ON_ONCE(gen >= MAX_NR_GENS || gen < 0);
++	/* Store gen offset by 1, zero means the folio is off-list. */
++	*flags &= ~LRU_GEN_MASK;
++	*flags |= (gen + 1UL) << LRU_GEN_PGOFF;
++}
++
++/**
++ * lru_get_gen_flags - Return the LRU generation number from folio flags.
++ * @flags: folio flags
++ *
++ * Returns: A number between 0 and (MAX_NR_GENS - 1), inclusive. Returns
++ * -1 if the flags indicate the folio is off the list (e.g., isolated).
++ */
++static inline int lru_get_gen_flags(unsigned long flags)
++{
++	int gen = ((flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
++
++	/* Exclude the legal -1 from the unsigned MAX_NR_GENS comparison */
++	VM_WARN_ON_ONCE(gen != -1 && gen >= MAX_NR_GENS);
++	return gen;
++}
++
++/**
++ * lru_set_refs_flags - Set the LRU referenced count to folio flags.
++ * @flags: pointer to the folio flags
++ * @refs: referenced / access count number, between 0 and LRU_REFS_MAX, inclusive.
++ *
++ * For MGLRU, PG_referenced, PG_workingset are used as the lower two bits of
++ * refs counter, and extra bits hold the remaining higher bits. For classical
++ * LRU the extra bits are not used, and the two flags has no direct
++ * relationship with each other, but this helper can still be used to sync
++ * them. For both cases, refs == 0 means these two flags and the extra bits
++ * are all unset. And refs == 1 / 2 / 3 means PG_referenced and PG_workingset
++ * are set in an bit order way, which is more meaningful for MGLRU though.
++ */
++static inline void lru_set_refs_flags(unsigned long *flags, unsigned int refs)
++{
++	VM_WARN_ON_ONCE(refs > LRU_REFS_MAX);
++	BUILD_BUG_ON(LRU_REFS_MASK & (BIT(PG_referenced) | BIT(PG_workingset)));
++	*flags &= ~LRU_REFS_FLAGS;
++	if (refs & BIT(0))
++		*flags |= BIT(PG_referenced);
++	if (refs & BIT(1))
++		*flags |= BIT(PG_workingset);
++	*flags |= ((unsigned long)refs >> 2) << LRU_REFS_PGOFF;
++}
++
++/**
++ * lru_get_refs_flags - Return LRU referenced / access count from folio flags.
++ * @flags: folio flags
++ *
++ * Reads the LRU referenced count set by lru_set_refs_flags().
++ */
++static inline int lru_get_refs_flags(unsigned long flags)
++{
++	int refs;
++
++	/* Return the total number of accesses. See the comment above MAX_NR_TIERS. */
++	refs = (flags & BIT(PG_referenced)) ? BIT(0) : 0;
++	refs += (flags & BIT(PG_workingset)) ? BIT(1) : 0;
++	refs += ((flags & LRU_REFS_MASK) >> LRU_REFS_PGOFF) << 2;
++	return refs;
+ }
+ 
++static inline int folio_lru_refs(const struct folio *folio)
++{
++	return lru_get_refs_flags(READ_ONCE(*const_folio_flags(folio, 0)));
++}
++
++static inline void folio_set_lru_refs(struct folio *folio, unsigned int refs)
++{
++	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
++
++	do {
++		new_flags = old_flags;
++		lru_set_refs_flags(&new_flags, refs);
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
++}
++
++void folio_inc_lru_refs(struct folio *folio, unsigned int flags);
+ static inline int folio_lru_gen(const struct folio *folio)
+ {
+ 	unsigned long flags = READ_ONCE(folio->flags.f);
+@@ -163,7 +254,7 @@ static inline int folio_lru_gen(const struct folio *folio)
+ 
+ static inline bool lru_gen_is_active(const struct lruvec *lruvec, int gen)
+ {
+-	unsigned long max_seq = lruvec->lrugen.max_seq;
++	unsigned long max_seq = READ_ONCE(lruvec->lrugen.max_seq);
+ 
+ 	VM_WARN_ON_ONCE(gen >= MAX_NR_GENS);
+ 
+@@ -220,23 +311,24 @@ static inline unsigned long lru_gen_folio_seq(const struct lruvec *lruvec,
+ 					      bool reclaiming)
+ {
+ 	int gen;
++	int refs = folio_lru_refs(folio);
+ 	int type = folio_is_file_lru(folio);
+ 	const struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 
+ 	/*
+-	 * +-----------------------------------+-----------------------------------+
+-	 * | Accessed through page tables and  | Accessed through file descriptors |
+-	 * | promoted by folio_update_gen()    | and protected by folio_inc_gen()  |
+-	 * +-----------------------------------+-----------------------------------+
+-	 * | PG_active (set while isolated)    |                                   |
+-	 * +-----------------+-----------------+-----------------+-----------------+
+-	 * |  PG_workingset  |  PG_referenced  |  PG_workingset  |  LRU_REFS_FLAGS |
+-	 * +-----------------------------------+-----------------------------------+
+-	 * |<---------- MIN_NR_GENS ---------->|                                   |
+-	 * |<---------------------------- MAX_NR_GENS ---------------------------->|
++	 * +------------------------------------------+------------------------------------------+
++	 * |     Accessed through page tables and     |     Accessed through file descriptors    |
++	 * | promoted by folio_inc_lru_refs_walk()    | protected by folio_inc_lru_refs/inc_gen  |
++	 * +------------------------------------------+------------------------------------------+
++	 * | PG_active (set at isolation or refault)  |                                          |
++	 * +--------------------+---------------------+--------------------+---------------------+
++	 * |     LRU_REFS_MAX   | LRU_REFS_WORKINGSET |    LRU_REFS_MAX    | LRU_REFS_WORKINGSET |
++	 * +------------------------------------------+------------------------------------------+
++	 * |<-------------- MIN_NR_GENS ------------->|                                          |
++	 * |<----------------------------------- MAX_NR_GENS ----------------------------------->|
+ 	 */
+ 	if (folio_test_active(folio))
+-		gen = MIN_NR_GENS - folio_test_workingset(folio);
++		gen = MIN_NR_GENS - (refs >= LRU_REFS_WORKINGSET);
+ 	else if (reclaiming)
+ 		gen = MAX_NR_GENS;
+ 	else if ((!folio_is_file_lru(folio) && !folio_test_swapcache(folio)) ||
+@@ -244,7 +336,7 @@ static inline unsigned long lru_gen_folio_seq(const struct lruvec *lruvec,
+ 		  (folio_test_dirty(folio) || folio_test_writeback(folio))))
+ 		gen = MIN_NR_GENS;
+ 	else
+-		gen = MAX_NR_GENS - (folio_test_workingset(folio) || folio_test_referenced(folio));
++		gen = MAX_NR_GENS - (refs >= LRU_REFS_WORKINGSET);
+ 
+ 	return max(READ_ONCE(lrugen->max_seq) - gen + 1, READ_ONCE(lrugen->min_seq[type]));
+ }
+@@ -258,6 +350,7 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ 	int zone = folio_zonenum(folio);
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 
++	BUILD_BUG_ON(BIT(LRU_GEN_WIDTH - 1) != MAX_NR_GENS);
+ 	VM_WARN_ON_ONCE_FOLIO(gen != -1, folio);
+ 
+ 	if (folio_test_unevictable(folio) || !lrugen->enabled)
+@@ -303,9 +396,7 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 
+ static inline void folio_migrate_refs(struct folio *new, const struct folio *old)
+ {
+-	unsigned long refs = READ_ONCE(old->flags.f) & LRU_REFS_MASK;
+-
+-	set_mask_bits(&new->flags.f, LRU_REFS_MASK, refs);
++	folio_set_lru_refs(new, folio_lru_refs(old));
+ }
+ #else /* !CONFIG_LRU_GEN */
+ 
+@@ -334,6 +425,10 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 	return false;
+ }
+ 
++static inline void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
++{
++}
++
+ static inline void folio_migrate_refs(struct folio *new, const struct folio *old)
+ {
+ 
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index d5df04601..2dd5aab82 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -472,54 +472,119 @@ enum lruvec_flags {
+ #define MAX_NR_GENS		4U
+ 
+ /*
+- * Each generation is divided into multiple tiers. A folio accessed N times
+- * through file descriptors is in tier order_base_2(N). A folio in the first
+- * tier (N=0,1) is marked by PG_referenced unless it was faulted in through page
+- * tables or read ahead. A folio in the last tier (MAX_NR_TIERS-1) is marked by
+- * PG_workingset. A folio in any other tier (1<N<5) between the first and last
+- * is marked by additional bits of LRU_REFS_WIDTH in folio->flags.
++ * Each generation is divided into multiple tiers. A folio's referenced
++ * count maps to a tier as shown below:
+  *
+- * In contrast to moving across generations which requires the LRU lock, moving
+- * across tiers only involves atomic operations on folio->flags and therefore
+- * has a negligible cost in the buffered access path. In the eviction path,
+- * comparisons of refaulted/(evicted+protected) from the first tier and the rest
+- * infer whether folios accessed multiple times through file descriptors are
+- * statistically hot and thus worth protecting.
++ * MGLRU (frequency guidance)
++ *  Refs  Tier  |- Refs: how many times (at least) a folio has been referenced.
++ *   0      0   |- Mostly cold pages, readahead, etc. [1]
++ *   1      0   |= LRU_REFS_REFERENCED: Used at least once. [2]
++ * -WORKINGSET-+|- Pages beyond are workingset and never fall below this floor. [3]
++ *   2      1<-+|= LRU_REFS_WORKINGSET: Classical workingset, accessed twice, protected. [4]
++ *   3      2   |- LRU_REFS_PROTECTED: Protected workingset, promoted pages capped at here. [5]
++ *   4      2   |
++ *   5      3   |- The tier here is MAX_NR_TIERS - 1
++ *   6      3   |
++ *   7      3   |= LRU_REFS_MAX: Promotion candidate. [6]
++ * -PROMOTION->-/
+  *
+- * MAX_NR_TIERS is set to 4 so that the multi-gen LRU can support twice the
+- * number of categories of the active/inactive LRU when keeping track of
+- * accesses through file descriptors. This uses MAX_NR_TIERS-2 spare bits in
+- * folio->flags, masked by LRU_REFS_MASK.
++ * Ideally each tier holds folios of similar access patterns: lower tiers
++ * are less important and evicted faster.  A page's reference count and
++ * tier are capped when it changes generation, preventing it from
++ * dominating the new generation based on old-generation access history.
++ * Generation ordering already ensures a newer-gen page is hotter than an
++ * older-gen one regardless of tier.
++ *
++ * Refs tracks accesses from two sources: page table (lazily collected by
++ * the page table aging walk or rmap eviction lookup) and file descriptors
++ * (by folio_mark_accessed).  Page table accesses are weighted heavier
++ * because the accessed bit is sticky (undercounts repeated accesses),
++ * passively collected, and page faults are generally more important as
++ * userspace does not expect a memory access to block on reclaim.  Both
++ * access types increment refs by one; the result is capped at
++ * LRU_REFS_PROTECTED on promotion or deferral, or LRU_REFS_MAX otherwise.
++ *
++ * 1. Tier is fls(N-1) for N > 1, 0 otherwise.  Folios with zero
++ *    accesses (refs == 0) are generally cold, e.g. readahead folios.
++ *
++ *    Freshly allocated folios start with refs == 0; faulted and mapped
++ *    folios have their page table access bit set, so the first page table
++ *    access check always sets LRU_REFS_REFERENCED.  That is the second
++ *    chance described above MIN_NR_GENS: it only moves the folio one
++ *    generation forward if it is in the oldest generation.
++ *
++ * 2. Folios accessed once stay on tier 0: one-time usage does not
++ *    qualify for protection.  A second access advances the folio,
++ *    aligning with classical LRU's use-twice threshold.  A second page
++ *    table access promotes to the latest gen; file access only defers
++ *    eviction from the oldest gen.
++ *
++ * 3. Folios accessed at least twice are considered workingset.  This
++ *    mostly aligns with classical LRU: at least one I/O is saved by
++ *    keeping them in memory.  Folios at or above this level never fall
++ *    below tier 1 (the workingset floor), so tier 0 stays a clean tier
++ *    for cold cache while tier 1 serves as the fallback line for
++ *    actually reused or historically hot folios.
++ *
++ *    Folios refaulted through a page fault at refs 1 will enter the second
++ *    newest gen, so faulting will be protected better.
++ *
++ * 4. Starting from tier 1, PID protection sacrifices lower tiers to
++ *    protect higher tiers by comparing refault rates for long-term
++ *    accuracy, and caps higher refs to this value.  Since PID protection
++ *    bypasses page table lookup and clearing, when a further eviction
++ *    attempt occurs after PID loosens, the folio's page table access is
++ *    rechecked and a referenced folio is put back with refs capped to
++ *    this value as well.  This also gives folios a fair opportunity to be
++ *    promoted by file access again.
++ *
++ *    Folios refaulted through a page fault at tier 1 or above are activated
++ *    and enter the newest gen. Non fault page will enter second oldest gen,
++ *    driving aging and workingset shifting.
++ *
++ * 5. Pages beyond the ordinary workingset tier form new tiers for the
++ *    PID controller to protect differently.  Folios at or above this
++ *    level are capped at LRU_REFS_PROTECTED on promotion or deferral,
++ *    and at LRU_REFS_WORKINGSET under PID protection in the oldest
++ *    generation, where they represent a historical workingset.
++ *
++ * 6. Folios that reach LRU_REFS_MAX are advanced to the next generation
++ *    on further access, with refs capped to LRU_REFS_PROTECTED.  This
++ *    gives them a fair start for advancement to an even newer generation
++ *    while keeping hot folios distinguishable.
++ *
++ * Tiering uses PG_referenced and PG_workingset as the lower two bits,
++ * and the bits masked by LRU_REFS_MASK as the higher bits, so the refs
++ * count ranges from 0 to LRU_REFS_MAX.  A folio is on the workingset
++ * tier once accessed at least twice, which is more consistent with the
++ * classical LRU.
++ *
++ * A folio's referenced count never goes backwards except upon gen
++ * increase as described above, or when explicitly reset by
++ * lru_gen_clear_refs().  Refault of a reclaimed folio restores
++ * its referenced count, capped at LRU_REFS_PROTECTED, which aligns with
++ * promotion.  Page table refaults of previous workingset folios send
++ * them to the latest gen, driving aging faster.
++ *
++ * MAX_NR_TIERS is set to 4 so that the multi-gen LRU can support twice
++ * the number of categories of the active/inactive LRU.
+  */
+ #define MAX_NR_TIERS		4U
+ 
++/* Access source flags for folio_inc_lru_refs() */
++#define LRU_REF_MAPPED		0x1U
++#define LRU_REF_EXEC		0x2U
++
++#define LRU_REFS_REFERENCED	0x1
++#define LRU_REFS_WORKINGSET	0x2
++#define LRU_REFS_PROTECTED	0x3
++
+ #ifndef __GENERATING_BOUNDS_H
+ 
+ #define LRU_GEN_MASK		((BIT(LRU_GEN_WIDTH) - 1) << LRU_GEN_PGOFF)
+ #define LRU_REFS_MASK		((BIT(LRU_REFS_WIDTH) - 1) << LRU_REFS_PGOFF)
+-
+-/*
+- * For folios accessed multiple times through file descriptors,
+- * lru_gen_inc_refs() sets additional bits of LRU_REFS_WIDTH in folio->flags
+- * after PG_referenced, then PG_workingset after LRU_REFS_WIDTH. After all its
+- * bits are set, i.e., LRU_REFS_FLAGS|BIT(PG_workingset), a folio is lazily
+- * promoted into the second oldest generation in the eviction path. And when
+- * folio_inc_gen() does that, it clears LRU_REFS_FLAGS so that
+- * lru_gen_inc_refs() can start over. Note that for this case, LRU_REFS_MASK is
+- * only valid when PG_referenced is set.
+- *
+- * For folios accessed multiple times through page tables, folio_update_gen()
+- * from a page table walk or lru_gen_set_refs() from a rmap walk sets
+- * PG_referenced after the accessed bit is cleared for the first time.
+- * Thereafter, those two paths set PG_workingset and promote folios to the
+- * youngest generation. Like folio_inc_gen(), folio_update_gen() also clears
+- * PG_referenced. Note that for this case, LRU_REFS_MASK is not used.
+- *
+- * For both cases above, after PG_workingset is set on a folio, it remains until
+- * this folio is either reclaimed, or "deactivated" by lru_gen_clear_refs(). It
+- * can be set again if lru_gen_test_recent() returns true upon a refault.
+- */
+-#define LRU_REFS_FLAGS		(LRU_REFS_MASK | BIT(PG_referenced))
++#define LRU_REFS_FLAGS		(LRU_REFS_MASK | BIT(PG_referenced) | BIT(PG_workingset))
++#define LRU_REFS_MAX		(BIT(LRU_REFS_WIDTH + 2) - 1)
+ 
+ struct lruvec;
+ struct page_vma_mapped_walk;
+diff --git a/kernel/bounds.c b/kernel/bounds.c
+index 02b619eb6..06a034713 100644
+--- a/kernel/bounds.c
++++ b/kernel/bounds.c
+@@ -25,7 +25,7 @@ int main(void)
+ 	DEFINE(SPINLOCK_SIZE, sizeof(spinlock_t));
+ #ifdef CONFIG_LRU_GEN
+ 	DEFINE(LRU_GEN_WIDTH, order_base_2(MAX_NR_GENS + 1));
+-	DEFINE(__LRU_REFS_WIDTH, MAX_NR_TIERS - 2);
++	DEFINE(__LRU_REFS_WIDTH, MAX_NR_TIERS - 3);
+ #else
+ 	DEFINE(LRU_GEN_WIDTH, 0);
+ 	DEFINE(__LRU_REFS_WIDTH, 0);
+diff --git a/mm/folio.c b/mm/folio.c
+index 50a6dbe55..4d7fa88a8 100644
+--- a/mm/folio.c
++++ b/mm/folio.c
+@@ -273,7 +273,6 @@ static void lru_activate(struct lruvec *lruvec, struct folio *folio)
+ 	if (folio_test_active(folio) || folio_test_unevictable(folio))
+ 		return;
+ 
+-
+ 	lruvec_del_folio(lruvec, folio);
+ 	folio_set_active(folio);
+ 	lruvec_add_folio(lruvec, folio);
+@@ -352,29 +351,6 @@ static void __lru_cache_activate_folio(struct folio *folio)
+ 
+ #ifdef CONFIG_LRU_GEN
+ 
+-static void lru_gen_inc_refs(struct folio *folio)
+-{
+-	unsigned long new_flags, old_flags = READ_ONCE(folio->flags.f);
+-
+-	if (folio_test_unevictable(folio))
+-		return;
+-
+-	/* see the comment on LRU_REFS_FLAGS */
+-	if (!folio_test_referenced(folio)) {
+-		set_mask_bits(&folio->flags.f, LRU_REFS_MASK, BIT(PG_referenced));
+-		return;
+-	}
+-
+-	do {
+-		if ((old_flags & LRU_REFS_MASK) == LRU_REFS_MASK) {
+-			if (!folio_test_workingset(folio))
+-				folio_set_workingset(folio);
+-			return;
+-		}
+-
+-		new_flags = old_flags + BIT(LRU_REFS_PGOFF);
+-	} while (!try_cmpxchg(&folio->flags.f, &old_flags, new_flags));
+-}
+ 
+ static bool lru_gen_clear_refs(struct folio *folio)
+ {
+@@ -385,7 +361,7 @@ static bool lru_gen_clear_refs(struct folio *folio)
+ 	if (gen < 0)
+ 		return true;
+ 
+-	set_mask_bits(&folio->flags.f, LRU_REFS_FLAGS | BIT(PG_workingset), 0);
++	folio_set_lru_refs(folio, 0);
+ 
+ 	rcu_read_lock();
+ 	seq = READ_ONCE(folio_lruvec(folio)->lrugen.min_seq[type]);
+@@ -396,10 +372,6 @@ static bool lru_gen_clear_refs(struct folio *folio)
+ 
+ #else /* !CONFIG_LRU_GEN */
+ 
+-static void lru_gen_inc_refs(struct folio *folio)
+-{
+-}
+-
+ static bool lru_gen_clear_refs(struct folio *folio)
+ {
+ 	return false;
+@@ -425,7 +397,8 @@ void folio_mark_accessed(struct folio *folio)
+ 	if (folio_test_dropbehind(folio))
+ 		return;
+ 	if (lru_gen_enabled()) {
+-		lru_gen_inc_refs(folio);
++		if (!folio_test_unevictable(folio))
++			folio_inc_lru_refs(folio, 0);
+ 		return;
+ 	}
+ 
+@@ -471,21 +444,6 @@ void folio_add_lru(struct folio *folio)
+ 			folio_test_unevictable(folio), folio);
+ 	VM_BUG_ON_FOLIO(folio_test_lru(folio), folio);
+ 
+-	/*
+-	 * For refaulted workingset folios, set PG_active so they
+-	 * can be added to active generations.
+-	 * For prefaulted file folios, folio_mark_accessed() sets
+-	 * PG_referenced so lru_gen_folio_seq() places them into
+-	 * the second oldest generation.
+-	 */
+-	if (lru_gen_enabled() && !folio_test_unevictable(folio) &&
+-	    lru_gen_in_fault() && !(current->flags & PF_MEMALLOC)) {
+-		if (folio_test_workingset(folio))
+-			folio_set_active(folio);
+-		else if (!folio_test_referenced(folio))
+-			folio_mark_accessed(folio);
+-	}
+-
+ 	folio_batch_add_and_move(folio, lru_add);
+ }
+ EXPORT_SYMBOL(folio_add_lru);
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index b8180878b..055a73256 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -831,35 +831,188 @@ enum folio_references {
+ };
+ 
+ #ifdef CONFIG_LRU_GEN
++/******************************************************************************
++ *                     Referenced count feedback
++ ******************************************************************************/
++
++/*
++ * The folio_inc_lru_refs{_*} helpers below collect the referenced info
++ * (hotness) from other parts, including the page table walker, the rmap walk
++ * upon eviction, the rmap lookaround, and file descriptors
++ * (folio_mark_accessed).
++ *
++ * Page table accesses use refs from either source. The first reference
++ * advances only oldest-gen folios by one generation; a second promotes to
++ * the newest. Executable file folios promote on their first access to avoid
++ * I/O thrashing. Isolated rmap accesses use evict_folios() for putback.
++ *
++ * Promotion changes folio->flags; sort_folio() or inc_min_seq() moves the
++ * folio later. Young PTEs found during unmapping use folio_mark_accessed()
++ * and follow the file descriptor rules below.
++ *
++ * File descriptor accesses do not promote.  They only defer eviction from
++ * the oldest generation, and only once the folio is a workingset folio
++ * (LRU_REFS_WORKINGSET), leaving the rest to PID protection.  Page table
++ * accesses are treated more generously because the accessed bit is sticky
++ * (it under-counts repeated accesses) and because a page fault is more
++ * costly than file descriptor I/O.
++ *
++ * PID protection operates on tier > 0 folios.  The one proactive promotion
++ * outside of it and the page table path is the overflow case where the
++ * referenced count exceeds LRU_REFS_MAX, which means the folio is hotter
++ * than everything else in its generation.
++ *
++ * Whenever a folio changes generation here its referenced count is capped at
++ * LRU_REFS_PROTECTED, so it starts at or below the protected tier regardless
++ * of its old-generation access history.  PID protection (folio_inc_gen) caps
++ * at LRU_REFS_WORKINGSET independently.
++ */
++
+ /*
+- * Only used on a mapped folio in the eviction (rmap walk) path, where promotion
+- * needs to be done by taking the folio off the LRU list and then adding it back
+- * with PG_active set. In contrast, the aging (page table walk) path uses
+- * folio_update_gen().
++ * Update the folio's lru refs indicator. The caller doesn't need to hold
++ * the folio lock, isolate the folio, or hold the lruvec lock. Used by both
++ * cache access (flags == 0) and page table access (LRU_REF_MAPPED,
++ * optionally with LRU_REF_EXEC).
+  */
+-static bool lru_gen_set_refs(struct folio *folio, const vma_flags_t *vma_flags)
++void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ {
+-	/* see the comment on LRU_REFS_FLAGS */
+-	if (!folio_test_referenced(folio) && !folio_test_workingset(folio)) {
+-		/* Activate file-backed executable folios after first usage. */
+-		if (is_exec_file_folio(folio, vma_flags)) {
+-			set_mask_bits(&folio->flags.f, LRU_REFS_FLAGS, BIT(PG_workingset));
+-			return true;
++	int max_gen, min_gen;
++	int type, refs, old_gen, gen;
++	unsigned long new_flags, old_flags, max_seq;
++	struct lru_gen_folio *lrugen;
++	struct lruvec *lruvec = NULL;
++
++	type = folio_is_file_lru(folio);
++	old_flags = READ_ONCE(*folio_flags(folio, 0));
++	do {
++		new_flags = old_flags;
++		old_gen = lru_get_gen_flags(old_flags);
++		refs = lru_get_refs_flags(old_flags) + 1;
++		gen = old_gen;
++		if (old_gen < 0)
++			goto out;
++		/*
++		 * Lock the lruvec if the folio is on-list. We are already
++		 * doing lazy promotion so in theory we don't need this,
++		 * but for now, concurrent aging would still corrupt the
++		 * size counters.  This is a temporary limitation and
++		 * will be lifted very soon, so the lock here is not a
++		 * performance concern.
++		 */
++		if (!lruvec) {
++			lruvec = lruvec_live_lock_irq(folio_lruvec(folio));
++			lrugen = &lruvec->lrugen;
+ 		}
++		max_seq = READ_ONCE(lrugen->max_seq);
++		max_gen = lru_gen_from_seq(max_seq);
++		min_gen = lru_gen_from_seq(READ_ONCE(lrugen->min_seq[type]));
++		if (old_gen == max_gen)
++			goto out;
+ 
+-		set_mask_bits(&folio->flags.f, LRU_REFS_MASK, BIT(PG_referenced));
+-		return false;
+-	}
++		if (flags & (LRU_REF_MAPPED | LRU_REF_EXEC)) {
++			/* Promote second page table access or executable */
++			if (refs > LRU_REFS_REFERENCED || flags & LRU_REF_EXEC)
++				gen = max_gen;
++			/* First access only defers eviction from the oldest gen */
++			else if (old_gen == min_gen)
++				gen = (old_gen + 1) % MAX_NR_GENS;
++			refs = min(refs, LRU_REFS_PROTECTED);
++		} else if (refs > LRU_REFS_MAX) {
++			/* LRU refs counting overflow, bump the gen */
++			gen = (old_gen + 1) % MAX_NR_GENS;
++			refs = LRU_REFS_PROTECTED;
++		} else if (old_gen == min_gen && refs >= LRU_REFS_WORKINGSET) {
++			/* Defer eviction of just accessed workingset */
++			gen = (old_gen + 1) % MAX_NR_GENS;
++			refs = min(refs, LRU_REFS_PROTECTED);
++		}
++out:
++		refs = min(refs, LRU_REFS_MAX);
++		lru_set_refs_flags(&new_flags, refs);
++		if (gen != old_gen)
++			lru_set_gen_flags(&new_flags, gen);
++		if (new_flags == old_flags)
++			break;
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ 
+-	/* Promote on second access */
+-	if (folio_lru_refs(folio) > 1)
+-		set_mask_bits(&folio->flags.f, LRU_REFS_FLAGS, BIT(PG_workingset));
+-	else
+-		folio_mark_accessed(folio);
+-	return true;
++	if (gen != old_gen)
++		lru_gen_update_size(lruvec, folio, old_gen, gen);
++	if (lruvec)
++		lruvec_unlock_irq(lruvec);
++}
++
++/*
++ * Update the folio's lru refs indicator during a page table walk or the
++ * look-around. max_seq can be stale as neither holds the LRU lock.
++ *
++ * Returns the old generation and stores the new generation in @new_gen if
++ * the folio is on the LRU and not in the newest generation, or -1 otherwise.
++ */
++static int folio_inc_lru_refs_walk(struct folio *folio, struct lruvec *lruvec,
++				   const vma_flags_t *vma_flags,
++				   int *new_gen, int *type)
++{
++	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
++	unsigned long max_seq = READ_ONCE(lruvec->lrugen.max_seq);
++	int refs, gen, min_gen, max_gen, ret;
++
++	max_gen = lru_gen_from_seq(max_seq);
++
++	do {
++		gen = lru_get_gen_flags(old_flags);
++		refs = lru_get_refs_flags(old_flags) + 1;
++		*type = folio_flags_is_file_lru(&old_flags);
++		min_gen = lru_gen_from_seq(READ_ONCE(lruvec->lrugen.min_seq[*type]));
++		new_flags = old_flags;
++
++		if (gen >= 0 && gen != max_gen) {
++			ret = gen;
++			/* Promote second page table access or executable */
++			if (refs > LRU_REFS_REFERENCED || is_exec_file_folio(folio, vma_flags))
++				*new_gen = max_gen;
++			/* First access only defers eviction from the oldest gen */
++			else if (gen == min_gen)
++				*new_gen = (gen + 1) % MAX_NR_GENS;
++			else
++				*new_gen = gen;
++			lru_set_gen_flags(&new_flags, *new_gen);
++			lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_PROTECTED));
++		} else {
++			ret = -1;
++			lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_MAX));
++		}
++		if (new_flags == old_flags)
++			break;
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
++
++	return ret;
++}
++
++/*
++ * Update the lru refs indicator of an isolated folio, only used on
++ * mapped folios upon the final eviction.
++ *
++ * Increments the refs count (capped at LRU_REFS_PROTECTED, evict_folios()
++ * then caps it at LRU_REFS_WORKINGSET).  Returns true if the caller should
++ * activate the folio (second access or executable), false to put it back
++ * for a second chance.
++ */
++static bool folio_inc_lru_refs_isolated(struct folio *folio, const vma_flags_t *vma_flags)
++{
++	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
++	int refs;
++
++	do {
++		new_flags = old_flags;
++		refs = lru_get_refs_flags(old_flags) + 1;
++		lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_PROTECTED));
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
++
++	/* Promote second page table access or executable */
++	return refs > LRU_REFS_REFERENCED || is_exec_file_folio(folio, vma_flags);
+ }
+ #else
+-static bool lru_gen_set_refs(struct folio *folio, const vma_flags_t *vma_flags)
++static bool folio_inc_lru_refs_isolated(struct folio *folio, const vma_flags_t *vma_flags)
+ {
+ 	return false;
+ }
+@@ -894,7 +1047,8 @@ static enum folio_references folio_check_references(struct folio *folio,
+ 		if (!referenced_ptes)
+ 			return FOLIOREF_RECLAIM;
+ 
+-		return lru_gen_set_refs(folio, &vma_flags) ? FOLIOREF_ACTIVATE : FOLIOREF_KEEP;
++		return folio_inc_lru_refs_isolated(folio, &vma_flags) ?
++		       FOLIOREF_ACTIVATE : FOLIOREF_KEEP;
+ 	}
+ 
+ 	referenced_folio = folio_test_clear_referenced(folio);
+@@ -3178,9 +3332,9 @@ static bool iterate_mm_list_nowalk(struct lruvec *lruvec, unsigned long seq)
+  * P term over the generations previously evicted, using the smoothing factor
+  * 1/2; the D term isn't supported.
+  *
+- * The setpoint (SP) is always the first tier of one type; the process variable
+- * (PV) is either any tier of the other type or any other tier of the same
+- * type.
++ * To select a type, the setpoint (SP) is all tiers of one type and the process
++ * variable (PV) is all tiers of the other type.  To select a tier to protect,
++ * the SP is the tiers below it and the PV is the tier itself.
+  *
+  * The error is the difference between the SP and the PV; the correction is to
+  * turn off protection when SP>PV or turn on protection when SP<PV.
+@@ -3265,60 +3419,47 @@ static bool positive_ctrl_err(struct ctrl_pos *sp, struct ctrl_pos *pv)
+  *                          the aging
+  ******************************************************************************/
+ 
+-/* promote pages accessed through page tables */
+-static int folio_update_gen(struct folio *folio, int gen, const vma_flags_t *vma_flags)
++static int __folio_inc_gen(struct folio *folio, int old_gen, bool *increased)
+ {
+-	unsigned long new_flags, old_flags = READ_ONCE(folio->flags.f);
+-
+-	VM_WARN_ON_ONCE(gen >= MAX_NR_GENS);
+-
+-	/*
+-	 * See the comment on LRU_REFS_FLAGS, and activate file-backed
+-	 * executable folios after first usage to avoid typical IO
+-	 * thrashing from reclaiming.
+-	 */
+-	if (!folio_test_referenced(folio) && !folio_test_workingset(folio) &&
+-	    !is_exec_file_folio(folio, vma_flags)) {
+-		set_mask_bits(&folio->flags.f, LRU_REFS_MASK, BIT(PG_referenced));
+-		return -1;
+-	}
++	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
++	int refs, new_gen;
+ 
+ 	do {
+-		/* lru_gen_del_folio() has isolated this page? */
+-		if (!(old_flags & LRU_GEN_MASK))
+-			return -1;
++		new_gen = lru_get_gen_flags(old_flags);
+ 
+-		new_flags = old_flags & ~(LRU_GEN_MASK | LRU_REFS_FLAGS);
+-		new_flags |= ((gen + 1UL) << LRU_GEN_PGOFF) | BIT(PG_workingset);
+-	} while (!try_cmpxchg(&folio->flags.f, &old_flags, new_flags));
++		/* folio_inc_lru_refs() has promoted this page? */
++		if (new_gen >= 0 && new_gen != old_gen) {
++			if (increased)
++				*increased = false;
++			return new_gen;
++		}
+ 
+-	return ((old_flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
++		new_flags = old_flags;
++		new_gen = (old_gen + 1) % MAX_NR_GENS;
++		refs = lru_get_refs_flags(old_flags);
++		lru_set_gen_flags(&new_flags, new_gen);
++		lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_WORKINGSET));
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
++
++	if (increased)
++		*increased = true;
++	return new_gen;
+ }
+ 
+-/* protect pages accessed multiple times through file descriptors */
++/*
++ * Force bump a folio's generation. Used for PID protection or to skip a
++ * folio from a zone ineligible for the current reclaim.
++ */
+ static int folio_inc_gen(struct lruvec *lruvec, struct folio *folio)
+ {
++	bool gen_increased;
+ 	int type = folio_is_file_lru(folio);
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 	int new_gen, old_gen = lru_gen_from_seq(lrugen->min_seq[type]);
+-	unsigned long new_flags, old_flags = READ_ONCE(folio->flags.f);
+-
+-	VM_WARN_ON_ONCE_FOLIO(!(old_flags & LRU_GEN_MASK), folio);
+-
+-	do {
+-		new_gen = ((old_flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
+-		/* folio_update_gen() has promoted this page? */
+-		if (new_gen >= 0 && new_gen != old_gen)
+-			return new_gen;
+-
+-		new_gen = (old_gen + 1) % MAX_NR_GENS;
+-
+-		new_flags = old_flags & ~(LRU_GEN_MASK | LRU_REFS_FLAGS);
+-		new_flags |= (new_gen + 1UL) << LRU_GEN_PGOFF;
+-	} while (!try_cmpxchg(&folio->flags.f, &old_flags, new_flags));
+-
+-	lru_gen_update_size(lruvec, folio, old_gen, new_gen);
+ 
++	new_gen = __folio_inc_gen(folio, old_gen, &gen_increased);
++	if (gen_increased)
++		lru_gen_update_size(lruvec, folio, old_gen, new_gen);
+ 	return new_gen;
+ }
+ 
+@@ -3514,6 +3655,8 @@ static void walk_update_folio(struct lru_gen_mm_walk *walk, struct vm_area_struc
+ 		struct folio *folio, int new_gen, bool dirty)
+ {
+ 	int old_gen;
++	int type;
++	unsigned int flags = LRU_REF_MAPPED;
+ 
+ 	if (!folio)
+ 		return;
+@@ -3524,13 +3667,14 @@ static void walk_update_folio(struct lru_gen_mm_walk *walk, struct vm_area_struc
+ 		folio_mark_dirty(folio);
+ 
+ 	if (walk) {
+-		old_gen = folio_update_gen(folio, new_gen, &vma->flags);
++		old_gen = folio_inc_lru_refs_walk(folio, walk->lruvec, &vma->flags,
++						  &new_gen, &type);
+ 		if (old_gen >= 0 && old_gen != new_gen)
+ 			update_batch_size(walk, folio, old_gen, new_gen);
+-	} else if (lru_gen_set_refs(folio, &vma->flags)) {
+-		old_gen = folio_lru_gen(folio);
+-		if (old_gen >= 0 && old_gen != new_gen)
+-			folio_activate(folio);
++	} else {
++		if (is_exec_file_folio(folio, &vma->flags))
++			flags |= LRU_REF_EXEC;
++		folio_inc_lru_refs(folio, flags);
+ 	}
+ }
+ 
+@@ -3919,7 +4063,8 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
+ 		while (!list_empty(head)) {
+ 			struct folio *folio = lru_to_folio(head);
+ 			int refs = folio_lru_refs(folio);
+-			bool workingset = folio_test_workingset(folio);
++			int tier = lru_tier_from_refs(refs);
++			int delta = folio_nr_pages(folio);
+ 
+ 			VM_WARN_ON_ONCE_FOLIO(folio_test_unevictable(folio), folio);
+ 			VM_WARN_ON_ONCE_FOLIO(folio_test_active(folio), folio);
+@@ -3929,14 +4074,8 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
+ 			new_gen = folio_inc_gen(lruvec, folio);
+ 			list_move_tail(&folio->lru, &lrugen->folios[new_gen][type][zone]);
+ 
+-			/* don't count the workingset being lazily promoted */
+-			if (refs + workingset != BIT(LRU_REFS_WIDTH) + 1) {
+-				int tier = lru_tier_from_refs(refs, workingset);
+-				int delta = folio_nr_pages(folio);
+-
+-				WRITE_ONCE(lrugen->protected[hist][type][tier],
+-					   lrugen->protected[hist][type][tier] + delta);
+-			}
++			WRITE_ONCE(lrugen->protected[hist][type][tier],
++				   lrugen->protected[hist][type][tier] + delta);
+ 
+ 			if (!--remaining)
+ 				return false;
+@@ -4658,8 +4797,7 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+ 	int refs = folio_lru_refs(folio);
+-	bool workingset = folio_test_workingset(folio);
+-	int tier = lru_tier_from_refs(refs, workingset);
++	int tier = lru_tier_from_refs(refs);
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 
+ 	VM_WARN_ON_ONCE_FOLIO(gen >= MAX_NR_GENS, folio);
+@@ -4675,17 +4813,15 @@ static bool sort_folio(struct lruvec *lruvec, struct folio *folio, struct scan_c
+ 	}
+ 
+ 	/* protected */
+-	if (tier > tier_idx || refs + workingset == BIT(LRU_REFS_WIDTH) + 1) {
++	if (tier > tier_idx) {
++		int hist = lru_hist_from_seq(lrugen->min_seq[type]);
++
+ 		gen = folio_inc_gen(lruvec, folio);
+ 		list_move(&folio->lru, &lrugen->folios[gen][type][zone]);
+ 
+-		/* don't count the workingset being lazily promoted */
+-		if (refs + workingset != BIT(LRU_REFS_WIDTH) + 1) {
+-			int hist = lru_hist_from_seq(lrugen->min_seq[type]);
++		WRITE_ONCE(lrugen->protected[hist][type][tier],
++			   lrugen->protected[hist][type][tier] + delta);
+ 
+-			WRITE_ONCE(lrugen->protected[hist][type][tier],
+-				   lrugen->protected[hist][type][tier] + delta);
+-		}
+ 		return true;
+ 	}
+ 
+@@ -4713,9 +4849,6 @@ static bool isolate_folio(struct lruvec *lruvec, struct folio *folio, struct sca
+ 		return false;
+ 	}
+ 
+-	/* see the comment on LRU_REFS_FLAGS */
+-	if (!folio_test_referenced(folio))
+-		set_mask_bits(&folio->flags.f, LRU_REFS_MASK, 0);
+ 
+ 	success = lru_gen_del_folio(lruvec, folio, true);
+ 	VM_WARN_ON_ONCE_FOLIO(!success, folio);
+@@ -4804,13 +4937,14 @@ static int get_tier_idx(struct lruvec *lruvec, int type)
+ 	struct ctrl_pos sp, pv = {};
+ 
+ 	/*
+-	 * To leave a margin for fluctuations, use a larger gain factor (2:3).
+-	 * This value is chosen because any other tier would have at least twice
+-	 * as many refaults as the first tier.
++	 * To leave a margin for fluctuations, use a larger gain factor (1:2).
++	 * Stop at the first tier whose refault rate is clearly worse than
++	 * that of the cumulative mass of the tiers below it; the PID
++	 * protects the tiers above it.
+ 	 */
+-	read_ctrl_pos(lruvec, type, 0, 2, &sp);
+ 	for (tier = 1; tier < MAX_NR_TIERS; tier++) {
+-		read_ctrl_pos(lruvec, type, tier, 3, &pv);
++		read_ctrl_pos(lruvec, type, tier - 1, 1, &sp);
++		read_ctrl_pos(lruvec, type, tier, 2, &pv);
+ 		if (!positive_ctrl_err(&sp, &pv))
+ 			break;
+ 	}
+@@ -4930,9 +5064,16 @@ static int evict_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
+ 			continue;
+ 		}
+ 
+-		/* don't add rejected folios to the oldest generation */
++		/*
++		 * The rejected folios are never added to the oldest generation,
++		 * so this effectively promotes them by at least one generation.
++		 * PG_active is the only placement hint here, so a folio kept on
++		 * its first page table access lands in the second newest one.
++		 * See "Referenced count feedback" above.
++		 */
++		folio_set_lru_refs(folio, min(folio_lru_refs(folio), LRU_REFS_WORKINGSET));
+ 		if (lru_gen_folio_seq(lruvec, folio, false) == min_seq[type])
+-			set_mask_bits(&folio->flags.f, LRU_REFS_FLAGS, BIT(PG_active));
++			folio_set_active(folio);
+ 	}
+ 
+ 	move_folios_to_lru(&list);
+diff --git a/mm/workingset.c b/mm/workingset.c
+index 7ac2b88c8..0e44f18d2 100644
+--- a/mm/workingset.c
++++ b/mm/workingset.c
+@@ -188,6 +188,12 @@
+ #define EVICTION_SHIFT_ANON	(EVICTION_SHIFT + SWAP_COUNT_SHIFT)
+ #define EVICTION_MASK	(~0UL >> EVICTION_SHIFT)
+ #define EVICTION_MASK_ANON	(~0UL >> EVICTION_SHIFT_ANON)
++/*
++ * LRU refs uses LRU_REFS_WIDTH + 2 bits, the 2 bits being PG_workingset
++ * and PG_referenced.  The lowest bit is recorded in the workingset field
++ * of the shadow entry (to reuse pack_shadow()).
++ */
++#define LRU_REFS_BITS ((LRU_REFS_WIDTH + 2) - 1)
+ 
+ /*
+  * Eviction timestamps need to be able to cover the full range of
+@@ -242,13 +248,12 @@ static void *lru_gen_eviction(struct folio *folio)
+ 	int type = folio_is_file_lru(folio);
+ 	int delta = folio_nr_pages(folio);
+ 	int refs = folio_lru_refs(folio);
+-	bool workingset = folio_test_workingset(folio);
+-	int tier = lru_tier_from_refs(refs, workingset);
++	int tier = lru_tier_from_refs(refs);
+ 	struct mem_cgroup *memcg;
+ 	struct pglist_data *pgdat = folio_pgdat(folio);
+ 	unsigned short memcg_id;
+ 
+-	BUILD_BUG_ON(LRU_GEN_WIDTH + LRU_REFS_WIDTH >
++	BUILD_BUG_ON(LRU_GEN_WIDTH + LRU_REFS_BITS >
+ 		     BITS_PER_LONG - max(EVICTION_SHIFT, EVICTION_SHIFT_ANON));
+ 
+ 	rcu_read_lock();
+@@ -256,14 +261,14 @@ static void *lru_gen_eviction(struct folio *folio)
+ 	lruvec = mem_cgroup_lruvec(memcg, pgdat);
+ 	lrugen = &lruvec->lrugen;
+ 	min_seq = READ_ONCE(lrugen->min_seq[type]);
+-	token = (min_seq << LRU_REFS_WIDTH) | max(refs - 1, 0);
++	token = (min_seq << LRU_REFS_BITS) | refs >> 1;
+ 
+ 	hist = lru_hist_from_seq(min_seq);
+ 	atomic_long_add(delta, &lrugen->evicted[hist][type][tier]);
+ 	memcg_id = mem_cgroup_private_id(memcg);
+ 	rcu_read_unlock();
+ 
+-	return pack_shadow(memcg_id, pgdat, token, workingset, type);
++	return pack_shadow(memcg_id, pgdat, token, refs & 1, type);
+ }
+ 
+ /*
+@@ -284,9 +289,9 @@ static bool lru_gen_test_recent(void *shadow, struct lruvec **lruvec,
+ 	*lruvec = mem_cgroup_lruvec(memcg, pgdat);
+ 
+ 	max_seq = READ_ONCE((*lruvec)->lrugen.max_seq);
+-	max_seq &= (file ? EVICTION_MASK : EVICTION_MASK_ANON) >> LRU_REFS_WIDTH;
++	max_seq &= (file ? EVICTION_MASK : EVICTION_MASK_ANON) >> LRU_REFS_BITS;
+ 
+-	return abs_diff(max_seq, *token >> LRU_REFS_WIDTH) < MAX_NR_GENS;
++	return abs_diff(max_seq, *token >> LRU_REFS_BITS) < MAX_NR_GENS;
+ }
+ 
+ static void lru_gen_refault(struct folio *folio, void *shadow)
+@@ -314,22 +319,26 @@ static void lru_gen_refault(struct folio *folio, void *shadow)
+ 	lrugen = &lruvec->lrugen;
+ 
+ 	hist = lru_hist_from_seq(READ_ONCE(lrugen->min_seq[type]));
+-	refs = (token & (BIT(LRU_REFS_WIDTH) - 1)) + 1;
+-	tier = lru_tier_from_refs(refs, workingset);
++	refs = ((token & (BIT(LRU_REFS_BITS) - 1)) << 1) + workingset;
++	tier = lru_tier_from_refs(refs);
+ 
+ 	atomic_long_add(delta, &lrugen->refaulted[hist][type][tier]);
+ 
+-	if (workingset) {
+-		/*
+-		 * see folio_add_lru(), where folio_set_active() is
+-		 * called for workingset folios
+-		 */
+-		if (lru_gen_in_fault())
++	/*
++	 * Activate a fault-driven refault folio, which would have been
++	 * promoted had it stayed in memory.
++	 */
++	if (refs >= LRU_REFS_REFERENCED) {
++		if (lru_gen_in_fault()) {
++			folio_set_active(folio);
+ 			mod_lruvec_state(lruvec, WORKINGSET_ACTIVATE_BASE + type, delta);
+-		folio_set_workingset(folio);
++		}
++		/* Refault is also promotion, cap the refs like folio_inc_lru_refs */
++		folio_set_lru_refs(folio, min(refs, LRU_REFS_PROTECTED));
++	}
++
++	if (refs >= LRU_REFS_WORKINGSET)
+ 		mod_lruvec_state(lruvec, WORKINGSET_RESTORE_BASE + type, delta);
+-	} else
+-		set_mask_bits(&folio->flags.f, LRU_REFS_MASK, (refs - 1UL) << LRU_REFS_PGOFF);
+ unlock:
+ 	rcu_read_unlock();
+ }
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index ef5a30753..174b7c1b7 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -105,57 +105,6 @@ static __always_inline enum lru_list folio_lru_list(const struct folio *folio)
+ 	return lru;
+ }
+ 
+-#ifdef CONFIG_LRU_GEN
+-
+-static inline bool lru_gen_switching(void)
+-{
+-	DECLARE_STATIC_KEY_FALSE(lru_switch);
+-
+-	return static_branch_unlikely(&lru_switch);
+-}
+-#ifdef CONFIG_LRU_GEN_ENABLED
+-static inline bool lru_gen_enabled(void)
+-{
+-	DECLARE_STATIC_KEY_TRUE(lru_gen_caps[NR_LRU_GEN_CAPS]);
+-
+-	return static_branch_likely(&lru_gen_caps[LRU_GEN_CORE]);
+-}
+-#else
+-static inline bool lru_gen_enabled(void)
+-{
+-	DECLARE_STATIC_KEY_FALSE(lru_gen_caps[NR_LRU_GEN_CAPS]);
+-
+-	return static_branch_unlikely(&lru_gen_caps[LRU_GEN_CORE]);
+-}
+-#endif
+-
+-static inline bool lru_gen_in_fault(void)
+-{
+-	return current->in_lru_fault;
+-}
+-
+-static inline int lru_gen_from_seq(unsigned long seq)
+-{
+-	return seq % MAX_NR_GENS;
+-}
+-
+-static inline int lru_hist_from_seq(unsigned long seq)
+-{
+-	return seq % NR_HIST_GENS;
+-}
+-
+-static inline int lru_tier_from_refs(unsigned int refs)
+-{
+-	BUILD_BUG_ON(fls(LRU_REFS_MAX - 1) > MAX_NR_TIERS - 1);
+-	VM_WARN_ON_ONCE(refs > LRU_REFS_MAX);
+-	if (refs < LRU_REFS_WORKINGSET)
+-		return 0;
+-	return fls(refs - 1);
+-}
+-
+-static inline int folio_lru_refs(const struct folio *folio)
+-{
+-	unsigned long flags = READ_ONCE(folio->flags.f);
+ 
+ /**
+  * lru_set_gen_flags - Set the LRU generation number to specified folio flags.
+@@ -209,7 +158,8 @@ static inline void lru_set_refs_flags(unsigned long *flags, unsigned int refs)
+ 		*flags |= BIT(PG_referenced);
+ 	if (refs & BIT(1))
+ 		*flags |= BIT(PG_workingset);
+-	*flags |= ((unsigned long)refs >> 2) << LRU_REFS_PGOFF;
++	if (LRU_REFS_WIDTH)
++		*flags |= ((unsigned long)refs >> 2) << LRU_REFS_PGOFF;
+ }
+ 
+ /**
+@@ -244,7 +194,77 @@ static inline void folio_set_lru_refs(struct folio *folio, unsigned int refs)
+ 	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ }
+ 
++#ifdef CONFIG_LRU_GEN
+ void folio_inc_lru_refs(struct folio *folio, unsigned int flags);
++#else
++static inline void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
++{
++	/* Should not be called with !CONFIG_LRU_GEN */
++	WARN_ON_ONCE(1);
++}
++#endif
++
++/**
++ * folio_migrate_lru_refs - copy the reference state to a new folio
++ * @new: the destination folio
++ * @old: the source folio
++ *
++ * Transfer the reference state to @new during migration: the MGLRU
++ * refs count, or PG_referenced and PG_workingset (bits 0-1 of the
++ * encoding) for the active/inactive LRU.
++ */
++static inline void folio_migrate_lru_refs(struct folio *new, const struct folio *old)
++{
++	folio_set_lru_refs(new, folio_lru_refs(old));
++}
++
++#ifdef CONFIG_LRU_GEN
++
++static inline bool lru_gen_switching(void)
++{
++	DECLARE_STATIC_KEY_FALSE(lru_switch);
++
++	return static_branch_unlikely(&lru_switch);
++}
++#ifdef CONFIG_LRU_GEN_ENABLED
++static inline bool lru_gen_enabled(void)
++{
++	DECLARE_STATIC_KEY_TRUE(lru_gen_caps[NR_LRU_GEN_CAPS]);
++
++	return static_branch_likely(&lru_gen_caps[LRU_GEN_CORE]);
++}
++#else
++static inline bool lru_gen_enabled(void)
++{
++	DECLARE_STATIC_KEY_FALSE(lru_gen_caps[NR_LRU_GEN_CAPS]);
++
++	return static_branch_unlikely(&lru_gen_caps[LRU_GEN_CORE]);
++}
++#endif
++
++static inline bool lru_gen_in_fault(void)
++{
++	return current->in_lru_fault;
++}
++
++static inline int lru_gen_from_seq(unsigned long seq)
++{
++	return seq % MAX_NR_GENS;
++}
++
++static inline int lru_hist_from_seq(unsigned long seq)
++{
++	return seq % NR_HIST_GENS;
++}
++
++static inline int lru_tier_from_refs(unsigned int refs)
++{
++	BUILD_BUG_ON(fls(LRU_REFS_MAX - 1) > MAX_NR_TIERS - 1);
++	VM_WARN_ON_ONCE(refs > LRU_REFS_MAX);
++	if (refs < LRU_REFS_WORKINGSET)
++		return 0;
++	return fls(refs - 1);
++}
+ static inline int folio_lru_gen(const struct folio *folio)
+ {
+ 	unsigned long flags = READ_ONCE(folio->flags.f);
+@@ -394,10 +414,6 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 	return true;
+ }
+ 
+-static inline void folio_migrate_refs(struct folio *new, const struct folio *old)
+-{
+-	folio_set_lru_refs(new, folio_lru_refs(old));
+-}
+ #else /* !CONFIG_LRU_GEN */
+ 
+ static inline bool lru_gen_enabled(void)
+@@ -425,14 +441,6 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 	return false;
+ }
+ 
+-static inline void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+-{
+-}
+-
+-static inline void folio_migrate_refs(struct folio *new, const struct folio *old)
+-{
+-
+-}
+ #endif /* CONFIG_LRU_GEN */
+ 
+ static __always_inline
+diff --git a/mm/migrate.c b/mm/migrate.c
+index 15b45832b..3c5b041a6 100644
+--- a/mm/migrate.c
++++ b/mm/migrate.c
+@@ -785,8 +785,6 @@ void folio_migrate_flags(struct folio *newfolio, struct folio *folio)
+ 		folio_set_active(newfolio);
+ 	} else if (folio_test_clear_unevictable(folio))
+ 		folio_set_unevictable(newfolio);
+-	if (folio_test_workingset(folio))
+-		folio_set_workingset(newfolio);
+ 	if (folio_test_checked(folio))
+ 		folio_set_checked(newfolio);
+ 	/*
+@@ -807,7 +805,7 @@ void folio_migrate_flags(struct folio *newfolio, struct folio *folio)
+ 	if (folio_test_idle(folio))
+ 		folio_set_idle(newfolio);
+ 
+-	folio_migrate_refs(newfolio, folio);
++	folio_migrate_lru_refs(newfolio, folio);
+ 	/*
+ 	 * Copy NUMA information to the new page, to prevent over-eager
+ 	 * future migrations of this same page.
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 174b7c1b7..00c80deac 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -300,21 +300,9 @@ static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *foli
+ 	if (new_gen >= 0)
+ 		atomic_long_add(delta, &lrugen->nr_pages[new_gen][type][zone]);
+ 
+-	/* addition */
+-	if (old_gen < 0) {
+-		if (lru_gen_is_active(lruvec, new_gen))
+-			lru += LRU_ACTIVE;
+-		__update_lru_size(lruvec, lru, zone, delta);
++	/* return now if not a promotion */
++	if (old_gen < 0 || new_gen < 0)
+ 		return;
+-	}
+-
+-	/* deletion */
+-	if (new_gen < 0) {
+-		if (lru_gen_is_active(lruvec, old_gen))
+-			lru += LRU_ACTIVE;
+-		__update_lru_size(lruvec, lru, zone, -delta);
+-		return;
+-	}
+ 
+ 	/* promotion */
+ 	if (!lru_gen_is_active(lruvec, old_gen) && lru_gen_is_active(lruvec, new_gen)) {
+@@ -368,6 +356,8 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ 	int gen = folio_lru_gen(folio);
+ 	int type = folio_is_file_lru(folio);
+ 	int zone = folio_zonenum(folio);
++	int delta = folio_nr_pages(folio);
++	enum lru_list lru = type * LRU_INACTIVE_FILE;
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 
+ 	BUILD_BUG_ON(BIT(LRU_GEN_WIDTH - 1) != MAX_NR_GENS);
+@@ -383,6 +373,10 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ 	set_mask_bits(&folio->flags.f, LRU_GEN_MASK | BIT(PG_active), flags);
+ 
+ 	lru_gen_update_size(lruvec, folio, -1, gen);
++	if (lru_gen_is_active(lruvec, gen))
++		lru += LRU_ACTIVE;
++	__update_lru_size(lruvec, lru, zone, delta);
++
+ 	/* for folio_rotate_reclaimable() */
+ 	if (reclaiming)
+ 		list_add_tail(&folio->lru, &lrugen->folios[gen][type][zone]);
+@@ -396,6 +390,9 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ {
+ 	unsigned long flags;
+ 	int gen = folio_lru_gen(folio);
++	int zone = folio_zonenum(folio);
++	int delta = folio_nr_pages(folio);
++	enum lru_list lru = folio_is_file_lru(folio) * LRU_INACTIVE_FILE;
+ 
+ 	if (gen < 0)
+ 		return false;
+@@ -409,6 +406,9 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 	gen = ((flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
+ 
+ 	lru_gen_update_size(lruvec, folio, gen, -1);
++	if (lru_gen_is_active(lruvec, gen))
++		lru += LRU_ACTIVE;
++	__update_lru_size(lruvec, lru, zone, -delta);
+ 	list_del(&folio->lru);
+ 
+ 	return true;
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 00c80deac..b020371d2 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -443,6 +443,31 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 
+ #endif /* CONFIG_LRU_GEN */
+ 
++/**
++ * folio_inc_lru_refs_fast - Bump folio refs count without promotion.
++ * @folio: the folio
++ *
++ * Raise refs from 0 to LRU_REFS_REFERENCED and leave hotter folios
++ * untouched. For the classical LRU, a plain PG_referenced set.
++ */
++static __always_inline void folio_inc_lru_refs_fast(struct folio *folio)
++{
++	unsigned long new_flags, old_flags;
++
++	if (!lru_gen_enabled()) {
++		folio_set_referenced(folio);
++		return;
++	}
++
++	old_flags = READ_ONCE(*folio_flags(folio, 0));
++	do {
++		if (lru_get_refs_flags(old_flags))
++			break;
++		new_flags = old_flags;
++		lru_set_refs_flags(&new_flags, LRU_REFS_REFERENCED);
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
++}
++
+ static __always_inline
+ void lruvec_add_folio(struct lruvec *lruvec, struct folio *folio)
+ {
+diff --git a/mm/gup.c b/mm/gup.c
+index eb898ea1e..b9df26a42 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -2891,7 +2891,7 @@ static int gup_fast_pte_range(pmd_t pmd, pmd_t *pmdp, unsigned long addr,
+ 			gup_put_folio(folio, 1, flags);
+ 			goto pte_unmap;
+ 		}
+-		folio_set_referenced(folio);
++		folio_inc_lru_refs_fast(folio);
+ 		pages[*nr] = page;
+ 		(*nr)++;
+ 	} while (ptep++, addr += PAGE_SIZE, addr != end);
+@@ -2960,7 +2960,7 @@ static int gup_fast_pmd_leaf(pmd_t orig, pmd_t *pmdp, unsigned long addr,
+ 	*nr += refs;
+ 	for (; refs; refs--)
+ 		*(pages++) = page++;
+-	folio_set_referenced(folio);
++	folio_inc_lru_refs_fast(folio);
+ 	return 1;
+ }
+ 
+@@ -3004,7 +3004,7 @@ static int gup_fast_pud_leaf(pud_t orig, pud_t *pudp, unsigned long addr,
+ 	*nr += refs;
+ 	for (; refs; refs--)
+ 		*(pages++) = page++;
+-	folio_set_referenced(folio);
++	folio_inc_lru_refs_fast(folio);
+ 	return 1;
+ }
+ 
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index 5c54aebe2..3d6ce7bce 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -944,6 +944,22 @@ static void smaps_page_accumulate(struct mem_size_stats *mss,
+ 	}
+ }
+ 
++static bool smap_check_folio_referenced(struct folio *folio)
++{
++	if (lru_gen_enabled())
++		return folio_lru_refs(folio);
++	else
++		return folio_test_referenced(folio);
++}
++
++static void smap_clear_folio_referenced(struct folio *folio)
++{
++	if (lru_gen_enabled())
++		folio_set_lru_refs(folio, 0);
++	else
++		folio_clear_referenced(folio);
++}
++
+ static void smaps_account(struct mem_size_stats *mss, struct page *page,
+ 		bool compound, bool young, bool dirty, bool locked,
+ 		bool present)
+@@ -970,7 +986,7 @@ static void smaps_account(struct mem_size_stats *mss, struct page *page,
+ 
+ 	mss->resident += size;
+ 	/* Accumulate the size in pages that have been accessed. */
+-	if (young || folio_test_young(folio) || folio_test_referenced(folio))
++	if (young || folio_test_young(folio) || smap_check_folio_referenced(folio))
+ 		mss->referenced += size;
+ 
+ 	/*
+@@ -1791,7 +1807,7 @@ static int clear_refs_pte_range(pmd_t *pmd, unsigned long addr,
+ 		/* Clear accessed and referenced bits. */
+ 		pmdp_test_and_clear_young(vma, addr, pmd);
+ 		folio_test_clear_young(folio);
+-		folio_clear_referenced(folio);
++		smap_clear_folio_referenced(folio);
+ out:
+ 		spin_unlock(ptl);
+ 		return 0;
+@@ -1820,7 +1836,7 @@ static int clear_refs_pte_range(pmd_t *pmd, unsigned long addr,
+ 		/* Clear accessed and referenced bits. */
+ 		ptep_test_and_clear_young(vma, addr, pte);
+ 		folio_test_clear_young(folio);
+-		folio_clear_referenced(folio);
++		smap_clear_folio_referenced(folio);
+ 	}
+ 	pte_unmap_unlock(pte - 1, ptl);
+ 	cond_resched();
+diff --git a/mm/madvise.c b/mm/madvise.c
+index eeee82cf2..2347d85be 100644
+--- a/mm/madvise.c
++++ b/mm/madvise.c
+@@ -359,6 +359,44 @@ static inline int madvise_folio_pte_batch(unsigned long addr, unsigned long end,
+ 				     FPB_MERGE_YOUNG_DIRTY);
+ }
+ 
++static void madvise_cold_prep_folio(struct folio *folio)
++{
++	/*
++	 * VM couldn't reclaim the folio unless we clear PG_young.
++	 * As a side effect, it makes confuse idle-page tracking
++	 * because they will miss recent referenced history.
++	 */
++	folio_test_clear_young(folio);
++
++	/*
++	 * For the active/inactive LRU, a folio demoted out of the active
++	 * list should have PG_workingset so its refault is still accounted
++	 * as a workingset refault, and the referenced bit always needs to
++	 * be cleared even for inactive folios. Nothing to do for MGLRU as
++	 * folio_deactivate() always calls lru_gen_clear_refs().
++	 */
++	if (!lru_gen_enabled()) {
++		folio_clear_referenced(folio);
++		if (folio_test_active(folio))
++			folio_set_workingset(folio);
++	}
++}
++
++static void madvise_pageout_prep_folio(struct folio *folio)
++{
++	int refs = folio_lru_refs(folio);
++
++	/*
++	 * For MGLRU, drop the count below LRU_REFS_WORKINGSET and cap
++	 * the rest at it: MADV is
++	 * suggesting the folio is actually cold, so the eviction shadow
++	 * should not record its hotness in the high tier counters, but
++	 * the workingset classification is preserved for PSI.
++	 */
++	if (lru_gen_enabled())
++		folio_set_lru_refs(folio, refs >= LRU_REFS_WORKINGSET ? LRU_REFS_WORKINGSET : 0);
++}
++
+ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+ 				unsigned long addr, unsigned long end,
+ 				struct mm_walk *walk)
+@@ -433,12 +471,10 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+ 			tlb_remove_pmd_tlb_entry(tlb, pmd, addr);
+ 		}
+ 
+-		folio_clear_referenced(folio);
+-		folio_test_clear_young(folio);
+-		if (folio_test_active(folio))
+-			folio_set_workingset(folio);
++		madvise_cold_prep_folio(folio);
+ 		if (pageout) {
+ 			if (folio_isolate_lru(folio)) {
++				madvise_pageout_prep_folio(folio);
+ 				if (folio_test_unevictable(folio))
+ 					folio_putback_lru(folio);
+ 				else
+@@ -542,18 +578,10 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+ 			tlb_remove_tlb_entries(tlb, pte, nr, addr);
+ 		}
+ 
+-		/*
+-		 * We are deactivating a folio for accelerating reclaiming.
+-		 * VM couldn't reclaim the folio unless we clear PG_young.
+-		 * As a side effect, it makes confuse idle-page tracking
+-		 * because they will miss recent referenced history.
+-		 */
+-		folio_clear_referenced(folio);
+-		folio_test_clear_young(folio);
+-		if (folio_test_active(folio))
+-			folio_set_workingset(folio);
++		madvise_cold_prep_folio(folio);
+ 		if (pageout) {
+ 			if (folio_isolate_lru(folio)) {
++				madvise_pageout_prep_folio(folio);
+ 				if (folio_test_unevictable(folio))
+ 					folio_putback_lru(folio);
+ 				else
+diff --git a/mm/damon/paddr.c b/mm/damon/paddr.c
+index 5c6c3a597..c03b70575 100644
+--- a/mm/damon/paddr.c
++++ b/mm/damon/paddr.c
+@@ -255,7 +255,14 @@ static unsigned long damon_pa_pageout(struct damon_region *r,
+ 		else
+ 			*sz_filter_passed += folio_size(folio) / addr_unit;
+ 
+-		folio_clear_referenced(folio);
++		/*
++		 * DAMON only gets here for regions it measured as cold,
++		 * so the hotness can be, and better be dropped.
++		 */
++		if (lru_gen_enabled())
++			folio_set_lru_refs(folio, 0);
++		else
++			folio_clear_referenced(folio);
+ 		folio_test_clear_young(folio);
+ 		if (!folio_isolate_lru(folio))
+ 			goto put_folio;
+diff --git a/mm/huge_memory.c b/mm/huge_memory.c
+index 1e5d68acf..92b2cfe69 100644
+--- a/mm/huge_memory.c
++++ b/mm/huge_memory.c
+@@ -3101,8 +3101,8 @@ static void __split_huge_pud_locked(struct vm_area_struct *vma, pud_t *pud,
+ 
+ 	if (!folio_test_dirty(folio) && pud_dirty(old_pud))
+ 		folio_mark_dirty(folio);
+-	if (!folio_test_referenced(folio) && pud_young(old_pud))
+-		folio_set_referenced(folio);
++	if (pud_young(old_pud) && vma_has_recency(vma))
++		folio_mark_accessed(folio);
+ 	folio_remove_rmap_pud(folio, page, vma);
+ 	add_mm_counter(vma->vm_mm, mm_counter_file(folio),
+ 		-HPAGE_PUD_NR);
+@@ -3224,8 +3224,8 @@ static void __split_huge_pmd_locked(struct vm_area_struct *vma, pmd_t *pmd,
+ 			folio = page_folio(page);
+ 			if (!folio_test_dirty(folio) && pmd_dirty(old_pmd))
+ 				folio_mark_dirty(folio);
+-			if (!folio_test_referenced(folio) && pmd_young(old_pmd))
+-				folio_set_referenced(folio);
++			if (pmd_young(old_pmd) && vma_has_recency(vma))
++				folio_mark_accessed(folio);
+ 			folio_remove_rmap_pmd(folio, page, vma);
+ 			add_mm_counter(mm, mm_counter_file(folio), -HPAGE_PMD_NR);
+ 			folio_put(folio);
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index 3d6ce7bce..ec0520a0a 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -955,7 +955,7 @@ static bool smap_check_folio_referenced(struct folio *folio)
+ static void smap_clear_folio_referenced(struct folio *folio)
+ {
+ 	if (lru_gen_enabled())
+-		folio_set_lru_refs(folio, 0);
++		folio_reset_lru_refs(folio);
+ 	else
+ 		folio_clear_referenced(folio);
+ }
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index b020371d2..25f960d48 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -184,24 +184,39 @@ static inline int folio_lru_refs(const struct folio *folio)
+ 	return lru_get_refs_flags(READ_ONCE(*const_folio_flags(folio, 0)));
+ }
+ 
+-static inline void folio_set_lru_refs(struct folio *folio, unsigned int refs)
++/**
++ * __folio_set_lru_refs - Set a folio's LRU refs.
++ * @folio: the folio
++ * @refs: the new referenced count (0 .. LRU_REFS_MAX)
++ *
++ * Set the folio's LRU refs.  The folio must be off the LRU list (e.g.,
++ * isolated), or use folio_inc_lru_refs or folio_reset_lru_refs instead.
++ */
++static inline void __folio_set_lru_refs(struct folio *folio, unsigned int refs)
+ {
+ 	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
+ 
+ 	do {
+ 		new_flags = old_flags;
++		VM_WARN_ON_ONCE(lru_get_gen_flags(old_flags) != -1);
+ 		lru_set_refs_flags(&new_flags, refs);
+ 	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ }
+ 
+ #ifdef CONFIG_LRU_GEN
+ void folio_inc_lru_refs(struct folio *folio, unsigned int flags);
++bool folio_reset_lru_refs(struct folio *folio);
+ #else
+ static inline void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ {
+ 	/* Should not be called with !CONFIG_LRU_GEN */
+ 	WARN_ON_ONCE(1);
+ }
++
++static inline bool folio_reset_lru_refs(struct folio *folio)
++{
++	return false;
++}
+ #endif
+ 
+ /**
+@@ -215,7 +230,9 @@ static inline void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+  */
+ static inline void folio_migrate_lru_refs(struct folio *new, const struct folio *old)
+ {
+-	folio_set_lru_refs(new, folio_lru_refs(old));
++	VM_WARN_ON_ONCE_FOLIO(folio_test_lru(old), old);
++	VM_WARN_ON_ONCE_FOLIO(folio_test_lru(new), new);
++	__folio_set_lru_refs(new, folio_lru_refs(old));
+ }
+ 
+ #ifdef CONFIG_LRU_GEN
+@@ -265,6 +282,12 @@ static inline int lru_tier_from_refs(unsigned int refs)
+ 		return 0;
+ 	return fls(refs - 1);
+ }
++
++static inline bool lru_refs_is_active(unsigned int refs)
++{
++	VM_WARN_ON_ONCE(refs > LRU_REFS_MAX);
++	return refs >= LRU_REFS_ACTIVATED;
++}
+ static inline int folio_lru_gen(const struct folio *folio)
+ {
+ 	unsigned long flags = READ_ONCE(folio->flags.f);
+@@ -272,23 +295,12 @@ static inline int folio_lru_gen(const struct folio *folio)
+ 	return ((flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
+ }
+ 
+-static inline bool lru_gen_is_active(const struct lruvec *lruvec, int gen)
+-{
+-	unsigned long max_seq = READ_ONCE(lruvec->lrugen.max_seq);
+-
+-	VM_WARN_ON_ONCE(gen >= MAX_NR_GENS);
+-
+-	/* see the comment on MIN_NR_GENS */
+-	return gen == lru_gen_from_seq(max_seq) || gen == lru_gen_from_seq(max_seq - 1);
+-}
+-
+ static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *folio,
+ 				       int old_gen, int new_gen)
+ {
+ 	int type = folio_is_file_lru(folio);
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+-	enum lru_list lru = type * LRU_INACTIVE_FILE;
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 
+ 	VM_WARN_ON_ONCE(old_gen != -1 && old_gen >= MAX_NR_GENS);
+@@ -299,19 +311,6 @@ static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *foli
+ 		atomic_long_sub(delta, &lrugen->nr_pages[old_gen][type][zone]);
+ 	if (new_gen >= 0)
+ 		atomic_long_add(delta, &lrugen->nr_pages[new_gen][type][zone]);
+-
+-	/* return now if not a promotion */
+-	if (old_gen < 0 || new_gen < 0)
+-		return;
+-
+-	/* promotion */
+-	if (!lru_gen_is_active(lruvec, old_gen) && lru_gen_is_active(lruvec, new_gen)) {
+-		__update_lru_size(lruvec, lru, zone, -delta);
+-		__update_lru_size(lruvec, lru + LRU_ACTIVE, zone, delta);
+-	}
+-
+-	/* demotion requires isolation, e.g., lru_deactivate_fn() */
+-	VM_WARN_ON_ONCE(lru_gen_is_active(lruvec, old_gen) && !lru_gen_is_active(lruvec, new_gen));
+ }
+ 
+ static inline unsigned long lru_gen_folio_seq(const struct lruvec *lruvec,
+@@ -353,7 +352,7 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ {
+ 	unsigned long seq;
+ 	unsigned long flags;
+-	int gen = folio_lru_gen(folio);
++	int gen, refs;
+ 	int type = folio_is_file_lru(folio);
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+@@ -361,7 +360,7 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 
+ 	BUILD_BUG_ON(BIT(LRU_GEN_WIDTH - 1) != MAX_NR_GENS);
+-	VM_WARN_ON_ONCE_FOLIO(gen != -1, folio);
++	VM_WARN_ON_ONCE_FOLIO(folio_lru_gen(folio) != -1, folio);
+ 
+ 	if (folio_test_unevictable(folio) || !lrugen->enabled)
+ 		return false;
+@@ -370,10 +369,12 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ 	gen = lru_gen_from_seq(seq);
+ 	flags = (gen + 1UL) << LRU_GEN_PGOFF;
+ 	/* see the comment on MIN_NR_GENS about PG_active */
+-	set_mask_bits(&folio->flags.f, LRU_GEN_MASK | BIT(PG_active), flags);
++	flags = set_mask_bits(folio_flags(folio, 0), LRU_GEN_MASK | BIT(PG_active), flags);
++	/* use the refs from the atomic snapshot to avoid raced update */
++	refs = lru_get_refs_flags(flags);
+ 
+ 	lru_gen_update_size(lruvec, folio, -1, gen);
+-	if (lru_gen_is_active(lruvec, gen))
++	if (lru_refs_is_active(refs))
+ 		lru += LRU_ACTIVE;
+ 	__update_lru_size(lruvec, lru, zone, delta);
+ 
+@@ -389,24 +390,31 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio, bool reclaiming)
+ {
+ 	unsigned long flags;
+-	int gen = folio_lru_gen(folio);
++	int gen, refs;
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+ 	enum lru_list lru = folio_is_file_lru(folio) * LRU_INACTIVE_FILE;
++	unsigned long max_seq = READ_ONCE(lruvec->lrugen.max_seq);
+ 
++	flags = set_mask_bits(folio_flags(folio, 0), LRU_GEN_MASK, 0);
++	gen = lru_get_gen_flags(flags);
++	refs = lru_get_refs_flags(flags);
+ 	if (gen < 0)
+ 		return false;
+ 
+ 	VM_WARN_ON_ONCE_FOLIO(folio_test_active(folio), folio);
+ 	VM_WARN_ON_ONCE_FOLIO(folio_test_unevictable(folio), folio);
+ 
+-	/* for folio_migrate_flags() */
+-	flags = !reclaiming && lru_gen_is_active(lruvec, gen) ? BIT(PG_active) : 0;
+-	flags = set_mask_bits(&folio->flags.f, LRU_GEN_MASK, flags);
+-	gen = ((flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
++	/*
++	 * See the comment in lru_gen_folio_seq.  For migration, compaction,
++	 * or any other isolation of a hot folio, try best to retain its gen
++	 * info. Ideally we would keep the full gen info.
++	 */
++	if (!reclaiming && ((max_seq - gen) % MAX_NR_GENS) < MIN_NR_GENS)
++		folio_set_active(folio);
+ 
+ 	lru_gen_update_size(lruvec, folio, gen, -1);
+-	if (lru_gen_is_active(lruvec, gen))
++	if (lru_refs_is_active(refs))
+ 		lru += LRU_ACTIVE;
+ 	__update_lru_size(lruvec, lru, zone, -delta);
+ 	list_del(&folio->lru);
+@@ -459,6 +467,7 @@ static __always_inline void folio_inc_lru_refs_fast(struct folio *folio)
+ 		return;
+ 	}
+ 
++	BUILD_BUG_ON(LRU_REFS_REFERENCED >= LRU_REFS_ACTIVATED);
+ 	old_flags = READ_ONCE(*folio_flags(folio, 0));
+ 	do {
+ 		if (lru_get_refs_flags(old_flags))
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 2dd5aab82..0dc789e61 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -453,15 +453,15 @@ enum lruvec_flags {
+  * least twice before handing this folio over to the eviction. The first check
+  * clears the accessed bit from the initial fault; the second check makes sure
+  * this folio hasn't been used since then. This process, AKA second chance,
+- * requires a minimum of two generations, hence MIN_NR_GENS. And to maintain ABI
+- * compatibility with the active/inactive LRU, e.g., /proc/vmstat, these two
+- * generations are considered active; the rest of generations, if they exist,
+- * are considered inactive. See lru_gen_is_active().
++ * requires a minimum of two generations, hence MIN_NR_GENS.
++ *
++ * Active/inactive is per-folio based on the referenced count;
++ * see the comment above MAX_NR_TIERS.
+  *
+  * PG_active is always cleared while a folio is on one of lrugen->folios[] so
+- * that the sliding window needs not to worry about it. And it's set again when
+- * a folio considered active is isolated for non-reclaiming purposes, e.g.,
+- * migration. See lru_gen_add_folio() and lru_gen_del_folio().
++ * that the sliding window needs not to worry about it.  It is set on a
++ * fault-driven refault (see lru_gen_refault), or isolation (see
++ * lru_gen_del_folio).
+  *
+  * MAX_NR_GENS is set to 4 so that the multi-gen LRU can support twice the
+  * number of categories of the active/inactive LRU when keeping track of
+@@ -561,11 +561,15 @@ enum lruvec_flags {
+  *
+  * A folio's referenced count never goes backwards except upon gen
+  * increase as described above, or when explicitly reset by
+- * lru_gen_clear_refs().  Refault of a reclaimed folio restores
++ * folio_reset_lru_refs().  Refault of a reclaimed folio restores
+  * its referenced count, capped at LRU_REFS_PROTECTED, which aligns with
+  * promotion.  Page table refaults of previous workingset folios send
+  * them to the latest gen, driving aging faster.
+  *
++ * For the active/inactive LRU ABI (/proc/vmstat), a folio is active
++ * if its referenced count reaches LRU_REFS_ACTIVATED.  The threshold
++ * currently set to LRU_REFS_PROTECTED, which is tier 2.
++ *
+  * MAX_NR_TIERS is set to 4 so that the multi-gen LRU can support twice
+  * the number of categories of the active/inactive LRU.
+  */
+@@ -578,6 +582,7 @@ enum lruvec_flags {
+ #define LRU_REFS_REFERENCED	0x1
+ #define LRU_REFS_WORKINGSET	0x2
+ #define LRU_REFS_PROTECTED	0x3
++#define LRU_REFS_ACTIVATED	LRU_REFS_PROTECTED
+ 
+ #ifndef __GENERATING_BOUNDS_H
+ 
+@@ -686,6 +691,8 @@ struct lru_gen_mm_walk {
+ 	unsigned long seq;
+ 	/* the next address within an mm to scan */
+ 	unsigned long next_addr;
++	/* to batch activated pages */
++	int nr_activated[ANON_AND_FILE][MAX_NR_ZONES];
+ 	/* to batch promoted pages */
+ 	int nr_pages[MAX_NR_GENS][ANON_AND_FILE][MAX_NR_ZONES];
+ 	/* to batch the mm stats */
+diff --git a/mm/damon/paddr.c b/mm/damon/paddr.c
+index c03b70575..2b0414b87 100644
+--- a/mm/damon/paddr.c
++++ b/mm/damon/paddr.c
+@@ -260,7 +260,7 @@ static unsigned long damon_pa_pageout(struct damon_region *r,
+ 		 * so the hotness can be, and better be dropped.
+ 		 */
+ 		if (lru_gen_enabled())
+-			folio_set_lru_refs(folio, 0);
++			folio_reset_lru_refs(folio);
+ 		else
+ 			folio_clear_referenced(folio);
+ 		folio_test_clear_young(folio);
+diff --git a/mm/folio.c b/mm/folio.c
+index 4d7fa88a8..27252754e 100644
+--- a/mm/folio.c
++++ b/mm/folio.c
+@@ -349,35 +349,6 @@ static void __lru_cache_activate_folio(struct folio *folio)
+ 	local_unlock(&cpu_fbatches.lock);
+ }
+ 
+-#ifdef CONFIG_LRU_GEN
+-
+-
+-static bool lru_gen_clear_refs(struct folio *folio)
+-{
+-	int gen = folio_lru_gen(folio);
+-	int type = folio_is_file_lru(folio);
+-	unsigned long seq;
+-
+-	if (gen < 0)
+-		return true;
+-
+-	folio_set_lru_refs(folio, 0);
+-
+-	rcu_read_lock();
+-	seq = READ_ONCE(folio_lruvec(folio)->lrugen.min_seq[type]);
+-	rcu_read_unlock();
+-	/* whether can do without shuffling under the LRU lock */
+-	return gen == lru_gen_from_seq(seq);
+-}
+-
+-#else /* !CONFIG_LRU_GEN */
+-
+-static bool lru_gen_clear_refs(struct folio *folio)
+-{
+-	return false;
+-}
+-
+-#endif /* CONFIG_LRU_GEN */
+ 
+ /**
+  * folio_mark_accessed - Mark a folio as having seen activity.
+@@ -555,7 +526,7 @@ static void lru_lazyfree(struct lruvec *lruvec, struct folio *folio)
+ 	lruvec_del_folio(lruvec, folio);
+ 	folio_clear_active(folio);
+ 	if (lru_gen_enabled())
+-		lru_gen_clear_refs(folio);
++		__folio_set_lru_refs(folio, 0);
+ 	else
+ 		folio_clear_referenced(folio);
+ 	/*
+@@ -628,7 +599,7 @@ void deactivate_file_folio(struct folio *folio)
+ 	if (folio_test_unevictable(folio) || !folio_test_lru(folio))
+ 		return;
+ 
+-	if (lru_gen_enabled() && lru_gen_clear_refs(folio))
++	if (lru_gen_enabled() && !folio_reset_lru_refs(folio))
+ 		return;
+ 
+ 	folio_batch_add_and_move(folio, lru_deactivate_file);
+@@ -647,7 +618,7 @@ void folio_deactivate(struct folio *folio)
+ 	if (folio_test_unevictable(folio) || !folio_test_lru(folio))
+ 		return;
+ 
+-	if (lru_gen_enabled() ? lru_gen_clear_refs(folio) : !folio_test_active(folio))
++	if (lru_gen_enabled() ? !folio_reset_lru_refs(folio) : !folio_test_active(folio))
+ 		return;
+ 
+ 	folio_batch_add_and_move(folio, lru_deactivate);
+diff --git a/mm/madvise.c b/mm/madvise.c
+index 2347d85be..2a02f153b 100644
+--- a/mm/madvise.c
++++ b/mm/madvise.c
+@@ -373,7 +373,8 @@ static void madvise_cold_prep_folio(struct folio *folio)
+ 	 * list should have PG_workingset so its refault is still accounted
+ 	 * as a workingset refault, and the referenced bit always needs to
+ 	 * be cleared even for inactive folios. Nothing to do for MGLRU as
+-	 * folio_deactivate() always calls lru_gen_clear_refs().
++	 * folio_deactivate() clears the refs count through
++	 * folio_reset_lru_refs().
+ 	 */
+ 	if (!lru_gen_enabled()) {
+ 		folio_clear_referenced(folio);
+@@ -394,7 +395,7 @@ static void madvise_pageout_prep_folio(struct folio *folio)
+ 	 * the workingset classification is preserved for PSI.
+ 	 */
+ 	if (lru_gen_enabled())
+-		folio_set_lru_refs(folio, refs >= LRU_REFS_WORKINGSET ? LRU_REFS_WORKINGSET : 0);
++		__folio_set_lru_refs(folio, refs >= LRU_REFS_WORKINGSET ? LRU_REFS_WORKINGSET : 0);
+ }
+ 
+ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 055a73256..495fb9788 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -877,17 +877,19 @@ enum folio_references {
+ void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ {
+ 	int max_gen, min_gen;
+-	int type, refs, old_gen, gen;
++	int file, old_refs, refs, old_gen, gen;
+ 	unsigned long new_flags, old_flags, max_seq;
++	long nr_pages = folio_nr_pages(folio);
+ 	struct lru_gen_folio *lrugen;
+ 	struct lruvec *lruvec = NULL;
+ 
+-	type = folio_is_file_lru(folio);
+ 	old_flags = READ_ONCE(*folio_flags(folio, 0));
+ 	do {
+ 		new_flags = old_flags;
+ 		old_gen = lru_get_gen_flags(old_flags);
+-		refs = lru_get_refs_flags(old_flags) + 1;
++		old_refs = lru_get_refs_flags(old_flags);
++		file = folio_flags_is_file_lru(&old_flags);
++		refs = old_refs + 1;
+ 		gen = old_gen;
+ 		if (old_gen < 0)
+ 			goto out;
+@@ -905,7 +907,7 @@ void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ 		}
+ 		max_seq = READ_ONCE(lrugen->max_seq);
+ 		max_gen = lru_gen_from_seq(max_seq);
+-		min_gen = lru_gen_from_seq(READ_ONCE(lrugen->min_seq[type]));
++		min_gen = lru_gen_from_seq(READ_ONCE(lrugen->min_seq[file]));
+ 		if (old_gen == max_gen)
+ 			goto out;
+ 
+@@ -937,55 +939,108 @@ void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ 
+ 	if (gen != old_gen)
+ 		lru_gen_update_size(lruvec, folio, old_gen, gen);
++	if (lru_refs_is_active(old_refs) != lru_refs_is_active(refs) && old_gen >= 0) {
++		enum lru_list lru = file * LRU_INACTIVE_FILE;
++
++		__update_lru_size(lruvec, lru + lru_refs_is_active(old_refs),
++				  folio_zonenum(folio), -nr_pages);
++		__update_lru_size(lruvec, lru + lru_refs_is_active(refs),
++				  folio_zonenum(folio), nr_pages);
++	}
+ 	if (lruvec)
+ 		lruvec_unlock_irq(lruvec);
+ }
+ 
++/*
++ * Reset the folio's lru refs indicator. The caller doesn't need to hold
++ * the folio lock, isolate the folio, or hold the lruvec lock.
++ */
++bool folio_reset_lru_refs(struct folio *folio)
++{
++	int type, gen, refs;
++	unsigned long seq, new_flags, old_flags;
++	long nr_pages = folio_nr_pages(folio);
++	struct lruvec *lruvec;
++	bool reset = false;
++
++	old_flags = READ_ONCE(*folio_flags(folio, 0));
++	do {
++		new_flags = old_flags;
++		refs = lru_get_refs_flags(old_flags);
++		type = folio_flags_is_file_lru(&old_flags);
++		gen = lru_get_gen_flags(old_flags);
++		if (!refs)
++			break;
++		lru_set_refs_flags(&new_flags, 0);
++	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
++
++	if (gen >= 0) {
++		lruvec = folio_lruvec_live_get(folio);
++
++		/* If the folio is on list, caller might also want to demote it */
++		seq = READ_ONCE(lruvec->lrugen.min_seq[type]);
++		reset = (gen != lru_gen_from_seq(seq));
++		if (lru_refs_is_active(refs)) {
++			__update_lru_size(lruvec, type * LRU_FILE + LRU_ACTIVE,
++					  folio_zonenum(folio), -nr_pages);
++			__update_lru_size(lruvec, type * LRU_FILE,
++					  folio_zonenum(folio), nr_pages);
++		}
++
++		folio_lruvec_live_put(lruvec);
++	}
++
++	return reset;
++}
++
+ /*
+  * Update the folio's lru refs indicator during a page table walk or the
+  * look-around. max_seq can be stale as neither holds the LRU lock.
+  *
+- * Returns the old generation and stores the new generation in @new_gen if
+- * the folio is on the LRU and not in the newest generation, or -1 otherwise.
++ * Returns the old generation, or -1 if the folio is off the LRU list.
++ * Old LRU refs, and updated gen and LRU refs info by the successful
++ * cmpxchg are all stored by returning arguments.
+  */
+ static int folio_inc_lru_refs_walk(struct folio *folio, struct lruvec *lruvec,
+-				   const vma_flags_t *vma_flags,
+-				   int *new_gen, int *type)
++				   const vma_flags_t *vma_flags, int *new_gen,
++				   int *old_refs, int *new_refs, int *type)
+ {
+ 	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
+ 	unsigned long max_seq = READ_ONCE(lruvec->lrugen.max_seq);
+-	int refs, gen, min_gen, max_gen, ret;
++	int refs, old_gen, min_gen, max_gen;
+ 
+ 	max_gen = lru_gen_from_seq(max_seq);
+-
+ 	do {
+-		gen = lru_get_gen_flags(old_flags);
++		old_gen = lru_get_gen_flags(old_flags);
+ 		refs = lru_get_refs_flags(old_flags) + 1;
+ 		*type = folio_flags_is_file_lru(&old_flags);
+ 		min_gen = lru_gen_from_seq(READ_ONCE(lruvec->lrugen.min_seq[*type]));
+ 		new_flags = old_flags;
+ 
+-		if (gen >= 0 && gen != max_gen) {
+-			ret = gen;
++		if (old_gen >= 0 && old_gen != max_gen) {
++			*new_refs = min(refs, LRU_REFS_PROTECTED);
+ 			/* Promote second page table access or executable */
+ 			if (refs > LRU_REFS_REFERENCED || is_exec_file_folio(folio, vma_flags))
+ 				*new_gen = max_gen;
+ 			/* First access only defers eviction from the oldest gen */
+-			else if (gen == min_gen)
+-				*new_gen = (gen + 1) % MAX_NR_GENS;
++			else if (old_gen == min_gen)
++				*new_gen = (old_gen + 1) % MAX_NR_GENS;
+ 			else
+-				*new_gen = gen;
++				*new_gen = old_gen;
+ 			lru_set_gen_flags(&new_flags, *new_gen);
+-			lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_PROTECTED));
++			lru_set_refs_flags(&new_flags, *new_refs);
+ 		} else {
+-			ret = -1;
+-			lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_MAX));
++			*new_gen = old_gen;
++			*new_refs = min(refs, LRU_REFS_MAX);
++			lru_set_refs_flags(&new_flags, *new_refs);
+ 		}
+ 		if (new_flags == old_flags)
+ 			break;
+ 	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ 
+-	return ret;
++	*old_refs = lru_get_refs_flags(old_flags);
++
++	return old_gen;
+ }
+ 
+ /*
+@@ -3419,10 +3474,11 @@ static bool positive_ctrl_err(struct ctrl_pos *sp, struct ctrl_pos *pv)
+  *                          the aging
+  ******************************************************************************/
+ 
+-static int __folio_inc_gen(struct folio *folio, int old_gen, bool *increased)
++static int __folio_inc_gen(struct lruvec *lruvec, struct folio *folio,
++		int old_gen, bool *increased)
+ {
+ 	unsigned long new_flags, old_flags = READ_ONCE(*folio_flags(folio, 0));
+-	int refs, new_gen;
++	int file, refs, old_refs, new_gen;
+ 
+ 	do {
+ 		new_gen = lru_get_gen_flags(old_flags);
+@@ -3436,11 +3492,24 @@ static int __folio_inc_gen(struct folio *folio, int old_gen, bool *increased)
+ 
+ 		new_flags = old_flags;
+ 		new_gen = (old_gen + 1) % MAX_NR_GENS;
+-		refs = lru_get_refs_flags(old_flags);
++		old_refs = lru_get_refs_flags(old_flags);
++		file = folio_flags_is_file_lru(&old_flags);
++		refs = min(old_refs, LRU_REFS_WORKINGSET);
+ 		lru_set_gen_flags(&new_flags, new_gen);
+-		lru_set_refs_flags(&new_flags, min(refs, LRU_REFS_WORKINGSET));
++		lru_set_refs_flags(&new_flags, refs);
+ 	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ 
++	/* Refs capped below PROTECTED: demote if previously active. */
++	if (lru_refs_is_active(old_refs) != lru_refs_is_active(refs)) {
++		enum lru_list lru = file * LRU_INACTIVE_FILE;
++		int nr_pages = folio_nr_pages(folio);
++
++		__update_lru_size(lruvec, lru + lru_refs_is_active(old_refs),
++				 folio_zonenum(folio), -nr_pages);
++		__update_lru_size(lruvec, lru + lru_refs_is_active(refs),
++				 folio_zonenum(folio), nr_pages);
++	}
++
+ 	if (increased)
+ 		*increased = true;
+ 	return new_gen;
+@@ -3457,26 +3526,33 @@ static int folio_inc_gen(struct lruvec *lruvec, struct folio *folio)
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ 	int new_gen, old_gen = lru_gen_from_seq(lrugen->min_seq[type]);
+ 
+-	new_gen = __folio_inc_gen(folio, old_gen, &gen_increased);
++	new_gen = __folio_inc_gen(lruvec, folio, old_gen, &gen_increased);
+ 	if (gen_increased)
+ 		lru_gen_update_size(lruvec, folio, old_gen, new_gen);
+ 	return new_gen;
+ }
+ 
+ static void update_batch_size(struct lru_gen_mm_walk *walk, struct folio *folio,
+-			      int old_gen, int new_gen)
++			      int old_gen, int new_gen, int old_refs, int new_refs, int type)
+ {
+-	int type = folio_is_file_lru(folio);
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+ 
+-	VM_WARN_ON_ONCE(old_gen >= MAX_NR_GENS);
+-	VM_WARN_ON_ONCE(new_gen >= MAX_NR_GENS);
+-
+-	walk->batched++;
++	/* gen counter update */
++	if (old_gen != new_gen) {
++		VM_WARN_ON_ONCE(old_gen >= MAX_NR_GENS);
++		VM_WARN_ON_ONCE(new_gen >= MAX_NR_GENS);
++		walk->batched++;
++		walk->nr_pages[old_gen][type][zone] -= delta;
++		walk->nr_pages[new_gen][type][zone] += delta;
++	}
+ 
+-	walk->nr_pages[old_gen][type][zone] -= delta;
+-	walk->nr_pages[new_gen][type][zone] += delta;
++	/* active/inactive counter update */
++	if (lru_refs_is_active(old_refs) != lru_refs_is_active(new_refs)) {
++		walk->nr_activated[type][zone] +=
++			lru_refs_is_active(new_refs) ? delta : -delta;
++		walk->batched++;
++	}
+ }
+ 
+ static void reset_batch_size(struct lru_gen_mm_walk *walk)
+@@ -3488,7 +3564,6 @@ static void reset_batch_size(struct lru_gen_mm_walk *walk)
+ 	walk->batched = 0;
+ 
+ 	for_each_gen_type_zone(gen, type, zone) {
+-		enum lru_list lru = type * LRU_INACTIVE_FILE;
+ 		int delta = walk->nr_pages[gen][type][zone];
+ 
+ 		if (!delta)
+@@ -3496,10 +3571,21 @@ static void reset_batch_size(struct lru_gen_mm_walk *walk)
+ 
+ 		walk->nr_pages[gen][type][zone] = 0;
+ 		atomic_long_add(delta, &lrugen->nr_pages[gen][type][zone]);
++	}
+ 
+-		if (lru_gen_is_active(lruvec, gen))
+-			lru += LRU_ACTIVE;
+-		__update_lru_size(lruvec, lru, zone, delta);
++	/* apply batched active/inactive updates */
++	for (type = 0; type < ANON_AND_FILE; type++) {
++		for (zone = 0; zone < MAX_NR_ZONES; zone++) {
++			enum lru_list lru = type * LRU_INACTIVE_FILE;
++			int delta = walk->nr_activated[type][zone];
++
++			if (delta) {
++				__update_lru_size(lruvec, lru + LRU_ACTIVE,
++						  zone, delta);
++				__update_lru_size(lruvec, lru, zone, -delta);
++				walk->nr_activated[type][zone] = 0;
++			}
++		}
+ 	}
+ 
+ 	lruvec_unlock_irq(lruvec);
+@@ -3655,6 +3741,7 @@ static void walk_update_folio(struct lru_gen_mm_walk *walk, struct vm_area_struc
+ 		struct folio *folio, int new_gen, bool dirty)
+ {
+ 	int old_gen;
++	int old_refs, new_refs;
+ 	int type;
+ 	unsigned int flags = LRU_REF_MAPPED;
+ 
+@@ -3668,9 +3755,10 @@ static void walk_update_folio(struct lru_gen_mm_walk *walk, struct vm_area_struc
+ 
+ 	if (walk) {
+ 		old_gen = folio_inc_lru_refs_walk(folio, walk->lruvec, &vma->flags,
+-						  &new_gen, &type);
+-		if (old_gen >= 0 && old_gen != new_gen)
+-			update_batch_size(walk, folio, old_gen, new_gen);
++						  &new_gen, &old_refs, &new_refs, &type);
++		if (old_gen >= 0)
++			update_batch_size(walk, folio, old_gen, new_gen,
++					  old_refs, new_refs, type);
+ 	} else {
+ 		if (is_exec_file_folio(folio, &vma->flags))
+ 			flags |= LRU_REF_EXEC;
+@@ -4033,6 +4121,7 @@ static void clear_mm_walk(void)
+ 
+ 	VM_WARN_ON_ONCE(walk && memchr_inv(walk->nr_pages, 0, sizeof(walk->nr_pages)));
+ 	VM_WARN_ON_ONCE(walk && memchr_inv(walk->mm_stats, 0, sizeof(walk->mm_stats)));
++	VM_WARN_ON_ONCE(walk && memchr_inv(walk->nr_activated, 0, sizeof(walk->nr_activated)));
+ 
+ 	current->reclaim_state->mm_walk = NULL;
+ 
+@@ -4056,6 +4145,7 @@ static bool inc_min_seq(struct lruvec *lruvec, int type, int swappiness)
+ 	if (!type && !swappiness)
+ 		goto done;
+ 
++	VM_WARN_ON_ONCE(get_nr_gens(lruvec, type) != MAX_NR_GENS);
+ 	/* prevent cold/hot inversion if the type is evictable */
+ 	for (zone = 0; zone < MAX_NR_ZONES; zone++) {
+ 		struct list_head *head = &lrugen->folios[old_gen][type][zone];
+@@ -4143,8 +4233,7 @@ static void try_to_inc_min_seq(struct lruvec *lruvec, int swappiness)
+ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq, int swappiness)
+ {
+ 	bool success;
+-	int prev, next;
+-	int type, zone;
++	int type, next;
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+ restart:
+ 	if (seq < READ_ONCE(lrugen->max_seq))
+@@ -4170,32 +4259,10 @@ static bool inc_max_seq(struct lruvec *lruvec, unsigned long seq, int swappiness
+ 		goto restart;
+ 	}
+ 
+-	/*
+-	 * Update the active/inactive LRU sizes for compatibility. Both sides of
+-	 * the current max_seq need to be covered, since max_seq+1 can overlap
+-	 * with min_seq[LRU_GEN_ANON] if swapping is constrained. And if they do
+-	 * overlap, cold/hot inversion happens.
+-	 */
+-	prev = lru_gen_from_seq(lrugen->max_seq - 1);
+-	next = lru_gen_from_seq(lrugen->max_seq + 1);
+-
+-	for (type = 0; type < ANON_AND_FILE; type++) {
+-		for (zone = 0; zone < MAX_NR_ZONES; zone++) {
+-			enum lru_list lru = type * LRU_INACTIVE_FILE;
+-			long delta = atomic_long_read(&lrugen->nr_pages[prev][type][zone]) -
+-				     atomic_long_read(&lrugen->nr_pages[next][type][zone]);
+-
+-			if (!delta)
+-				continue;
+-
+-			__update_lru_size(lruvec, lru, zone, delta);
+-			__update_lru_size(lruvec, lru + LRU_ACTIVE, zone, -delta);
+-		}
+-	}
+-
+ 	for (type = 0; type < ANON_AND_FILE; type++)
+ 		reset_ctrl_pos(lruvec, type, false);
+ 
++	next = lru_gen_from_seq(lrugen->max_seq + 1);
+ 	WRITE_ONCE(lrugen->timestamps[next], jiffies);
+ 	/* make sure preceding modifications appear */
+ 	smp_store_release(&lrugen->max_seq, lrugen->max_seq + 1);
+@@ -4729,7 +4796,6 @@ static void __lru_gen_reparent_memcg(struct lruvec *child_lruvec, struct lruvec
+ 				     int zone, int type)
+ {
+ 	struct lru_gen_folio *child_lrugen, *parent_lrugen;
+-	enum lru_list lru = type * LRU_INACTIVE_FILE;
+ 	int i;
+ 
+ 	child_lrugen = &child_lruvec->lrugen;
+@@ -4738,8 +4804,6 @@ static void __lru_gen_reparent_memcg(struct lruvec *child_lruvec, struct lruvec
+ 	for (i = 0; i < get_nr_gens(child_lruvec, type); i++) {
+ 		int gen = lru_gen_from_seq(child_lrugen->max_seq - i);
+ 		long nr_pages = atomic_long_read(&child_lrugen->nr_pages[gen][type][zone]);
+-		int child_lru_active = lru_gen_is_active(child_lruvec, gen) ? LRU_ACTIVE : 0;
+-		int parent_lru_active = lru_gen_is_active(parent_lruvec, gen) ? LRU_ACTIVE : 0;
+ 
+ 		/* Assuming that child pages are colder than parent pages */
+ 		list_splice_tail_init(&child_lrugen->folios[gen][type][zone],
+@@ -4747,11 +4811,6 @@ static void __lru_gen_reparent_memcg(struct lruvec *child_lruvec, struct lruvec
+ 
+ 		atomic_long_set(&child_lrugen->nr_pages[gen][type][zone], 0);
+ 		atomic_long_add(nr_pages, &parent_lrugen->nr_pages[gen][type][zone]);
+-
+-		if (lru_gen_is_active(child_lruvec, gen) != lru_gen_is_active(parent_lruvec, gen)) {
+-			__update_lru_size(child_lruvec, lru + child_lru_active, zone, -nr_pages);
+-			__update_lru_size(parent_lruvec, lru + parent_lru_active, zone, nr_pages);
+-		}
+ 	}
+ }
+ 
+@@ -5071,7 +5130,7 @@ static int evict_folios(unsigned long nr_to_scan, struct lruvec *lruvec,
+ 		 * its first page table access lands in the second newest one.
+ 		 * See "Referenced count feedback" above.
+ 		 */
+-		folio_set_lru_refs(folio, min(folio_lru_refs(folio), LRU_REFS_WORKINGSET));
++		__folio_set_lru_refs(folio, min(folio_lru_refs(folio), LRU_REFS_WORKINGSET));
+ 		if (lru_gen_folio_seq(lruvec, folio, false) == min_seq[type])
+ 			folio_set_active(folio);
+ 	}
+diff --git a/mm/workingset.c b/mm/workingset.c
+index 0e44f18d2..154b041a9 100644
+--- a/mm/workingset.c
++++ b/mm/workingset.c
+@@ -334,7 +334,7 @@ static void lru_gen_refault(struct folio *folio, void *shadow)
+ 			mod_lruvec_state(lruvec, WORKINGSET_ACTIVATE_BASE + type, delta);
+ 		}
+ 		/* Refault is also promotion, cap the refs like folio_inc_lru_refs */
+-		folio_set_lru_refs(folio, min(refs, LRU_REFS_PROTECTED));
++		__folio_set_lru_refs(folio, min(refs, LRU_REFS_PROTECTED));
+ 	}
+ 
+ 	if (refs >= LRU_REFS_WORKINGSET)
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 25f960d48..69676c7b4 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -295,10 +295,9 @@ static inline int folio_lru_gen(const struct folio *folio)
+ 	return ((flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
+ }
+ 
+-static inline void lru_gen_update_size(struct lruvec *lruvec, struct folio *folio,
+-				       int old_gen, int new_gen)
++static inline void lru_gen_update_size(struct lruvec *lruvec, int type,
++		struct folio *folio, int old_gen, int new_gen)
+ {
+-	int type = folio_is_file_lru(folio);
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+ 	struct lru_gen_folio *lrugen = &lruvec->lrugen;
+@@ -373,7 +372,7 @@ static inline bool lru_gen_add_folio(struct lruvec *lruvec, struct folio *folio,
+ 	/* use the refs from the atomic snapshot to avoid raced update */
+ 	refs = lru_get_refs_flags(flags);
+ 
+-	lru_gen_update_size(lruvec, folio, -1, gen);
++	lru_gen_update_size(lruvec, type, folio, -1, gen);
+ 	if (lru_refs_is_active(refs))
+ 		lru += LRU_ACTIVE;
+ 	__update_lru_size(lruvec, lru, zone, delta);
+@@ -391,6 +390,7 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ {
+ 	unsigned long flags;
+ 	int gen, refs;
++	int type = folio_is_file_lru(folio);
+ 	int zone = folio_zonenum(folio);
+ 	int delta = folio_nr_pages(folio);
+ 	enum lru_list lru = folio_is_file_lru(folio) * LRU_INACTIVE_FILE;
+@@ -413,7 +413,7 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 	if (!reclaiming && ((max_seq - gen) % MAX_NR_GENS) < MIN_NR_GENS)
+ 		folio_set_active(folio);
+ 
+-	lru_gen_update_size(lruvec, folio, gen, -1);
++	lru_gen_update_size(lruvec, type, folio, gen, -1);
+ 	if (lru_refs_is_active(refs))
+ 		lru += LRU_ACTIVE;
+ 	__update_lru_size(lruvec, lru, zone, -delta);
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 0dc789e61..2e23f2674 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -575,9 +575,10 @@ enum lruvec_flags {
+  */
+ #define MAX_NR_TIERS		4U
+ 
+-/* Access source flags for folio_inc_lru_refs() */
++/* Flags for folio_inc_lru_refs() */
+ #define LRU_REF_MAPPED		0x1U
+ #define LRU_REF_EXEC		0x2U
++#define LRU_REF_FORCE		0x4U
+ 
+ #define LRU_REFS_REFERENCED	0x1
+ #define LRU_REFS_WORKINGSET	0x2
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 495fb9788..1807ba778 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -882,38 +882,33 @@ void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ 	long nr_pages = folio_nr_pages(folio);
+ 	struct lru_gen_folio *lrugen;
+ 	struct lruvec *lruvec = NULL;
++	bool aged = false;
+ 
++retry:
+ 	old_flags = READ_ONCE(*folio_flags(folio, 0));
+ 	do {
+ 		new_flags = old_flags;
+ 		old_gen = lru_get_gen_flags(old_flags);
+ 		old_refs = lru_get_refs_flags(old_flags);
+-		file = folio_flags_is_file_lru(&old_flags);
+ 		refs = old_refs + 1;
+ 		gen = old_gen;
++		file = folio_flags_is_file_lru(&old_flags);
+ 		if (old_gen < 0)
+ 			goto out;
+-		/*
+-		 * Lock the lruvec if the folio is on-list. We are already
+-		 * doing lazy promotion so in theory we don't need this,
+-		 * but for now, concurrent aging would still corrupt the
+-		 * size counters.  This is a temporary limitation and
+-		 * will be lifted very soon, so the lock here is not a
+-		 * performance concern.
+-		 */
+ 		if (!lruvec) {
+-			lruvec = lruvec_live_lock_irq(folio_lruvec(folio));
++			lruvec = folio_lruvec_live_get(folio);
+ 			lrugen = &lruvec->lrugen;
+ 		}
++		/* Failed cmpxchg() does not order old_flags before max_seq. */
++		smp_rmb();
+ 		max_seq = READ_ONCE(lrugen->max_seq);
+ 		max_gen = lru_gen_from_seq(max_seq);
+ 		min_gen = lru_gen_from_seq(READ_ONCE(lrugen->min_seq[file]));
+ 		if (old_gen == max_gen)
+ 			goto out;
+-
+-		if (flags & (LRU_REF_MAPPED | LRU_REF_EXEC)) {
+-			/* Promote second page table access or executable */
+-			if (refs > LRU_REFS_REFERENCED || flags & LRU_REF_EXEC)
++		if (flags & (LRU_REF_MAPPED | LRU_REF_EXEC | LRU_REF_FORCE)) {
++			if (refs > LRU_REFS_REFERENCED ||
++			    flags & (LRU_REF_EXEC | LRU_REF_FORCE))
+ 				gen = max_gen;
+ 			/* First access only defers eviction from the oldest gen */
+ 			else if (old_gen == min_gen)
+@@ -937,9 +932,19 @@ void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ 			break;
+ 	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ 
+-	if (gen != old_gen)
+-		lru_gen_update_size(lruvec, folio, old_gen, gen);
+-	if (lru_refs_is_active(old_refs) != lru_refs_is_active(refs) && old_gen >= 0) {
++	if (gen != old_gen) {
++		/*
++		 * Gen-index reuse can fool cmpxchg(). Retry locklessly, accepting
++		 * an extra reference to avoid folio_activate() latency.
++		 */
++		if (unlikely(READ_ONCE(lrugen->max_seq) != max_seq)) {
++			flags = LRU_REF_FORCE;
++			aged = true;
++		}
++		lru_gen_update_size(lruvec, file, folio, old_gen, gen);
++	}
++
++	if (lru_refs_is_active(old_refs) != lru_refs_is_active(refs) && gen >= 0) {
+ 		enum lru_list lru = file * LRU_INACTIVE_FILE;
+ 
+ 		__update_lru_size(lruvec, lru + lru_refs_is_active(old_refs),
+@@ -947,8 +952,12 @@ void folio_inc_lru_refs(struct folio *folio, unsigned int flags)
+ 		__update_lru_size(lruvec, lru + lru_refs_is_active(refs),
+ 				  folio_zonenum(folio), nr_pages);
+ 	}
++	if (aged) {
++		aged = false;
++		goto retry;
++	}
+ 	if (lruvec)
+-		lruvec_unlock_irq(lruvec);
++		folio_lruvec_live_put(lruvec);
+ }
+ 
+ /*
+@@ -3528,7 +3537,7 @@ static int folio_inc_gen(struct lruvec *lruvec, struct folio *folio)
+ 
+ 	new_gen = __folio_inc_gen(lruvec, folio, old_gen, &gen_increased);
+ 	if (gen_increased)
+-		lru_gen_update_size(lruvec, folio, old_gen, new_gen);
++		lru_gen_update_size(lruvec, type, folio, old_gen, new_gen);
+ 	return new_gen;
+ }
+ 
+diff --git a/mm/vmscan.c b/mm/vmscan.c
+index 1807ba778..75db54eca 100644
+--- a/mm/vmscan.c
++++ b/mm/vmscan.c
+@@ -4810,7 +4810,8 @@ static void __lru_gen_reparent_memcg(struct lruvec *child_lruvec, struct lruvec
+ 	child_lrugen = &child_lruvec->lrugen;
+ 	parent_lrugen = &parent_lruvec->lrugen;
+ 
+-	for (i = 0; i < get_nr_gens(child_lruvec, type); i++) {
++	/* Lockless promotion may leave folios outside the child's window */
++	for (i = 0; i < MAX_NR_GENS; i++) {
+ 		int gen = lru_gen_from_seq(child_lrugen->max_seq - i);
+ 		long nr_pages = atomic_long_read(&child_lrugen->nr_pages[gen][type][zone]);
+ 
+diff --git a/mm/khugepaged.c b/mm/khugepaged.c
+index 75639298e..50205b7e5 100644
+--- a/mm/khugepaged.c
++++ b/mm/khugepaged.c
+@@ -670,7 +670,9 @@ static bool folio_pte_referenced(struct folio *folio,
+ 		struct vm_area_struct *vma, unsigned long addr, pte_t pteval)
+ {
+ 	/* The folio was referenced previously ... */
+-	if (folio_test_young(folio) || folio_test_referenced(folio))
++	if (folio_test_young(folio))
++		return true;
++	if (lru_gen_enabled() ? folio_lru_refs(folio) : folio_test_referenced(folio))
+ 		return true;
+ 	/* ... or the PTE mapping was recently used */
+ 	return pte_young(pteval) || mmu_notifier_test_young(vma->vm_mm, addr);
+diff --git a/fs/btrfs/compression.c b/fs/btrfs/compression.c
+index c62b5148d..57d244132 100644
+--- a/fs/btrfs/compression.c
++++ b/fs/btrfs/compression.c
+@@ -8,6 +8,7 @@
+ #include <linux/file.h>
+ #include <linux/fs.h>
+ #include <linux/pagemap.h>
++#include <linux/mm_inline.h>
+ #include <linux/folio_batch.h>
+ #include <linux/highmem.h>
+ #include <linux/kthread.h>
+diff --git a/fs/erofs/zdata.c b/fs/erofs/zdata.c
+index 6b07e73ee..c618bbf0d 100644
+--- a/fs/erofs/zdata.c
++++ b/fs/erofs/zdata.c
+@@ -6,6 +6,7 @@
+  */
+ #include "compress.h"
+ #include <linux/psi.h>
++#include <linux/mm_inline.h>
+ #include <linux/cpuhotplug.h>
+ #include <trace/events/erofs.h>
+ 
+@@ -1713,7 +1714,7 @@ static void z_erofs_submit_queue(struct z_erofs_frontend *f,
+ 				DBG_BUGON(bvec.bv_len < sb->s_blocksize);
+ 			}
+ 
+-			if (unlikely(PageWorkingset(bvec.bv_page)) &&
++			if (unlikely(folio_test_workingset(page_folio(bvec.bv_page))) &&
+ 			    !memstall) {
+ 				psi_memstall_enter(&pflags);
+ 				memstall = 1;
+diff --git a/include/linux/mm_inline.h b/include/linux/mm_inline.h
+index 69676c7b4..8e2cab35c 100644
+--- a/include/linux/mm_inline.h
++++ b/include/linux/mm_inline.h
+@@ -259,6 +259,24 @@ static inline bool lru_gen_enabled(void)
+ }
+ #endif
+ 
++/**
++ * folio_test_workingset - Test if a folio is in the workingset.
++ * @folio: the folio
++ *
++ * A folio is workingset when its LRU refs count reaches
++ * LRU_REFS_WORKINGSET.  Under the classical LRU the refs count never
++ * goes above it, so this is just testing the PG_workingset bit.
++ * NOTE: folio_set_workingset() must not be used under MGLRU, as the
++ * folio refs are tracked by folio_inc_lru_refs(), it triggers a debug
++ * WARN instead for MGLRU.
++ *
++ * Return: true if the folio is workingset.
++ */
++static __always_inline bool folio_test_workingset(const struct folio *folio)
++{
++	return folio_lru_refs(folio) >= LRU_REFS_WORKINGSET;
++}
++
+ static inline bool lru_gen_in_fault(void)
+ {
+ 	return current->in_lru_fault;
+@@ -449,6 +467,10 @@ static inline bool lru_gen_del_folio(struct lruvec *lruvec, struct folio *folio,
+ 	return false;
+ }
+ 
++static inline bool folio_test_workingset(const struct folio *folio)
++{
++	return test_bit(PG_workingset, const_folio_flags(folio, FOLIO_HEAD_PAGE));
++}
+ #endif /* CONFIG_LRU_GEN */
+ 
+ /**
+@@ -477,6 +499,18 @@ static __always_inline void folio_inc_lru_refs_fast(struct folio *folio)
+ 	} while (!try_cmpxchg(folio_flags(folio, 0), &old_flags, new_flags));
+ }
+ 
++/*
++ * For the classical LRU only: under MGLRU the PG_workingset bit is
++ * part of the folio refs count maintained by folio_inc_lru_refs(),
++ * and a raw set would corrupt it.  The switching window is exempt
++ * because the classical paths legitimately run alongside MGLRU then.
++ */
++static __always_inline void folio_set_workingset(struct folio *folio)
++{
++	VM_WARN_ON_ONCE(lru_gen_enabled() && !lru_gen_switching());
++	set_bit(PG_workingset, folio_flags(folio, FOLIO_HEAD_PAGE));
++}
++
+ static __always_inline
+ void lruvec_add_folio(struct lruvec *lruvec, struct folio *folio)
+ {
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+index 7a863572a..13f1b4ada 100644
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -554,8 +554,6 @@ PAGEFLAG(LRU, lru, PF_HEAD) __CLEARPAGEFLAG(LRU, lru, PF_HEAD)
+ FOLIO_FLAG(active, FOLIO_HEAD_PAGE)
+ 	__FOLIO_CLEAR_FLAG(active, FOLIO_HEAD_PAGE)
+ 	FOLIO_TEST_CLEAR_FLAG(active, FOLIO_HEAD_PAGE)
+-PAGEFLAG(Workingset, workingset, PF_HEAD)
+-	TESTCLEARFLAG(Workingset, workingset, PF_HEAD)
+ PAGEFLAG(Checked, checked, PF_NO_COMPOUND)	   /* Used by some filesystems */
+ 
+ /* Xen */
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 00fd89cf6..c7dac67a0 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -21,6 +21,7 @@
+ #include <linux/gfp.h>
+ #include <linux/mm.h>
+ #include <linux/swap.h>
++#include <linux/mm_inline.h>
+ #include <linux/leafops.h>
+ #include <linux/syscalls.h>
+ #include <linux/mman.h>
+diff --git a/mm/page_io.c b/mm/page_io.c
+index 88962571c..b811acfa5 100644
+--- a/mm/page_io.c
++++ b/mm/page_io.c
+@@ -16,6 +16,7 @@
+ #include <linux/gfp.h>
+ #include <linux/pagemap.h>
+ #include <linux/swap.h>
++#include <linux/mm_inline.h>
+ #include <linux/bio.h>
+ #include <linux/swapops.h>
+ #include <linux/writeback.h>
+diff --git a/Documentation/mm/multigen_lru.rst b/Documentation/mm/multigen_lru.rst
+index 52ed50920..e3dab8588 100644
+--- a/Documentation/mm/multigen_lru.rst
++++ b/Documentation/mm/multigen_lru.rst
+@@ -95,16 +95,19 @@ at most ``MAX_NR_GENS`` generations. The gen counter stores a value
+ within ``[1, MAX_NR_GENS]`` while a page is on one of
+ ``lrugen->folios[]``; otherwise it stores zero.
+ 
+-Each generation is divided into multiple tiers. A page accessed ``N``
+-times through file descriptors is in tier ``order_base_2(N)``. Unlike
+-generations, tiers do not have dedicated ``lrugen->folios[]``. In
+-contrast to moving across generations, which requires the LRU lock,
+-moving across tiers only involves atomic operations on
+-``folio->flags`` and therefore has a negligible cost. A feedback loop
+-modeled after the PID controller monitors refaults over all the tiers
+-from anon and file types and decides which tiers from which types to
+-evict or protect. The desired effect is to balance refault percentages
+-between anon and file types proportional to the swappiness level.
++Each generation is divided into multiple tiers. A page's tier is
++derived from its referenced count, which counts the accesses collected
++from both channels above and is capped at ``LRU_REFS_MAX``: pages
++accessed at most once are in the lowest tier, and the tiers above hold
++pages accessed at least twice. Unlike generations, tiers do not have
++dedicated ``lrugen->folios[]``. In contrast to moving across
++generations, which requires the LRU lock, updating the referenced
++count only involves atomic operations on ``folio->flags`` and
++therefore has a negligible cost. A feedback loop modeled after the PID
++controller monitors refaults over all the tiers from anon and file
++types and decides which tiers from which types to evict or protect.
++The desired effect is to balance refault percentages between anon and
++file types proportional to the swappiness level.
+ 
+ There are two conceptually independent procedures: the aging and the
+ eviction. They form a closed-loop system, i.e., the page reclaim.
+@@ -122,25 +125,30 @@ and calls ``walk_page_range()`` with each ``mm_struct`` on this list
+ to scan PTEs, and after each iteration, it increments ``max_seq``. For
+ the latter, when the eviction walks the rmap and finds a young PTE,
+ the aging scans the adjacent PTEs. For both, on finding a young PTE,
+-the aging clears the accessed bit and updates the gen counter of the
+-page mapped by this PTE to ``(max_seq%MAX_NR_GENS)+1``.
++the aging clears the accessed bit and bumps the referenced count of
++the page mapped by this PTE. A second access promotes the page by
++updating its gen counter to ``(max_seq%MAX_NR_GENS)+1``; the first
++access only moves a page out of the oldest generation, so that the
++next time it becomes the oldest one, its accessed bit reflects
++whether it has been used again. Executable file pages are promoted on
++their first access, since reclaiming them causes typical I/O
++thrashing.
+ 
+ Eviction
+ --------
+ The eviction consumes old generations. Given an ``lruvec``, it
+ increments ``min_seq`` when ``lrugen->folios[]`` indexed by
+-``min_seq%MAX_NR_GENS`` becomes empty. To select a type and a tier to
+-evict from, it first compares ``min_seq[]`` to select the older type.
+-If both types are equally old, it selects the one whose first tier has
+-a lower refault percentage. The first tier contains single-use
+-unmapped clean pages, which are the best bet. The eviction sorts a
+-page according to its gen counter if the aging has found this page
+-accessed through page tables and updated its gen counter. It also
+-moves a page to the next generation, i.e., ``min_seq+1``, if this page
+-was accessed multiple times through file descriptors and the feedback
+-loop has detected outlying refaults from the tier this page is in. To
+-this end, the feedback loop uses the first tier as the baseline, for
+-the reason stated earlier.
++``min_seq%MAX_NR_GENS`` becomes empty. To select a type to evict from,
++it first compares ``min_seq[]`` to select the older type. If both
++types are equally old, it compares the refault percentages of all the
++tiers of each type proportional to the swappiness level. To select a
++tier to protect, it compares the refault percentage of each tier
++against that of the tiers below it. The lowest tier contains pages
++accessed at most once, which are the best bet. The eviction sorts a
++page according to its gen counter if the aging or an access has
++updated its gen counter. It also moves a page to the next generation,
++i.e., ``min_seq+1``, if the feedback loop has detected outlying
++refaults from the tier this page is in.
+ 
+ Working set protection
+ ----------------------

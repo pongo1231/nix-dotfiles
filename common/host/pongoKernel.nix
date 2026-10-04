@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "6addb4f385570ebc11c4eb499a4f1c149f313e84";
-                        hash = "sha256-CEzw6pTUHcdiEmBwhc68PGrQz6WpWYpFnOCfw2mSI4o=";
+                        rev = "06ac073129191a01d77933ed381f89c67674db6f";
+                        hash = "sha256-YwJfBKt6HqRDUlajmAr+lPtXwceqkdBrEGeK5BmeO6s=";
                       };
                     };
                 };
@@ -158,6 +158,10 @@ in
         {
           name = "mm/memory_hotplug: make shrink_zone_span() more robust";
           patch = patch /linux/20260920_david_hildenbrand_mm_memory_hotplug_make_shrink_zone_span_more_robust.patch;
+        }
+        {
+          name = "mm/mglru: frequency guided promotion (MGLRU-FG)";
+          patch = patch /linux/v3_20261003_kairui_song_mm_mglru_frequency_guided_promotion_and_flag_cleanup.patch;
         }
         {
           name = "zstd: use x86 feature infrastructure for BMI2 dispatch";
