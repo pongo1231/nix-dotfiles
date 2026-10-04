@@ -3,16 +3,18 @@
 }:
 let
   sched =
-    if config.pongo.pongoKernel.enable then
-      {
-        slow = "adios";
-        fast = "adios";
-      }
-    else
-      {
-        slow = "bfq";
-        fast = "kyber";
-      };
+    /*
+      if config.pongo.pongoKernel.enable then
+        {
+          slow = "adios";
+          fast = "adios";
+        }
+      else
+    */
+    {
+      slow = "bfq";
+      fast = "kyber";
+    };
 in
 ''
   SUBSYSTEM=="pci", ATTR{power/control}="auto"

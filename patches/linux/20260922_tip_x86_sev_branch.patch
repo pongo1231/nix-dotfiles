@@ -1,0 +1,753 @@
+From 1ee97d0f7b20e1f71bdb9edf5950c8751538180a Mon Sep 17 00:00:00 2001
+From: Ashish Kalra <ashish.kalra@amd.com>
+Date: Mon, 10 Aug 2026 19:21:17 +0000
+Subject: x86/cpufeatures: Add X86_FEATURE_RMPOPT feature flag
+
+Add a flag indicating whether RMPOPT instruction is supported.
+
+RMPOPT is a new instruction that reduces the performance overhead of RMP
+checks for the hypervisor and non-SNP guests by allowing those checks to be
+skipped when 1-GB memory regions are known to contain no SEV-SNP guest memory.
+
+For more information on the RMPOPT instruction, see the AMD64 RMPOPT
+technical documentation.
+
+  [ bp: Zap respective tools/ change. ]
+
+Suggested-by: Borislav Petkov (AMD) <bp@alien8.de>
+Signed-off-by: Ashish Kalra <ashish.kalra@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Dave Hansen <dave.hansen@linux.intel.com>
+Reviewed-by: Ackerley Tng <ackerleytng@google.com>
+Reviewed-by: Tom Lendacky <thomas.lendacky@amd.com>
+Link: https://patch.msgid.link/39e9ee269a572c516a3f4e937bfe12d00697d5e6.1782841284.git.ashish.kalra@amd.com
+---
+ arch/x86/include/asm/cpufeatures.h | 2 +-
+ arch/x86/kernel/cpu/scattered.c    | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/include/asm/cpufeatures.h b/arch/x86/include/asm/cpufeatures.h
+index f70ee74b5f9217..3b5b32d3391b56 100644
+--- a/arch/x86/include/asm/cpufeatures.h
++++ b/arch/x86/include/asm/cpufeatures.h
+@@ -76,7 +76,7 @@
+ #define X86_FEATURE_K8			( 3*32+ 4) /* Opteron, Athlon64 */
+ #define X86_FEATURE_ZEN5		( 3*32+ 5) /* CPU based on Zen5 microarchitecture */
+ #define X86_FEATURE_ZEN6		( 3*32+ 6) /* CPU based on Zen6 microarchitecture */
+-/* Free                                 ( 3*32+ 7) */
++#define X86_FEATURE_RMPOPT		( 3*32+ 7) /* Support for AMD RMPOPT instruction */
+ #define X86_FEATURE_CONSTANT_TSC	( 3*32+ 8) /* "constant_tsc" TSC ticks at a constant rate */
+ /* free: was #define X86_FEATURE_UP	( 3*32+ 9) * "up" SMP kernel running on UP */
+ #define X86_FEATURE_ART			( 3*32+10) /* "art" Always running timer (ART) */
+diff --git a/arch/x86/kernel/cpu/scattered.c b/arch/x86/kernel/cpu/scattered.c
+index 8665a6474806c9..d1795ce219dab3 100644
+--- a/arch/x86/kernel/cpu/scattered.c
++++ b/arch/x86/kernel/cpu/scattered.c
+@@ -67,6 +67,7 @@ static const struct cpuid_bit cpuid_bits[] = {
+ 	{ X86_FEATURE_PERFMON_V2,		CPUID_EAX,  0, 0x80000022, 0 },
+ 	{ X86_FEATURE_AMD_LBR_V2,		CPUID_EAX,  1, 0x80000022, 0 },
+ 	{ X86_FEATURE_AMD_LBR_PMC_FREEZE,	CPUID_EAX,  2, 0x80000022, 0 },
++	{ X86_FEATURE_RMPOPT,			CPUID_EDX,  0, 0x80000025, 0 },
+ 	{ X86_FEATURE_AMD_HTR_CORES,		CPUID_EAX, 30, 0x80000026, 0 },
+ 	{ 0, 0, 0, 0, 0 }
+ };
+-- 
+cgit 1.3.1-korg
+
+
+From 674bb17a32c7eab539a92c654c2971a8afaccbb4 Mon Sep 17 00:00:00 2001
+From: Ashish Kalra <ashish.kalra@amd.com>
+Date: Wed, 16 Sep 2026 22:14:35 +0000
+Subject: x86/sev: Disable CPU hotplug while SNP is active
+
+While SNP is active, every memory write is checked against the RMP to
+protect SNP guest memory.  A core performs these RMP checks only once
+SNP has been initialized via SNP_INIT and the SNP-enable bit in SYSCFG is
+set on that core; the firmware requires the SNP-enable bit to be set on
+every present CPU before SNP initialization.
+
+A core that is not SNP-enabled and not SNP-initialized performs no RMP
+checks at all, so there is no valid configuration with SNP active and any
+CPU exempt from RMP checks.
+
+The firmware determines which CPUs are present from the processor and the
+BIOS/UEFI configuration (e.g. SMT disabled in the BIOS) and enumerates
+them at SNP init; it is not aware of the OS bringing CPUs online or
+offline afterwards.
+
+SNP_INIT fails unless SnpEn is set on all CPUs, so a CPU that is offline
+when SNP_INIT is issued, does not have SnpEn set, SNP_INIT fails, and
+there can be no SNP guest memory.  OS CPU hotplug can thus diverge from
+the firmware's expectations and break SNP.
+
+Tie CPU hotplug to the SNP-enable bit: disable it in snp_prepare() before
+SNP is enabled, and re-enable it in snp_shutdown() once the firmware has
+disabled SNP.
+
+If snp_prepare() fails before enabling SNP it re-enables hotplug itself;
+once SNP is enabled hotplug stays disabled, including across a failed
+SNP_INIT and across the legacy SNP_SHUTDOWN_EX path, both of which leave
+SNP enabled.
+
+A kexec target that boots with SNP already enabled, disables hotplug once
+in snp_rmptable_init(), since snp_prepare() bails when SNP is already
+enabled.
+
+With CPU hotplug now disabled while SNP is active, the online CPU mask is
+stable, so the cpus_read_lock() previously taken in snp_prepare() to
+iterate it is redundant.  Drop cpus_read_lock()/cpus_read_unlock() here.
+
+Suggested-by: Thomas Lendacky <thomas.lendacky@amd.com>
+Signed-off-by: Ashish Kalra <ashish.kalra@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Tom Lendacky <thomas.lendacky@amd.com>
+Link: https://patch.msgid.link/cd6962a88d691a020c2bf40fe77a6a3f3852fdfc.1789594774.git.ashish.kalra@amd.com
+---
+ arch/x86/virt/svm/sev.c | 36 ++++++++++++++++++++++++++----------
+ 1 file changed, 26 insertions(+), 10 deletions(-)
+
+diff --git a/arch/x86/virt/svm/sev.c b/arch/x86/virt/svm/sev.c
+index cff285d8ad8e3e..558f7924a3f85e 100644
+--- a/arch/x86/virt/svm/sev.c
++++ b/arch/x86/virt/svm/sev.c
+@@ -513,7 +513,6 @@ static void clear_hsave_pa(void *arg)
+ 
+ int snp_prepare(void)
+ {
+-	int ret;
+ 	u64 val;
+ 
+ 	/*
+@@ -526,14 +525,18 @@ int snp_prepare(void)
+ 
+ 	clear_rmp();
+ 
+-	cpus_read_lock();
++	/*
++	 * No CPU may come online without SnpEn while SNP is active; disable
++	 * hotplug here and re-enable it in snp_shutdown().
++	 */
++	cpu_hotplug_disable();
+ 
+ 	if (!cpumask_equal(cpu_online_mask, cpu_present_mask)) {
+-		ret = -EOPNOTSUPP;
++		cpu_hotplug_enable();
+ 		pr_warn("SNP init failed: not all CPUs online. (%*pbl online <-> %*pbl present masks).\n",
+ 			cpumask_pr_args(cpu_online_mask),
+ 			cpumask_pr_args(cpu_present_mask));
+-		goto unlock;
++		return -EOPNOTSUPP;
+ 	}
+ 
+ 	wbinvd_on_all_cpus();
+@@ -548,12 +551,7 @@ int snp_prepare(void)
+ 	/* SNP_INIT requires MSR_VM_HSAVE_PA to be cleared on all CPUs. */
+ 	on_each_cpu(clear_hsave_pa, NULL, 1);
+ 
+-	ret = 0;
+-
+-unlock:
+-	cpus_read_unlock();
+-
+-	return ret;
++	return 0;
+ }
+ EXPORT_SYMBOL_FOR_MODULES(snp_prepare, "ccp");
+ 
+@@ -567,6 +565,13 @@ void snp_shutdown(void)
+ 
+ 	clear_rmp();
+ 	on_each_cpu(mfd_reconfigure, NULL, 1);
++
++	/*
++	 * The firmware has disabled SNP (SnpEn is clear), so re-enable CPU
++	 * hotplug.  A legacy SNP shutdown returns above with SnpEn still set and
++	 * leaves hotplug disabled.
++	 */
++	cpu_hotplug_enable();
+ }
+ EXPORT_SYMBOL_FOR_MODULES(snp_shutdown, "ccp");
+ 
+@@ -577,6 +582,8 @@ EXPORT_SYMBOL_FOR_MODULES(snp_shutdown, "ccp");
+  */
+ int __init snp_rmptable_init(void)
+ {
++	u64 val;
++
+ 	if (WARN_ON_ONCE(!cc_platform_has(CC_ATTR_HOST_SEV_SNP)))
+ 		return -ENOSYS;
+ 
+@@ -586,6 +593,15 @@ int __init snp_rmptable_init(void)
+ 	if (!setup_rmptable())
+ 		return -ENOSYS;
+ 
++	/*
++	 * On a kexec boot SNP may already be enabled (legacy firmware leaves
++	 * SnpEn set across shutdown), in which case snp_prepare() bails without
++	 * disabling CPU hotplug, so disable it here.
++	 */
++	rdmsrq(MSR_AMD64_SYSCFG, val);
++	if (val & MSR_AMD64_SYSCFG_SNP_EN)
++		cpu_hotplug_disable();
++
+ 	/*
+ 	 * Setting crash_kexec_post_notifiers to 'true' to ensure that SNP panic
+ 	 * notifier is invoked to do SNP IOMMU shutdown before kdump.
+-- 
+cgit 1.3.1-korg
+
+
+From 15d974be0a3ba37091083028d16237ff49eb05b5 Mon Sep 17 00:00:00 2001
+From: Ashish Kalra <ashish.kalra@amd.com>
+Date: Wed, 16 Sep 2026 22:14:52 +0000
+Subject: x86/sev: Initialize RMPOPT configuration MSRs
+
+The new RMPOPT instruction helps manage per-CPU RMP optimization
+structures inside the CPU. It takes a 1GB-aligned physical address and
+either returns the status of the optimizations or tries to enable the
+optimizations.
+
+Initialize the per-CPU RMPOPT table base to the starting physical
+address.  This enables RMP optimization for up to 2 TB of system RAM on
+all CPUs because this is the maximum the RMPOPT tables support.
+
+The RMPOPT_BASE MSR can only be written after SNP is enabled, so the
+enabling runs from the ccp SNP init path (and again on guest teardown)
+rather than from an initcall. This is also in line with the intention to
+not enable SNP by default but enable it on demand, when the ccp module
+is loaded.
+
+RMPOPT_BASE is programmed on all primary threads.  RMPOPT_EN cannot be
+cleared while SNP is enabled, and CPU hotplug is disabled while SNP is
+active, so once programmed the MSRs stay set on all CPUs until SNP is
+disabled.  A set RMPOPT_EN on the local CPU therefore means the
+programming has already been done and thus it can be skipped.
+
+  [ bp:
+    - Massage commit message
+    - move enabling logic into the commit message
+    - zap unnecessary comments
+    - cleanup ]
+
+Suggested-by: Thomas Lendacky <thomas.lendacky@amd.com>
+Suggested-by: Dave Hansen <dave.hansen@linux.intel.com>
+Signed-off-by: Ashish Kalra <ashish.kalra@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Tom Lendacky <thomas.lendacky@amd.com>
+Link: https://patch.msgid.link/7fdf0f5b1be4b561c884c5200d6606a947cbc09d.1789594774.git.ashish.kalra@amd.com
+---
+ arch/x86/include/asm/msr-index.h |  3 +++
+ arch/x86/include/asm/sev.h       |  2 ++
+ arch/x86/virt/svm/sev.c          | 48 +++++++++++++++++++++++++++++++++++-----
+ drivers/crypto/ccp/sev-dev.c     |  2 ++
+ 4 files changed, 50 insertions(+), 5 deletions(-)
+
+diff --git a/arch/x86/include/asm/msr-index.h b/arch/x86/include/asm/msr-index.h
+index 3a8e51a0c9e88c..1635e2e1c576af 100644
+--- a/arch/x86/include/asm/msr-index.h
++++ b/arch/x86/include/asm/msr-index.h
+@@ -761,6 +761,9 @@
+ #define MSR_AMD64_SEG_RMP_ENABLED_BIT	0
+ #define MSR_AMD64_SEG_RMP_ENABLED	BIT_ULL(MSR_AMD64_SEG_RMP_ENABLED_BIT)
+ #define MSR_AMD64_RMP_SEGMENT_SHIFT(x)	(((x) & GENMASK_ULL(13, 8)) >> 8)
++#define MSR_AMD64_RMPOPT_BASE		0xc0010139
++#define MSR_AMD64_RMPOPT_ENABLE_BIT	0
++#define MSR_AMD64_RMPOPT_ENABLE		BIT_ULL(MSR_AMD64_RMPOPT_ENABLE_BIT)
+ 
+ #define MSR_SVSM_CAA			0xc001f000
+ 
+diff --git a/arch/x86/include/asm/sev.h b/arch/x86/include/asm/sev.h
+index 9e7a077c445dcc..fa81aa004e8bf8 100644
+--- a/arch/x86/include/asm/sev.h
++++ b/arch/x86/include/asm/sev.h
+@@ -662,6 +662,7 @@ static inline void snp_leak_pages(u64 pfn, unsigned int pages)
+ 	__snp_leak_pages(pfn, pages, true);
+ }
+ int snp_prepare(void);
++void snp_enable_rmpopt(void);
+ void snp_shutdown(void);
+ #else
+ static inline bool snp_probe_rmptable_info(void) { return false; }
+@@ -680,6 +681,7 @@ static inline void snp_leak_pages(u64 pfn, unsigned int npages) {}
+ static inline void kdump_sev_callback(void) { }
+ static inline void snp_fixup_e820_tables(void) {}
+ static inline int snp_prepare(void) { return -ENODEV; }
++static inline void snp_enable_rmpopt(void) {}
+ static inline void snp_shutdown(void) {}
+ #endif
+ 
+diff --git a/arch/x86/virt/svm/sev.c b/arch/x86/virt/svm/sev.c
+index 558f7924a3f85e..1fecd246ce5f58 100644
+--- a/arch/x86/virt/svm/sev.c
++++ b/arch/x86/virt/svm/sev.c
+@@ -124,6 +124,8 @@ static void *rmp_bookkeeping __ro_after_init;
+ 
+ static u64 probed_rmp_base, probed_rmp_size;
+ 
++static phys_addr_t rmpopt_pa_start;
++
+ static LIST_HEAD(snp_leaked_pages_list);
+ static DEFINE_SPINLOCK(snp_leaked_pages_list_lock);
+ 
+@@ -575,6 +577,34 @@ void snp_shutdown(void)
+ }
+ EXPORT_SYMBOL_FOR_MODULES(snp_shutdown, "ccp");
+ 
++static bool rmpopt_capable(void)
++{
++	return cpu_feature_enabled(X86_FEATURE_RMPOPT) &&
++	       cc_platform_has(CC_ATTR_HOST_SEV_SNP);
++}
++
++void snp_enable_rmpopt(void)
++{
++	u64 base;
++	int cpu;
++
++	if (!rmpopt_capable())
++		return;
++
++	rmpopt_pa_start = ALIGN_DOWN(PFN_PHYS(min_low_pfn), SZ_1G);
++
++	/*
++	 * Per-CPU RMPOPT tables cover at most 2 TB.  Program each core's
++	 * RMPOPT_BASE with the start of RAM to optimize up to 2 TB.
++	 */
++	rdmsrq(MSR_AMD64_RMPOPT_BASE, base);
++	if (!(base & MSR_AMD64_RMPOPT_ENABLE))
++		for_each_cpu(cpu, cpu_primary_thread_mask)
++			wrmsrq_on_cpu(cpu, MSR_AMD64_RMPOPT_BASE,
++				      rmpopt_pa_start | MSR_AMD64_RMPOPT_ENABLE);
++}
++EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp");
++
+ /*
+  * Do the necessary preparations which are verified by the firmware as
+  * described in the SNP_INIT_EX firmware command description in the SNP
+@@ -699,13 +729,21 @@ static bool probe_segmented_rmptable_info(void)
+ 
+ bool snp_probe_rmptable_info(void)
+ {
+-	if (cpu_feature_enabled(X86_FEATURE_SEGMENTED_RMP))
++	if (cpu_feature_enabled(X86_FEATURE_SEGMENTED_RMP)) {
+ 		rdmsrq(MSR_AMD64_RMP_CFG, rmp_cfg);
+ 
+-	if (rmp_cfg & MSR_AMD64_SEG_RMP_ENABLED)
+-		return probe_segmented_rmptable_info();
+-	else
+-		return probe_contiguous_rmptable_info();
++		if (rmp_cfg & MSR_AMD64_SEG_RMP_ENABLED) {
++			if (probe_segmented_rmptable_info())
++				return true;
++
++			setup_clear_cpu_cap(X86_FEATURE_RMPOPT);
++			return false;
++		}
++	} else {
++		setup_clear_cpu_cap(X86_FEATURE_RMPOPT);
++	}
++
++	return probe_contiguous_rmptable_info();
+ }
+ 
+ /*
+diff --git a/drivers/crypto/ccp/sev-dev.c b/drivers/crypto/ccp/sev-dev.c
+index f833cb7e4da360..5c996ab6389594 100644
+--- a/drivers/crypto/ccp/sev-dev.c
++++ b/drivers/crypto/ccp/sev-dev.c
+@@ -1663,6 +1663,8 @@ static int __sev_snp_init_locked(int *error, unsigned int max_snp_asid)
+ 
+ 	sev_es_tmr_size = SNP_TMR_SIZE;
+ 
++	snp_enable_rmpopt();
++
+ 	return 0;
+ }
+ 
+-- 
+cgit 1.3.1-korg
+
+
+From c6c6f156d192bf905eb6e46d8ad6229fa9bbe036 Mon Sep 17 00:00:00 2001
+From: Ashish Kalra <ashish.kalra@amd.com>
+Date: Wed, 16 Sep 2026 22:15:14 +0000
+Subject: x86/sev: Perform RMP optimizations asynchronously
+
+When SNP is enabled, all writes to memory are checked to ensure memory
+integrity. This imposes performance overhead on the whole system.
+
+RMPOPT is a new instruction that minimizes the performance overhead of
+RMP checks on the hypervisor and on non-SNP guests by allowing such checks to
+be skipped for 1GB regions of memory that are known not to contain any SNP
+guest memory.
+
+Add support for performing RMP optimizations asynchronously using a dedicated
+per-CPU workqueue.  Shortly after SNP initialization, run an optimization pass
+over all physical memory.
+
+As SNP guests are launched, RMPUPDATE assigns their private pages to
+guest-owned state; when such a page falls within an optimized 1GB region, the
+hardware clears that region's RMPOPT optimization and RMP checks resume there
+to protect the guest memory.
+
+Since launching SNP guests clears these optimizations, perform them again
+asynchronously using the dedicated workqueue.
+
+  [ bp:
+   - Massage commit message and comments
+   - simplify code
+   - redo some of the logic ]
+
+Suggested-by: Thomas Lendacky <thomas.lendacky@amd.com>
+Suggested-by: Dave Hansen <dave.hansen@linux.intel.com>
+Signed-off-by: Ashish Kalra <ashish.kalra@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Link: https://patch.msgid.link/daa513fbe8f0672b00bc5e026e4399244be6dc72.1789594774.git.ashish.kalra@amd.com
+---
+ arch/x86/virt/svm/sev.c | 100 +++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 94 insertions(+), 6 deletions(-)
+
+diff --git a/arch/x86/virt/svm/sev.c b/arch/x86/virt/svm/sev.c
+index 1fecd246ce5f58..2d2a8b144af744 100644
+--- a/arch/x86/virt/svm/sev.c
++++ b/arch/x86/virt/svm/sev.c
+@@ -19,6 +19,7 @@
+ #include <linux/iommu.h>
+ #include <linux/amd-iommu.h>
+ #include <linux/nospec.h>
++#include <linux/workqueue.h>
+ 
+ #include <asm/sev.h>
+ #include <asm/processor.h>
+@@ -124,7 +125,27 @@ static void *rmp_bookkeeping __ro_after_init;
+ 
+ static u64 probed_rmp_base, probed_rmp_size;
+ 
+-static phys_addr_t rmpopt_pa_start;
++static u64 rmpopt_pa_start, rmpopt_pa_end;
++
++enum rmpopt_op_type {
++	RMPOPT_OP_VERIFY_AND_REPORT_STATUS,
++	RMPOPT_OP_REPORT_STATUS
++};
++
++static struct workqueue_struct *rmpopt_wq;
++static struct delayed_work rmpopt_delayed_work;
++
++/* Software RMPOPT facilities initialized */
++static bool rmpopt_soft_init;
++
++/*
++ * Delay, in milliseconds, before the RMP re-optimization pass runs after an
++ * SNP guest is torn down. This coalesces a burst of teardowns into a single
++ * scan and gives each guest's pages time to be converted back to the shared,
++ * hypervisor-owned state.  The 10 second value is a heuristic trading
++ * re-optimization latency against scanning too eagerly.
++ */
++#define RMPOPT_WORK_TIMEOUT	(10 * MSEC_PER_SEC)
+ 
+ static LIST_HEAD(snp_leaked_pages_list);
+ static DEFINE_SPINLOCK(snp_leaked_pages_list_lock);
+@@ -565,6 +586,9 @@ void snp_shutdown(void)
+ 	if (syscfg & MSR_AMD64_SYSCFG_SNP_EN)
+ 		return;
+ 
++	if (rmpopt_soft_init)
++		cancel_delayed_work_sync(&rmpopt_delayed_work);
++
+ 	clear_rmp();
+ 	on_each_cpu(mfd_reconfigure, NULL, 1);
+ 
+@@ -577,21 +601,82 @@ void snp_shutdown(void)
+ }
+ EXPORT_SYMBOL_FOR_MODULES(snp_shutdown, "ccp");
+ 
+-static bool rmpopt_capable(void)
++/*
++ * RMPOPT optimizations skip RMP checks at 1GB granularity if this range of
++ * memory does not contain any SNP guest memory.
++ *
++ * @pa is a system physical address; RMPOPT operates on the containing 1GB.
++ */
++static void rmpopt(u64 pa)
+ {
+-	return cpu_feature_enabled(X86_FEATURE_RMPOPT) &&
+-	       cc_platform_has(CC_ATTR_HOST_SEV_SNP);
++	enum rmpopt_op_type op = RMPOPT_OP_VERIFY_AND_REPORT_STATUS;
++	u64 pa_start = ALIGN_DOWN(pa, SZ_1G);
++
++	/* Supported by binutils 2.48+ */
++	asm volatile(".byte 0xf2, 0x0f, 0x01, 0xfc"
++		     :: "a" (pa_start), "c" (op)
++		     : "memory", "cc");
++}
++
++static void rmpopt_scan_range(void *arg)
++{
++	u64 pa;
++
++	for (pa = rmpopt_pa_start; pa < rmpopt_pa_end; pa += SZ_1G)
++		rmpopt(pa);
+ }
+ 
++static void do_rmpopt_work(struct work_struct *work)
++{
++	/*
++	 * Warm up the RMPOPT cache on this pinned per-CPU worker with interrupts
++	 * enabled, so the IRQ-disabled fan-out below only issues cache-hit RMPOPTs.
++	 */
++	rmpopt_scan_range(NULL);
++
++	on_each_cpu_mask(cpu_primary_thread_mask, rmpopt_scan_range, NULL, true);
++}
++
++static int __init rmpopt_init(void)
++{
++	if (!cpu_feature_enabled(X86_FEATURE_RMPOPT))
++		return -ENODEV;
++
++	rmpopt_wq = alloc_workqueue("rmpopt_wq", WQ_PERCPU, 1);
++	if (!rmpopt_wq) {
++		pr_err("Failed to allocate RMPOPT workqueue\n");
++		return -ENOMEM;
++	}
++
++	INIT_DELAYED_WORK(&rmpopt_delayed_work, do_rmpopt_work);
++
++	/* The optimization range is fixed at boot; compute it once. */
++	rmpopt_pa_start = ALIGN_DOWN(PFN_PHYS(min_low_pfn), SZ_1G);
++	rmpopt_pa_end = ALIGN(PFN_PHYS(max_pfn), SZ_1G);
++	if ((rmpopt_pa_end - rmpopt_pa_start) > SZ_2T)
++		rmpopt_pa_end = rmpopt_pa_start + SZ_2T;
++
++	pr_info("RMPOPT optimizations enabled\n");
++
++	rmpopt_soft_init = true;
++
++	return 0;
++}
++device_initcall(rmpopt_init);
++
+ void snp_enable_rmpopt(void)
+ {
+ 	u64 base;
+ 	int cpu;
+ 
+-	if (!rmpopt_capable())
++	if (!cpu_feature_enabled(X86_FEATURE_RMPOPT))
+ 		return;
+ 
+-	rmpopt_pa_start = ALIGN_DOWN(PFN_PHYS(min_low_pfn), SZ_1G);
++	if (!cc_platform_has(CC_ATTR_HOST_SEV_SNP))
++		return;
++
++	if (!rmpopt_soft_init)
++		return;
+ 
+ 	/*
+ 	 * Per-CPU RMPOPT tables cover at most 2 TB.  Program each core's
+@@ -602,6 +687,9 @@ void snp_enable_rmpopt(void)
+ 		for_each_cpu(cpu, cpu_primary_thread_mask)
+ 			wrmsrq_on_cpu(cpu, MSR_AMD64_RMPOPT_BASE,
+ 				      rmpopt_pa_start | MSR_AMD64_RMPOPT_ENABLE);
++
++	mod_delayed_work(rmpopt_wq, &rmpopt_delayed_work,
++			 msecs_to_jiffies(RMPOPT_WORK_TIMEOUT));
+ }
+ EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp");
+ 
+-- 
+cgit 1.3.1-korg
+
+
+From edb1b49e724ea102b3eaeb0b57f8ca33cd445887 Mon Sep 17 00:00:00 2001
+From: Ashish Kalra <ashish.kalra@amd.com>
+Date: Wed, 16 Sep 2026 22:15:37 +0000
+Subject: x86/sev: Do RMP optimizations on SNP guest shutdown
+
+The RMPOPT table is a per-CPU table which indicates whether 1GB regions
+of physical memory are entirely hypervisor-owned.
+
+When performing host memory accesses in hypervisor mode as well as
+non-SNP guest mode, the processor may consult the RMPOPT table to
+potentially skip an RMP access and improve performance.
+
+Normal guest events disable RMP optimizations: pages are converted from
+shared to private as SNP guests are launched, and large pages are split
+and collapsed during guest operation -- both disable the RMPOPT
+optimizations for the affected 1GB regions.
+
+When guests are torn down, their pages are converted back to shared, so those
+regions may become eligible for RMP optimizations again. Without some
+intervention, all those optimizations would eventually be lost, so optimize
+all of physical memory on SNP guest teardown.
+
+snp_enable_rmpopt() performs the re-optimization after a delay, which gets
+reset on each call. This way multiple guest terminations are batched into
+a single pass: the re-optimization runs 10 seconds after the *last*
+termination rather than after the first.  mod_delayed_work() also re-queues
+work that is already in-flight, so a re-scan request during an active scan is
+not silently dropped.
+
+Guest teardown is currently the only event that returns guest memory to
+hypervisor ownership: SNP guests do not support ballooning or memory hotplug,
+so pages freed during a guest's lifetime remain guest-owned.  It is therefore
+the only point at which memory becomes eligible for RMP re-optimization, which
+is why re-optimization is driven by guest teardown rather than by a periodic
+scan.
+
+  [ bp: Massage commit message. ]
+
+Signed-off-by: Ashish Kalra <ashish.kalra@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Ackerley Tng <ackerleytng@google.com>
+Reviewed-by: Tom Lendacky <thomas.lendacky@amd.com>
+Reviewed-by: Dave Hansen <dave.hansen@linux.intel.com>
+Link: https://patch.msgid.link/7a15a880ea6b6d53b3702def3b3434307656afd7.1789594774.git.ashish.kalra@amd.com
+---
+ arch/x86/kvm/svm/sev.c  | 2 ++
+ arch/x86/virt/svm/sev.c | 2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/kvm/svm/sev.c b/arch/x86/kvm/svm/sev.c
+index 5705723f1f4121..4d5e30af1adea0 100644
+--- a/arch/x86/kvm/svm/sev.c
++++ b/arch/x86/kvm/svm/sev.c
+@@ -3032,6 +3032,8 @@ void sev_vm_destroy(struct kvm *kvm)
+ 		 */
+ 		if (snp_decommission_context(kvm))
+ 			return;
++
++		snp_enable_rmpopt();
+ 	} else {
+ 		sev_unbind_asid(kvm, sev->handle);
+ 	}
+diff --git a/arch/x86/virt/svm/sev.c b/arch/x86/virt/svm/sev.c
+index 2d2a8b144af744..bd70c4d0b774a3 100644
+--- a/arch/x86/virt/svm/sev.c
++++ b/arch/x86/virt/svm/sev.c
+@@ -691,7 +691,7 @@ void snp_enable_rmpopt(void)
+ 	mod_delayed_work(rmpopt_wq, &rmpopt_delayed_work,
+ 			 msecs_to_jiffies(RMPOPT_WORK_TIMEOUT));
+ }
+-EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp");
++EXPORT_SYMBOL_FOR_MODULES(snp_enable_rmpopt, "ccp,kvm-amd");
+ 
+ /*
+  * Do the necessary preparations which are verified by the firmware as
+-- 
+cgit 1.3.1-korg
+
+
+From 250ee734115bca1c1f7a38d838909aa83cce87ae Mon Sep 17 00:00:00 2001
+From: Joerg Roedel <joerg.roedel@amd.com>
+Date: Wed, 9 Sep 2026 20:35:46 -0700
+Subject: x86/sev: Report MSR_AMD64_SEV in sysfs
+
+Add SEV_STATUS to the cpu/sev/ sysfs hierarchy and report it for all SEV guest
+types.
+
+  [ bp: Merge into a single patch, simplify. ]
+
+Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
+Signed-off-by: Borislav Petkov (AMD) <bp@alien8.de>
+Reviewed-by: Tom Lendacky <thomas.lendacky@amd.com>
+Link: https://lore.kernel.org/all/20260803125827.718024-1-joro@8bytes.org
+---
+ Documentation/ABI/testing/sysfs-devices-system-cpu | 10 ++++++--
+ arch/x86/coco/sev/core.c                           | 30 ++++++++++++++++++----
+ 2 files changed, 33 insertions(+), 7 deletions(-)
+
+diff --git a/Documentation/ABI/testing/sysfs-devices-system-cpu b/Documentation/ABI/testing/sysfs-devices-system-cpu
+index 82d10d556cc89f..7b0aef8b4dd301 100644
+--- a/Documentation/ABI/testing/sysfs-devices-system-cpu
++++ b/Documentation/ABI/testing/sysfs-devices-system-cpu
+@@ -689,15 +689,21 @@ Description:	Umwait control
+ 			  Low order two bits must be zero.
+ 
+ What:		/sys/devices/system/cpu/sev
++		/sys/devices/system/cpu/sev/sev_status
+ 		/sys/devices/system/cpu/sev/vmpl
+ Date:		May 2024
+ Contact:	Linux kernel mailing list <linux-kernel@vger.kernel.org>
+ Description:	Secure Encrypted Virtualization (SEV) information
+ 
+-		This directory is only present when running as an SEV-SNP guest.
++		This directory is only present when running as an SEV guest.
++
++		sev_status: Reports the value of the SEV_STATUS MSR which
++			    enumerates the enabled features of an SEV
++			    environment.
+ 
+ 		vmpl: Reports the Virtual Machine Privilege Level (VMPL) at which
+-		      the SEV-SNP guest is running.
++		      the SEV-SNP guest is running. This file is only present
++		      when running as an SEV-SNP guest.
+ 
+ 
+ What:		/sys/devices/system/cpu/svm
+diff --git a/arch/x86/coco/sev/core.c b/arch/x86/coco/sev/core.c
+index cc292d7c6fd1e0..eb2e853e950aaa 100644
+--- a/arch/x86/coco/sev/core.c
++++ b/arch/x86/coco/sev/core.c
+@@ -1431,15 +1431,22 @@ static ssize_t vmpl_show(struct kobject *kobj,
+ 	return sysfs_emit(buf, "%d\n", snp_vmpl);
+ }
+ 
++static ssize_t sev_status_show(struct kobject *kobj,
++			       struct kobj_attribute *attr, char *buf)
++{
++	return sysfs_emit(buf, "0x%llx\n", sev_status);
++}
++
+ static struct kobj_attribute vmpl_attr = __ATTR_RO(vmpl);
++static struct kobj_attribute sev_status_attr = __ATTR_RO(sev_status);
+ 
+-static struct attribute *vmpl_attrs[] = {
+-	&vmpl_attr.attr,
++static struct attribute *sev_status_attrs[] = {
++	&sev_status_attr.attr,
+ 	NULL
+ };
+ 
+ static struct attribute_group sev_attr_group = {
+-	.attrs = vmpl_attrs,
++	.attrs = sev_status_attrs,
+ };
+ 
+ static int __init sev_sysfs_init(void)
+@@ -1448,7 +1455,7 @@ static int __init sev_sysfs_init(void)
+ 	struct device *dev_root;
+ 	int ret;
+ 
+-	if (!cc_platform_has(CC_ATTR_GUEST_SEV_SNP))
++	if (!(sev_status & MSR_AMD64_SEV_ENABLED))
+ 		return -ENODEV;
+ 
+ 	dev_root = bus_get_dev_root(&cpu_subsys);
+@@ -1463,7 +1470,20 @@ static int __init sev_sysfs_init(void)
+ 
+ 	ret = sysfs_create_group(sev_kobj, &sev_attr_group);
+ 	if (ret)
+-		kobject_put(sev_kobj);
++		goto drop_kobj;
++
++	if (sev_status & MSR_AMD64_SEV_SNP_ENABLED) {
++		ret = sysfs_add_file_to_group(sev_kobj, &vmpl_attr.attr, NULL);
++		if (ret)
++			goto drop_sysfs;
++	}
++
++	return 0;
++
++drop_sysfs:
++	sysfs_remove_group(sev_kobj, &sev_attr_group);
++drop_kobj:
++	kobject_put(sev_kobj);
+ 
+ 	return ret;
+ }
+-- 
+cgit 1.3.1-korg
+
+

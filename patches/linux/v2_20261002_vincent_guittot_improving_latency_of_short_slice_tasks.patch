@@ -1,0 +1,4165 @@
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 4B194495ACF
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:06 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955908; cv=none; b=BT0c8SajM8JWX8WiKHsdBCVc/USF7ZuxfG4oJUK3qYOG++6Lz0PLtwuCrCSRk9C6PTBKsVy5dfhn+GVn820S8u34QtZcl0JoYvxs+PTe1zRPawY2euY1xd00s7oBotv/IE5rqllBPqsPWfP+2j+NrteRG3d2B6OZiQPqbEdmcYA=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955908; c=relaxed/simple;
+	bh=mqcr69n+Cki+W9shlrgvILn8znvb3ow0aMd43jWczjU=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=KAA2o0aWbLSVYPUXzUnCi6BdjQJH5NAHQx10U3EiJIbiL8PLXXlcYvjettOGjTLBbxbUWI6TPqqfTahEdDjgcRbalEoF4N0LGkG3BsoDXHn1t77lumvlmjbYVB1CXs9sXr+EtUgQIjjntDFqDo6SzSf4y9Mqq0d2rUZy5IvjE9Q=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=Jea4L/F9; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="Jea4L/F9"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-4a11603310fso423125e9.1
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:06 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955904; x=1791560704; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=a8shURt70eLGsxqpmwK6tNDdH4TKn99x5ZtIeJ/6eoc=;
+        b=Jea4L/F9KkLMqP8MfoclZPMkoNv6wS5GriQB0bxaFLR79R/Q6qQoQS5DwTQz/YhIyH
+         VGvqHb+iKhaFYjg1mngmRW1lzUfbpA3clITHZbemzdBbtbiEQPZ/TJwT9gQVdGnVnI4q
+         hKUjZTC0BrJr/rr6x/ai/4eU9tsNtgm4O06L9IeR6UO1HmcWj9EotCOO54QffOE4LGcU
+         uQbi4QuiW6PjNQbIx1MW4HBw7Bq4GGvFz3NZX0mAHTkbfo9yAeVz60hCZdfIHjpxAFzg
+         0NPS64Tv23igOggS9bRxWgfece/rPq20rhwsabl8e87f+JjzGM9XIpPk+7HnnMF8DK7f
+         pHaA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955904; x=1791560704;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=a8shURt70eLGsxqpmwK6tNDdH4TKn99x5ZtIeJ/6eoc=;
+        b=r9GyGbGJ9ADSqwRgkzXuLNegSZivzAkYuMc40HituV50g+QTdvhk4kJk0DnfoowunE
+         CYK/FvSxkub3oaJk1gINbkSbi8OQJcNvGLc2xGn3rPmJltMuZqfZ8yM+j7IzYb0+878D
+         RKcT+e3My0xYl7LNL+ImFjk9EwPPm2e5OfD77KONAASy1Q/rRrhOLGESEyP5yxtFT02f
+         5T0/DuIzjcwtbpgtjmDCbm7zwx8DV0oYl2hBZqsRZiUdD3m3flB00AaqSAebc1B9lbPx
+         P8bq4GfCtw8rs2U3X1VI3uV963xL9y8eBBOOM+fzuaFXgqFUSWFcD2oez7lCYaTCKFBx
+         zTzA==
+X-Forwarded-Encrypted: i=1; AKwUvBzwQ2PbW/psIwyo/EXb/1utzhCwtJjO7RBRfHSvzZ4bVtrQ6kOY60Z0FhQ7QC+zcSOZAfp5FDiDTw==@vger.kernel.org
+X-Gm-Message-State: AFuF++l26jf82TIX/YLzm6oKVUAPeUvaTBCJtqCGQipANGG+17afu5gq
+	MWhXZhjXroJQJy5zKH1KsPfPA9IK3ShUtJ4SpNUHCFy3dNd1aEv3AI2G96Lj9DAVb6U=
+X-Gm-Gg: AYBFou1iwCrFxz1gzwRgLPJu5wRRxMOo7UbhgmSEspBq3ViXegZdgwtJLaSz1u9odnS
+	VjbORR9ffUi4vq4lXfFdZDQveXwk18zyXQIuMVumcNsoBhVZL9991YBkgDctqAYFdQBnmNcCRgN
+	kHF3KdZRLrepoW+8Pc/uUrOtliA2HtLDmSoovYjN4PQZYVmy6oO9T9tOEid0KvZ3Mfp7vR2I0l1
+	h2CyR2Z1LO4fq3o1WgaazLTgNyQy2WR6+vSZyPpenhsF6nBMmQMVUAdBDxR03ohUbIyZe+9U92r
+	p8TZ4bVAhI4TqzBhWWS9C4qftrWGAnilliBXkpv+YvSzQ8lO7vzZfvbwwKxz3s6oBQaAli/P8dv
+	lt68mKllcq+fwcMYA/f+08sUS4KXFFoANH2B7VVre9e7qFOBqDkhFEhJoDEcC7sv3s2bJqUDY87
+	cY+PF0fTyPdKlaOAU69PWAWf/1JbwAGJNuGAxVqFMdrJd8GPTPzO8wKl0rrWbfPwvE0X8eof6/v
+	oOPFCgQoa43osGB
+X-Received: by 2002:a05:600c:6092:b0:4a0:20c7:6d4c with SMTP id 5b1f17b1804b1-4a027452eb0mr57787735e9.0.1790955904125;
+        Fri, 02 Oct 2026 08:45:04 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.02
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:03 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 01/18 v2] sched/eevdf: Decay positive lag of sleeping entities
+Date: Fri,  2 Oct 2026 17:43:58 +0200
+Message-ID: <20261002154415.2270586-2-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Similarly to delayed dequeue that enables an entity to decay its negative
+lag while sleeping, a task should not keep a positive lag forever.
+
+The sleep duration and the weight of the entity is used to decay the
+positive lag at wakeup.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 51 +++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 49 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 03206e15e6fe..8cda1d39b037 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -897,6 +897,51 @@ bool update_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se)
+ 	return avruntime - vlag != se->vruntime;
+ }
+ 
++static inline unsigned long cfs_rq_load_avg(struct cfs_rq *cfs_rq);
++
++static __always_inline
++void decay_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
++{
++	s64 delta_exec, vlag = se->vlag;
++	unsigned long cfs_load;
++	struct rq *rq;
++
++	WARN_ON_ONCE(se->on_rq);
++
++	/* Negative lag implies delayed dequeue */
++	if (vlag <= 0)
++		return;
++
++	rq = rq_of(cfs_rq);
++
++	if (flags & ENQUEUE_MIGRATED)
++		return;
++
++	/* Compute sleep time */
++	delta_exec = rq_clock_task(rq) - se->exec_start;
++	if (unlikely(delta_exec <= 0))
++		return;
++
++	/* For anything above ~4 seconds, save computation and clear the lag */
++	if (unlikely(delta_exec >> 32)) {
++		se->vlag = 0;
++		return;
++	}
++
++	cfs_load = cfs_rq_load_avg(cfs_rq);
++	if (cfs_load) {
++		unsigned long weight = scale_load_down(se->h_load.weight);
++
++		delta_exec *= weight;
++		delta_exec = div64_long(delta_exec, cfs_load + weight);
++	}
++
++	vlag -= calc_delta_fair(delta_exec, se);
++
++	/* vlag can't become neg while sleeping */
++	se->vlag = max(0, vlag);
++}
++
+ /*
+  * Entity is eligible once it received less service than it ought to have,
+  * eg. lag >= 0.
+@@ -7987,7 +8032,7 @@ static void
+ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+ {
+ 	int rq_h_nr_queued = rq->cfs.h_nr_queued;
+-	int task_new = !(flags & ENQUEUE_WAKEUP);
++	int task_wake = flags & ENQUEUE_WAKEUP;
+ 	struct sched_entity *se = &p->se;
+ 	struct cfs_rq *cfs_rq = &rq->cfs;
+ 	unsigned long weight;
+@@ -8019,6 +8064,8 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+ 	if (p->in_iowait)
+ 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
+ 
++	if (task_wake)
++		decay_entity_lag(cfs_rq, se, flags);
+ 
+ 	if (se->on_rq && se->sched_delayed)
+ 		requeue_delayed_entity(cfs_rq, se);
+@@ -8048,7 +8095,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+ 	 * into account, but that is not straightforward to implement,
+ 	 * and the following generally works well enough in practice.
+ 	 */
+-	if (!task_new)
++	if (task_wake)
+ 		check_update_overutilized_status(rq);
+ 
+ 	assert_list_leaf_cfs_rq(rq);
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 53C484E1C88
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:07 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955909; cv=none; b=nrTkQoSt4aZnkCmVS4EvgxZOHQ6ZxIvqr9uQaa/t7e1FYyzI8/O3sRCdfZ3o6WpNKTCCnGMTNRgzbpbBgyYxkxD1RaT2rXMDTLxWEOz9deQgsPnlPGlharKHvmymakO/c6ezgd6fVB55Qsvnw2ZXPswzaSnb6ybNL04MsXiSQFk=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955909; c=relaxed/simple;
+	bh=CTaQke7SU+dNOxVuINpaFMcJR69qg82aQwGX0Pu+f+c=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=myZzyHS3EMRlCc+Dvy2v+d3juPW+k2Ij0AGdsG+Rn/wbKfbD7XtPQw7zxdTPQNqOcaSj+4Bkqe0QYphghC4zjuWqQzwz7v6Nsi9syiH6kbMTFk/lcDBKMSQWRh2+aM8CGPQCItEO3aV1acrutpFlWS+QHkzVREi+CyUm18Gwoxw=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=G73CE+vK; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="G73CE+vK"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-49ffde3cec6so180675e9.3
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:07 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955905; x=1791560705; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=GCbQwEE09RLLlmPAHT5m8hX24lXl899bphgbqp3z/Hk=;
+        b=G73CE+vK7/FWCvJKTVTV0SrkcykV75yEWeqz48eElly+lKOibBpI1VQvUG88daAr1z
+         WDVGYgP+rSBcjm8dNFlk9Xn4ZnZHRfUP5IeiDXj+uZZTR84iWp50K8KqYp5LaOezOf+E
+         pxTDZ+XiKvZeyJsQ9tx3hrBEN+o5Mrrgw5eL6JdUHPFiLwAcNtMa/XVLT9PdMRzYQYVb
+         NI1LB0RO8y89/IpEaJTsJ2tb9fnFjIQYYskADge4K/cL/nnxwXvNVqdoWRGvKMS6QaKj
+         Sq3S8Blj8v6i66Y0RS6zoZ5g6vQ5ZoepHcOyJeXmJABSdbd5MObezeYArdt9jH3DYEuB
+         Jjmg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955905; x=1791560705;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=GCbQwEE09RLLlmPAHT5m8hX24lXl899bphgbqp3z/Hk=;
+        b=V3cazWOT4jXUQvXSevTDq8Uk0HA6EW9uGQcWHgx/1HiIj2BsTMEFecFzLNdu6kcpVO
+         c2eyZGmYJE45jePp6uhArFJ4v9fC32icrCdOUnKt/ocPKF09diuqzzLengJ28ansuRH5
+         4MDF4wXWXowoFpOIsEgdYc1JNatp7S9hfnMBsJ7sOUO9UpoO0rOFOHTMfSIVhKGFDty2
+         5BvEr1pwMWax4/aiZyGIjSD2oOcnBwx9FaEjKefHCLFIze8tFkle9wyll9ZjZVPtSQL6
+         DW7J1yDbRrlAd+lRxc/CbJSnMHDjzk5hT4nf3K+fWD+R1QkBBGUDKQtBaN1gm/BCx5kf
+         1iVw==
+X-Forwarded-Encrypted: i=1; AKwUvBwlWBM0AePXEwaQGN/8J4mpEQRg2aEHZ1vkgiy/kb6tD7kkt6BPjQZHOe9HyjDoecRo0BXU+ViB0A==@vger.kernel.org
+X-Gm-Message-State: AFuF++lZ7fGdBly7V3pEEczl2oK5NVr/ZjzGg7oRKUo6Cq+5ZLvVkBmQ
+	r1tZHjklPsnISHqcZ7R+zrKV1uHR0pcbfY7BRWKQA5ly2rht2YcAkCsdAvbGJ6IL0kE=
+X-Gm-Gg: AYBFou3t4RAMCoUHXfIJcup0LSIQCmjphZxKtO1PaA+yRJYxQYGiITNRRk4DtCbAFaJ
+	h/Bp/g1qlpzEnMormmNEzottcvL3fq/gVhPJuYeMm4AdK9Y6cjFT12Oj1V68DhOiz3NPjEnaNra
+	oYylqAvFmgLxhDLI7Sd+6v3YE6HDLg1k16kUqMqgd6YsnliV5ZIoOQEwPFZq+VVT+er5lVURQaS
+	hMidmv1d2/eK9icmpM/iqX4tWl7q040n3NzFAXLrKITz63sWXEetoSZUXCW/ZmmJ3p9qne5JqMs
+	wO5Y86QqrPQZO5DQ6JQtdJIzVh02hbLjjl2OSK9bj6KYfnH29KF3nuS2KkQkm714N+fdC5soakY
+	I2KyQ68ZmB352eiKKXm+erShjXwYYhMfC/yPbi1uHzAG2WMnJrG8wP8Ku+v0LfH9EZlLhotONz0
+	iyLVPeql00E+ffjsd0Gp+1NTEgxPDW2v/GMRF9c4Nj0j3nKjX6N/FDBuxJKYO8nsfQbLLJTvdVR
+	6ivV/YitQweldtA
+X-Received: by 2002:a05:600c:3b01:b0:49f:dd9f:6038 with SMTP id 5b1f17b1804b1-4a027573634mr47267725e9.25.1790955905339;
+        Fri, 02 Oct 2026 08:45:05 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.04
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:04 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 02/18] sched/eevdf: Reset lag when waking up on idle cpu
+Date: Fri,  2 Oct 2026 17:43:59 +0200
+Message-ID: <20261002154415.2270586-3-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+When several tasks wake up simultaneously on an idle CPU, their final vlag
+will depend of the ordering as the first one will lose its lag but not
+the next ones.
+Reset the lag when the enqueue happens while no fair task has already been
+picked et set as the running task.
+
+As a typical example:
+CPU0 is idle
+TA with vlag 0ms and TB with vlag 5ms wake up on CPU0 simultaneously.
+Depending which grab the lock 1st the behavior will be different:
+If TA is enqueued 1st, TB will be enqueued with a positive lag and will
+be picked 1st.
+But if TB is enqueued 1st, it will loose its positive vlag and both TA and
+TB will have 0 vlag when fair will pick a task.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ include/linux/sched.h |  1 +
+ kernel/sched/fair.c   | 17 +++++++++++++++++
+ kernel/sched/sched.h  |  1 +
+ 3 files changed, 19 insertions(+)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index d7cc77181ef9..32d7077ef148 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -592,6 +592,7 @@ struct sched_entity {
+ 	u64				vruntime;
+ 	/* Approximated virtual lag: */
+ 	s64				vlag;
++	u32				vlag_seq;
+ 	/* 'Protected' deadline, to give out minimum quantums: */
+ 	u64				vprot;
+ 	u64				slice;
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 8cda1d39b037..4c8f12fc8869 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -893,6 +893,7 @@ bool update_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se)
+ 			vlag = min(vlag, 0);
+ 	}
+ 	se->vlag = vlag;
++	se->vlag_seq = cfs_rq->idle_seq;
+ 
+ 	return avruntime - vlag != se->vruntime;
+ }
+@@ -914,9 +915,22 @@ void decay_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
+ 
+ 	rq = rq_of(cfs_rq);
+ 
++	/* You can't claim any lag when waking on idle CPU */
++	if (rq->curr == rq->idle) {
++		se->vlag = 0;
++		return;
++	}
++
++	/* Accessing remote rq task clock is a cost */
+ 	if (flags & ENQUEUE_MIGRATED)
+ 		return;
+ 
++	/* CPU has been idle in between so the lag has been removed */
++	if (se->vlag_seq != cfs_rq->idle_seq) {
++		se->vlag = 0;
++		return;
++	}
++
+ 	/* Compute sleep time */
+ 	delta_exec = rq_clock_task(rq) - se->exec_start;
+ 	if (unlikely(delta_exec <= 0))
+@@ -8190,6 +8204,9 @@ static bool __dequeue_task(struct rq *rq, struct task_struct *p, int flags)
+ 
+ 	dequeue_hierarchy(p, flags);
+ 
++	if (!cfs_rq->h_nr_queued)
++		cfs_rq->idle_seq++;
++
+ 	if (sched_feat(PLACE_REL_DEADLINE) && !task_sleep) {
+ 		se->deadline -= se->vruntime;
+ 		se->rel_deadline = 1;
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index b98084e1f5b0..69a2a749e188 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -689,6 +689,7 @@ struct cfs_rq {
+ 	u64			sum_weight;
+ 	u64			zero_vruntime;
+ 	unsigned int		sum_shift;
++	u32			idle_seq;
+ 
+ #ifdef CONFIG_SCHED_CORE
+ 	unsigned int		forceidle_seq;
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 5702E2F8BEE
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:08 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955911; cv=none; b=WtoF4b9EtIghv6cFvMrS2QwUQKHqyVSF2KhzEKlC8gnmN8hyvwFpnAWPRvy01uzE7UO4hnSDuU/gqEwiqw4SqSW82l/yTxb9r7MDO4c8bAaN6vkLCWQ3tXzM148HAxk7smPJ2mMELDRcNL5AvL23XAfE4vq7/fuAsi7F1O+fTz4=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955911; c=relaxed/simple;
+	bh=Jf5E32GF85o6HQAbOOcsttI4ZjzXaQd9Z4H5WyGTqyA=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=KebZlB88RIbf2h2pmWtXc10MclSmua4CEJQtZEm7VLm9PQyvjDYHOrvyagmuCKnasLHEA0uPrfwe8hF6QnJZ1gumejJU71NPecnJYuYz8g3K6JuOTLJNfoRevPxoOYa5SF1RPOw9fXbjyKCTqWINVF9IMa0rQau4n+cmlykplH4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=CW1HfXKO; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="CW1HfXKO"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49d1fb0cf5eso188435e9.3
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:08 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955906; x=1791560706; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=P2kuJVAAelDyNc/5dJ9IAgD/T6ohQyK6/p84njFW19Y=;
+        b=CW1HfXKOfuGyxZLPfqJUcAQ/fNw8syggChfziVe9qSIidb9MYnWC1TjI+81tU+cXv5
+         B1uc3dZLW0DDocwIdIZk9y8t0O2FwM6YIEk4/XRJXZsVwJeaYpDlJH6WN36xJm/9tZX6
+         hF59EFb0/1ZldpJqlFC9jfWMA+Qe/68r7dzOSqruPV6m1vYyFBR69DEM5Q0Jb1eAlS4o
+         nWexo/PZDeVO4ukpxxm5BtGbPPW+7QYQoFaaTUm0C4nfMbWs6Xnj077Qp0QL7SnysP8y
+         xe/OOYylQSmdq4MNnYpTcBsT9TOag22pe/wJNz6HnQdvVuykKd3NOboRufGczzW+oNQN
+         tk+g==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955906; x=1791560706;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=P2kuJVAAelDyNc/5dJ9IAgD/T6ohQyK6/p84njFW19Y=;
+        b=es28IRtY0p20GpgCsMVDzVUxdgqwYG5dcaf4fm1IxxvsuJ/2vAT0/iC1LZACHiuM3g
+         YPXXExgbaGoprr7Cjdcr907ock29XzwEG7WGwk6VXgHiTEvx11B45ib0oXwCFrbEviOQ
+         m+a8k6dx9GtBiC+3t55sAsz8StDoKdyXam0sntYESmxoezTS04ZgF8M6H+KeHMdZTyai
+         +QylLuXagHI9yJ6bGLFlkClWM3gnaZOFZ/AD/kE5M4tqbai29jYWHcVirP3oTnnV11JA
+         hmZ/BLx3N5yl3pAFnRTTeYNicF5cu1ocN2bS4MqxFpXAiPAW11dJf55PQbjDuCLsbjZz
+         UkgA==
+X-Forwarded-Encrypted: i=1; AKwUvBzpK0fscQnwVf3sYJuBsVp70SqOpcwLeoL/DEIQRNO0ZuEt/aBiS1zBZ7S7ucuHVV1B4E+tNXBfQg==@vger.kernel.org
+X-Gm-Message-State: AFuF++nFbvKrmcG7bAQx5YEqT7gY4XcHWpJu6EtpS035GQHnMJtP01zd
+	T8hzi5QunknnEBxi/t2xXZy3JcJ8VSheLfWj6r//iUjQLj76fA4vG6D1jEwyOpiAGhU=
+X-Gm-Gg: AYBFou1SYG2WCZMjFH504SgvVaKk0LSj0zSTHg+mxOyX3pg/PMZ07b8WpBsCK54p9cT
+	pjx0ZHoB9cgHQ/9xqtl1zroD9giZMwJc7tMLsqsMYpHNcWsHjncijNQhDBEfRebGfwl75vq6A99
+	KC+UeJMVx1tyiPUSFpyo2vMF5gdCacpaY9p69p0rsDDjUcq3T9kwGqY2APtpHZFi6mmrt5uGnb1
+	QtO5v5MX+MaWg+bb8Q8WbV4AAFJt6FAEkKU3MIVSzVS0iIphzeuHI4nsbWA0qFd433xbVevY1a3
+	GkCR9WE9d/RJ40Fw4y2bFUfzOLMYiibIT3Fik+mxQICeZPYd+K/cB87trNBSO82Tdv1pjP0UKdK
+	GjF/oAys4bE7/n2awDB2blPfginBskW6GS/fvgdYWHjlsPEvjGFOeG3VTko7qZzYIWxfDyqGH0Q
+	gxmnioHLq3kG3/yTWZsKvwxRorno9iAL9ePc4H0prU8fzCZY69ZJGccU/ya1vsguaevYX01VaK5
+	f1GM295OV/cc4Zs
+X-Received: by 2002:a05:600c:a010:b0:4a0:251f:a726 with SMTP id 5b1f17b1804b1-4a02759badbmr51939065e9.24.1790955906410;
+        Fri, 02 Oct 2026 08:45:06 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.05
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:05 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 03/18 v2] sched/eevdf: Add per cpu cached min_slice
+Date: Fri,  2 Oct 2026 17:44:00 +0200
+Message-ID: <20261002154415.2270586-4-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+In order to use min_slice during cpu selection, update a cached value when
+needed after en/dequeing a new task. This cached value includes current
+task.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/core.c  |  1 +
+ kernel/sched/fair.c  | 20 ++++++++++++++++++++
+ kernel/sched/sched.h |  1 +
+ 3 files changed, 22 insertions(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index ee9b443f760d..f38cf5a37a8a 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -8902,6 +8902,7 @@ void __init sched_init(void)
+ 		rq->sd = NULL;
+ 		rq->rd = NULL;
+ 		rq->cpu_capacity = SCHED_CAPACITY_SCALE;
++		rq->min_slice = ULONG_MAX;
+ 		rq->balance_callback = &balance_push_callback;
+ 		rq->active_balance = 0;
+ 		rq->next_balance = jiffies;
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 4c8f12fc8869..ad72b8536d6c 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -1116,6 +1116,22 @@ static inline bool min_vruntime_update(struct sched_entity *se, bool exit)
+ RB_DECLARE_CALLBACKS(static, min_vruntime_cb, struct sched_entity,
+ 		     run_node, min_vruntime, min_vruntime_update);
+ 
++/*
++ * Entity's slice is in the range [100us:100ms].
++ */
++static unsigned long get_rq_min_slice(struct rq *rq)
++{
++	return READ_ONCE(rq->min_slice);
++}
++
++static void __update_rq_min_slice(struct rq *rq)
++{
++	unsigned long min = cfs_rq_min_slice(&rq->cfs);
++
++	if (min != get_rq_min_slice(rq))
++		WRITE_ONCE(rq->min_slice, min);
++}
++
+ /*
+  * Enqueue an entity into the rb-tree:
+  */
+@@ -8089,6 +8105,8 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+ 	place_entity(cfs_rq, se, flags | ENQUEUE_QUEUED);
+ 	__enqueue_entity(cfs_rq, se);
+ 
++	__update_rq_min_slice(rq);
++
+ 	if (!rq_h_nr_queued && rq->cfs.h_nr_queued)
+ 		dl_server_start(&rq->fair_server);
+ 
+@@ -8214,6 +8232,8 @@ static bool __dequeue_task(struct rq *rq, struct task_struct *p, int flags)
+ 	if (se != cfs_rq->curr)
+ 		__dequeue_entity(cfs_rq, se);
+ 
++	__update_rq_min_slice(rq);
++
+ 	sub_nr_running(rq, 1);
+ 
+ 	/* balance early to pull high priority tasks */
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 69a2a749e188..e025d2a6c302 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -1173,6 +1173,7 @@ struct rq {
+ #endif
+ 	unsigned int		ttwu_pending;
+ 	unsigned long		cpu_capacity;
++	unsigned long		min_slice;
+ #ifdef CONFIG_SCHED_PROXY_EXEC
+ 	struct task_struct __rcu	*donor;  /* Scheduling context */
+ 	struct task_struct __rcu	*curr;   /* Execution context */
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 6FD544B44C8
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:09 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955913; cv=none; b=KHz9aS+t5Od3H8lS3nC/kJHZMNzX1qVzaOBBlF/kXTdVXmOnrl0RBN+WbbN57GprCFefFbOiepzk183gclRfgyKmhbG7RMX7D7UmgFHirKWLt6tUU2uPCLglN3S87hv/In9sgU486BtMcX6w/rwlOMpNPJoUzfSoysvDVE4N4k0=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955913; c=relaxed/simple;
+	bh=Z3OZRU9tUVQEa8ii3OJE37iSt72mrOcOAJir4arnI9U=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=l9SmXGgnhxBsSJjgw6cMJSuKn+z3x0L368K0Wm3NFNa2dbsQW/nm11Ey/EhQnzjpYopiqzwq+NgcVnchJr7m5h0DfOsAjL4ZzNrvj820LBIVuBMnyMxcE0Zd0wli/UFXa1ra5Wo0zjO4fph8frdzi4wQgPRhEV7p0UL4HU5u4DA=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=E4VReeLy; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="E4VReeLy"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49ccf3ca626so362835e9.0
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:09 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955907; x=1791560707; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=+I4t9viO/Urz7W8GjoAm6BBP/QuCZzvUO0dNV1Sy8FM=;
+        b=E4VReeLycefPNhQ803uS0/gDXk7hq5EYzlHG9ChmZBJ5kWgPTDZfQV9PgBHbKzNRm6
+         len2DahbQHHyrgnmSgWpgr90v+RLNBux0apXoL6I7E2E9wPElH2yaA8RMOSz5be5rfDN
+         X98kFQENYwbuJKfUqiFjWcL/RnASHt2jXi9Y0fdwN6IwjWuJhw/FidqPWLnXTt0OkIUf
+         I8BtnB53Pus7va0tMPxB6KHGZVE3vkuMl2/2h67i1r+rLqO3F8n/pcpubEN9rWMzldbI
+         JGp+o30wUkihX7p1HJIUGha+Zheg9FmcR619Zks/mrkHxEa2wyub62N07xqmX+qhAZCr
+         ny6Q==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955907; x=1791560707;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=+I4t9viO/Urz7W8GjoAm6BBP/QuCZzvUO0dNV1Sy8FM=;
+        b=urwKxiPb6lnyIcNtqeGngSKS4QshebQ7WS6NNAhx8q84uNixP4RVK5BtyMHlEW/pGn
+         dKTpcQD6Ok9305geLZ+6pc2tbDhoWgLjoYhIkpbOxrCP1IRuBr80+EKc0C0kLbWCJYU+
+         IfiXz/eLUTg6eApfUemCazHhr7ZA8xRCpugLzc16Jl3nPVgpaZ2BAo2yoxqWTioPwbx1
+         gP+LHr7qWKfJWo6svG0G2sdIo0wHMtve2+vj3xYqeRCZu5Yo7ybniCceVMzIdkpyM1q1
+         sK21p5Kc9m0l6XB4WhBUVGiqRvOJMOmzC37X15V95lId4KW9B+3Em1SGFmeuixwlgWrG
+         Ex8g==
+X-Forwarded-Encrypted: i=1; AKwUvBxtwmJuKW0unaJwl6Th902WfBPsV5BQ3N3xQM4CGM/mQLTxIzQt/OYuiLGhk22r450rajxdUYD6jA==@vger.kernel.org
+X-Gm-Message-State: AFuF++mVMUjCCYBgmj549ILVGOv1qCRLTAfduCVANZyiFmqC6cUklMEI
+	kB9rb0zh6M4Cr6rL5ArIgCEb3xx+xl8QHu1gQRRbL+SRVzaPcHmK7YkAkFQh5U/woMw=
+X-Gm-Gg: AYBFou1nOX8ibFNUD2j7EZ21NZrmQqIBnVR3muV9ugf+eWMkHD1jYVhK1GSYtkcpJE8
+	d2klW13yLtIu8nefSmXqEVi0TS1kBPNI2nhDKI89AH8dOu+4dQpwoAkmBBx4VCDkTQcsk+UZb6+
+	vvYGfd4SUt1A/RJi/0nBhnWFCCIf+Utlj4cNXCTfuAU7mdc+bMbDJh4Axg/zHCYjFAuzy/Dd+k8
+	cHWs8W1uAuFaIHm54lyqkLh0lBEEXUIqH8q52/JzJW8zi/dl7ci0iF1IAc/sngliz1azTalzmx9
+	mCv06TsFBpkkluVhRe/m+ENab883dnHAVvPXl/0KSFZHw8qsSpCWRtZC6ZYdM0Xd/s+4FL00/Mg
+	yG3HEtUkK/Hj1wqMkTd6+wogSaaGrGj7zPYl05+pyUqhJ+pp0GQF1JrPRWVnIDzycHrga8C5OUU
+	oky0kqufIqMGT9BYVucC31Pdyj2To+ORIasnMMOR5rjLJ9+hYLURURUGEsfrT5xNH6DQ6BriKGs
+	hRBTs4r5q1BdGq4
+X-Received: by 2002:a05:600c:c16e:b0:49f:ffdc:939d with SMTP id 5b1f17b1804b1-4a02755fd8bmr52292735e9.9.1790955907438;
+        Fri, 02 Oct 2026 08:45:07 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.06
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:06 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 04/18 v2] sched/eevdf: Compare min slice during wake_affine
+Date: Fri,  2 Oct 2026 17:44:01 +0200
+Message-ID: <20261002154415.2270586-5-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Add a new level in wake affine where we check on which CPU the task
+would most probably run 1st between this and prev CPUs.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index ad72b8536d6c..eeac0aaba3cd 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -8422,6 +8422,9 @@ static int wake_wide(struct task_struct *p)
+  * wake_affine_idle() - only considers 'now', it check if the waking CPU is
+  *			cache-affine and is (or	will be) idle.
+  *
++ * wake_affine_slice() - only considers 'now', it check if the waking CPU can
++ *			 be preempted becaus using longerslice.
++ *
+  * wake_affine_weight() - considers the weight to reflect the average
+  *			  scheduling latency of the CPUs. This seems to work
+  *			  for the overloaded case.
+@@ -8457,6 +8460,20 @@ wake_affine_idle(int this_cpu, int prev_cpu, int sync)
+ 	return nr_cpumask_bits;
+ }
+ 
++static int
++wake_affine_slice(struct task_struct *p, int this_cpu, int prev_cpu)
++{
++	struct sched_entity *se = &p->se;
++
++	if (se->slice < get_rq_min_slice(cpu_rq(prev_cpu)))
++		return prev_cpu;
++
++	if (se->slice < get_rq_min_slice(cpu_rq(this_cpu)))
++		return this_cpu;
++
++	return nr_cpumask_bits;
++}
++
+ static int
+ wake_affine_weight(struct sched_domain *sd, struct task_struct *p,
+ 		   int this_cpu, int prev_cpu, int sync)
+@@ -8508,6 +8525,9 @@ static int wake_affine(struct sched_domain *sd, struct task_struct *p,
+ 	if (sched_feat(WA_IDLE))
+ 		target = wake_affine_idle(this_cpu, prev_cpu, sync);
+ 
++	if (sched_feat(PREEMPT_SHORT) && target == nr_cpumask_bits)
++		target = wake_affine_slice(p, this_cpu, prev_cpu);
++
+ 	if (sched_feat(WA_WEIGHT) && target == nr_cpumask_bits)
+ 		target = wake_affine_weight(sd, p, this_cpu, prev_cpu, sync);
+ 
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 33CA34ED1AE
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:11 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955915; cv=none; b=ac5mX+AiEU+oCxs+pRD7xTTb47U0Ago+0q5yS6o4B8FThcrh6zlibAvN99WSwhoWuGcd8STYa+G+mVtQ4wU7NhyqMViwf+kwhVSamFVHRtQdh/HuWEs6YB86t+jkEE8JyUILyKTVzVW/nkBs3fU694p4Z9v4tKy2jtf+I5K30d8=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955915; c=relaxed/simple;
+	bh=WZVknkITQWs7oWBi+0A58jnM26FncEnONNZjHL6TLOs=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=EN8yTW4IZA9ZqdM/tNEs78z2EBpw0yW2gUNDmKMSR7TnRASBJxlevoe9Z9ew6DHTWQ0FrB2YN3tR88Fc9JBfwVa9fV1Q6JcCobYVYeJaBvINCR+ICFo7TiMYZ/rko5OUHi+zyvlt06FyNOUir/FzJPQ5EdZMJ5ycSH5fVTcXNV0=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=x0Ev/IW5; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="x0Ev/IW5"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-49b912d822dso184895e9.2
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:11 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955910; x=1791560710; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=ioyIM3L446Zr1EwfEa+dONNeCVeHZuOjQgRKhrViUkI=;
+        b=x0Ev/IW59UcfyEURtG1R0bR4n63svqnQwU+MMUaZ8BFIpd/Rh6qdPEl8wvDKkgb5cU
+         X02627ImFqVO20LsCFUoB2IgbQMt4iWY0k7GsMG2jAEKd8MswY5YTLL4IDALb1aYT+1Y
+         b9vWQbmvjBw/YB9BlRFjYk017vv67KlvZEaDYVs3ezSvd/SowXkdt4JBaCGxrv8m0GCm
+         4PxVa1tUUz9DuQVZIALvgIPVDJiwksDNrL6jwXUIBd6K1ysPTUsMim0y+sdUXfxutnOl
+         oiBQBAdjlyQS6BPgnLaUvm/GaHLHIRCmVUj3EcQUtDiSjrjj/PoK09bWh0IRLGYqHrfo
+         KLfg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955910; x=1791560710;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=ioyIM3L446Zr1EwfEa+dONNeCVeHZuOjQgRKhrViUkI=;
+        b=1/oapvRxVDLS6O5AHtltdoWBndtuv3WqDsPnhGh4Fy4FUhlac77bQKx0oelHK/uR3Y
+         pE5shjxnI5Vaidtb6RUbzfZUiTdK0x5a9l8oEWAo+t3gbkvIUX9eWZa866kfeT0+qjWX
+         F0L3kVfBU5mP3ZomVNLINBk8+rJmgpa6gbd2xmEqj95GgZwR4EBR2TQX05Jhxxp2GPrI
+         RnMYqPKZClhwTpjvDH6fC/d2PrGw12T+8K/OsEscwzyYQIh08v/Mx4NgJIFwP/MoUigw
+         qjPFalLc8P4BfTGaBAMV0uaOdlVLwTZQ66wN/lTTekfXfvlfUMdcnGDlgx4381jypyo3
+         7lVA==
+X-Forwarded-Encrypted: i=1; AKwUvBzQbLhxMKspEZTxSuJfl9PnwYm8MPT+crBYGExjOVYGWdnLrbdu2FOM5zWR6/4gc044FHY0CxukrQ==@vger.kernel.org
+X-Gm-Message-State: AFuF++mEDmfUCOc0z0x8Vt3UoogmUH7+xp8FerCQlDmGF1jPcDUo7jI+
+	RYixWHCeq6coQgh0MJ5cedTMi6u1lNa0W10wPELXIn3dkNtVnEB9BnxD7SizdETcXbw=
+X-Gm-Gg: AYBFou0VEAhTGzOYXkVgnRTwoTDv4cd+Y84CR9NiJtRyRZne6J/Q4DRRd4KYSJeIR4+
+	iEQlnByGSFModm95wSkRfcw73WhU0qOLIbE96OepESmiaOz4yxNPz8Gp9BchXbhWT6Bm9yOT3KA
+	+n13sjKq+9Sr2Yx1nTv0nzMd0UBfedhL+O1+i4Eiow871oEOi8ALcr4ZJZS6OBdQTImk9lNtVZx
+	JXcrgj/qTKI64Hi0B58MCubnQLtRgjgRBwsJoUYOjPY6v6LlR0Qpz/jP3r/L67/PGZe3BTFqfFe
+	2/66SH+54xW5CAzEKnUPnODD84/v6McaQInBkTKDQLyjsuv1JsXh2vCZ0pO3S+q2nLDx7hEiTR6
+	lwCNvO/18Kn933O+zYZxuv2y8li304gaoAvSkqLjYo7zxC9bhSXsPJHXx1x4zmGjrWCRzgQXNpm
+	gsh0kT7ThjEMbNFuAcdlKYpT0hp6udbryJRpLzHftVvSLW/4SYvQRjKlgwA1Ur3yPGpG2vXz0d8
+	6DPGvViCNxoGTDhQbRmu1Jn6OY=
+X-Received: by 2002:a05:600c:c16f:b0:49f:ed8c:6cad with SMTP id 5b1f17b1804b1-4a027594557mr51582015e9.19.1790955909863;
+        Fri, 02 Oct 2026 08:45:09 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.07
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:07 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 05/18 v2] sched/eevdf: Add min slice check when selecting CPU
+Date: Fri,  2 Oct 2026 17:44:02 +0200
+Message-ID: <20261002154415.2270586-6-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Add a new level for selecting CPU when select_task_rq_fair() fails to find
+an idle CPU. This last level will compare the slice to select a CPU where
+the task could run 1st.
+This helps a waking task to select a CPU where a longer slice runs
+instead of one where a task with the same or shorter slice already run.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 106 ++++++++++++++++++++++++++++----------------
+ 1 file changed, 67 insertions(+), 39 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index eeac0aaba3cd..19a0e67827f7 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -8771,10 +8771,11 @@ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int t
+  * comparing the average scan cost (tracked in sd->avg_scan_cost) against the
+  * average idle time for this rq (as found in rq->avg_idle).
+  */
+-static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool has_idle_core, int target)
++static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool has_idle_core, int *best)
+ {
+ 	struct cpumask *cpus = this_cpu_cpumask_var_ptr(select_rq_mask);
+-	int i, cpu, idle_cpu = -1, nr = INT_MAX;
++	int i, cpu, idle_cpu = -1, slice_cpu = -1, target = *best, nr = INT_MAX;
++	unsigned long task_slice;
+ 
+ 	if (sched_feat(SIS_UTIL) && sd->shared) {
+ 		/*
+@@ -8795,6 +8796,8 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool
+ 	if (!cpumask_and(cpus, sched_domain_span(sd), p->cpus_ptr))
+ 		return -1;
+ 
++	task_slice = p->se.slice;
++
+ 	if (static_branch_unlikely(&sched_cluster_active)) {
+ 		struct sched_group *sg = sd->groups;
+ 
+@@ -8814,6 +8817,10 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool
+ 					if ((unsigned int)idle_cpu < nr_cpumask_bits)
+ 						return idle_cpu;
+ 				}
++
++				if (slice_cpu == -1 &&
++				    task_slice < get_rq_min_slice(cpu_rq(cpu)))
++					slice_cpu = cpu;
+ 			}
+ 			cpumask_andnot(cpus, cpus, sched_group_span(sg));
+ 		}
+@@ -8832,11 +8839,18 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool
+ 			if ((unsigned int)idle_cpu < nr_cpumask_bits)
+ 				break;
+ 		}
++
++		if (slice_cpu == -1 &&
++		    task_slice < get_rq_min_slice(cpu_rq(cpu)))
++			slice_cpu = cpu;
+ 	}
+ 
+ 	if (has_idle_core)
+ 		set_idle_cores(target, false);
+ 
++	if (slice_cpu != -1)
++		*best = slice_cpu;
++
+ 	return idle_cpu;
+ }
+ 
+@@ -8851,14 +8865,19 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool
+  *
+  *   Rank                            Val  Tier    Meaning
+  *   ------------------------------  ---  ------  ---------------------------
+- *   ASYM_IDLE_UCLAMP_MISFIT         -4   core    Idle core; capacity fits
++ *   ASYM_BUSY_FITS                  -6   core    Busy core but capacity fits
++ *						  and task can preempt current.
++ *   ASYM_IDLE_UCLAMP_MISFIT         -5   core    Idle core; capacity fits
+  *                                                util but uclamp_min misses.
+- *   ASYM_IDLE_COMPLETE_MISFIT       -3   core    Idle core; capacity does
++ *   ASYM_IDLE_COMPLETE_MISFIT       -4   core    Idle core; capacity does
+  *                                                not fit. Still beats every
+  *                                                thread-tier rank: a busy
+  *                                                sibling cuts effective
+  *                                                capacity more than a
+  *                                                misfit hurts a quiet core.
++ *   ASYM_BUSY_THREAD_FITS           -3   thread  Busy CPU and SMT sibling but
++ *						  capacity fits and task can
++ *						  preempt current.
+  *   ASYM_IDLE_THREAD_FITS           -2   thread  Busy SMT sibling; capacity
+  *                                                fits util + uclamp.
+  *   ASYM_IDLE_THREAD_UCLAMP_MISFIT  -1   thread  Busy SMT sibling; capacity
+@@ -8868,24 +8887,26 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, bool
+  *   ASYM_IDLE_THREAD_MISFIT          0   thread  Busy SMT sibling; capacity
+  *                                                does not fit.
+  *
+- * ASYM_IDLE_CORE_BIAS (-3) is an offset, not a state. On an idle core,
++ * ASYM_IDLE_CORE_BIAS (-4) is an offset, not a state. On an idle core,
+  * fits += ASYM_IDLE_CORE_BIAS rebases thread-tier ranks into the core tier:
+  *
+- *   ASYM_IDLE_THREAD_UCLAMP_MISFIT (-1) + BIAS -> ASYM_IDLE_UCLAMP_MISFIT   (-4)
+- *   ASYM_IDLE_THREAD_MISFIT         (0) + BIAS -> ASYM_IDLE_COMPLETE_MISFIT (-3)
++ *   ASYM_IDLE_THREAD_UCLAMP_MISFIT (-1) + BIAS -> ASYM_IDLE_UCLAMP_MISFIT   (-5)
++ *   ASYM_IDLE_THREAD_MISFIT         (0) + BIAS -> ASYM_IDLE_COMPLETE_MISFIT (-4)
+  *
+  * ASYM_IDLE_THREAD_FITS (-2) is never rebased because a fully-fitting idle-core
+  * candidate early-returns from select_idle_capacity().
+  */
+ enum asym_fits_state {
+-	ASYM_IDLE_UCLAMP_MISFIT = -4,
++	ASYM_BUSY_FITS = -6,
++	ASYM_IDLE_UCLAMP_MISFIT,
+ 	ASYM_IDLE_COMPLETE_MISFIT,
+ 	ASYM_IDLE_THREAD_FITS,
++	ASYM_BUSY_THREAD_FITS,
+ 	ASYM_IDLE_THREAD_UCLAMP_MISFIT,
+ 	ASYM_IDLE_THREAD_MISFIT,
+ 
+ 	/* util_fits_cpu() bias for idle core */
+-	ASYM_IDLE_CORE_BIAS = -3,
++	ASYM_IDLE_CORE_BIAS = -4,
+ };
+ 
+ /*
+@@ -8904,6 +8925,7 @@ select_idle_capacity(struct task_struct *p, struct sched_domain *sd, int target)
+ 	bool has_idle_core = sched_smt_active() && test_idle_cores(target);
+ 	unsigned long task_util, util_min, util_max, best_cap = 0;
+ 	int fits, best_fits = ASYM_IDLE_THREAD_MISFIT;
++	unsigned long task_slice;
+ 	int cpu, best_cpu = -1;
+ 	struct cpumask *cpus;
+ 	int nr = INT_MAX;
+@@ -8914,6 +8936,7 @@ select_idle_capacity(struct task_struct *p, struct sched_domain *sd, int target)
+ 	task_util = task_util_est(p);
+ 	util_min = uclamp_eff_value(p, UCLAMP_MIN);
+ 	util_max = uclamp_eff_value(p, UCLAMP_MAX);
++	task_slice = p->se.slice;
+ 
+ 	if (sched_feat(SIS_UTIL) && sd->shared) {
+ 		/*
+@@ -8937,42 +8960,47 @@ select_idle_capacity(struct task_struct *p, struct sched_domain *sd, int target)
+ 		if (!has_idle_core && --nr <= 0)
+ 			return best_cpu;
+ 
+-		if (!choose_idle_cpu(cpu, p))
+-			continue;
+-
+ 		fits = util_fits_cpu(task_util, util_min, util_max, cpu);
+ 
+-		/*
+-		 * Perfect fit: capacity satisfies util + uclamp and the CPU
+-		 * sits on a fully-idle SMT core, this is a !SMT system, or
+-		 * there is no idle core to find.
+-		 * Short-circuit the rank-based selection and return
+-		 * immediately.
+-		 */
+-		if (fits > 0 && preferred_core)
+-			return cpu;
+-		/*
+-		 * Only the min performance hint (i.e. uclamp_min) doesn't fit.
+-		 * Look for the CPU with best capacity.
+-		 */
+-		else if (fits < 0)
++		if (choose_idle_cpu(cpu, p)) {
++			/*
++			 * Perfect fit: capacity satisfies util + uclamp and the CPU
++			 * sits on a fully-idle SMT core, this is a !SMT system, or
++			 * there is no idle core to find.
++			 * Short-circuit the rank-based selection and return
++			 * immediately.
++			 */
++			if (fits > 0 && preferred_core)
++				return cpu;
++			/*
++			 * Only the min performance hint (i.e. uclamp_min) doesn't fit.
++			 * Look for the CPU with best capacity.
++			 */
++			else if (fits < 0)
++				cpu_cap = get_actual_cpu_capacity(cpu);
++			/*
++			 * fits > 0 implies we are not on a preferred core, but the util
++			 * fits CPU capacity. Set fits to ASYM_IDLE_THREAD_FITS
++			 * so the effective range becomes
++			 * [ASYM_IDLE_THREAD_FITS, ASYM_IDLE_THREAD_MISFIT], where:
++			 *    ASYM_IDLE_THREAD_MISFIT - does not fit
++			 *    ASYM_IDLE_THREAD_UCLAMP_MISFIT - fits with the exception of UCLAMP_MIN
++			 *    ASYM_IDLE_THREAD_FITS - fits with the exception of preferred_core
++			 */
++			else if (fits > 0)
++				fits = ASYM_IDLE_THREAD_FITS;
++
++		} else if (fits > 0 && task_slice < get_rq_min_slice(cpu_rq(cpu))) {
++			fits = ASYM_BUSY_THREAD_FITS;
+ 			cpu_cap = get_actual_cpu_capacity(cpu);
+-		/*
+-		 * fits > 0 implies we are not on a preferred core, but the util
+-		 * fits CPU capacity. Set fits to ASYM_IDLE_THREAD_FITS
+-		 * so the effective range becomes
+-		 * [ASYM_IDLE_THREAD_FITS, ASYM_IDLE_THREAD_MISFIT], where:
+-		 *    ASYM_IDLE_THREAD_MISFIT - does not fit
+-		 *    ASYM_IDLE_THREAD_UCLAMP_MISFIT - fits with the exception of UCLAMP_MIN
+-		 *    ASYM_IDLE_THREAD_FITS - fits with the exception of preferred_core
+-		 */
+-		else if (fits > 0)
+-			fits = ASYM_IDLE_THREAD_FITS;
++		} else {
++			continue;
++		}
+ 
+ 		/*
+ 		 * If we are on a preferred core, translate the range of fits
+ 		 * of [ASYM_IDLE_THREAD_UCLAMP_MISFIT, ASYM_IDLE_THREAD_MISFIT] to
+-		 * [ASYM_IDLE_UCLAMP_MISFIT, ASYM_IDLE_COMPLETE_MISFIT].
++		 * [ASYM_IDLE_THREAD_MISFIT_IDLE_UCLAMP_MISFIT, ASYM_IDLE_COMPLETE_MISFIT].
+ 		 * This ensures that an idle core is always given priority over
+ 		 * (partially) busy core.
+ 		 *
+@@ -9147,7 +9175,7 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+ 		}
+ 	}
+ 
+-	i = select_idle_cpu(p, sd, has_idle_core, target);
++	i = select_idle_cpu(p, sd, has_idle_core, &target);
+ 	if ((unsigned)i < nr_cpumask_bits)
+ 		return i;
+ 
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 90ACA4F3ED7
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:13 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955917; cv=none; b=scMSWJvH/Xmac/qy/dDENqskSyB8e72NMesL01JOwkmrPYHxnedJoD6Nrw8p0uHxWoL3RPV1t9RW7QG8c7G+AOrqK+1iRL3z0W0Lt+Qq8xItaH2IsHst62hRILZg2PeyRTXjFCit0plsfXZcrBePIxK1xw7eLt7AOLVXuMfrIaE=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955917; c=relaxed/simple;
+	bh=/2VD4LC+odtHLOqq8yAYPNfVMXKOIt4UdVKHp/RrnnU=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=PbfJaQPO3QlQWGChWe5iGsmp7GWkBwwUXdhUL6NveZ4jEPtKTJd0DdBDrQBihUyPzLclyPGJll8nGFSd3qQUwvXxqPwsdDtPMDRBH4v/UIIKcbKT1cRu/e3JW+5xJOG1wwxX4d80XaXMRGel/H5ZXR/+6xwAFZqzMOjc0+Dzwys=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=Wb/XAB/n; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="Wb/XAB/n"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-4a0280d4f56so242585e9.2
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:13 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955911; x=1791560711; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=ZPyZg82TXoz+4EHOEjtMUqhGA+LRIEAnq1slizudzTs=;
+        b=Wb/XAB/nJgpvpc8YrkhodzXvs8PU/n4yKh4z0eJ6JMJtLROViFLhjWTLqaZMOSRS1P
+         rYmEM+kzLKvXwo9s1LnwYZYw/FDx34C97aMKwe9XXO/tiyfMchnrdbrqxdjm75161Xfo
+         wH6EFzh0x/myKKZnALcG4RpWe2vtO8VVffzpSkS+Ac0sJjwIlUBSfqHa8DsR6T3r1Ouf
+         u2S2gZBSidpwhSNBvdC22vK8IEFyaXkAURn3Y9g2TaARsY+LOJla+qgBPPr/kzZ9CLl8
+         t2od+GnRTCvsraG3UWgTEp1p5JvuDTBpAJZfjRWjKEjobDCI5NI3OG7EXv7wVD0XFy8a
+         VN1A==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955911; x=1791560711;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=ZPyZg82TXoz+4EHOEjtMUqhGA+LRIEAnq1slizudzTs=;
+        b=dIK+yFKtdHd8C3mStlgzeH2lRux3ol5wtZFoBYLPUgGEqKOKEQ+w26wzIgpCZ9nwFF
+         QQaMpvDD69fwd9KuTTyGOME4zg6Ys7d1azXpS5yYI9/LL5wHVJXR4UYAZiQcDNU0V59G
+         Yv1/vW6Zp2GS5POxeOXHY5xYYMF60ACdca5rqsQogyYFvV5OiH1x+mEqdl3qnDjwRzA8
+         WWVyvXSoBxl/3te6tbmmtO+xXNgN+UoftOqgHZU9FPEK10ycZq9WMab4fnHAov0jsKsV
+         wuzzej0H6hSoQNd18d1oY5Nxx+mofg6sCNXagR3LPx5tcPANfQY8Y3ju6OzjZlZJ9Eiq
+         juaA==
+X-Forwarded-Encrypted: i=1; AKwUvBwJRHGsmLOOmWj5xwQ6ndL2DJkI9fbkhUqoHOPk4je6uVR1FtZaONw8FCKoaVcpzQbtq6JX+3uwRw==@vger.kernel.org
+X-Gm-Message-State: AFuF++mwmLCfA12xea/WbPM99I56PGo+bZufXHd19SechOC6XhZGEp2J
+	QNk16O7nLZ/6pkrjjPTYibEJwB5Dbv2qSMBkbVLTMiqE4WrYC5mSzRPI6XnRDo9RpRA=
+X-Gm-Gg: AYBFou2ATPG88peRSecqw5OhdS0ePptsmKEX4jh+xrfJxrNz0zbyVKjUehdRSiSYN+d
+	+KeQto1F1ffH4JudM9dxfxFPjtYa2Yf+CgdJujl7ydM8ae7DK34Dlq0xkQbdLuhWhZE3ST0zNB7
+	nbm7Y6jobup4e4Z/4VKpXdtHWm8EM+jbRabyKIaB2JRZiXrn9WcG5zhwsJ0Eo+MyPMttEdgev+K
+	+1m8l92g5T+zJ22KKegZPSApgyaorSDen/pNbhA8RKkHgqKvsiiSdwbMGRvFK0IjYV5+PliiJAp
+	kb8KbU58W0D9zVQNLBi6sfysn6h9DSVODYO5AHiUnygyGRem8IQTtyE4XL4TG0Awrao8QmY/n8o
+	5laLa8vrTM/HYViAqdZhT9kYA+5ksKUDwXyPZDOueaqeb9PMyG2oOe2UGs/3e3Nig4F3GpzrA7y
+	ZK4B6twnbAu+oddNFB3jC1HY2ur+ge64P5yNrich7BaJ5GUIvy+juKsSH28pPwIIgSMhraWjgso
+	V8B6yNBly2tck3R
+X-Received: by 2002:a05:600c:138b:b0:49f:ce78:3562 with SMTP id 5b1f17b1804b1-4a02759b46fmr60064605e9.19.1790955911245;
+        Fri, 02 Oct 2026 08:45:11 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.10
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:10 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 06/18 v2] sched/fair: Prepare select_task_rq_fair() to be called for new cases
+Date: Fri,  2 Oct 2026 17:44:03 +0200
+Message-ID: <20261002154415.2270586-7-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Update select_task_rq_fair() to be called out of the 3 current cases which
+are :
+- wake up
+- exec
+- fork
+
+We wants to select a rq in some new cases like pushing a runnable task on a
+better CPU than the local one. In such case, it's not a wakeup , nor an
+exec nor a fork. We make sure to not distrub these cases but still
+go through EAS and fast-path.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/core.c |  2 +-
+ kernel/sched/fair.c | 57 ++++++++++++++++++++++++++-------------------
+ 2 files changed, 34 insertions(+), 25 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index f38cf5a37a8a..837dc74c9a8d 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3618,7 +3618,7 @@ static int select_fallback_rq(int cpu, struct task_struct *p)
+ }
+ 
+ /*
+- * The caller (fork, wakeup) owns p->pi_lock, ->cpus_ptr is stable.
++ * The caller (fork, wakeup, push) owns p->pi_lock, ->cpus_ptr is stable.
+  */
+ static inline
+ int select_task_rq(struct task_struct *p, int cpu, int *wake_flags)
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 19a0e67827f7..f12678850ce2 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9800,46 +9800,55 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ }
+ 
+ /*
+- * select_task_rq_fair: Select target runqueue for the waking task in domains
+- * that have the relevant SD flag set. In practice, this is SD_BALANCE_WAKE,
+- * SD_BALANCE_FORK, or SD_BALANCE_EXEC.
++ * select_task_rq_fair: Select a target runqueue for the task.
++ * There are 2 ways to select the target runqueue:
++ * - The fast path which only looks for an idle CPU in the LLC or the smallest
++ *   asymmetric domain (i.e. the lowest domain with all compute capacities).
++ * - The slow path which looks for the idlest CPU in the highest domain with
++ *   the relevant SD flag set.
+  *
+- * Balances load by selecting the idlest CPU in the idlest group, or under
+- * certain conditions an idle sibling CPU if the domain has SD_WAKE_AFFINE set.
++ * In practice, WF_EXEC and WF_FORK uses the slow path whereas WF_TTWU and no
++ * flag (Push) uses the fast path.
+  *
+- * Returns the target CPU number.
+  */
+ static int
+-select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
++select_task_rq_fair(struct task_struct *p, int prev_cpu, int select_flags)
+ {
+-	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
++	int sync = (select_flags & WF_SYNC) && !(current->flags & PF_EXITING);
++	int want_sibling = !(select_flags & (WF_EXEC | WF_FORK));
++	int new_cpu, cpu = smp_processor_id();
+ 	struct sched_domain *tmp, *sd = NULL;
+-	int cpu = smp_processor_id();
+-	int new_cpu = prev_cpu;
+-	int want_affine = 0;
+ 	/* SD_flags and WF_flags share the first nibble */
+-	int sd_flag = wake_flags & 0xF;
++	int sd_flag = select_flags & 0xF;
++	int want_affine = 0;
+ 
+ 	/*
+-	 * required for stable ->cpus_allowed
++	 * Required for stable ->cpus_allowed
+ 	 */
+ 	lockdep_assert_held(&p->pi_lock);
+-	if (wake_flags & WF_TTWU) {
++
++	if (select_flags & WF_TTWU) {
+ 		record_wakee(p);
+ 
+-		if ((wake_flags & WF_CURRENT_CPU) &&
++		if ((select_flags & WF_CURRENT_CPU) &&
+ 		    cpumask_test_cpu(cpu, p->cpus_ptr))
+ 			return cpu;
++	}
+ 
+-		if (!is_rd_overutilized(this_rq()->rd)) {
+-			new_cpu = find_energy_efficient_cpu(p, prev_cpu);
+-			if (new_cpu >= 0)
+-				return new_cpu;
+-			new_cpu = prev_cpu;
+-		}
++	/*
++	 * We don't want EAS to be called for exec or fork but it should be
++	 * called for any other case such as wake up or push callback.
++	 */
++	if (!is_rd_overutilized(this_rq()->rd) && want_sibling) {
++		new_cpu = find_energy_efficient_cpu(p, prev_cpu);
++		if (new_cpu >= 0)
++			return new_cpu;
++	}
+ 
++	if (select_flags & WF_TTWU)
+ 		want_affine = !wake_wide(p) && cpumask_test_cpu(cpu, p->cpus_ptr);
+-	}
++
++	new_cpu = prev_cpu;
+ 
+ 	for_each_domain(cpu, tmp) {
+ 		/*
+@@ -9871,8 +9880,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
+ 		return sched_balance_find_dst_cpu(sd, p, cpu, prev_cpu, sd_flag);
+ 
+ 	/* Fast path */
+-	if (wake_flags & WF_TTWU)
+-		return select_idle_sibling(p, prev_cpu, new_cpu);
++	if (want_sibling)
++		new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
+ 
+ 	return new_cpu;
+ }
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id CFA4B4F472F
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:15 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955918; cv=none; b=IbeYVnosAzbyM+4hvwBG1EboyCIy7/ajPR3vBdn2G+R92LfO1VFETz5LmNVqCtrHGaG3j5NPsXZTau7kIpnXsqRPHt0WmQpscwBvfGx0RuL5FM/nRKb9hg8xm6WEZ0/WPPp2Sqrk+OJSl2tycTMvLEpW8Gv02j2MOvO4tNFMtwU=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955918; c=relaxed/simple;
+	bh=SXGyDDrL/ROMF7j4me/V61A0ATkUfNuEhqq23wRxJKw=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=It9DqQr9/ylzpfOkcRCtT805K3jg+p2aPArg4NEfs3WK7jO43nUJj2GLR8Bb+WQCZhQLycaCMD7D8nbyoqQxBN4JdWuOFPQzNq7RNwbJrpJ5u9Qkou3aP3PXdgumqYzYezisKqKo/ZUiL8duC5fX5aloj306AWFzghp2cNXxRjc=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=VvGkMXHS; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="VvGkMXHS"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-49fff72474fso227315e9.3
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:15 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955912; x=1791560712; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=GWycLynOeS31BSwjrLwbY4e26mfEhfwnJrseaf0sLdU=;
+        b=VvGkMXHSajdhTb3ICPZExOazL8mMdD4NV9jtU6So+v0VoT+euHXkdOgq3pTUpFKQZ4
+         O0FAM4aei/H9yekwUC+F6yu4/jHGevmq+yC06dBmKHzfsage8XA3flUIhdPoMf2lYgVQ
+         CipPiy1joCyyVaCC9Xg9IWsHBgzk8iAx+zK39LorlV+2Ud8avc569auFTocc89FFhLce
+         slxu1g01YzWb0VDvXQWze/K/pk0K+uyvWVyXxNWx1eMg6wRs/hm7qsk0aj3U11/OVuKZ
+         3e5Lsr71PVPhVLirj0170e3yWL9487nDwNy3vtIiYAnBzAVQRW6gJjI+4ycPJhkETd14
+         OQaQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955912; x=1791560712;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=GWycLynOeS31BSwjrLwbY4e26mfEhfwnJrseaf0sLdU=;
+        b=wiNxEj3PrcstZXDiEMK7l6HFzvegZ/NIgJNG2EK5Xfpz0N1U/hB4AOyKEJ8lSe8Q+h
+         Qir7Bc50QvXBTPCcFYZBerlbdKuTsV+5xc6hpEQDq6Xi8FBTjDik43wFFBPwQ4zsOt3t
+         HXz0R8ZOfPjMWXxmbXvLNSXr3H63vela2lTq7KvqEdDelbS0yV+WeW4i3qI6Tx4KeN7U
+         G3vdqpFLC1uPMVJx0XJb+tLfudgw65l0pWA+Olji05+wST9tv5PUePuV/0hynSy7H1B6
+         x28GYxVa7+oT1HBdNoLE/DtOGuFDAf1usZ+JpAZIBVx970sZT0TcjcoFq4c42cVoSRPd
+         exqg==
+X-Forwarded-Encrypted: i=1; AKwUvBysvMHZl0VUfXQ+JpBa7ko1jgp3DGtCHOP5F4zc+qvworlUR9mv0gZKQgGASl1xx2SAb1KeVs1jaA==@vger.kernel.org
+X-Gm-Message-State: AFuF++krwjegxFnPW5+jbOmLwfkE1uFIxesXaoGceDUdyU71ibSVlUET
+	8GJJczKVBpinkOW9sQfLQ6RNBj8Psj81h8GfLMqpsCqghZXOdCgnUmaL4oki2qeBFC0=
+X-Gm-Gg: AYBFou2jtkgA8PLlko1M3pepTkbkeINrGwHiPx5+JEhJCX7zHOQzFF/DoJePEpFT1i7
+	9bMwmvukB8HbvypSf9gVG6a5SOiHUsXrVQ1+f1ucgRhSmKIGZnz5V1as1nhNLZUlR2Q0rjDy9hH
+	XHZ3GVbELy1zlvcubHqJpoLWBL98Q+RdeDHktsXppV7y4dQHMrNY+ecxEan1vsCkLP7feKqTIDh
+	ztRwfzqJbvEjhlWJVtTNJAEKDmKnygP2IJsBpYw5AgMtGtruGi52f4+jWWOyOAjNWhoYIt+qRva
+	Alpid0W+W+jYO7QNQXN+UmAZ5ck3003upHGOLMqg90Zb5TCcozszOePloG2bcQCe4K3QYxtAyVS
+	gpe7O8TLom39EqeTJBg6ZNqLycVUbypm+YsIgrOaD2xM3OXUA+DT6+3HVSAPwXDbfhvtYZs/GEy
+	JYG9Ap0hZHNwDYGV2SfYyHjyneLEGxEDn904NxZvyaPUMF+b7sg21I/UCXWNFFVVv1ey+h2lVPn
+	YKpDr8/qtuUzCIcGYATQiGPERVm
+X-Received: by 2002:a05:600c:a306:b0:49f:f099:6f8c with SMTP id 5b1f17b1804b1-4a0275758cemr42890805e9.9.1790955912417;
+        Fri, 02 Oct 2026 08:45:12 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.11
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:11 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 07/18] sched/fair: Add push task mechanism for fair
+Date: Fri,  2 Oct 2026 17:44:04 +0200
+Message-ID: <20261002154415.2270586-8-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+EAS is based on wakeup events to efficiently place tasks on the system, but
+there are cases where a task doesn't have wakeup events anymore or at a far
+too low pace. For such situation, we can take advantage of the task being
+put back in the enqueued list to check if it should be pushed on another
+CPU.
+
+Add a push task mechanism that enables fair scheduler to push runnable
+tasks. EAS will be one user but other feature like filling idle CPUs or
+short slice tasks can also take advantage of it.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/core.c  |   4 +-
+ kernel/sched/fair.c  | 163 +++++++++++++++++++++++++++++++++++++++++++
+ kernel/sched/sched.h |   7 ++
+ 3 files changed, 172 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 837dc74c9a8d..18692b752814 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -2553,8 +2553,8 @@ static inline bool is_cpu_allowed(struct task_struct *p, int cpu)
+  *
+  * Returns (locked) new rq. Old rq's lock is released.
+  */
+-static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
+-				   struct task_struct *p, int new_cpu)
++struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
++			    struct task_struct *p, int new_cpu)
+ 	__must_hold(__rq_lockp(rq))
+ {
+ 	lockdep_assert_rq_held(rq);
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index f12678850ce2..00078ac7fada 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -8179,6 +8179,8 @@ static void dequeue_hierarchy(struct task_struct *p, int flags)
+ 	}
+ }
+ 
++static void fair_remove_pushable_task(struct rq *rq, struct task_struct *p);
++
+ /*
+  * The part of dequeue_task_fair() that is needed to dequeue delayed tasks.
+  *
+@@ -8195,6 +8197,7 @@ static bool __dequeue_task(struct rq *rq, struct task_struct *p, int flags)
+ 	bool task_delayed = flags & DEQUEUE_DELAYED;
+ 
+ 	clear_buddies(cfs_rq, se);
++	fair_remove_pushable_task(rq, p);
+ 
+ 	update_curr_eevdf(cfs_rq);
+ 	update_entity_lag(cfs_rq, se);
+@@ -9799,6 +9802,157 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ 	return target;
+ }
+ 
++DEFINE_STATIC_KEY_FALSE(sched_push_task);
++
++static inline bool sched_push_task_enabled(void)
++{
++	return static_branch_unlikely(&sched_push_task);
++}
++
++static bool __check_pushable_fair_task(struct rq *rq, struct task_struct *p)
++{
++	if (!task_on_rq_queued(p))
++		return false;
++
++	if (p->se.sched_delayed)
++		return false;
++
++	if (p->nr_cpus_allowed <= 1)
++		return false;
++
++	return true;
++}
++
++static bool fair_check_pushable_task(struct rq *rq, struct task_struct *p, struct task_struct *next)
++{
++	if (!__check_pushable_fair_task(rq, p))
++		return false;
++
++	return false;
++}
++
++static inline int has_pushable_tasks(struct rq *rq)
++{
++	return !plist_head_empty(&rq->cfs.pushable_tasks);
++}
++
++static struct task_struct *pick_next_pushable_fair_task(struct rq *rq)
++{
++	struct task_struct *p;
++
++	if (!has_pushable_tasks(rq))
++		return NULL;
++
++	p = plist_first_entry(&rq->cfs.pushable_tasks,
++			      struct task_struct, pushable_tasks);
++
++	WARN_ON_ONCE(rq->cpu != task_cpu(p));
++	WARN_ON_ONCE(task_current(rq, p));
++	WARN_ON_ONCE(p->nr_cpus_allowed <= 1);
++	WARN_ON_ONCE(!task_on_rq_queued(p));
++
++	/*
++	 * Remove task from the pushable list as we try only once after that
++	 * the task has been put back in enqueued list.
++	 */
++	plist_del(&p->pushable_tasks, &rq->cfs.pushable_tasks);
++
++	return p;
++}
++
++static int
++select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags);
++
++/*
++ * See if the non running fair tasks on this rq can be sent on other CPUs
++ * that fits better with their profile.
++ */
++static bool fair_push_task(struct rq *rq)
++{
++	struct task_struct *next_task;
++	int prev_cpu, new_cpu;
++	struct rq_flags rf;
++	struct rq *cur_rq;
++
++	next_task = pick_next_pushable_fair_task(rq);
++	if (!next_task)
++		return false;
++
++	if (is_migration_disabled(next_task))
++		return true;
++
++	/* We might release rq lock */
++	get_task_struct(next_task);
++
++	prev_cpu = rq->cpu;
++
++	/*
++	 * We need to release rq lock and take both task and rq w/o
++	 * triggering a deadlock.
++	 */
++	raw_spin_rq_unlock(rq);
++
++	cur_rq = task_rq_lock(next_task, &rf);
++
++	/* Task already migrated */
++	if (cur_rq->cpu != prev_cpu)
++		goto skip_push;
++
++	new_cpu = select_task_rq_fair(next_task, prev_cpu, 0);
++
++	/* Task doesn't need to migrate */
++	if (new_cpu == prev_cpu)
++		goto skip_push;
++
++	update_rq_clock(cur_rq);
++	cur_rq = move_queued_task(cur_rq, &rf, next_task, new_cpu);
++
++skip_push:
++	task_rq_unlock(cur_rq, next_task, &rf);
++
++	/* Restore rq state */
++	raw_spin_rq_lock(rq);
++	put_task_struct(next_task);
++
++	return true;
++}
++
++static void fair_push_tasks(struct rq *rq)
++{
++	/* fair_push_task() will return true if it moved a fair task */
++	while (fair_push_task(rq))
++		;
++}
++
++static DEFINE_PER_CPU(struct balance_callback, fair_push_head);
++
++static inline void fair_queue_push_tasks(struct rq *rq)
++{
++	if (!sched_push_task_enabled() || !has_pushable_tasks(rq))
++		return;
++
++	queue_balance_callback(rq, &per_cpu(fair_push_head, rq->cpu), fair_push_tasks);
++}
++
++static void fair_remove_pushable_task(struct rq *rq, struct task_struct *p)
++{
++	if (sched_push_task_enabled())
++		plist_del(&p->pushable_tasks, &rq->cfs.pushable_tasks);
++}
++
++static void __fair_add_pushable_task(struct rq *rq, struct task_struct *p)
++{
++	plist_del(&p->pushable_tasks, &rq->cfs.pushable_tasks);
++	plist_node_init(&p->pushable_tasks, p->prio);
++	plist_add(&p->pushable_tasks, &rq->cfs.pushable_tasks);
++}
++
++static void fair_add_pushable_prev(struct rq *rq, struct task_struct *prev, struct task_struct *next)
++{
++	if (sched_push_task_enabled() && fair_check_pushable_task(rq, prev, next))
++		__fair_add_pushable_task(rq, prev);
++}
++
+ /*
+  * select_task_rq_fair: Select a target runqueue for the task.
+  * There are 2 ways to select the target runqueue:
+@@ -10272,6 +10426,12 @@ static void put_prev_task_fair(struct rq *rq, struct task_struct *prev, struct t
+ 	cfs_rq->curr = NULL;
+ 	if (se->on_rq)
+ 		__enqueue_entity(cfs_rq, se);
++
++	/*
++	 * The previous task might be eligible for being pushed on another cpu
++	 * if it is still active.
++	 */
++	fair_add_pushable_prev(rq, prev, next);
+ }
+ 
+ /*
+@@ -15379,6 +15539,7 @@ static void set_next_task_fair(struct rq *rq, struct task_struct *p, enum snt_e
+ 		goto repick;
+ 
+ 	clear_buddies(cfs_rq, se);
++	fair_remove_pushable_task(rq, p);
+ 
+ 	if (on_rq)
+ 		__dequeue_entity(cfs_rq, se);
+@@ -15423,6 +15584,7 @@ static void set_next_task_fair(struct rq *rq, struct task_struct *p, enum snt_e
+ 
+ 	update_misfit_status(p, rq);
+ 	sched_fair_update_stop_tick(rq, p);
++	fair_queue_push_tasks(rq);
+ 
+ repick:
+ 	/*
+@@ -15439,6 +15601,7 @@ void init_cfs_rq(struct cfs_rq *cfs_rq)
+ {
+ 	cfs_rq->tasks_timeline = RB_ROOT_CACHED;
+ 	cfs_rq->zero_vruntime = (u64)(-(1LL << 20));
++	plist_head_init(&cfs_rq->pushable_tasks);
+ 	raw_spin_lock_init(&cfs_rq->removed.lock);
+ }
+ 
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index e025d2a6c302..74130bd2a2c8 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -721,6 +721,8 @@ struct cfs_rq {
+ 		unsigned long	runnable_avg;
+ 	} removed;
+ 
++	struct plist_head	pushable_tasks;
++
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+ 	u64			last_update_tg_load_avg;
+ 	unsigned long		tg_load_avg_contrib;
+@@ -3877,6 +3879,8 @@ static inline bool sched_energy_enabled(void) { return false; }
+ 
+ #endif /* !(CONFIG_ENERGY_MODEL && CONFIG_CPU_FREQ_GOV_SCHEDUTIL) */
+ 
++DECLARE_STATIC_KEY_FALSE(sched_push_task);
++
+ #ifdef CONFIG_MEMBARRIER
+ 
+ /*
+@@ -4209,6 +4213,9 @@ void move_queued_task_locked(struct rq *src_rq, struct rq *dst_rq, struct task_s
+ 	wakeup_preempt(dst_rq, task, 0);
+ }
+ 
++extern struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
++				   struct task_struct *p, int new_cpu);
++
+ static inline
+ bool task_is_pushable(struct rq *rq, struct task_struct *p, int cpu)
+ {
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 0156B4F4CE6
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:16 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955919; cv=none; b=Twy/zGcWRd6aWBuEzci4JJ7+USTkf/fRERg2rqe1/NGQ62d7tdzE0/UVaMuQDmwJHtML1Mq5yccKRR+pwjGkVDMqwglRriJROvJQ1PQv1Wvkz66Tprc/npieJIvU2PQsz5siMD+kn5CWNwTnbV2RhI4Gzc0R8hfwi7nJRS/3h+0=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955919; c=relaxed/simple;
+	bh=F581+o6cP/xnDid67xwjYpL7pucVHQFB9JiK+L4tzNE=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=YwRoiZR2viL3w90tVaVhxMo873etIDaEUKIsvcXAsEeXFKLoUjOuEpVgZIEJLMgRUWeAZ9hvH8L22oY+u6TfbKjvG+KItL5GIiHz+WR3Qn0tG1hFp77cGIJWOzbQD4wSwy9KEQ19uS1F/qRMuK+bCA4ACnMHQSG/ZE6D5DAMUD4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=veltNQRM; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="veltNQRM"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-4a00d8bec5aso133385e9.2
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:16 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955915; x=1791560715; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=t4ZO8O8UQqhOQZi3vmWpFQCY4/FzwZ/+ZmiCQhYWZzw=;
+        b=veltNQRMwNGXy5Bw50o5aLVi/6GjaYwq6URwo9v4Q7eJdiKlhuLUo87oXsTEmusyBu
+         mXgG94JzDjEVW1IdRGzOmlqVUXwjstjYepqkBSC/JFxixhrAY3sdBOQQS5Pln2h+FVHw
+         z5WSW6qGej+cAbYJ7QCg9DYzVP6WoBfkd+yCGzvXJV05Cqcr17YNOwvBSXU1mBWUNS7+
+         XvKFVF9hYrz7vOJzTP1hofXSNi94WMFd/6F8ut4dpqCArtMCUvm+kNcX0bNEkdJQJ0W4
+         XD78EQ9wsGH0QftiToMvrKDOnkM1dQ8wtcCJbpaO882jjLC3Mv+F5DfZL+Uxme2KdeLa
+         iSMA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955915; x=1791560715;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=t4ZO8O8UQqhOQZi3vmWpFQCY4/FzwZ/+ZmiCQhYWZzw=;
+        b=QF3k+U0/+CG3eNA1i+WK5aXX83mN9JH9XAWRneoPrRzUq18BsloNeCA673K6iZFfuh
+         53sfyqalJ0bqrY2EVND4xKADOaJhJQLLaXO/+Ej6ow5aQfVGPKGtj6Tg95m09k/yZiA3
+         qsSdrVilH6RDVOEyqtRDGGCD8vY/mpUm7gqCDV0QZWMfstDsqCNaQ6+/Eg6O6gk83J1P
+         vbECCE+G90fbwxXc6mzXB2KeFKIlgn87ouspm5mv7H4DUOgbdgAKb9AvaChMUDYzkorv
+         kyHtIGdhfxx96gVCUoF8uqdj6+FPWtn5KLYrC7AKEPRYl3sDTPv6xU5brFK2wcBQdIl2
+         8wQA==
+X-Forwarded-Encrypted: i=1; AKwUvBzTIiZst+viv+wWVrjrjXJHnn2UfAAXJrzUGABvpWaIMfdkSdRmHYUnlQPym7cC1MjpFO9EI5bNlA==@vger.kernel.org
+X-Gm-Message-State: AFuF++nYIU4y/PcmaaxB6AiTXvL3BOYUZ027a79tglHNHWzxEBzq6Ste
+	dh8x/XAyOBTY00AHh0ePlY0AjhSWeCy5L6JsYyit4PfHbCTdCBK1vS7EPL/cWkcADzI=
+X-Gm-Gg: AYBFou1YIdLG+QkP5oL1BAahVoe3orP+LFU9cIy+DVRiFwWd8tc+saIb2OtanZAkphz
+	azfBJqMekzlCjcyvimNZFM1yhogsme9/swbZIPfWKvILdpGwzx/ARuNyDK+Etw3Hwm8Sq/9aeiR
+	6eMyc8YV1AXp84GY0ML0XkU6qfhHnLP3JnYrgYtohw+W6WV+E26y6DQIpj9GTuYjCqz+NaQgKXa
+	kqTaTG9pAf+fK6UJOnIBDecgnCF5KOhb3ItkF631rIUxS+7qRAZ03Vgqof69soF1w4131TbDqfU
+	qO2xszpW00qa60MZfo4siUX+TDAHzbyhAVyvyuivDjW2D25bIkdSlFvUh5jVaH9VuyrTcyDEuzF
+	HxIrspPXQ//QmbIIOc9KhPUuiBAcQ7XAIRFLj9Zi9aBT8HCvhDHoM6gvBN/mk5trx0VS2R+Vwzw
+	qG+/1AzyuxBGFbQTGvZXgbmmxWL6iSsDLr45cAhnzrILXkpNsSgQ7ZoI+7vvFIfhBIqZQJzG3Cm
+	UV4527k7wcfRULV
+X-Received: by 2002:a05:600c:530f:b0:49f:fefa:cfcd with SMTP id 5b1f17b1804b1-4a0276a2270mr54724405e9.5.1790955914780;
+        Fri, 02 Oct 2026 08:45:14 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.12
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:12 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 08/18] sched/fair: Optimize push task mechanism for fair
+Date: Fri,  2 Oct 2026 17:44:05 +0200
+Message-ID: <20261002154415.2270586-9-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Instead of always unlocking local rq in order to lock both task and rq
+in a safe order, just try to lock the task. If the task is already locked
+by something else its state will probably change and the conditions used
+add it in the pushable list are probably not true anymore. As a result
+skipping the push sequence seems like a good choice.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/core.c  |  4 ++--
+ kernel/sched/fair.c  | 48 ++++++++++++++++++++++++--------------------
+ kernel/sched/sched.h |  3 ---
+ 3 files changed, 28 insertions(+), 27 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 18692b752814..837dc74c9a8d 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -2553,8 +2553,8 @@ static inline bool is_cpu_allowed(struct task_struct *p, int cpu)
+  *
+  * Returns (locked) new rq. Old rq's lock is released.
+  */
+-struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
+-			    struct task_struct *p, int new_cpu)
++static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
++				   struct task_struct *p, int new_cpu)
+ 	__must_hold(__rq_lockp(rq))
+ {
+ 	lockdep_assert_rq_held(rq);
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 00078ac7fada..6ba2efeba435 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9871,8 +9871,7 @@ static bool fair_push_task(struct rq *rq)
+ {
+ 	struct task_struct *next_task;
+ 	int prev_cpu, new_cpu;
+-	struct rq_flags rf;
+-	struct rq *cur_rq;
++	struct rq *new_rq;
+ 
+ 	next_task = pick_next_pushable_fair_task(rq);
+ 	if (!next_task)
+@@ -9881,38 +9880,41 @@ static bool fair_push_task(struct rq *rq)
+ 	if (is_migration_disabled(next_task))
+ 		return true;
+ 
+-	/* We might release rq lock */
+-	get_task_struct(next_task);
+-
+ 	prev_cpu = rq->cpu;
+ 
+ 	/*
+-	 * We need to release rq lock and take both task and rq w/o
+-	 * triggering a deadlock.
++	 * The safe lock ordering for task and rq is task 1st then rq but we
++	 * already get the rq so just try to get task too. If task is already
++	 * locked, it is waiting for the rq's lock and it is about to change
++	 * task state so skipping the push sequence in order to speed up the
++	 * release of the lock is the best choice.
+ 	 */
+-	raw_spin_rq_unlock(rq);
+-
+-	cur_rq = task_rq_lock(next_task, &rf);
+-
+-	/* Task already migrated */
+-	if (cur_rq->cpu != prev_cpu)
+-		goto skip_push;
++	if (!raw_spin_trylock(&next_task->pi_lock))
++		return true;
+ 
+ 	new_cpu = select_task_rq_fair(next_task, prev_cpu, 0);
+ 
+ 	/* Task doesn't need to migrate */
+ 	if (new_cpu == prev_cpu)
+-		goto skip_push;
++		goto no_push;
++
++	new_rq = cpu_rq(new_cpu);
+ 
+-	update_rq_clock(cur_rq);
+-	cur_rq = move_queued_task(cur_rq, &rf, next_task, new_cpu);
++	deactivate_task(rq, next_task, 0);
++	set_task_cpu(next_task, new_cpu);
++	raw_spin_rq_unlock(rq);
+ 
+-skip_push:
+-	task_rq_unlock(cur_rq, next_task, &rf);
++	raw_spin_rq_lock(new_rq);
++	WARN_ON_ONCE(task_cpu(next_task) != new_cpu);
++	activate_task(new_rq, next_task, 0);
++	wakeup_preempt(new_rq, next_task, 0);
++	raw_spin_rq_unlock(new_rq);
+ 
+-	/* Restore rq state */
++	/* Restore rq lock state */
+ 	raw_spin_rq_lock(rq);
+-	put_task_struct(next_task);
++
++no_push:
++	raw_spin_unlock(&next_task->pi_lock);
+ 
+ 	return true;
+ }
+@@ -10432,6 +10434,9 @@ static void put_prev_task_fair(struct rq *rq, struct task_struct *prev, struct t
+ 	 * if it is still active.
+ 	 */
+ 	fair_add_pushable_prev(rq, prev, next);
++
++	if (next && next != prev)
++		fair_queue_push_tasks(rq);
+ }
+ 
+ /*
+@@ -15584,7 +15589,6 @@ static void set_next_task_fair(struct rq *rq, struct task_struct *p, enum snt_e
+ 
+ 	update_misfit_status(p, rq);
+ 	sched_fair_update_stop_tick(rq, p);
+-	fair_queue_push_tasks(rq);
+ 
+ repick:
+ 	/*
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 74130bd2a2c8..293f23620282 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -4213,9 +4213,6 @@ void move_queued_task_locked(struct rq *src_rq, struct rq *dst_rq, struct task_s
+ 	wakeup_preempt(dst_rq, task, 0);
+ }
+ 
+-extern struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
+-				   struct task_struct *p, int new_cpu);
+-
+ static inline
+ bool task_is_pushable(struct rq *rq, struct task_struct *p, int cpu)
+ {
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id DA3864F55B8
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:18 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955926; cv=none; b=jj/UBBwtWICscOiW7V7DItWZKzUf7wbETEB34fgXngP3SzZTX9MUyUJSV4EpfD1X0XgQlYwlSQk1BnuNw+i8UD3NiTnqsomSDbefUYkVbTW6YWTAjSG9eFi+ZVJw9DDSO5qRyEGoY2iOVi9Vcem0YjgIN6N38I7aLwqoZqaVR+M=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955926; c=relaxed/simple;
+	bh=g8ii3PyBa0GiHh/9S+lqpPXalszN2DsJKkDUpSbsdmo=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=NmmP2cRivGQbcIy0Otzl0K+171iFUcx6wIu9RxO45/oRER98KMO/CMliPobyX/oIjCn3ejZMJABUwSQCmcDHlCz96wggQcTujIWio1SQlgzEXZxD5Y1Smu8te6UtyfkvC8jju3cj4f9zFrfHcO6hfB1xRTCggcbGExhFsY77L1A=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=oCt63O+h; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="oCt63O+h"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49b912d3920so261495e9.1
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:18 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955917; x=1791560717; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=nEo/LxwFi1EqrOkkcTTlEnXPhiZDemt/Tt2IhYFOTaI=;
+        b=oCt63O+hGo7Ys7L58ABzIznQdFa1xPVXIVtaNv8aeEwxK5n6ff+zXBZnvp93ldnYqR
+         327ehEAhnwGXUQpzckSSLYkzHXjgoUjLpYM5ILJlTfwmTmwVYhG8whjRevf2TZp36PWB
+         zrAqgyDScubLuKiZ7BAG0m7nHm4M/XB98ViXAjeE1vC0nlBPmt19l0lyXO2k/Rw5IbOv
+         yGHQUfibLhaQCOmYFW20Kb38SJDHYb+vlycDPD0dvC/t6Vx7vPtL3sYya4DWwhoFuh14
+         jQftif9Sm1q1c2cYtVWlhsfpXVIbcbLHxZF8gkIcc2G9lOQMkWAmyaHu3DK/14pckp5D
+         Fobg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955917; x=1791560717;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=nEo/LxwFi1EqrOkkcTTlEnXPhiZDemt/Tt2IhYFOTaI=;
+        b=gdTRarKB79kFL4nw79QkyMmV9MDguN53kTtVykbh4pHCu+zdJ54GKpOWrH6m89WVlP
+         I5RYK+XbCSS6Mc17FKxgyrRclHNbO8bKpfLQZ8/FVbVhqvUGaRK+Ps0omkmzAPMrBgYF
+         gyIEvQmCoDJrsyiyOpqNC3n0BG8gEid+MAxcA9FhaCJzqjeoxiGhpTq1UxL8yzd8g7vW
+         6FONcbazylQyVAU9b5nUaVC5OObVHMnLVec8kM7mXBSd+Q8IfAOYaOIOe4HoYmc/bY54
+         AtMtm7IdcVL6G/tvU0mHs70pkH6KKs3oaaJlOArqGoKiTBlYC6u0riFFx8Uti1MD+Q6X
+         pnvA==
+X-Forwarded-Encrypted: i=1; AKwUvBzI2SYhiMNcfhpexeoKcykSglT/nmEfd1WTh++skCJGbYIJXBDYB5fJ/P3BPg+UwijaeH0QGYBYnQ==@vger.kernel.org
+X-Gm-Message-State: AFuF++m93i/UtcXC8QY1KTCbX7qpv5hqxawJ8Opt4bF9Ztco4kYUA1sz
+	xQQhxqcZAJ5T5URUDMfQLQJ2GBY9b+uSmNjsWnZ1CbjncdfRkfAKhvP/EwSV+JgQJIE=
+X-Gm-Gg: AYBFou0WX38h9f8Tk6xLvV3nArMCm5QUqF97YI1BG9PHGwFp7W9+SKYAfLx1UkT7Kof
+	Y37qD8egyZ/RoOhSOV52GKyvuNcLCit1y/FZ8akeRbmINWYM4WJQMkTq0syivo5jw5PXQ5eTy/z
+	nUBBXZjcSHTFXb8Q4gfC+0dPK+1X5qgxgdXVmn0amWYshVAn0W60wQDTJ9W9a9lUrw43/2BQtog
+	yFV3iUkVUYzF88q9nMjDtVXB8ikdz89/b8zHuUmyNpj5awZjOrUjvv2oduVpl6XgKYQ9hmZ8lRw
+	ArDTNyTTYFwiQ1q8qT/KrX3RQEreBVLlEjjEutvZACRcd4jNL5gIK3E9nnsqXJAHXPtdlK9Dmmo
+	LdGHvI1Qb4OoXqg3aMKvPEn/zccTOwZslUo1ZlzK3PhH8gBFGSb8KrI/O/8Dy8pQm+E9Y45iyVt
+	nlPI/stot6K/ekBhGu9LMHCZtP7LxRF5lqdeqkphAuXU1PYvFBocFz+0eo/LMLJP9M8aRNtNkMe
+	zXQsLVRyTZdyw9GYZLMdk9JvIM=
+X-Received: by 2002:a05:600c:4ecf:b0:49f:d087:6526 with SMTP id 5b1f17b1804b1-4a0276c616bmr60045805e9.34.1790955915970;
+        Fri, 02 Oct 2026 08:45:15 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.14
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:15 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 09/18 v2] sched/core: Add rq flag to tick parameters
+Date: Fri,  2 Oct 2026 17:44:06 +0200
+Message-ID: <20261002154415.2270586-10-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+In order to force migration in tick, we need to unlock the rq
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/core.c      | 6 +++---
+ kernel/sched/deadline.c  | 2 +-
+ kernel/sched/ext/ext.c   | 2 +-
+ kernel/sched/fair.c      | 2 +-
+ kernel/sched/idle.c      | 2 +-
+ kernel/sched/rt.c        | 2 +-
+ kernel/sched/sched.h     | 2 +-
+ kernel/sched/stop_task.c | 2 +-
+ 8 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 837dc74c9a8d..1e34c8fdbee8 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -923,7 +923,7 @@ static enum hrtimer_restart hrtick(struct hrtimer *timer)
+ 
+ 	rq_lock(rq, &rf);
+ 	update_rq_clock(rq);
+-	rq->donor->sched_class->task_tick(rq, rq->donor, 1);
++	rq->donor->sched_class->task_tick(rq, rq->donor, &rf, 1);
+ 	rq_unlock(rq, &rf);
+ 
+ 	return HRTIMER_NORESTART;
+@@ -5800,7 +5800,7 @@ void sched_tick(void)
+ 	if (dynamic_preempt_lazy() && tif_test_bit(TIF_NEED_RESCHED_LAZY))
+ 		resched_curr(rq);
+ 
+-	donor->sched_class->task_tick(rq, donor, 0);
++	donor->sched_class->task_tick(rq, donor, &rf, 0);
+ 	if (sched_feat(LATENCY_WARN))
+ 		resched_latency = cpu_resched_latency(rq);
+ 	calc_global_load_tick(rq);
+@@ -5896,7 +5896,7 @@ static void sched_tick_remote(struct work_struct *work)
+ 				u64 delta = rq_clock_task(rq) - curr->se.exec_start;
+ 				WARN_ON_ONCE(delta > (u64)NSEC_PER_SEC * 30);
+ 			}
+-			curr->sched_class->task_tick(rq, curr, 0);
++			curr->sched_class->task_tick(rq, curr, NULL, 0);
+ 
+ 			calc_load_nohz_remote(rq);
+ 		}
+diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
+index c0ebdcde5fe5..1f6bc63b3110 100644
+--- a/kernel/sched/deadline.c
++++ b/kernel/sched/deadline.c
+@@ -2879,7 +2879,7 @@ static void put_prev_task_dl(struct rq *rq, struct task_struct *p, struct task_s
+  * and everything must be accessed through the @rq and @curr passed in
+  * parameters.
+  */
+-static void task_tick_dl(struct rq *rq, struct task_struct *p, int queued)
++static void task_tick_dl(struct rq *rq, struct task_struct *p, struct rq_flags *rf, int queued)
+ {
+ 	update_curr_dl(rq);
+ 
+diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
+index 53275bc7c029..cdf48af9f05e 100644
+--- a/kernel/sched/ext/ext.c
++++ b/kernel/sched/ext/ext.c
+@@ -3790,7 +3790,7 @@ void scx_tick(struct rq *rq)
+ 	update_other_load_avgs(rq);
+ }
+ 
+-static void task_tick_scx(struct rq *rq, struct task_struct *curr, int queued)
++static void task_tick_scx(struct rq *rq, struct task_struct *curr, struct rq_flags *rf, int queued)
+ {
+ 	struct scx_sched *sch = scx_task_sched(curr);
+ 
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 6ba2efeba435..483ed5807dfc 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -15346,7 +15346,7 @@ static inline void task_tick_core(struct rq *rq, struct task_struct *curr) {}
+  * and everything must be accessed through the @rq and @curr passed in
+  * parameters.
+  */
+-static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
++static void task_tick_fair(struct rq *rq, struct task_struct *curr, struct rq_flags *rf, int queued)
+ {
+ 	struct sched_entity *se = &curr->se;
+ 
+diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
+index 76f3c84ca684..1ba0303aacb4 100644
+--- a/kernel/sched/idle.c
++++ b/kernel/sched/idle.c
+@@ -538,7 +538,7 @@ dequeue_task_idle(struct rq *rq, struct task_struct *p, int flags)
+  * and everything must be accessed through the @rq and @curr passed in
+  * parameters.
+  */
+-static void task_tick_idle(struct rq *rq, struct task_struct *curr, int queued)
++static void task_tick_idle(struct rq *rq, struct task_struct *curr, struct rq_flags *rf, int queued)
+ {
+ 	update_curr_idle(rq);
+ }
+diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
+index 1535046a23ff..35b3831a72cf 100644
+--- a/kernel/sched/rt.c
++++ b/kernel/sched/rt.c
+@@ -2541,7 +2541,7 @@ static inline void watchdog(struct rq *rq, struct task_struct *p) { }
+  * and everything must be accessed through the @rq and @curr passed in
+  * parameters.
+  */
+-static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
++static void task_tick_rt(struct rq *rq, struct task_struct *p, struct rq_flags *rf, int queued)
+ {
+ 	struct sched_rt_entity *rt_se = &p->rt;
+ 
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
+index 293f23620282..c1d7e04d2899 100644
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -2741,7 +2741,7 @@ struct sched_class {
+ 	 * sched_tick: rq->lock
+ 	 * sched_tick_remote: rq->lock
+ 	 */
+-	void (*task_tick)(struct rq *rq, struct task_struct *p, int queued);
++	void (*task_tick)(struct rq *rq, struct task_struct *p, struct rq_flags *rf, int queued);
+ 	/*
+ 	 * sched_cgroup_fork: p->pi_lock
+ 	 */
+diff --git a/kernel/sched/stop_task.c b/kernel/sched/stop_task.c
+index 1e0109ec36b3..3d99b23afd89 100644
+--- a/kernel/sched/stop_task.c
++++ b/kernel/sched/stop_task.c
+@@ -74,7 +74,7 @@ static void put_prev_task_stop(struct rq *rq, struct task_struct *prev, struct t
+  * and everything must be accessed through the @rq and @curr passed in
+  * parameters.
+  */
+-static void task_tick_stop(struct rq *rq, struct task_struct *curr, int queued)
++static void task_tick_stop(struct rq *rq, struct task_struct *curr, struct rq_flags *rf, int queued)
+ {
+ }
+ 
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 3421E4EFFB3
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:20 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955930; cv=none; b=esEMvR17aNOtq7aZ1NY5cKs8VE9FcfPWx2BuxJ1zN4mZHfCC/vIGAHG7FRhx1p9EHo/i0ib340CfMRwXB+2JUafxXpM8iYEmXlZv73CvuU5efa2NZLFlgLEWumkpDPmaOX5cPuz6O24goddbAvnmetOgfQ3218dZO8lYMjpNlJw=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955930; c=relaxed/simple;
+	bh=7hap95mxpTk9UW2dteAHIfeOd/zesefXqWk9LTMKroo=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=dGSGTkliG8fbl6/0cTR+42+W0KdFFoSpOxgEV6N65XQd3MGN/cI4UjlvBvYvK6qmS4Xuj4OjWrN0SEIrr8pm7o9K4h2TxhoqvOe4romWQv6n8Qpp4wx3/wfBFQ9phUHsdSIRT44h3OWx0OMkcqvZQFF0nnwQAUU1sZjOMEs+eQs=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=URjfrTFZ; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="URjfrTFZ"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-49b912d8239so397575e9.0
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:20 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955918; x=1791560718; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=twXh4IEgj3c3B1TaynWUaOppTXyXcqyaqn780+9h4uM=;
+        b=URjfrTFZ6whKeYOtnT6bgy/phAiKcEU8+0ayAowX5eEOCCPIGiHWql8sKIgXngMD7i
+         ufOthwVxd+AFRBM7mjZxdpW/kylWZGbpXj9OLJ+8Cewx4V7yHaNTF/z6qsu5U1EHmTEO
+         heVzGF9ch3FTUhDnBFdLARcW2E1Iehg7Q/GAdjbV7kDAkKhP27UetrMclj2GoKzSQ27O
+         Cc/UjrIRhlWeDvF3a+vZUHsxHIf14eA+SaiXqxA/0avHW76Fg+HY2YbvcQ6uikl8c/Xa
+         v6WU124ZDeY+feYX0qB3hlfLw9iGVOar9CEhCiciKO1bUKbDKJ0DMGnJn08tdldVTb60
+         qy4Q==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955918; x=1791560718;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=twXh4IEgj3c3B1TaynWUaOppTXyXcqyaqn780+9h4uM=;
+        b=JDtMLQXyxJrPk7dp5pa+6yty183Eerqt+6/1DJoW3CD+cokx6dJEN2xru7aD0u6bbh
+         mywPhia6l/kJ8CL+DUz5ihy7i8Dc4JY/zpfuaTSZT+B8S6wIQk/5jC/lzXGrvY4ljv8P
+         fvGPG6n/qSCoBgUPgxq5Zkimg+iWY4hh5iXAXXMKfH0VVBKztyixI96fuwOtFQxW5AQh
+         Y5fdia/737qG5/iDxNxSHO5AivCy6cBmMXkN9oRSatv3RABrV4c+hSnH/6l4I96+77Gg
+         mlc4w7VWIOk9hSIJGivW/UvXb9xSr1diF9h6sVEX1ZnQKciGrZMitWD4OoLemDcugkFU
+         GQbw==
+X-Forwarded-Encrypted: i=1; AKwUvBybfMdUOHvoGnPPcocqTF8xs9mxpfWpK+vPWV75HGWM8OozCIpDoYcg3hE3YkwSR7JUJTx++MXFLQ==@vger.kernel.org
+X-Gm-Message-State: AFuF++nhf9oOXIgDjofwlPrtPLf4AscqdMsnprTeHC7ZUm08nVgdnAQc
+	2gfHVmd2nU35qXwOScc+DNGXktaaS3V4DSTlFdyDTd4G3Po/XXwGhcS3n253MO6tMlLMlO4A5b8
+	05NUN
+X-Gm-Gg: AYBFou3EAoO5tx6z3DxscRucrUNhNDt6jYplP7kuOpZvu0kOIaF/5LDUaRUJgPd7U1T
+	a6X3C0jt61GcDVq9dI/rqQxR87uqXcXr9gur5ZR/K4PAcsIYloKAiyl1U8adxycCg8k8c9gs1jr
+	y/rCMvlhx/YMR5QUVaXcaYRqzC3/KBB2G3kPr+bNP5ku9wV0Nw7fvvSE5pHL+4/xQwDmpvszclF
+	raDdfqbyflBTYbB2EyMdKTqhJ5PDIk39TKF3tCHZ7KV3cqbtAa7j5GqVgI5MYO7HtUAyCa+Evmc
+	oxhjdtsB3BflaYduTMb+OdsLqLrxmmj/BK6d4GHkTLCHxCoLQQLExEAyv+8gQUXBNhUQnRH6k+s
+	GdgFdz0soIbNodWDPxRPq4GsqeKOKyw6zrw2mQWX1sirS5cCv2E91GBqbjsen5kFzyV6cT9jSEl
+	f2EmdUJeKBp249F0bOgxsatciBG33wfwneqeJyp/XXAxHIZetcTplFN88HqFFgcdjYfY5/9RkY2
+	6Tw8QrJs7h9Fay7
+X-Received: by 2002:a05:600c:34d1:b0:4a0:1cfd:321 with SMTP id 5b1f17b1804b1-4a027579e86mr63230245e9.12.1790955918295;
+        Fri, 02 Oct 2026 08:45:18 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.17
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:17 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 10/18 v2] sched/fair: Add force push task mechanism for fair
+Date: Fri,  2 Oct 2026 17:44:07 +0200
+Message-ID: <20261002154415.2270586-11-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+When the task is alone on the CPU, it's never put back in the enqueued
+list; In this special case, we use the tick to run the check used to push
+runnable task on a btter CPU.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 71 +++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 69 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 483ed5807dfc..6ed3e5bb7fd6 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9955,6 +9955,71 @@ static void fair_add_pushable_prev(struct rq *rq, struct task_struct *prev, stru
+ 		__fair_add_pushable_task(rq, prev);
+ }
+ 
++static int active_load_balance_cpu_stop(void *data);
++
++/*
++ * See if the alone task running on the CPU should migrate on a better than
++ * the local one.
++ */
++static inline bool tick_pushable_task(struct task_struct *p, struct rq *rq, struct rq_flags *rf)
++{
++	int new_cpu, cpu = cpu_of(rq);
++
++	if (!sched_push_task_enabled())
++		return false;
++
++	if (!rf)
++		return false;
++
++	if (WARN_ON(!p))
++		return false;
++
++	if (WARN_ON(!task_current(rq, p)))
++		return false;
++
++	if (is_migration_disabled(p))
++		return false;
++
++	/* If there are several task, wait for being put back */
++	if (rq->nr_running > 1)
++		return false;
++
++	if (!fair_check_pushable_task(rq, p, NULL))
++		return false;
++
++	if (!raw_spin_trylock(&p->pi_lock))
++		return false;
++
++	new_cpu = select_task_rq_fair(p, cpu, 0);
++
++	raw_spin_unlock(&p->pi_lock);
++
++	if (new_cpu == cpu)
++		return false;
++
++	/*
++	 * ->active_balance synchronizes accesses to
++	 * ->active_balance_work.  Once set, it's cleared
++	 * only after active load balance is finished.
++	 */
++	if (!rq->active_balance) {
++		rq->active_balance = 1;
++		rq->push_cpu = new_cpu;
++	} else {
++		return false;
++	}
++
++	preempt_disable();
++	rq_unlock(rq, rf);
++	stop_one_cpu_nowait(cpu,
++			    active_load_balance_cpu_stop, rq,
++			    &rq->active_balance_work);
++	preempt_enable();
++	rq_lock(rq, rf);
++
++	return true;
++}
++
+ /*
+  * select_task_rq_fair: Select a target runqueue for the task.
+  * There are 2 ways to select the target runqueue:
+@@ -15373,8 +15438,10 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, struct rq_fl
+ 
+ 	task_tick_cache(rq, curr);
+ 
+-	update_misfit_status(curr, rq);
+-	check_update_overutilized_status(task_rq(curr));
++	if (!tick_pushable_task(curr, rq, rf)) {
++		update_misfit_status(curr, rq);
++		check_update_overutilized_status(task_rq(curr));
++	}
+ 
+ 	task_tick_core(rq, curr);
+ }
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 331EA4E3786
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:23 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955930; cv=none; b=rE+v/BObDPRAuepNWskPfegE4HDF10r3zBbcxQy3onmdjivSyVq/oxuw8wjR/7X4WACF6ROgJFk7lZN9PoGmiysCRKEogs64vdT0BToazYrNMZeqoNGlH3HQJkZCt+H39JHxDru/SqOoJGWnMcprUMZsjI5iN/pQPP1puv+jG/g=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955930; c=relaxed/simple;
+	bh=1lvJcxD9+zZwv6HbWjirpJuv17LA3EvKwbPn3OvpJ8o=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=JdZCrra9NEzmGx4E5totmirY6sDbYw9Dg1u6J2dchJ4N7pvJN7eewTR6u/gbr4EX5RbeS8QzgBdy7LmKdBNA9dF8EjHarLoc1livEVbQke+zhRFVZPQh6FCx1SkcmD+p0U5TVfbJ2N31UNRZNSMd+cXZI61meGkA2XjYDfa1cgI=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=desfDIIh; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="desfDIIh"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-4a006bb267eso303505e9.0
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:22 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955919; x=1791560719; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=ya9RfmxJPM2JLLUcoTWuhNhFBf+WLZtJ0RXJ7Ml9FIQ=;
+        b=desfDIIhs6Fh0LwGP6JhPZlhLSwy6CYw/6c7aaKBZtCJZaXDB0ifqeM6xhT9vcGXId
+         iwSvG8WhwuyJq1447ztBTUBBY5G6oe2YuumtdFo1PUkhXhQ6kR0uiicW6uCg73T2P34C
+         t4cQv6SF2ypbwOLOhYOG5Usv9iz2JxgSenhjqvZpYO4QY20GYeYsNZ050+VJ5JUJdKmu
+         vPK+Gamng/s+0MX61CWAteIKUo9jeTnp6pZ1aLqxtBhQwJYH69NRc8lquh0Es+Ck7Haf
+         h1HAHBMx/ksc5Lxq9V6abY6kXlNpJ4nU6Ne0Yxy/Vh4uG79ULl4M8w/V8Dk1d67XgjKU
+         YMTw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955919; x=1791560719;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=ya9RfmxJPM2JLLUcoTWuhNhFBf+WLZtJ0RXJ7Ml9FIQ=;
+        b=jOjA5bCj+ZevQaGcMrXiUKrYsj51nmyPGB8BlHGRzHCzN9/vBUi+oCPKQpPYk1/DvI
+         bm3ia98XILbVq1BXioDbUzyhaZswMUG1UD59DBMkjQ/qa3OLC15iQsDFnnLOQ93OhM5C
+         VCveWQZo4qshW73dEiu3sOQNnfbCuobIce0BtM8fZvOWTvMJv2N2tos3JEvlTZ9tFjf4
+         5mq0FTdFmvDAzYoKyjb/p92mZ6567KnQFJnqpV95W1WoPnqsRBxjOSy57af5ltTvGlJg
+         +/IipTu6eqq9+deyM4xtzHktClgqvMjUej5s9u04IkjS6wmNMjtYwT38RXmHqogefgUV
+         dRaw==
+X-Forwarded-Encrypted: i=1; AKwUvBycvYdkVmwA60AAhcPU3O8s5fGr7+CGJv03pWMfvpnSDDkxGT03fGSo5yLmIya+8+PZq/aVjkH7aQ==@vger.kernel.org
+X-Gm-Message-State: AFuF++nn7ledDIgGLyszMMi50VG+BouXyKPBI2xVyZ7mrSZkF9v5l4wq
+	JeZ0spuSnneeW3mC30ZrvnZzexSqAQ8ESv/7vkMekuRtSqpFkOKj+ntGHmlonOWWuG19EGGXwmk
+	QX5zI
+X-Gm-Gg: AYBFou1/iBtt9/16YFzh2v3Y1wKTjXwRMvOHMbQUExTBsp6r1sls3UcNe1F4HxBT1Jw
+	AIx5VGzeeZn9iGQdHcIHD/Ojmuv5YPr9TH9bHW5qcs84pHCcVfE3y1srTJKka7TtqcXGW5Gi/PJ
+	kZ2ADn71MY5X1oGV97BtTjz0MZwL/EXFnIcWWcRNsuX35BuXQJnEdFKNy2soNo80udsDjPR0pdw
+	kxbGjM3xuhst1x+7T2z384A/azRCj9/A8fn93jM/A8PY8nm3kvDPKLYf1ns0C1N2XwnUhk78D6N
+	G8FJRGl4aD5iLYb2hwQCbVQ2DeixqBBEQaZOpJoVful2QOa7S7YdfeE5idH4OQTRuk1rDlxPT0f
+	a96IBAPZoRuJaDEX2csxUX/M/pDK2OaEKWGHtKKkmt2UegjZYHPC+RvTHI5O+exYSuF7nRNbrwR
+	3Yamf0KTdJLfkNdM7Ol9iFE/palvroyndwJ0E6jSOVcb3xiYYPEvTsrV1aV/lm1Cc0hO+d/3EXx
+	Tzw3+R1MO0ukkWl
+X-Received: by 2002:a05:600c:c08a:b0:4a0:208e:2393 with SMTP id 5b1f17b1804b1-4a0276d9c16mr48912255e9.24.1790955919350;
+        Fri, 02 Oct 2026 08:45:19 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.18
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:18 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 11/18 v2] sched/fair: Support not wakeup case in select_idle_sibling
+Date: Fri,  2 Oct 2026 17:44:08 +0200
+Message-ID: <20261002154415.2270586-12-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+With push callback mecanism, select_task_rq_fair can be called for a task
+that is already enqueued. Task into account this case when choosing idle
+CPU.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 6ed3e5bb7fd6..38eb80dbd1a4 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -7974,10 +7974,13 @@ static int choose_sched_idle_rq(struct rq *rq, struct task_struct *p)
+ 	return sched_idle_rq(rq) && !task_has_idle_policy(p);
+ }
+ 
++static int idle_cpu_without(int cpu, struct task_struct *p);
++
+ static int choose_idle_cpu(int cpu, struct task_struct *p)
+ {
+ 	return available_idle_cpu(cpu) ||
+-	       choose_sched_idle_rq(cpu_rq(cpu), p);
++	       choose_sched_idle_rq(cpu_rq(cpu), p) ||
++	       idle_cpu_without(cpu, p);
+ }
+ 
+ static void
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 9C8B34ED18D
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:22 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955927; cv=none; b=a2I1TJ9VvwTDxC346yzKXf5E8Oi1LqLd6Hl5yJJCjRFs1eBr272WGuEPtNTa3k57W/huzhIX4nuSY22rQhlNtOoxnyPtkTHUA1sc+Qj9PtmMxPka3pot32qDCihJu7LgJ65voGghCS6JgBasrUA8s4MtyeNL/d68HfqQVuTgi3c=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955927; c=relaxed/simple;
+	bh=l/sMIazjd6/XZe5VjWiBFYnMVb+KTN/KyoP8XpNG3fo=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=nzLTEfnaTxRkFdfsg5WupfQ03fSSZhTzWPYA7d3l6Zgh0j3U/m0/qKYBRekMMlG5lPgdrvS6cWXwYchydQKUYpxWAiYQmSRJTRqxBe04mvETFNVJd2qfVHRQ2ZkhFPOySxGbd448p65I/mzj15rY3XrtZi/nrowDqIdy8VowiS8=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=xbx7b7Wz; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="xbx7b7Wz"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49e79a408deso180475e9.2
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:22 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955921; x=1791560721; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=xi089Mm6/ZAPKnWvbv/ns1gYplgqzCAMNfNdfYd/S2Q=;
+        b=xbx7b7WzA7QOrgoqlrsNhe/45nG7JXZO5kNdXTCEg58+W3amXOTqOgUDLO+nE/QFUD
+         bR2zvr3XL0bPRp5tzXGCs2Qwa32jCU/ziUw5SkQcuSr6o0VW8ewhp3Tv4639TEg9Kl8p
+         GPiVHkYgrtWxe5fboBhjTwJ6zWH3O1kcvCEqrXJjT5btTgDB91t/FGFLQn9n/k0LrG9g
+         LAxHSv0rsdPLE7ocmaUnVFxas3GtNCGz9bLZ49srkKDCSNEorpDZPynP+x7/8qci3YWD
+         C9C5x7CpacuY1vDpQ3+8qp917vM9NDrQFxZIh6wLf25T+liVx2IjxYirRSE2M/DhbaYU
+         nLVw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955921; x=1791560721;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=xi089Mm6/ZAPKnWvbv/ns1gYplgqzCAMNfNdfYd/S2Q=;
+        b=nK57LkvKOq8sW5NlOmkN1hdLwzyBaCBVpI6PnydFXGW64NjHZ8/f6curMSly0ai4sH
+         YnolWgWO4FDvtlET3nmZkn4io34Rcp01V+tlHPSzOeZQ/4RJUhk38Lv5nSc+tSHP0qf/
+         iNcH/CxEls7DTQf7RburtZJ4HWQdxHWJa4ph34mAE5px8HsTse0Vh+3y4u91HbDmOxTA
+         VSVVOcOMPhHrbCjo+J0dfQXcdkT7xOOPF6XISS8FszGq3U3V+YvUri/rBLJ6xmqxU6Rc
+         qtPukom4/S67A3GDLyEPwtBdOZED+8V6vGajNS4zzv6pDlePk5wCFgQBNPXZtbs6sM5K
+         1Mfg==
+X-Forwarded-Encrypted: i=1; AKwUvBwBPwnqgxU0lzTwmFolaMM5SxsxGzyVYaJsjl+Ud6bFLhRV+vb5mOq1wabq2/0QJjb+E07YnjMgXQ==@vger.kernel.org
+X-Gm-Message-State: AFuF++lJ31sKgpAoXPfiATmFO1La+ZkuUgkaIls1HabuDAM7Ks18RYL/
+	kupvziTqwESa7c/dYq0i52K0MTvNLDSM1O12HPXWY4TqIHyZXaOn8D/kocqJp8ERX2g=
+X-Gm-Gg: AYBFou1zmuXD/J+vt0eGjuw6geolT/paIOac/vcAz/sh9IMQZYVQ6eJKwcSr8LqsC10
+	X0TFIP/eWYrD9NFXnPtPzmg/Q+tKAbk2qXuPo/Y0JJ+5SOvKWitvGdG8CX5OQcJx5Mg9Fb1B8Mu
+	shsWquCz+VZFWfl0Xl6cnGgAMzWu/a8M2NQ2TjLKorpmf66Bkercykqo1cQKT8D/ZF1kmz7GHJd
+	pQ6gSdc5RI2iBVDeR1eK0I8Cj+Vkkqoqqk7/1eGTq5MLoCgTbxlnMLRkcA7hqTMjT8K61MCuohw
+	A/RVbi/opZ79FxrYdMuaKTvCgrqjyqfdo/EacTPUIbIuey8y48xblaAuTfx7QRXOhwvf25EFPGb
+	u66bCkXLgeibL1i4Nj/WqRcDib3N7Lp/8AhoJqeZPldBBXFY2iEy585PpzEyExkNX3cipoffklj
+	jJjJjqJCk93P3ejkErgE/u6GvLXfwP6V6gKYAolzhlQIBTkgR7LDKB4wppY6vptDXmqMVZweuWG
+	x2t525g7ArQX8sO
+X-Received: by 2002:a05:600c:8710:b0:49f:ce73:5e96 with SMTP id 5b1f17b1804b1-4a02759555dmr49483355e9.34.1790955920408;
+        Fri, 02 Oct 2026 08:45:20 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.19
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:19 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 12/18 v2] sched/eevdf: Try to push short slice task on a better CPU
+Date: Fri,  2 Oct 2026 17:44:09 +0200
+Message-ID: <20261002154415.2270586-13-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+When a task is put back in the runnable list, we check if we should try to
+push on a better CPU, i.e. when fair is preempted by a higher class or the
+task is preempted by another fair task.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 38eb80dbd1a4..186f10173eed 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9826,11 +9826,34 @@ static bool __check_pushable_fair_task(struct rq *rq, struct task_struct *p)
+ 	return true;
+ }
+ 
++static bool check_pushable_short_task(struct rq *rq, struct task_struct *p)
++{
++	struct sched_entity *pse = &p->se;
++	struct cfs_rq *cfs_rq = &rq->cfs;
++
++	if (cfs_rq->h_nr_runnable <= 1)
++		return false;
++
++	if (!entity_eligible(cfs_rq, pse))
++		return false;
++
++	if (pse->slice < cfs_rq_max_slice(cfs_rq))
++		return true;
++
++	return false;
++}
++
+ static bool fair_check_pushable_task(struct rq *rq, struct task_struct *p, struct task_struct *next)
+ {
+ 	if (!__check_pushable_fair_task(rq, p))
+ 		return false;
+ 
++	if (next && next->sched_class != p->sched_class)
++		return true;
++
++	if (check_pushable_short_task(rq, p))
++		return true;
++
+ 	return false;
+ }
+ 
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 5DEF54EE84D
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:25 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955931; cv=none; b=MA0JnoSbw39Lh7lhmTm+oEoG51L+CFIh+86MsGBg9u3PCH4S4UqNOq/rA3ZRdIc/J9GlQe55+KeR6IUKOo8Q8HQVSMQQnotwwXETsiMH0ZW0SHoQhPHFSZ+5aRCaP950wmYwowvf29n/Ogv4uIB0znMjPCsMK3aKrPayaHMnuoY=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955931; c=relaxed/simple;
+	bh=CeTHB4ypLnb5H3d23FrgyQcrpY2y8roNeeEMV+cxjyU=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=hb33yWFqc/b5ypU+1q7+OvbVngPDoLnppxoBdn76r9pSFkSR9+2wTgOYFcAEwQ+ETVbW2JfQ0isk/q79P+jAk+rmnQ37kaxF616J++RcTxht3hhaPpsNuNK30OtzmUcOchbk6NZBsStDABYNiNPAEGb45iGLWc0qk650Zx5aZnQ=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=HB446zzV; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="HB446zzV"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49b912d391aso189965e9.2
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:25 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955922; x=1791560722; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=EZjs7e//iaMUq0DbBBAkyBGkWfGjYDHq+81y/lPHXV0=;
+        b=HB446zzVAK31YlA23DKZGSW+unxN2agRncqN8pZ8aqyMcPLjQLhwDr4uxuEKyUh2V/
+         vLK8Sma5TkDvAd3JQfWR2dm5QYpfL9hUOwJa+QGEf9UmF5AMFWli87nljpDrlSIgCb0O
+         2ZZv6jpz21wxBPPgIgSjHkxlHkwEq6VkfB5rheVbz8/8tJHVfjg2WTxZlSopesI0DBhG
+         T0e2rMipBeyXcjplUKxlDGsmLqBM96Ds07z8TIqDDUhOe3YcFg0FRppYcMAYUStTSbPO
+         QaX0npVGIdf/Vtt3GPh5V5lTkjo5QR4qmV08V3v98UzZ8vD/hi6HPja1W5Rgwi+NEtaS
+         uoQg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955922; x=1791560722;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=EZjs7e//iaMUq0DbBBAkyBGkWfGjYDHq+81y/lPHXV0=;
+        b=ih+iiXQokUHIAAFOglyQ0AS9l3TcwUdgB0IKVy896n73KQcgSdznmfTR3f0lvHkN2N
+         F8wXAGPkyZFyaWIRcH2B+9sQO49IVYeKMHRaftsKrF8gkncELhEhhbJztAZIUM9wh4j2
+         mT9atcws75m/PBRhGmv/lx8Ea1wvHjcbQI8l9/g/GURJgF0M2P+miewesgEm93P20JeW
+         hlyYfBhoRVfUojVHf1teFP+7Cz3EpH1PjPMB4hsc0IhPySfmhwDVYHX/nA0ujhCJ9HOc
+         j2b0bQu3NyXYhyxSwmqNCvbogKb5AOVbFTAyP3fJLAvy7NGU65PBvtMmdaCwRGLb6M4s
+         fgTg==
+X-Forwarded-Encrypted: i=1; AKwUvBxTizLDAeRJGHva3LJ1Bw/avO6ZWwy7ZKjHdJlIjbKHTfTIFsqgLAI5dHWiw0BU5/Rtv0YKmkFlOg==@vger.kernel.org
+X-Gm-Message-State: AFuF++m3qocufG1uQPJQ+8JeTJjVVwx5eFlYcLkFWChh3vvWOVhRkH0V
+	jNuXO6y7feCFI8V47sxeFSmme9hTHO04P96AKmLqCUnA+Gvg7CYJhchHgD+MJ85BiM4=
+X-Gm-Gg: AYBFou0J/e9A9Hkiu9+9tLr5NH1+hQ/gVKYzjrW3UmI/heuER0xlbp8JeTz6iNrXW6l
+	/xzph5xjdz9nthKvhbgauaDkosfRyyc6UsNx6ZaTkFeaQe/cUs+1HwjIt2W8mQoyEYggRuJr4nC
+	c9BH/f/VMTlanqMOeQmL80MhWMaZ2kZbPVF8CX1KLji63f9szPHnLMT9hmHvbFL9Hl5IWH43q+v
+	mPvLMQbovGQ7/f0REApoadQNSgJIeAFW68NwgtLNU/8wCwMaL444u2KAx1nGMbjyiB+cdthY/5Q
+	AavEmtc7deH8CtDFfo7Rjj5xFIObhCg1URSH4WaIydEFuK7PSAfv4DN39CbTi6wFN66GlADRM1p
+	BplBXZSzjLBJ+vh6lQHIqmd/yeC/SYlU/50khCVWvarJ5rRRpTLfzqQa8ic7S94X2vekYaoR2HA
+	6h/yWhaYCQ3nN4UMO5uL4e4+7f7jrwB9SPlP7UYV2R7NvxPy/2nQSBFaSGibJVdpvGE0GvwYfqw
+	kaaa9Y2GkIuPakl
+X-Received: by 2002:a05:600c:230b:b0:4a0:2533:c8b7 with SMTP id 5b1f17b1804b1-4a0276c6176mr42183355e9.35.1790955921951;
+        Fri, 02 Oct 2026 08:45:21 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.20
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:20 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 13/18 v2] sched/eevdf: Push short slice task that are not picked
+Date: Fri,  2 Oct 2026 17:44:10 +0200
+Message-ID: <20261002154415.2270586-14-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Even when set as next buddy, a number of event can prevent short slice
+task to not be picked. Add the task in the pushable list in case it is not
+picked so it get a chance to be pushed on a better CPU.
+
+This can typically happen when several short slice tasks are pushed on the
+same CPU at wake up.
+
+If the task is picked, it will be removed from the pushable list before we
+queue the callback.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 186f10173eed..cccdc40b8a24 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9981,6 +9981,12 @@ static void fair_add_pushable_prev(struct rq *rq, struct task_struct *prev, stru
+ 		__fair_add_pushable_task(rq, prev);
+ }
+ 
++static void fair_add_pushable_short(struct rq *rq, struct task_struct *p)
++{
++	if (sched_push_task_enabled() && __check_pushable_fair_task(rq, p))
++		__fair_add_pushable_task(rq, p);
++}
++
+ static int active_load_balance_cpu_stop(void *data);
+ 
+ /*
+@@ -10419,8 +10425,10 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
+ preempt:
+ 	cancel_protect_slice(se);
+ 
+-	if (preempt_action == PREEMPT_WAKEUP_SHORT)
++	if (preempt_action == PREEMPT_WAKEUP_SHORT) {
+ 		set_short_buddy(cfs_rq, pse);
++		fair_add_pushable_short(rq, p);
++	}
+ 
+ 	resched_curr_lazy(rq);
+ }
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 3479F4D0CD4
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:25 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955931; cv=none; b=H7985HL4933t8seKgfIPHIawY6GcLd+w5vW4fKPFsL6vxEOjoPyCvSC57R7PbCbDRxflagwvSDbYMdzOa2u23sNP2Xjkr8lZBgUA+tbF5MKVaC2GQpTpu80kQaK7b5H6O74g+q5JYfitvwRCJkR3wPPGMNaDbvm2SmxZWOWaOj4=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955931; c=relaxed/simple;
+	bh=qgQ6mPEUSsweS0ySFC93r8P4Eludf9RVMAvxsJJRRs8=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=o0qkI4HQOkOlJythLHUXJQmCPgiM6rnuKxDCewThzGJf8SPhIqoZVQ2IgBcDLspF+959YtmCihEqQezbVYt63XmIMApeMjUbotWA1To47CDOaYwY2G3bXkAdOwtjRDkxzVSd3mZEEoC4wQd6F/ai0/S/iRE9468P1Ipe0wMsecY=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=eM78FrUn; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="eM78FrUn"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-49b912d3920so262495e9.1
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:24 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955923; x=1791560723; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=pxDjVmpry+V5sESUwysJzs9Q3KJpqmz8KRnIcWV2Dos=;
+        b=eM78FrUnxkEFSWR1T5s3qUniky8aZ2xEoRNeycWDgxz8i3mV6XNhfM+BOj59rsxZW8
+         iRKfNHTYXjYS1kzs2DLf0NOtj3xW+aOAbgXAH9ASqseOUYWG3obWSl+LcKSgiP91A7xX
+         1Y/JqVzd75r2tqALzoRp71fSNf27jXdnJkTYJ1LtFe8Tyz7nnc1KaxxVINKDNxabQKUk
+         ZokPjH4TfogGUmMOdccO124MK7IdjMn12O5dr/Gdig3OIR9jJmYv5JBsLQNCJOCIovoP
+         OQgCWzh7RaSXds5ZMJQVIJoeS7SxX/4cO+pxJtNYHnr20HG7fmzRMo9njAJlVmw/brLq
+         03rg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955923; x=1791560723;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=pxDjVmpry+V5sESUwysJzs9Q3KJpqmz8KRnIcWV2Dos=;
+        b=0hLwj99saBRcITJm1z6uvkGVsJNj+C2ehJLIra7qF8Y+q7c0O5EMIqxkQKZF69/cQ5
+         mxSDBJ9BQW+uIisw3qMcXMAgDIp9JqbcprlwKpokJgKMEVvXNfGXKMghEkxMKvk0QX2Z
+         pdiwVE7ZEKNvG3A31xWYwzEJH/VEYV4VdwrV+hA8V75sS+iRDfHdPMd9y2wxNhC7pzAa
+         MTybu+1HatTKF2DdwabbKxDvMGGprMm8MdCYjJXBonOmeGqgrAmCjy//DIm5/xniEKGW
+         U8YRg/8ho80CRrzRyiPro9GgCFr1R8JxZ7K5y5Ax5wcOGue54zi3+FgIP/g/e8cpkoVj
+         ADGA==
+X-Forwarded-Encrypted: i=1; AKwUvBxYiXTHjoU9mJADyki4Q4rOX4GkEZ5kvG0VV3ulbDSZ+i3gxfSQBOcfnM2eBF9fTR3mpd2wLriWrw==@vger.kernel.org
+X-Gm-Message-State: AFuF++kGkzdZUT8OOoKMtiC27Cy4gGcOMsPqu7+JTkVoSPgrbrrDd6wZ
+	40S3fx1RYEAfyzWft8/dTUCvvHidwotahhWTq1DLP+IriBo79/VPDJow25s9vV/xDrU=
+X-Gm-Gg: AYBFou1usqB9Oo7Ua1u7BhmLJPz1kesFGig1VKD9+nwpJ0iWr4d0ndLi3bylSImxYdM
+	tGVIjD/yA/2xU31fE5YM8MogWifGak6kCcvk2mdfjdaBnIY9B+BU04IxASLO/xDUP+DWkTZrSjL
+	sw8NGf2Jakiti6hyFRwCNG+ERbxx754aYCDkjlZjb+NcDUOtgKT2xqHg8JBlLg2LRygBtjUrgyq
+	wWVN8I+XitZmuZimkE0ef70t1LSAoD/N8Y1XNJ0QcBIFYKxoGpQsufISQYrgPGfzkMfisKmHcRE
+	H6hXSDZiw3SNpVOU5GRXFVItot9a2Tw47pJulN0qGBLk5i/kohblk/JRu6nG68OlRNibmZJ/Bka
+	Ln9RRSMh9WzxbzQRX/wHxTc9KGOI0Bd21oVOnyokKJxHlmrR3RaoRrMNkDgL0cR7/IRm2cFgcwF
+	xKkeAGnuOll8kLCISG1dtolCLKnjZXwUxdjgOtvdlb1kNWuJPrUfCfSboKEgTNx3FVtuqn/Gvn6
+	cGRrnBaHF1Ezxk6
+X-Received: by 2002:a05:600c:5308:b0:4a0:168f:d962 with SMTP id 5b1f17b1804b1-4a02751affdmr54746315e9.3.1790955923338;
+        Fri, 02 Oct 2026 08:45:23 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.22
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:22 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 14/18 v2] sched/fair: Enable push task for preempt short
+Date: Fri,  2 Oct 2026 17:44:11 +0200
+Message-ID: <20261002154415.2270586-15-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Enable push mecanism for the preempt short feature which is the
+1st feature using it.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/topology.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
+index 0248227d983a..6b1058268e6d 100644
+--- a/kernel/sched/topology.c
++++ b/kernel/sched/topology.c
+@@ -3475,6 +3475,9 @@ static void partition_sched_domains_locked(int ndoms_new, cpumask_var_t doms_new
+ 	sched_energy_set(has_eas);
+ #endif
+ 
++	if (sched_feat(PREEMPT_SHORT))
++		static_branch_inc_cpuslocked(&sched_push_task);
++
+ 	/* Remember the new sched domains: */
+ 	if (doms_cur != &fallback_doms)
+ 		free_sched_domains(doms_cur, ndoms_cur);
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 840734D4895
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:26 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955932; cv=none; b=AQtWajiETsja5n+ZKXjH7q40unOOCs0puHgpFnjCNnw5m6aDnvulsob2dDK9pciIWqSIUsxPvHDyustV1zuYNtKC5FnZQev+4h4gXFUiDtXbFAd2YPVts/xLdVqeU+JGBFjy6Y+6RaJPxV4id/BfiyUpf+umQ+V5iPliHlTLx2Y=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955932; c=relaxed/simple;
+	bh=XJBmbAQssDpv3cWBcThWNbjc6nl3j+gt9Ko4eNiaO98=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=lg9cL4gySxM9dXnp1L7vPR4h6zA4pusCmRfEQjOsFVTgvP/sZDzETMGnqs78X7KbezWbDyrooDi094jEG5maYdjg4Yd81HTSXCtVIBhw6+8BLO6ijDa0Ot/6iB8TYEgWGWm4h6v0kmDsl4lU01YtmXz8QNtl4tdwRXVnFFsH7lk=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=nhzdFhK4; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="nhzdFhK4"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-4a11603310fso427385e9.1
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:26 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955925; x=1791560725; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=WkE6gJnDRs+XLmAou5XPy/YO7fax7WUEGWY0OkDdt7Y=;
+        b=nhzdFhK4XJm4ywkcMx2iZMlbdA0TopX3qmiFqXqJugOxcLyeKb3VMWUs0kTjTnGuM8
+         2mNAe8T2O4hzGJQSPLdDh82R7EJs0X889b+En2tC6hrk17UoJZG1IZ8bXRoK56uxa2zx
+         AO+vWqV8B/fAAV8FQKM+MAHDUiEWDtazoFIeizUtFrCdVkjLsW0+qfVNTkOTlQBCuqSE
+         Vvd6wedQWqZPk6RJgoTNBb/SUo8uK55/IJa/tKgPE+Agf7NmfSihpJxqjgkTl/P5giYl
+         SQV52N9l+O719/iKvYM5j3/pDDgcnqX5MVQdEzeQrUKfYqm8CTc6LH8x3h35/b5MEyqu
+         egAA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955925; x=1791560725;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=WkE6gJnDRs+XLmAou5XPy/YO7fax7WUEGWY0OkDdt7Y=;
+        b=bIv4hV+4IkOpwlFiIxSuNXgqhikgquW3+X491P8OOaEzNbtjQrFWn22Bu8H9/B2i23
+         N/xlMZ/uQSii3vTRvE1YUlvFgPAhEAyw7pcxTxYOGjiBclbomMFy+0KbDc8QXVJggZiE
+         ptSPmQWukNdvW8Pg6AJ9WUUYzan/frjRIUHn/gxVnjIz2pjRKwsJG5wQHNh2JmWeRi+G
+         U/NHqfVmEsrDeYl+GDroqMw6HMlWJRcz/MqkXr5lc0MOXzoqjSzr4Io03VbpUcuRzqIH
+         7/J1IjlUv+nLufB6JRIKNETi7RIgmFLTt1fshwtPUXWetejTTy2f8CYvMTB9EFiIVSUw
+         cizA==
+X-Forwarded-Encrypted: i=1; AKwUvBzD7neZT2Q0CgQ3TcHpQ+Qy6V6hbTa4f6UUuWaQhmYNPwzRgrqujOXa6wPqBi/x/r8I3HPSJbXqiw==@vger.kernel.org
+X-Gm-Message-State: AFuF++mJixMsNdhNuck7jrpZmElSdrPSj1Ku+J1Fvxf9Z/zM7RrjtWsi
+	y1K7LEWI2rU9hmXVr6RGKfTUWW0MOX9CsZH4JnSj5gTc7G0FE7C9cceHp9VSjRoEp90=
+X-Gm-Gg: AYBFou2w9bVUjRiEjHoG06uelGM4ccTu5KyDrFISDpJK8Av58jYGOdVjY705Bvo1kXB
+	Hi0X8pffm+/wfIreFV/+CsnaluJPAkJmggSAckREv0w3u6EQ2VP6Y4pbcGOMS3q3a3MOOVixRpk
+	VDTplMV/8ZFw8PfSCBfb0+IZMlcFSPNzwiB0kccfyTF4YwSaPaXUqFiMBUHpTpCcmfVqFdajXlP
+	WiG/EwTeDYJmuQQ8LAkJkcVMkMxNzKYaC15R62qQTqk9M/aiY8q51DnUasyYlyXkgp+94yHZu87
+	K77UhN6ODb9Lw3DU8h3ccKnOds/d0fivSkESNZlgKT83Ez2CEQUHSlp92ZhUVFdTKgEQRIsJ0N8
+	jXo+CwsGdPViodyhTSNHAsGa3jh8pg45+kp/yswzsHqBZ7oAsgSoGCif6/rTYb2wyeta3KG5cIR
+	q3fgwHNP1ZXhEvpHxeizLVnAAVNQ3K6DwJKiWFn4WveEo/nXDV2kIAhcShh1B/TfVurScpA4qsZ
+	YvHLxU4xBcwdgKt
+X-Received: by 2002:a05:600c:310b:b0:49f:bd3c:bc25 with SMTP id 5b1f17b1804b1-4a0276a224amr56824375e9.32.1790955924579;
+        Fri, 02 Oct 2026 08:45:24 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.23
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:23 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 15/18 v2] energy model: Add a get previous state function
+Date: Fri,  2 Oct 2026 17:44:12 +0200
+Message-ID: <20261002154415.2270586-16-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Instead of parsing the entire EM table everytime, add a function to get the
+previous state.
+
+Will be used in the scheduler feec() function.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ include/linux/energy_model.h | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/include/linux/energy_model.h b/include/linux/energy_model.h
+index c909a8ba22e8..89cf109cbca6 100644
+--- a/include/linux/energy_model.h
++++ b/include/linux/energy_model.h
+@@ -224,6 +224,26 @@ em_pd_get_efficient_state(struct em_perf_state *table,
+ 	return max_ps;
+ }
+ 
++static inline int
++em_pd_get_previous_state(struct em_perf_state *table,
++			 struct em_perf_domain *pd, int idx)
++{
++	unsigned long pd_flags = pd->flags;
++	int min_ps = pd->min_perf_state;
++	struct em_perf_state *ps;
++	int i;
++
++	for (i = idx - 1; i >= min_ps; i--) {
++		ps = &table[i];
++		if (pd_flags & EM_PERF_DOMAIN_SKIP_INEFFICIENCIES &&
++		    ps->flags & EM_PERF_STATE_INEFFICIENT)
++			continue;
++		return i;
++	}
++
++	return -1;
++}
++
+ /**
+  * em_cpu_energy() - Estimates the energy consumed by the CPUs of a
+  *		performance domain
+@@ -375,6 +395,18 @@ static inline struct em_perf_domain *em_pd_get(struct device *dev)
+ {
+ 	return NULL;
+ }
++static inline int
++em_pd_get_efficient_state(struct em_perf_state *table,
++			  struct em_perf_domain *pd, unsigned long max_util)
++{
++	return 0;
++}
++static inline int
++em_pd_get_previous_state(struct em_perf_state *table,
++			 struct em_perf_domain *pd, int idx)
++{
++	return -1;
++}
+ static inline unsigned long em_cpu_energy(struct em_perf_domain *pd,
+ 			unsigned long max_util, unsigned long sum_util,
+ 			unsigned long allowed_cpu_cap)
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id CD88F4BA1F5
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:29 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955933; cv=none; b=j2PjMv/9T/1lx6dQBmCL1WADTB/dsd8kHWxhIPGgz6rY9W+Zc25J7FB02ae1fRu7IImK3GBqtxiXOTjwf30VLSfw4qAsc0WcRcm4VfpVdmBHWYdl99MymeuGaWg5lDR3eZ6uuB4zKJPSnfXbak2FNgDhoO1+5EDF5q/5TWKWC6w=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955933; c=relaxed/simple;
+	bh=skoo6avmmjeL8kyQJnLryydDfREcVXRar8ezCpoeIm0=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=SKkdsBRg7JHiyz214E7Wer2gDcP2fqF26eRz/cFhheQ02wq88otp3nQKZl7kYLDlcCcFNKGLk/rR2CGPfKyLBgqxIYGsNKxdbawGy5p3irSdklKzUtmqJTefY8tQZHBimxeEZPntp00P4ZwYknptH/N/FsvXhjKgjeuWRhZgCN4=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=ZqDWBDAe; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="ZqDWBDAe"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49e7bcb94d3so164885e9.2
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:29 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955928; x=1791560728; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=LAEqNRmyCj1e8UCm33pgLLYf9nlKjrU146EP4cKLBNg=;
+        b=ZqDWBDAeBM4IJwSVZJS2gXhT3kmqQIm2JMnckTH2CZqrKUh+nSXgNf8v+8dTPKDMht
+         chiRVBuM9XpS3nyMl9lwwMLYhaOyHUKg98CDc71tbF4MH6PVMkbFMK/zwtxYFZwZudF8
+         1Md6fnfOqsy4vSYunq+P5d5qX5ameD+h/FH2YqFwXk3RmRgreTafo/4mtnjTB6AZ2Mdc
+         9YrDFZbXfknMaaoaOL2VHNXtczIgd99Def8gS8PKbhQxn4CbTs1lyEuu5fauTWxmCDl+
+         uEhs3lRansilP6E+fNIXwirKD9U6UZxiGQtJejBCc99SZ+OQuQXPCH5a6Db9m3+Co7lB
+         JB1Q==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955928; x=1791560728;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=LAEqNRmyCj1e8UCm33pgLLYf9nlKjrU146EP4cKLBNg=;
+        b=py22svTRJFFjcK2gWp/k64rPd15/6GYQ8vZ5OedIR6XGsjJR2eDOfI0w5DXwp8HLup
+         eeAman7lL2XSGMKmPZUx+jUEo4zXNyTQBI0VXhIkg9XT92oJfLZJwN5hu2mqSoe9m+x9
+         J/yVBADxZti2rwWpy9jchCJTjY5tzIxJMevCIPHbYZHPiVgIt5yJmDy+PJjhHUlq3YAd
+         s29MdYlhj0MbWPhUiYok+I0JzOBpcFCfE7l84jNi4On8VluB8prFskY2FWbvUHvrBmp6
+         OaXAnU4hZOf9W9/UGYDqe3MeTju/3DmAtvTMY3ljraRIS0Md+nlmS0BAc9m/Yle/TWVH
+         FiVw==
+X-Forwarded-Encrypted: i=1; AKwUvBydlpWdt10shmkkQTlL+Bu5P7PfTspUrkVLVr1nPNnCslMz8/BRO2ZYFQsu8icbeTXa+k62Ca/C2g==@vger.kernel.org
+X-Gm-Message-State: AFuF++lipcYCd9SWagCEMzIR++NQCW4sIkifve6HpbL3B42kullscDla
+	6p0mhJSF1tA3R3eESKlfmBmPvtdfNPgEajXBTMz9xGsNEsscQM8GWA5Fj780duZPbXI=
+X-Gm-Gg: AYBFou0aCZcOqo0hmuSNcZTVpwVhdqT7wBvjZU8ek9ovl3fwgmDpVyL+LM9mdu/jjEK
+	yBUrn+C5QlEVX0Xqbvl74kx+OT855E5Mwc1CssFuWdU8vEGNtrMRV7/tLfjQeoz9WYoicww2poD
+	9cpPOsN3+VdC/SYUEF1+gaT633aLAft3+EyG80ZtPrWRr2S6/I0IEzWs5BkvPdusnsvizSVPXyJ
+	jF6CMlEadE17D70eSoL3gMvuMWS12HmjwZsp/iEeXpcM9uWnFH/l6gH5JzFECRSCUMHVLjeW4zl
+	xGY/vi9bd0cv28IG1YJFICv7Iw7wpXuEiohQuoS1nvWAeNG8mgE5FGQ11HJFBxWcp7rQfM8ypEE
+	51JbidrKLciR21WkMNiTsmlZ87C2gnOjRB5rwv3WVH6X/s7dmh531FtAJSdZtHEboDOaI03hcGx
+	7wV8aXFc8LjniVPzyPjrxRkBhBLFoAOrB/9pdhPFK1WUUKqX/+pKmI/j2BZuqEzd8fsQvs/YVIm
+	YyC+gNjRF2fUM8t1Q==
+X-Received: by 2002:a05:600c:840d:b0:4a0:1c10:12b9 with SMTP id 5b1f17b1804b1-4a02758ec2bmr63305295e9.32.1790955927945;
+        Fri, 02 Oct 2026 08:45:27 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.24
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:25 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 16/18 v2] sched/fair: Rework feec() to use cost instead of spare capacity
+Date: Fri,  2 Oct 2026 17:44:13 +0200
+Message-ID: <20261002154415.2270586-17-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+feec() looks for the CPU with highest spare capacity in a PD assuming that
+it will be the best CPU from a energy efficiency PoV because it will
+require the smallest increase of OPP. Although this is true generally
+speaking, this policy also filters some others CPUs which will be as
+efficients because of using the same OPP.
+In fact, we really care about the cost of the new OPP that will be
+selected to handle the waking task. In many cases, several CPUs will end
+up selecting the same OPP and as a result using the same energy cost. In
+these cases, we can use other metrics to select the best CPU for the same
+energy cost.
+
+Rework feec() to look 1st for the lowest cost in a PD and then the most
+performant CPU between CPUs. The cost of the OPP remains the only
+comparison criteria between Performance Domains.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 469 +++++++++++++++++++++++---------------------
+ 1 file changed, 250 insertions(+), 219 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index cccdc40b8a24..94554f165f42 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9444,29 +9444,37 @@ unsigned long sched_cpu_util(int cpu)
+ }
+ 
+ /*
+- * energy_env - Utilization landscape for energy estimation.
+- * @task_busy_time: Utilization contribution by the task for which we test the
+- *                  placement. Given by eenv_task_busy_time().
+- * @pd_busy_time:   Utilization of the whole perf domain without the task
+- *                  contribution. Given by eenv_pd_busy_time().
+- * @cpu_cap:        Maximum CPU capacity for the perf domain.
+- * @pd_cap:         Entire perf domain capacity. (pd->nr_cpus * cpu_cap).
+- */
+-struct energy_env {
+-	unsigned long task_busy_time;
+-	unsigned long pd_busy_time;
+-	unsigned long cpu_cap;
+-	unsigned long pd_cap;
++ * energy_cpu_stat - Utilization landscape for energy estimation.
++ * @idx :        Index of the OPP in the performance domain
++ * @cost :       Cost of the OPP
++ * @max_perf :   Compute capacity of OPP
++ * @min_perf :   Compute capacity of the previous OPP
++ * @capa :       Capacity of the CPU
++ * @runnable :   runnable_avg of the CPU
++ * @nr_running : Number of cfs running task
++ * @fits :       Fits level of the CPU
++ * @cpu :        Current best CPU
++ */
++struct energy_cpu_stat {
++	unsigned long idx;
++	unsigned long cost;
++	unsigned long max_perf;
++	unsigned long min_perf;
++	unsigned long capa;
++	unsigned long util;
++	unsigned long runnable;
++	unsigned int nr_running;
++	int fits;
++	int cpu;
+ };
+ 
+ /*
+- * Compute the task busy time for compute_energy(). This time cannot be
+- * injected directly into effective_cpu_util() because of the IRQ scaling.
++ * Compute the task busy time for computing its energy impact. This time cannot
++ * be injected directly into effective_cpu_util() because of the IRQ scaling.
+  * The latter only makes sense with the most recent CPUs where the task has
+  * run.
+  */
+-static inline void eenv_task_busy_time(struct energy_env *eenv,
+-				       struct task_struct *p, int prev_cpu)
++static inline unsigned long task_busy_time(struct task_struct *p, int prev_cpu)
+ {
+ 	unsigned long busy_time, max_cap = arch_scale_cpu_capacity(prev_cpu);
+ 	unsigned long irq = cpu_util_irq(cpu_rq(prev_cpu));
+@@ -9476,124 +9484,152 @@ static inline void eenv_task_busy_time(struct energy_env *eenv,
+ 	else
+ 		busy_time = scale_irq_capacity(task_util_est(p), irq, max_cap);
+ 
+-	eenv->task_busy_time = busy_time;
++	return busy_time;
+ }
+ 
+-/*
+- * Compute the perf_domain (PD) busy time for compute_energy(). Based on the
+- * utilization for each @pd_cpus, it however doesn't take into account
+- * clamping since the ratio (utilization / cpu_capacity) is already enough to
+- * scale the EM reported power consumption at the (eventually clamped)
+- * cpu_capacity.
+- *
+- * The contribution of the task @p for which we want to estimate the
+- * energy cost is removed (by cpu_util()) and must be calculated
+- * separately (see eenv_task_busy_time). This ensures:
+- *
+- *   - A stable PD utilization, no matter which CPU of that PD we want to place
+- *     the task on.
+- *
+- *   - A fair comparison between CPUs as the task contribution (task_util())
+- *     will always be the same no matter which CPU utilization we rely on
+- *     (util_avg or util_est).
+- *
+- * Set @eenv busy time for the PD that spans @pd_cpus. This busy time can't
+- * exceed @eenv->pd_cap.
+- */
+-static inline void eenv_pd_busy_time(struct energy_env *eenv,
+-				     struct cpumask *pd_cpus,
+-				     struct task_struct *p)
++/* Estimate the utilization of the CPU that is then used to select the OPP */
++static unsigned long find_cpu_max_util(int cpu, struct task_struct *p, int dst_cpu)
+ {
+-	unsigned long busy_time = 0;
+-	int cpu;
++	unsigned long util = cpu_util(cpu, p, dst_cpu, 1);
++	unsigned long eff_util, min, max;
++
++	/*
++	 * Performance domain frequency: utilization clamping
++	 * must be considered since it affects the selection
++	 * of the performance domain frequency.
++	 */
++	eff_util = effective_cpu_util(cpu, util, &min, &max);
+ 
+-	for_each_cpu(cpu, pd_cpus) {
+-		unsigned long util = cpu_util(cpu, p, -1, 0);
++	/* Task's uclamp can modify min and max value */
++	if (uclamp_is_used() && cpu == dst_cpu) {
++		min = max(min, uclamp_eff_value(p, UCLAMP_MIN));
+ 
+-		busy_time += effective_cpu_util(cpu, util, NULL, NULL);
++		/*
++		 * If there is no active max uclamp constraint,
++		 * directly use task's one, otherwise keep max.
++		 */
++		if (uclamp_rq_is_idle(cpu_rq(cpu)))
++			max = uclamp_eff_value(p, UCLAMP_MAX);
++		else
++			max = max(max, uclamp_eff_value(p, UCLAMP_MAX));
+ 	}
+ 
+-	eenv->pd_busy_time = min(eenv->pd_cap, busy_time);
++	eff_util = sugov_effective_cpu_perf(cpu, eff_util, min, max);
++	return eff_util;
+ }
+ 
+-/*
+- * Compute the maximum utilization for compute_energy() when the task @p
+- * is placed on the cpu @dst_cpu.
+- *
+- * Returns the maximum utilization among @eenv->cpus. This utilization can't
+- * exceed @eenv->cpu_cap.
+- */
+-static inline unsigned long
+-eenv_pd_max_util(struct energy_env *eenv, struct cpumask *pd_cpus,
+-		 struct task_struct *p, int dst_cpu)
++/* Estimate the utilization of the CPU without the task */
++static unsigned long find_cpu_actual_util(int cpu, struct task_struct *p)
+ {
+-	unsigned long max_util = 0;
+-	int cpu;
++	unsigned long util = cpu_util(cpu, p, -1, 0);
++	unsigned long eff_util;
+ 
+-	for_each_cpu(cpu, pd_cpus) {
+-		struct task_struct *tsk = (cpu == dst_cpu) ? p : NULL;
+-		unsigned long util = cpu_util(cpu, p, dst_cpu, 1);
+-		unsigned long eff_util, min, max;
++	eff_util = effective_cpu_util(cpu, util, NULL, NULL);
+ 
+-		/*
+-		 * Performance domain frequency: utilization clamping
+-		 * must be considered since it affects the selection
+-		 * of the performance domain frequency.
+-		 * NOTE: in case RT tasks are running, by default the min
+-		 * utilization can be max OPP.
+-		 */
+-		eff_util = effective_cpu_util(cpu, util, &min, &max);
++	return eff_util;
++}
+ 
+-		/* Task's uclamp can modify min and max value */
+-		if (tsk && uclamp_is_used()) {
+-			min = max(min, uclamp_eff_value(p, UCLAMP_MIN));
++/* Find the cost of a performance domain for the estimated utilization */
++static inline void find_pd_cost(struct em_perf_domain *pd,
++				unsigned long max_util,
++				struct energy_cpu_stat *stat)
++{
++	struct em_perf_table *em_table;
++	struct em_perf_state *ps;
++	int i;
+ 
+-			/*
+-			 * If there is no active max uclamp constraint,
+-			 * directly use task's one, otherwise keep max.
+-			 */
+-			if (uclamp_rq_is_idle(cpu_rq(cpu)))
+-				max = uclamp_eff_value(p, UCLAMP_MAX);
+-			else
+-				max = max(max, uclamp_eff_value(p, UCLAMP_MAX));
+-		}
++	/*
++	 * Find the lowest performance state of the Energy Model above the
++	 * requested performance.
++	 */
++	em_table = rcu_dereference(pd->em_table);
++	i = em_pd_get_efficient_state(em_table->state, pd, max_util);
++	ps = &em_table->state[i];
+ 
+-		eff_util = sugov_effective_cpu_perf(cpu, eff_util, min, max);
+-		max_util = max(max_util, eff_util);
++	/* Save the cost and performance range of the OPP */
++	stat->max_perf = ps->performance;
++	stat->cost = ps->cost;
++	i = em_pd_get_previous_state(em_table->state, pd, i);
++	if (i < 0) {
++		stat->min_perf = 0;
++	} else {
++		ps = &em_table->state[i];
++		stat->min_perf = ps->performance;
+ 	}
++}
+ 
+-	return min(max_util, eenv->cpu_cap);
++/*Check if the CPU can handle the waking task */
++static int check_cpu_with_task(struct task_struct *p, int cpu)
++{
++	unsigned long p_util_min = uclamp_is_used() ? uclamp_eff_value(p, UCLAMP_MIN) : 0;
++	unsigned long p_util_max = uclamp_is_used() ? uclamp_eff_value(p, UCLAMP_MAX) : 1024;
++	unsigned long util_min = p_util_min;
++	unsigned long util_max = p_util_max;
++	unsigned long util = cpu_util(cpu, p, cpu, 0);
++	struct rq *rq = cpu_rq(cpu);
++
++	/*
++	 * Skip CPUs that cannot satisfy the capacity request.
++	 * IOW, placing the task there would make the CPU
++	 * overutilized. Take uclamp into account to see how
++	 * much capacity we can get out of the CPU; this is
++	 * aligned with sched_cpu_util().
++	 */
++	if (uclamp_is_used() && !uclamp_rq_is_idle(rq)) {
++		unsigned long rq_util_min, rq_util_max;
++		/*
++		 * Open code uclamp_rq_util_with() except for
++		 * the clamp() part. I.e.: apply max aggregation
++		 * only. util_fits_cpu() logic requires to
++		 * operate on non clamped util but must use the
++		 * max-aggregated uclamp_{min, max}.
++		 */
++		rq_util_min = uclamp_rq_get(rq, UCLAMP_MIN);
++		rq_util_max = uclamp_rq_get(rq, UCLAMP_MAX);
++		util_min = max(rq_util_min, p_util_min);
++		util_max = max(rq_util_max, p_util_max);
++	}
++	return util_fits_cpu(util, util_min, util_max, cpu);
+ }
+ 
+ /*
+- * compute_energy(): Use the Energy Model to estimate the energy that @pd would
+- * consume for a given utilization landscape @eenv. When @dst_cpu < 0, the task
+- * contribution is ignored.
++ * For the same cost, select the CPU that will povide best performance for the
++ * task.
+  */
+-static inline unsigned long
+-compute_energy(struct energy_env *eenv, struct perf_domain *pd,
+-	       struct cpumask *pd_cpus, struct task_struct *p, int dst_cpu)
++static bool update_best_cpu(struct energy_cpu_stat *target,
++			    struct energy_cpu_stat *min,
++			    int prev, struct sched_domain *sd)
+ {
+-	unsigned long max_util = eenv_pd_max_util(eenv, pd_cpus, p, dst_cpu);
+-	unsigned long busy_time = eenv->pd_busy_time;
+-	unsigned long energy;
+-
+-	if (dst_cpu >= 0)
+-		busy_time = min(eenv->pd_cap, busy_time + eenv->task_busy_time);
++	if (target->cpu == prev)
++		return true;
++	if (min->cpu == prev)
++		return false;
+ 
+-	energy = em_cpu_energy(pd->em_pd, max_util, busy_time, eenv->cpu_cap);
++	/*  Select the one with the least number of running tasks otherwise */
++	if (target->nr_running < min->nr_running)
++		return true;
++	if (target->nr_running > min->nr_running)
++		return false;
+ 
+-	trace_sched_compute_energy_tp(p, dst_cpu, energy, max_util, busy_time);
++	/*
++	 * Choose CPU with lowest contention. One might want to consider load
++	 * instead of runnable but we are supposed to not be overutilized so
++	 * there is enough compute capacity for everybody.
++	 */
++	if ((target->runnable * min->capa * sd->imbalance_pct) >=
++			(min->runnable * target->capa * 100))
++		return false;
+ 
+-	return energy;
++	return true;
+ }
+ 
+ /*
+  * find_energy_efficient_cpu(): Find most energy-efficient target CPU for the
+- * waking task. find_energy_efficient_cpu() looks for the CPU with maximum
+- * spare capacity in each performance domain and uses it as a potential
+- * candidate to execute the task. Then, it uses the Energy Model to figure
+- * out which of the CPU candidates is the most energy-efficient.
++ * waking task. find_energy_efficient_cpu() looks for the CPU with the lowest
++ * power cost (usually with maximum spare capacity but not always) in each
++ * performance domain and uses it as a potential candidate to execute the task.
++ * Then, it uses the Energy Model to figure out which of the CPU candidates is
++ * the most energy-efficient.
+  *
+  * The rationale for this heuristic is as follows. In a performance domain,
+  * all the most energy efficient CPU candidates (according to the Energy
+@@ -9630,17 +9666,14 @@ compute_energy(struct energy_env *eenv, struct perf_domain *pd,
+ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ {
+ 	struct cpumask *cpus = this_cpu_cpumask_var_ptr(select_rq_mask);
+-	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
+-	unsigned long p_util_min = uclamp_is_used() ? uclamp_eff_value(p, UCLAMP_MIN) : 0;
+-	unsigned long p_util_max = uclamp_is_used() ? uclamp_eff_value(p, UCLAMP_MAX) : 1024;
+ 	struct root_domain *rd = this_rq()->rd;
+-	int cpu, best_energy_cpu, target = -1;
+-	int prev_fits = -1, best_fits = -1;
+-	unsigned long best_actual_cap = 0;
+-	unsigned long prev_actual_cap = 0;
++	unsigned long best_nrg = ULONG_MAX;
++	unsigned long task_util;
+ 	struct sched_domain *sd;
+ 	struct perf_domain *pd;
+-	struct energy_env eenv;
++	int cpu, target = -1;
++	int best_fits = -1;
++	int best_cpu = -1;
+ 
+ 	pd = rcu_dereference_all(rd->pd);
+ 	if (!pd)
+@@ -9659,19 +9692,19 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ 	target = prev_cpu;
+ 
+ 	sync_entity_load_avg(&p->se);
+-	if (!task_util_est(p) && p_util_min == 0)
+-		return target;
+-
+-	eenv_task_busy_time(&eenv, p, prev_cpu);
++	task_util = task_busy_time(p, prev_cpu);
+ 
+ 	for (; pd; pd = pd->next) {
+-		unsigned long util_min = p_util_min, util_max = p_util_max;
+-		unsigned long cpu_cap, cpu_actual_cap, util;
+-		long prev_spare_cap = -1, max_spare_cap = -1;
+-		unsigned long rq_util_min, rq_util_max;
+-		unsigned long cur_delta, base_energy;
+-		int max_spare_cap_cpu = -1;
+-		int fits, max_fits = -1;
++		unsigned long pd_actual_util = 0, delta_nrg = 0;
++		unsigned long cpu_actual_cap, max_cost = 0;
++		struct energy_cpu_stat target_stat;
++		struct energy_cpu_stat min_stat = {
++			.cost = ULONG_MAX,
++			.max_perf = ULONG_MAX,
++			.min_perf = ULONG_MAX,
++			.fits = -2,
++			.cpu = -1,
++		};
+ 
+ 		if (!cpumask_and(cpus, perf_domain_span(pd), cpu_online_mask))
+ 			continue;
+@@ -9680,13 +9713,9 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ 		cpu = cpumask_first(cpus);
+ 		cpu_actual_cap = get_actual_cpu_capacity(cpu);
+ 
+-		eenv.cpu_cap = cpu_actual_cap;
+-		eenv.pd_cap = 0;
+-
++		/* In a PD, the CPU with the lowest cost will be the most efficient */
+ 		for_each_cpu(cpu, cpus) {
+-			struct rq *rq = cpu_rq(cpu);
+-
+-			eenv.pd_cap += cpu_actual_cap;
++			unsigned long target_perf;
+ 
+ 			if (!cpumask_test_cpu(cpu, sched_domain_span(sd)))
+ 				continue;
+@@ -9694,113 +9723,115 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
+ 				continue;
+ 
+-			util = cpu_util(cpu, p, cpu, 0);
+-			cpu_cap = capacity_of(cpu);
++			target_stat.fits = check_cpu_with_task(p, cpu);
+ 
+-			/*
+-			 * Skip CPUs that cannot satisfy the capacity request.
+-			 * IOW, placing the task there would make the CPU
+-			 * overutilized. Take uclamp into account to see how
+-			 * much capacity we can get out of the CPU; this is
+-			 * aligned with sched_cpu_util().
+-			 */
+-			if (uclamp_is_used() && !uclamp_rq_is_idle(rq)) {
+-				/*
+-				 * Open code uclamp_rq_util_with() except for
+-				 * the clamp() part. I.e.: apply max aggregation
+-				 * only. util_fits_cpu() logic requires to
+-				 * operate on non clamped util but must use the
+-				 * max-aggregated uclamp_{min, max}.
+-				 */
+-				rq_util_min = uclamp_rq_get(rq, UCLAMP_MIN);
+-				rq_util_max = uclamp_rq_get(rq, UCLAMP_MAX);
++			if (!target_stat.fits)
++				continue;
+ 
+-				util_min = max(rq_util_min, p_util_min);
+-				util_max = max(rq_util_max, p_util_max);
+-			}
++			/* 1st select the CPU that fits best */
++			if (target_stat.fits < min_stat.fits)
++				continue;
++
++			/* Then select the CPU with lowest cost */
++
++			/* Get the performance of the CPU w/ the waking task */
++			target_perf = find_cpu_max_util(cpu, p, cpu);
++			target_perf = min(target_perf, cpu_actual_cap);
+ 
+-			fits = util_fits_cpu(util, util_min, util_max, cpu);
+-			if (!fits)
++			/* Needing a higher OPP means a higher cost */
++			if (target_perf > min_stat.max_perf)
+ 				continue;
+ 
+-			lsub_positive(&cpu_cap, util);
++			/*
++			 * At this point, target's cost can be either equal or
++			 * lower than the current minimum cost.
++			 */
+ 
+-			if (cpu == prev_cpu) {
+-				/* Always use prev_cpu as a candidate. */
+-				prev_spare_cap = cpu_cap;
+-				prev_fits = fits;
+-			} else if ((fits > max_fits) ||
+-				   ((fits == max_fits) && ((long)cpu_cap > max_spare_cap))) {
+-				/*
+-				 * Find the CPU with the maximum spare capacity
+-				 * among the remaining CPUs in the performance
+-				 * domain.
+-				 */
+-				max_spare_cap = cpu_cap;
+-				max_spare_cap_cpu = cpu;
+-				max_fits = fits;
+-			}
++			/* Gather more statistics */
++			target_stat.cpu = cpu;
++			target_stat.runnable = cpu_runnable(cpu_rq(cpu));
++			target_stat.capa = capacity_of(cpu);
++			target_stat.nr_running = cpu_rq(cpu)->cfs.h_nr_runnable;
++			if (p->on_rq && !p->se.sched_delayed && cpu == prev_cpu)
++				target_stat.nr_running--;
++
++			/* If the target needs a lower OPP, then look up for
++			 * the corresponding OPP and its associated cost.
++			 * Otherwise at same cost level, select the CPU which
++			 * provides best performance.
++			 */
++			if (target_perf < min_stat.min_perf)
++				find_pd_cost(pd->em_pd, target_perf, &target_stat);
++			else if (!update_best_cpu(&target_stat, &min_stat, prev_cpu, sd))
++				continue;
++
++			/* Save the new most efficient CPU of the PD */
++			min_stat = target_stat;
+ 		}
+ 
+-		if (max_spare_cap_cpu < 0 && prev_spare_cap < 0)
++		if (min_stat.cpu == -1)
+ 			continue;
+ 
+-		eenv_pd_busy_time(&eenv, cpus, p);
+-		/* Compute the 'base' energy of the pd, without @p */
+-		base_energy = compute_energy(&eenv, pd, cpus, p, -1);
+-
+-		/* Evaluate the energy impact of using prev_cpu. */
+-		if (prev_spare_cap > -1) {
+-			prev_delta = compute_energy(&eenv, pd, cpus, p,
+-						    prev_cpu);
+-			/* CPU utilization has changed */
+-			if (prev_delta < base_energy)
+-				return target;
+-			prev_delta -= base_energy;
+-			prev_actual_cap = cpu_actual_cap;
+-			best_delta = min(best_delta, prev_delta);
+-		}
++		if (min_stat.fits < best_fits)
++			continue;
+ 
+-		/* Evaluate the energy impact of using max_spare_cap_cpu. */
+-		if (max_spare_cap_cpu >= 0 && max_spare_cap > prev_spare_cap) {
+-			/* Current best energy cpu fits better */
+-			if (max_fits < best_fits)
+-				continue;
++		/* Idle system costs nothing */
++		target_stat.max_perf = 0;
++		target_stat.cost = 0;
+ 
+-			/*
+-			 * Both don't fit performance hint (i.e. uclamp_min)
+-			 * but best energy cpu has better capacity.
+-			 */
+-			if ((max_fits < 0) &&
+-			    (cpu_actual_cap <= best_actual_cap))
+-				continue;
++		/* Estimate utilization and cost without p */
++		for_each_cpu(cpu, cpus) {
++			unsigned long target_util;
+ 
+-			cur_delta = compute_energy(&eenv, pd, cpus, p,
+-						   max_spare_cap_cpu);
+-			/* CPU utilization has changed */
+-			if (cur_delta < base_energy)
+-				return target;
+-			cur_delta -= base_energy;
++			/* Accumulate actual utilization w/o task p */
++			pd_actual_util += find_cpu_actual_util(cpu, p);
+ 
+-			/*
+-			 * Both fit for the task but best energy cpu has lower
+-			 * energy impact.
+-			 */
+-			if ((max_fits > 0) && (best_fits > 0) &&
+-			    (cur_delta >= best_delta))
++			/* Get the max utilization of the CPU w/o task p */
++			target_util = find_cpu_max_util(cpu, p, -1);
++			target_util = min(target_util, cpu_actual_cap);
++
++			/* Current OPP is enough */
++			if (target_util <= target_stat.max_perf)
+ 				continue;
+ 
+-			best_delta = cur_delta;
+-			best_energy_cpu = max_spare_cap_cpu;
+-			best_fits = max_fits;
+-			best_actual_cap = cpu_actual_cap;
++			/* Compute and save the cost of the OPP */
++			find_pd_cost(pd->em_pd, target_util, &target_stat);
++			max_cost = target_stat.cost;
+ 		}
++
++		/* Add the energy cost of p */
++		delta_nrg = task_util * min_stat.cost;
++
++		/*
++		 * Compute the energy cost of others running at higher OPP
++		 * because of p.
++		 */
++		if (min_stat.cost > max_cost)
++			delta_nrg += pd_actual_util * (min_stat.cost - max_cost);
++
++		/* Delta energy with p */
++		trace_sched_compute_energy_tp(p, min_stat.cpu, delta_nrg,
++					      min_stat.max_perf,
++					      pd_actual_util + task_util);
++
++		/*
++		 * The probability that delta energies are equals is almost
++		 * null. PDs being sorted by max capacity, keep the one with
++		 * highest max capacity if this happens.
++		 * TODO: add a margin in energy cost and take into account
++		 * other stats.
++		 */
++		if (min_stat.fits == best_fits &&
++		    delta_nrg >= best_nrg)
++			continue;
++
++		best_fits = min_stat.fits;
++		best_nrg = delta_nrg;
++		best_cpu = min_stat.cpu;
+ 	}
+ 
+-	if ((best_fits > prev_fits) ||
+-	    ((best_fits > 0) && (best_delta < prev_delta)) ||
+-	    ((best_fits < 0) && (best_actual_cap > prev_actual_cap)))
+-		target = best_energy_cpu;
++	if (best_cpu >= 0)
++		target = best_cpu;
+ 
+ 	return target;
+ }
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f12.google.com (mail-wm2-f12.google.com [74.125.225.140])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id 367204F30D5
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:31 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.140
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955935; cv=none; b=eazIYQHRuH6MVWjq3FwjvkwFkulCKR9stOQr/3kHa+SUXM1CLu/hsrqaeE+2ljjUePwdpLfHNQPcJUTC6MunweiWc4NgVbYo+unnrurGH6ZcBaiUGQaZvKpkn2omShHNy1zl/Xq38T2Kygvc/e4K/iFwpIrerLvcH5YzKMDjSAc=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955935; c=relaxed/simple;
+	bh=Lkq2thXBra+9jyaZNWFz8y5q88bfRFP5x4L8/XdL6qY=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=pyaSxWAGtdHVyB3IEWu7VVsmqLa/lX7a0Nm5frD9bV3sVF82rBv8BHCmrHw2PeIAX12zQfPhSHm7aleY3piNweW+nO3VP6iRv0w4+rqb1wzVyeKqE4d8gyFZspsx+zlVSXru8n3fLu1pmPZrBW26I1b9jYxcyKgLMs94DlenVpo=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=Y21N3SuB; arc=none smtp.client-ip=74.125.225.140
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="Y21N3SuB"
+Received: by mail-wm2-f12.google.com with SMTP id 5b1f17b1804b1-4a00713639cso340265e9.1
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:31 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955929; x=1791560729; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=1AczkvEVMwyiADmz9Aen/RP9scTy6HPzxTwLuS0NkCE=;
+        b=Y21N3SuBGYYsFcZBa3CwfSEgUBGXst6qWulZGmb721PRcYeEn3x/ZjZxsMYrCTCc6F
+         +caem5jICeN2eB8TN39xvX3uxbLUYnAPQ1OV/gatVJs+pr8ilg8Stl3+P0dZXrDRuWjO
+         eua2nVm4X1lgC2lB0ZUBfdG2n667K5wADLMyVbLRfJFHkaxCEDP3XWRxsG/a0XQHnwOy
+         qG/VEmDMIc52XN/l33KN7Kmeiirj5JAufjWpomhVQ/Bfc/ucN0AbE/ZQFLzp0L3u+q/l
+         YhR4oFl4b0VyoQqAb2eDhHjpKKdkHGjfUn+LpBgfH+/U26Sncz26gcakwiwcCL570amK
+         WLuQ==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955929; x=1791560729;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=1AczkvEVMwyiADmz9Aen/RP9scTy6HPzxTwLuS0NkCE=;
+        b=i8kouit0OLnspWsK9PyqaJfTmnvQsrFjPn4+L8Lgw9OoB6ceRFpi9aqlhSEtIPTfJR
+         W+TIL4QMw4Z3olT9TiFCc9P50I+JOVTmRJfJAB7l91b+8YKlbilMlUxX2Q6TUnBbb8Yn
+         TkqGnJD+1XVwy1RJIrLLhumAUHmL+tywfM5AmX4ca34ocVhiGZ3wLej6cXf+WNrwbVjw
+         /dVM3EL+3Dk1queHXiYpx8sPutlM1uO5Z8Xn7ijEoCyUMSui9ohFJntKqnkWSm82Kfsz
+         Vph7aT3wf/hYjw6aTJnZNA+ayZ6bHZngU4jidP4Mo95SuzHBxV5ZQL3KfkpZLCBjHsrp
+         BKpw==
+X-Forwarded-Encrypted: i=1; AKwUvBzXF6sbpF5qObea3Fc68XOGsmZjLHNXe1LQ8cnW585CpeAxXq0DJG6moxVb5DFS4xR/TSoEykvFvA==@vger.kernel.org
+X-Gm-Message-State: AFuF++mopZ9EYTRTf30VnD5SlxnWi0aSas4XmPe01+F8ULqK791/Inc/
+	ymCB+ug9mMo2Qeh6HSDkQMMwRgK53zMvQunElhCLuFqXSTeTLBhufTvYRGUVrof8VYg=
+X-Gm-Gg: AYBFou3sHPn1bDtmOg6nixBGpiG+HmQMqwtXuDchuq39MA1orV+ZoDuydfmgbug51+C
+	y6EEcYeZ7l4ooE/Ur+klLzTIE0Rwo8DIeWnlrFiCZWsL9SgW66fBTaoeHvQlGPWnKaRfzNaKAaF
+	xy2CSSq98HQ+/AxaPw9JwerLVCgUO3rKyGqi4bv7DnGy5gpXM22xZXLkCd6mhAIPb4pAl3OTFW+
+	O7FyjOUVLoUqhQBa1u1pFBeAaZhGq+xzE1t2Ss0bY+c9DLHqYyiSN02v5HZbaWlD0jEm90SMR7g
+	4fV/d5Oqg8nX6e6HFHUpbzc5eC5lVxO6krOzf7McffV5erhyBTE3v+9Eq6DHv6IgrkaKuLEIgT7
+	lXcfe/2JjRYikEwEdiJfjBXYpZWJMKJtINfI+ZR6pZRDgbw9sNXwTGG18P/4TF8U2GGjnmiIher
+	HXCM8jLy6/SKHYrHjCWJBFegYLJOVRecBb2zvsrug9jd6fV1uTfKcLGZP1rndH4wWKH66DWo2jt
+	TBBxS2jjsb74Qwn
+X-Received: by 2002:a05:600c:19c8:b0:4a0:2540:b46 with SMTP id 5b1f17b1804b1-4a027559795mr67180475e9.12.1790955929334;
+        Fri, 02 Oct 2026 08:45:29 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.28
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:28 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 17/18 v2] energy model: Remove unused em_cpu_energy()
+Date: Fri,  2 Oct 2026 17:44:14 +0200
+Message-ID: <20261002154415.2270586-18-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Remove the unused function em_cpu_energy()
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ include/linux/energy_model.h | 97 ------------------------------------
+ 1 file changed, 97 deletions(-)
+
+diff --git a/include/linux/energy_model.h b/include/linux/energy_model.h
+index 89cf109cbca6..c4f9558b58d1 100644
+--- a/include/linux/energy_model.h
++++ b/include/linux/energy_model.h
+@@ -244,97 +244,6 @@ em_pd_get_previous_state(struct em_perf_state *table,
+ 	return -1;
+ }
+ 
+-/**
+- * em_cpu_energy() - Estimates the energy consumed by the CPUs of a
+- *		performance domain
+- * @pd		: performance domain for which energy has to be estimated
+- * @max_util	: highest utilization among CPUs of the domain
+- * @sum_util	: sum of the utilization of all CPUs in the domain
+- * @allowed_cpu_cap	: maximum allowed CPU capacity for the @pd, which
+- *			  might reflect reduced frequency (due to thermal)
+- *
+- * This function must be used only for CPU devices. There is no validation,
+- * i.e. if the EM is a CPU type and has cpumask allocated. It is called from
+- * the scheduler code quite frequently and that is why there is not checks.
+- *
+- * Return: the sum of the energy consumed by the CPUs of the domain assuming
+- * a capacity state satisfying the max utilization of the domain.
+- */
+-static inline unsigned long em_cpu_energy(struct em_perf_domain *pd,
+-				unsigned long max_util, unsigned long sum_util,
+-				unsigned long allowed_cpu_cap)
+-{
+-	struct em_perf_table *em_table;
+-	struct em_perf_state *ps;
+-	int i;
+-
+-	lockdep_assert(rcu_read_lock_any_held());
+-
+-	if (!sum_util)
+-		return 0;
+-
+-	/*
+-	 * In order to predict the performance state, map the utilization of
+-	 * the most utilized CPU of the performance domain to a requested
+-	 * performance, like schedutil. Take also into account that the real
+-	 * performance might be set lower (due to thermal capping). Thus, clamp
+-	 * max utilization to the allowed CPU capacity before calculating
+-	 * effective performance.
+-	 */
+-	max_util = min(max_util, allowed_cpu_cap);
+-
+-	/*
+-	 * Find the lowest performance state of the Energy Model above the
+-	 * requested performance.
+-	 */
+-	em_table = rcu_dereference_all(pd->em_table);
+-	i = em_pd_get_efficient_state(em_table->state, pd, max_util);
+-	ps = &em_table->state[i];
+-
+-	/*
+-	 * The performance (capacity) of a CPU in the domain at the performance
+-	 * state (ps) can be computed as:
+-	 *
+-	 *                     ps->freq * scale_cpu
+-	 *   ps->performance = --------------------                  (1)
+-	 *                         cpu_max_freq
+-	 *
+-	 * So, ignoring the costs of idle states (which are not available in
+-	 * the EM), the energy consumed by this CPU at that performance state
+-	 * is estimated as:
+-	 *
+-	 *             ps->power * cpu_util
+-	 *   cpu_nrg = --------------------                          (2)
+-	 *               ps->performance
+-	 *
+-	 * since 'cpu_util / ps->performance' represents its percentage of busy
+-	 * time.
+-	 *
+-	 *   NOTE: Although the result of this computation actually is in
+-	 *         units of power, it can be manipulated as an energy value
+-	 *         over a scheduling period, since it is assumed to be
+-	 *         constant during that interval.
+-	 *
+-	 * By injecting (1) in (2), 'cpu_nrg' can be re-expressed as a product
+-	 * of two terms:
+-	 *
+-	 *             ps->power * cpu_max_freq
+-	 *   cpu_nrg = ------------------------ * cpu_util           (3)
+-	 *               ps->freq * scale_cpu
+-	 *
+-	 * The first term is static, and is stored in the em_perf_state struct
+-	 * as 'ps->cost'.
+-	 *
+-	 * Since all CPUs of the domain have the same micro-architecture, they
+-	 * share the same 'ps->cost', and the same CPU capacity. Hence, the
+-	 * total energy of the domain (which is the simple sum of the energy of
+-	 * all of its CPUs) can be factorized as:
+-	 *
+-	 *   pd_nrg = ps->cost * \Sum cpu_util                       (4)
+-	 */
+-	return ps->cost * sum_util;
+-}
+-
+ /**
+  * em_pd_nr_perf_states() - Get the number of performance states of a perf.
+  *				domain
+@@ -407,12 +316,6 @@ em_pd_get_previous_state(struct em_perf_state *table,
+ {
+ 	return -1;
+ }
+-static inline unsigned long em_cpu_energy(struct em_perf_domain *pd,
+-			unsigned long max_util, unsigned long sum_util,
+-			unsigned long allowed_cpu_cap)
+-{
+-	return 0;
+-}
+ static inline int em_pd_nr_perf_states(struct em_perf_domain *pd)
+ {
+ 	return 0;
+-- 
+2.53.0
+
+
+
+From mboxrd@z Thu Jan  1 00:00:00 1970
+Received: from mail-wm2-f13.google.com (mail-wm2-f13.google.com [74.125.225.141])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by smtp.subspace.kernel.org (Postfix) with ESMTPS id EB0454F4CEB
+	for <linux-pm@vger.kernel.org>; Fri,  2 Oct 2026 15:45:32 +0000 (UTC)
+Authentication-Results: smtp.subspace.kernel.org; arc=none smtp.client-ip=74.125.225.141
+ARC-Seal:i=1; a=rsa-sha256; d=subspace.kernel.org; s=arc-20240116;
+	t=1790955936; cv=none; b=jHDKbVFWwslZeN7czJrRjHyLXH4zdzCxjkC2+v94nUzaZlXfCUIVg7MPyg+F3ufvBHqxKJdz02ANjbDR0T+NSk1qqtik+t/TyMMnY8jJ6SLZefimDOY6bmEOwIVEWWRXZogAvz09zmZoLtAufcr2ORZYdd8dq3U7eADW19rdQuQ=
+ARC-Message-Signature:i=1; a=rsa-sha256; d=subspace.kernel.org;
+	s=arc-20240116; t=1790955936; c=relaxed/simple;
+	bh=ggoTRpIipo8tqYS4OC5rdC9P6GonVqjlFQkkxo9kZmI=;
+	h=From:To:Cc:Subject:Date:Message-ID:In-Reply-To:References:
+	 MIME-Version; b=NmPin6hkDs3btXWi1HiB+I8AoQMyIznS0tPwE2Zm1YmEo2rSZXt7d4kAdhTHWGR/GgImWhsZdrk6mbyLvWG9bsDWfT4TEv7doiluoJwrDN5ikJzn8rabsicIXTLbHWm8b2QKTMyptKNPDvU5NuClQA7Mhuu23vbRksCh0bpxHg8=
+ARC-Authentication-Results:i=1; smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org; spf=pass smtp.mailfrom=linaro.org; dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b=zhHLfqS6; arc=none smtp.client-ip=74.125.225.141
+Authentication-Results: smtp.subspace.kernel.org; dmarc=pass (p=none dis=none) header.from=linaro.org
+Authentication-Results: smtp.subspace.kernel.org; spf=pass smtp.mailfrom=linaro.org
+Authentication-Results: smtp.subspace.kernel.org;
+	dkim=pass (2048-bit key) header.d=linaro.org header.i=@linaro.org header.b="zhHLfqS6"
+Received: by mail-wm2-f13.google.com with SMTP id 5b1f17b1804b1-49b912df756so183445e9.3
+        for <linux-pm@vger.kernel.org>; Fri, 02 Oct 2026 08:45:32 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=linaro.org; s=google; t=1790955930; x=1791560730; darn=vger.kernel.org;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:from:to:cc:subject:date
+         :message-id:reply-to:content-type;
+        bh=2+9o8MqrHYpJJITgMWl7mhC4JEDEuTdaJ3vXHPZaTZo=;
+        b=zhHLfqS65QYZtpgjTDwgvC5wEtkTS5jmuA6hyQs44qa5zPlp4nfvbjgthN5TbUKxTk
+         jDCzokOIoX9H5q7sy8BxS2mD35SOmMySWlFdMcUpjAVjISL65jjb17VO7A5KfE6b1+DL
+         EIec452lQGpiltfIPVTg2pe8j6p1L2mngJKoTsGejueE9jXSLILHbuiBa2QYhr2bzdON
+         wiwoLqdH4vk75SOISmD/rkX9RWuzuFR9TAfdZg5xXdf8SkVKcBcRUGaF4vxjbzHyJ3zn
+         WajYkJy9SfB9FH/Z9rYs1+SarC+BjHiP3S/lm7p88uH4qoSGYWHdC/bwTY+EAbsMfOgg
+         A1Lg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20260707; t=1790955931; x=1791560731;
+        h=content-transfer-encoding:mime-version:references:in-reply-to
+         :message-id:date:subject:cc:to:from:x-gm-gg:x-gm-message-state:from
+         :to:cc:subject:date:message-id:reply-to:content-type;
+        bh=2+9o8MqrHYpJJITgMWl7mhC4JEDEuTdaJ3vXHPZaTZo=;
+        b=XMRQxY8qVG8guXKmRomG0+nN88YJFnl+vBcQdoHHcuH/LXlNYMBK4dcZkOZ/c9V4xC
+         k/1dPYlAy2pyJ9i2Lh3Y9ZAAwdhfmzUXQnYlYHT6LpjpxJ/ezdcrTHA4AgX1itn1rn8z
+         nYCO/qcbmGfIIP34iPQYjp0edcCCXbMSf/cDt8SFamJ4uUsw5GJNul0xbKcwyXYDSOCl
+         noRqbEgt4aeX18aHrhsPCw56p0Qg59wBa1ULJ6EaC6QjeKPuaS4emPivzc3pOoRNGFSD
+         CNgkeb/uFepfa1BZ5ngyn19EdUoYLj6vBBx8oIdnW9DbqyoYJLNkdsIRTsf6O0Wb0duT
+         M49Q==
+X-Forwarded-Encrypted: i=1; AKwUvBxo50/Mc4kwKVJGazSQkFxIj+qWm19Om8bze67j+tdPFixoMgZUtlK1D9NrKph1mXkBSHaWu1IyHQ==@vger.kernel.org
+X-Gm-Message-State: AFuF++kDIuGXwFC+Y8AtK/UEFnA7AK8L/rODx2hSGOxC7wxoe3Rutt5D
+	MtKxCAs3wqbXMVHRjvkBvx1qw7Dn0ebq5Qv1Wu6Kbu9obfQrJSGrIpuo1W2W1a3YgQ8=
+X-Gm-Gg: AYBFou1dm0Pslc9dJhmkdt5hUxQSAaKhEblvLUvManqaAcmTzJAscvqke5I6PFy4kKt
+	O+cle2Dbm4QtWxec504teAPXxrEv/NXPTHj33e3jhbUG1ILMW2oQrsBvGu7c6SCk9NXxsaTs8A5
+	68OcETGtCuGfjbLlhl3/4eBaqP5HijtWtzgv4ZNSCOpY4N01amKmMb2pvOa/mB02t6uzhNvQfq/
+	QLce9bPP35GxKE92WRlPGwxE5z/CeiKzxxNOWxUO/Kq55yxxvHrE8Zo0W8zonXoe35kaRLrUB4f
+	VSXZNcKOBOPoQMcK55OYLPjp3OrojtCtHtv+VNO/oi10Oo7CEcN66MIHgggio7gzRIrBu2umlKq
+	6qscfBGtEzHiPutIibFI0kiXMYJ9nN6enwkw2bOp8x9yyQNUE7iQdoTwgl4NbLt0AezlW6STs0s
+	1xGHBD2qOv2bDWlWYBXB9kVKrugwccLxQOacQZyMwBcwQy0QhGl6zGY1areT6noarNdl9UM03TI
+	G3SV+fpqTzKR3fi
+X-Received: by 2002:a05:600c:46ca:b0:49d:10d6:fd55 with SMTP id 5b1f17b1804b1-4a0274f96a8mr58318145e9.1.1790955930554;
+        Fri, 02 Oct 2026 08:45:30 -0700 (PDT)
+Received: from vingu-cube.home ([2a01:e0a:11f4:3020:718b:4747:291c:e5d8])
+        by smtp.gmail.com with ESMTPSA id 5b1f17b1804b1-4a0280bcf0fsm101958045e9.6.2026.10.02.08.45.29
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Fri, 02 Oct 2026 08:45:29 -0700 (PDT)
+From: Vincent Guittot <vincent.guittot@linaro.org>
+To: mingo@redhat.com,
+	peterz@infradead.org,
+	juri.lelli@redhat.com,
+	dietmar.eggemann@arm.com,
+	rostedt@goodmis.org,
+	bsegall@google.com,
+	mgorman@suse.de,
+	vschneid@redhat.com,
+	kprateek.nayak@amd.com,
+	linux-kernel@vger.kernel.org,
+	lukasz.luba@arm.com,
+	rafael@kernel.org,
+	linux-pm@vger.kernel.org,
+	tj@kernel.org,
+	void@manifault.com,
+	arighi@nvidia.com,
+	changwoo@igalia.com,
+	sched-ext@lists.linux.dev
+Cc: qyousef@layalina.io,
+	christian.loehle@arm.com,
+	pierre.gondois@arm.com,
+	sshegde@linux.ibm.com,
+	Vincent Guittot <vincent.guittot@linaro.org>
+Subject: [PATCH 18/18 v2] sched/fair: Take into account slice in EAS
+Date: Fri,  2 Oct 2026 17:44:15 +0200
+Message-ID: <20261002154415.2270586-19-vincent.guittot@linaro.org>
+X-Mailer: git-send-email 2.53.0
+In-Reply-To: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+References: <20261002154415.2270586-1-vincent.guittot@linaro.org>
+Precedence: bulk
+X-Mailing-List: linux-pm@vger.kernel.org
+List-Id: <linux-pm.vger.kernel.org>
+List-Subscribe: <mailto:linux-pm+subscribe@vger.kernel.org>
+List-Unsubscribe: <mailto:linux-pm+unsubscribe@vger.kernel.org>
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+When the cost is the same, take into account the slice of a task to try to
+select a CPU where is will run first.
+
+Signed-off-by: Vincent Guittot <vincent.guittot@linaro.org>
+---
+ kernel/sched/fair.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 94554f165f42..d60bb6db4ce9 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -9598,8 +9598,17 @@ static int check_cpu_with_task(struct task_struct *p, int cpu)
+  */
+ static bool update_best_cpu(struct energy_cpu_stat *target,
+ 			    struct energy_cpu_stat *min,
+-			    int prev, struct sched_domain *sd)
++			    int prev, struct sched_domain *sd,
++			    struct task_struct *p)
+ {
++	unsigned long task_slice = p->se.slice;
++
++	/*  Select the one where you can run first */
++	if (task_slice < get_rq_min_slice(cpu_rq(target->cpu)) &&
++	    task_slice >= get_rq_min_slice(cpu_rq(min->cpu)))
++		return true;
++
++	/* Favor previous CPU */
+ 	if (target->cpu == prev)
+ 		return true;
+ 	if (min->cpu == prev)
+@@ -9762,7 +9771,7 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu)
+ 			 */
+ 			if (target_perf < min_stat.min_perf)
+ 				find_pd_cost(pd->em_pd, target_perf, &target_stat);
+-			else if (!update_best_cpu(&target_stat, &min_stat, prev_cpu, sd))
++			else if (!update_best_cpu(&target_stat, &min_stat, prev_cpu, sd, p))
+ 				continue;
+ 
+ 			/* Save the new most efficient CPU of the PD */
+-- 
+2.53.0
+
+
+

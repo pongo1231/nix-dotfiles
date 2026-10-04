@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e";
-                        hash = "sha256-NrTyfot19uJ1SulXU98z2V+leOjjjLmoueX8pnyvn+o=";
+                        rev = "6addb4f385570ebc11c4eb499a4f1c149f313e84";
+                        hash = "sha256-CEzw6pTUHcdiEmBwhc68PGrQz6WpWYpFnOCfw2mSI4o=";
                       };
                     };
                 };
@@ -121,21 +121,12 @@ in
         {
           name = "O3";
           patch = pkgs.fetchpatch {
-            url = "https://github.com/CachyOS/linux/commit/c24fe6d7154676e8df601e3ae54072032899f562.patch";
-            hash = "sha256-pHAjHrseUs5xEmNSqgBmTZlC0mb8cMHuYvMRzFvlxQ4=";
+            url = "https://github.com/CachyOS/linux/commit/12d17b523d3a3e2c59bf125f5ea6f2efbd585ff3.patch";
+            hash = "sha256-IBMUlm2U9wMxpHviCXbFXzRawhl1KH8EOIQoajo7CJ0=";
           };
           extraConfig = ''
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
-        }
-
-        {
-          name = "kcompressd";
-          patch = patch /linux/kcompressd-final.patch;
-        }
-        {
-          name = "le9uo";
-          patch = patch /linux/le9uo-1.15.patch;
         }
         {
           name = "nouveau detach fix";
@@ -143,7 +134,7 @@ in
         }
         {
           name = "sched: topology-aware cache scheduling";
-          patch = patch /linux/20260625_wujianyong_sched_extend_cache_aware_scheduling_into_topology_aware_scheduling.patch;
+          patch = patch /linux/v2_20260827_wujianyong_sched_scale_cache_aware_aggregation_at_llc_granularity_rebased.patch;
           extraConfig = ''
             SCHED_CACHE y
           '';
@@ -156,7 +147,6 @@ in
           name = "iommu/amd: PerfOpt IOMMU performance optimization support";
           patch = patch /linux/v2_20260908_mario_limonciello_iommu_performance_optimization_support.patch;
         }
-
         {
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
@@ -201,14 +191,15 @@ in
           name = "sched/fair: randomize equally shallow idle CPU picks";
           patch = patch /linux/20260917_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks.patch;
         }
+        {
+          name = "sched: improving latency of short slice tasks (rebased)";
+          patch = patch /linux/v2_20261002_vincent_guittot_improving_latency_of_short_slice_tasks_rebased.patch;
+        }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         {
           name = "x86_64 levels";
-          patch = pkgs.fetchpatch {
-            url = "https://github.com/CachyOS/linux/commit/b24e97ea653f29ffa815221e4e5a60cc51e61c24.patch";
-            hash = "sha256-05q30EQmS+EUL/DTeDVefGAMf+0zfNueJ5aEIyN4OU0=";
-          };
+          patch = patch /linux/20260831_eric_naim_arch_x86_add_x86_64_isa_and_zen4_compiler_optimizations_rebased.patch;
           extraConfig = ''
             X86_64_VERSION 3
           '';
@@ -245,6 +236,10 @@ in
           name = "xor: add AVX-512 optimized xor_gen()";
           patch = patch /linux/0008-xor-add-avx512-xor_gen.patch;
         }
+        {
+          name = "x86/sev: RMPOPT + SEV MSR sysfs";
+          patch = patch /linux/20260922_tip_x86_sev_branch.patch;
+        }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "aarch64-linux") [
         {
@@ -259,19 +254,13 @@ in
       ];
 
       kernelParams = [ "cfi=kcfi" ];
-
-      kernel.sysctl = {
-        #"vm.workingset_protection" = 1;
-        #"vm.anon_min_ratio" = 5;
-        #"vm.clean_min_ratio" = 5;
-      };
     }
     // {
-      extraModulePackages = [ adios ];
+      #extraModulePackages = [ adios ];
 
-      kernelModules = [ "adios" ];
+      #kernelModules = [ "adios" ];
 
-      extraModprobeConfig = "alias adios-iosched adios";
+      #extraModprobeConfig = "alias adios-iosched adios";
     };
   };
 }
