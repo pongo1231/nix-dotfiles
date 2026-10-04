@@ -79,12 +79,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0-rc5";
+                      modDirVersion = "7.3.0-rc6";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "06ac073129191a01d77933ed381f89c67674db6f";
-                        hash = "sha256-YwJfBKt6HqRDUlajmAr+lPtXwceqkdBrEGeK5BmeO6s=";
+                        rev = "a90ee4305c4a5df72c11b31dacfdc76e00fcf78a";
+                        hash = "sha256-310GZztrJw+mkRFQ3IQ1pvTafElqHVKU0HMcZDk1x2c=";
                       };
                     };
                 };
@@ -129,8 +129,16 @@ in
           '';
         }
         {
+          name = "mm: the whole mm-new queue (wholesale)";
+          patch = patch /linux/20261004_mm-queue_mm-new_wholesale.patch;
+        }
+        {
           name = "nouveau detach fix";
           patch = patch /linux/nouveau-detach-fix.patch;
+        }
+        {
+          name = "sched/fair: randomize equally shallow idle CPU picks (rebased)";
+          patch = patch /linux/20260917_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks_rebased.patch;
         }
         {
           name = "sched: topology-aware cache scheduling";
@@ -158,10 +166,6 @@ in
         {
           name = "mm/memory_hotplug: make shrink_zone_span() more robust";
           patch = patch /linux/20260920_david_hildenbrand_mm_memory_hotplug_make_shrink_zone_span_more_robust.patch;
-        }
-        {
-          name = "mm/mglru: frequency guided promotion (MGLRU-FG)";
-          patch = patch /linux/v3_20261003_kairui_song_mm_mglru_frequency_guided_promotion_and_flag_cleanup.patch;
         }
         {
           name = "zstd: use x86 feature infrastructure for BMI2 dispatch";
@@ -192,12 +196,12 @@ in
           patch = patch /linux/v3_20260917_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
         }
         {
-          name = "sched/fair: randomize equally shallow idle CPU picks";
-          patch = patch /linux/20260917_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks.patch;
-        }
-        {
           name = "sched: improving latency of short slice tasks (rebased)";
           patch = patch /linux/v2_20261002_vincent_guittot_improving_latency_of_short_slice_tasks_rebased.patch;
+        }
+        {
+          name = "mm/mglru: frequency guided promotion (MGLRU-FG)";
+          patch = patch /linux/v3_20261003_kairui_song_mm_mglru_frequency_guided_promotion_and_flag_cleanup.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
