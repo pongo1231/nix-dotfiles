@@ -6,7 +6,6 @@
 }:
 {
   imports = [
-    ./bluetooth.nix
     ./mesa_git.nix
   ];
 
