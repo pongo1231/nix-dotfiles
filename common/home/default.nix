@@ -113,6 +113,7 @@ args:
         symbolPreset = "unicode";
         composer.shape = "band";
         modelRoles.default = "deepseek/deepseek-v4-flash-vision-exp";
+        memory.backend = "mnemopi";
         setupVersion = 2;
       };
     };
