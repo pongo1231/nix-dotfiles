@@ -17,7 +17,9 @@ withSecrets "pongo" { store = "zephyr.yaml"; } {
   imports = [
     inputs.igm5000.nixosModules.default
 
-    (import (module /cpu/amd.nix) { curveOptimizerAllCore = -30; })
+    (import (module /cpu/amd.nix) {
+      # curveOptimizerAllCore = -30;
+    })
     (import (module /gpu) [
       "amd"
       #"nvidia"
