@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "a90ee4305c4a5df72c11b31dacfdc76e00fcf78a";
-                        hash = "sha256-310GZztrJw+mkRFQ3IQ1pvTafElqHVKU0HMcZDk1x2c=";
+                        rev = "602042bf29f6efde39cfb5fdd9289bf4854bc0c5";
+                        hash = "sha256-aV0Hk7sBVZ4TZnQb+nBjI6mJ2a0VX40vMbz/DdB2Zbs=";
                       };
                     };
                 };
@@ -202,6 +202,14 @@ in
         {
           name = "mm/mglru: frequency guided promotion (MGLRU-FG)";
           patch = patch /linux/v3_20261003_kairui_song_mm_mglru_frequency_guided_promotion_and_flag_cleanup.patch;
+        }
+        {
+          name = "zram: redesign zcomp and rework backends (rebased)";
+          patch = patch /linux/20261005_sergey_senozhatsky_zram_redesign_zcomp_and_rework_backends_rebased.patch;
+        }
+        {
+          name = "mm: zswap: reduce request contention on loads";
+          patch = patch /linux/20261006_usama_arif_mm_zswap_reduce_request_contention_on_loads.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
