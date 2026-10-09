@@ -56,8 +56,6 @@
       enable = true;
       enableFHSEnvironment = true;
 
-      package = pkgs.decky-loader-prerelease;
-
       user = "pongo";
 
       extraPackages = with pkgs; [
@@ -76,4 +74,6 @@
       extraPythonPackages = pythonPackages: with pythonPackages; [ click ];
     };
   };
+
+  systemd.services.decky-loader.serviceConfig.KillMode = pkgs.lib.mkForce "control-group";
 }
