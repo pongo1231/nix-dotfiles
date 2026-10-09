@@ -1,5 +1,5 @@
 diff --git a/arch/um/kernel/um_arch.c b/arch/um/kernel/um_arch.c
-index 2141f5f1f5a2..aafbaef2ae82 100644
+index e4ee693961e4..9d53cc6a783d 100644
 --- a/arch/um/kernel/um_arch.c
 +++ b/arch/um/kernel/um_arch.c
 @@ -264,12 +264,88 @@ unsigned long brk_start;
@@ -92,7 +92,3 @@ index 2141f5f1f5a2..aafbaef2ae82 100644
  	}
  }
  
--- 
-2.55.0
-
-

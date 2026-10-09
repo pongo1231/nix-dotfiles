@@ -55,7 +55,3 @@ index a7b6524a9dea..97cfd4fb6cc0 100644
  	if (fpu_kernel_cfg.max_features & XFEATURE_MASK_APX &&
  	    fpu_kernel_cfg.max_features & (XFEATURE_MASK_BNDREGS | XFEATURE_MASK_BNDCSR)) {
  		/*
--- 
-2.55.0
-
-

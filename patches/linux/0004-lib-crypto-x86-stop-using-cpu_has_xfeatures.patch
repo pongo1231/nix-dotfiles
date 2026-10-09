@@ -120,7 +120,3 @@ index 3834780f2f6a..e06d4a22e4fa 100644
 +	if (boot_cpu_has(X86_FEATURE_AVX) && boot_cpu_has(X86_FEATURE_BMI2))
  		static_call_update(sm3_blocks_x86, sm3_blocks_avx);
  }
--- 
-2.55.0
-
-

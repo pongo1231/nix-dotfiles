@@ -185,7 +185,3 @@ index 991abe3f4bbd..ed5921d2e2aa 100644
  		xor_register(&xor_block_sse);
  		xor_register(&xor_block_sse_pf64);
  	} else if (boot_cpu_has(X86_FEATURE_MMX)) {
--- 
-2.55.0
-
-

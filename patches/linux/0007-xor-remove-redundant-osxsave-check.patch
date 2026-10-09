@@ -12,7 +12,3 @@ index 99fe85a213c6..991abe3f4bbd 100644
  		xor_force(&xor_block_avx);
  	} else if (IS_ENABLED(CONFIG_X86_64) || boot_cpu_has(X86_FEATURE_XMM)) {
  		xor_register(&xor_block_sse);
--- 
-2.55.0
-
-

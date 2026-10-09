@@ -89,7 +89,3 @@ index 97cfd4fb6cc0..0b17452d1788 100644
  			pr_info("x86/fpu: Supporting XSAVE feature 0x%03Lx: '%s'\n", mask, name);
  	}
  }
--- 
-2.55.0
-
-

@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "602042bf29f6efde39cfb5fdd9289bf4854bc0c5";
-                        hash = "sha256-aV0Hk7sBVZ4TZnQb+nBjI6mJ2a0VX40vMbz/DdB2Zbs=";
+                        rev = "af32da41b0327b9c6a37856ba82b6760d6c8d10e";
+                        hash = "sha256-3AUSlgJmXQvpxuey+1aBL+JoRW9PmPpNcH8XqZpglBI=";
                       };
                     };
                 };
@@ -130,7 +130,7 @@ in
         }
         {
           name = "mm: the whole mm-new queue (wholesale)";
-          patch = patch /linux/20261004_mm-queue_mm-new_wholesale.patch;
+          patch = patch /linux/20261009_mm-queue_mm-new_wholesale.patch;
         }
         {
           name = "nouveau detach fix";
@@ -205,11 +205,15 @@ in
         }
         {
           name = "zram: redesign zcomp and rework backends (rebased)";
-          patch = patch /linux/20261005_sergey_senozhatsky_zram_redesign_zcomp_and_rework_backends_rebased.patch;
+          patch = patch /linux/20261009_sergey_senozhatsky_zram_redesign_zcomp_and_rework_backends_rebased.patch;
         }
         {
           name = "mm: zswap: reduce request contention on loads";
           patch = patch /linux/20261006_usama_arif_mm_zswap_reduce_request_contention_on_loads.patch;
+        }
+        {
+          name = "mm/zswap: batch the writeback IO";
+          patch = patch /linux/20261007_alexandre_ghiti_mm_zswap_batch_the_writeback_io.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
