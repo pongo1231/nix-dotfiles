@@ -28,14 +28,14 @@
       ];
     }).overrideAttrs
       (prev: {
-        version = "26.2-git";
+        version = "26.3-git";
 
         src = pkgs.fetchFromGitLab {
           domain = "gitlab.freedesktop.org";
           owner = "mesa";
           repo = "mesa";
-          rev = "c126acd85a645728bcecaa164d7d7c928438e842";
-          hash = "sha256-y5thybwTxqKc+t9fn3A5DJBpSZkLao1gZfOdKcNJxQQ=";
+          rev = "af117f38e4f54a91c77888ad5beda6eca3ec1da4";
+          hash = "sha256-MrfmKg6sQBH47gV8F+HCuLxzJdYfvTjPYSxRPPHNOpc=";
         };
 
         venusProtocolSrc = pkgs.fetchFromGitLab {
@@ -65,5 +65,18 @@
             --outdir src/virtio/venus-protocol \
             --banner banner
         '';
+
+        mesonFlags = map (
+          flag:
+          if lib.hasPrefix "-Dvulkan-layers=" flag then
+            "-Dvulkan-layers="
+            + lib.concatStringsSep "," (
+              builtins.filter (x: x != "anti-lag") (
+                lib.splitString "," (lib.removePrefix "-Dvulkan-layers=" flag)
+              )
+            )
+          else
+            flag
+        ) prev.mesonFlags;
       });
 }
