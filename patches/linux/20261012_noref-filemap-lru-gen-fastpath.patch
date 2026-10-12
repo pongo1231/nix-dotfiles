@@ -1,0 +1,37 @@
+mm/filemap: keep the lockless read loop going for LRU-gen folios
+Adaptation of the noref-filemap series (20261012_torvalds_noref-filemap-read-with-llm):
+the upstream predicate could only answer "no-op" from folio flags, while this tree
+(via the mm-new queue) decides that in lruvec- and flags-dependent branches of
+folio_inc_lru_refs(), so the loop broke out immediately.  folio_inc_lru_refs() is
+documented as ref-free, so do its work inline instead of leaving the fast path.
+
+diff --git a/mm/filemap.c b/mm/filemap.c
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -2874,11 +2874,22 @@
+ 			 * is known to be that one only if the previous read
+ 			 * ended in a page from folio->index to index.
+ 			 */
+-			if (!folio_mark_accessed_noop(folio) &&
+-			    (prev || last_pos <= 0 ||
+-			     (last_pos - 1) >> PAGE_SHIFT < folio->index ||
+-			     (last_pos - 1) >> PAGE_SHIFT > index))
++			if (lru_gen_enabled()) {
++				/*
++				 * folio_inc_lru_refs() is ref-free by contract, so the
++				 * LRU-gen work can be done here rather than dropping
++				 * out of the lockless loop.  Mirrors what
++				 * folio_mark_accessed() would do with a reference.
++				 */
++				if (!folio_test_dropbehind(folio) &&
++				    !folio_test_unevictable(folio))
++					folio_inc_lru_refs(folio, 0);
++			} else if (!folio_mark_accessed_noop(folio) &&
++				   (prev || last_pos <= 0 ||
++				    (last_pos - 1) >> PAGE_SHIFT < folio->index ||
++				    (last_pos - 1) >> PAGE_SHIFT > index)) {
+ 				break;
++			}
+ 			prev = folio;
+ 		}
+ 

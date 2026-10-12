@@ -1,0 +1,1874 @@
+mm: page cache reads without folio references (9 commits, tip 4c0f369711)
+Source: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/log/?h=noref-filemap-read-with-llm
+Carried unmodified; regenerated with --no-renames.  Base: Merge tag soc-fixes-7.3-2 (0c2669a9f4)
+
+From 5ba7148729528830c7e3caf35766862006988a68 Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 7 Oct 2026 02:22:51 +0200
+Subject: [PATCH 1/9] mm: free PG_rcu_free folios only after an RCU grace
+ period
+
+A folio with the new PG_rcu_free flag is not returned to the page
+allocator when its refcount reaches zero.  __free_pages_prepare() clears
+the flag and queues the folio on a per-CPU list, and a work item frees
+it with free_unref_folios() once an RCU grace period has elapsed.
+
+A lockless lookup that found the folio under rcu_read_lock() can then
+access its memory until rcu_read_unlock(), provided the folio was
+removed from where the lookup finds it, and the flag set, before its
+last reference was dropped.  The code that removes the folio sets the
+flag; the code that drops the last reference needs no change.
+
+The per-CPU state is struct rcu_free_pcpu.  Each CPU keeps at most one
+grace period in flight, started with queue_rcu_work().  ->batch holds
+the folios it covers, and folios freed meanwhile collect on ->pending.
+When the grace period ends, the work takes ->batch, moves ->pending to
+->batch, queues the next grace period, and frees what it took.  The
+grace period of queue_rcu_work() starts at the call, so the move and the
+call are done together under a per-CPU spinlock; otherwise a folio could
+join a batch whose grace period started before the folio was freed.
+->batch is non-empty from the queue_rcu_work() until the work has taken
+it, and a freeing CPU queues only when it is empty.  A folio waits one
+to two grace periods.
+
+The two lists are list_heads, and the folios are linked through ->lru.
+Both of its words are unused once the refcount has reached zero: the
+free that is not deferred links the page through ->pcp_list, which is
+the same storage.
+
+A batch holds everything one CPU freed during one grace period, which
+for a truncate of a large file can be all of its page cache.  The work
+calls cond_resched() after each free_unref_folios(), as the truncate
+loops do when they free the folios themselves; without it, on a kernel
+without full or lazy preemption, the work would free the whole batch in
+one go.
+
+Reclaim makes progress only when these frees complete, so the work must
+not wait for a new worker: the workqueue is WQ_MEM_RECLAIM.  It is
+allocated from setup_per_cpu_pageset().  start_kernel() calls that
+after workqueue_init_early(), from which workqueues can be allocated,
+and before vfs_caches_init(), so before anything can be mounted: the
+workqueue exists before the first folio is in a page cache.  The
+allocation is not checked.
+
+The flag is cleared only when the folio is freed, so a folio that is
+still in use can carry it; with the next patch, a shmem folio that went
+to the swap cache and was swapped back in does.  That is harmless: its
+next free is deferred as well.  Splitting a folio copies the flag to
+every new folio, so that no part of a folio is freed earlier than the
+whole would have been.
+
+A hwpoisoned order-0 page is not deferred.  __free_pages_prepare() keeps
+it out of the allocator in any case, so its memory is not reused, and
+page_handle_poison() takes a reference on it right after the put_page()
+that brought it there; deferred, the work would later free a page that
+has a reference.
+
+The flag must not be set on a folio freed with free_pages_nolock(),
+because the deferral takes a spinlock, nor on one freed somewhere other
+than the page allocator (hugetlb).
+
+PG_rcu_free takes a page flag bit on every configuration.  32-bit was
+not built.
+
+Nothing accounts for folios waiting on the lists: they have refcount 0,
+are not PageBuddy and are not in NR_FREE_PAGES.  What that costs once
+page cache folios carry the flag is in the next patch.
+
+No user yet.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/page-flags.h     |  15 ++++
+ include/trace/events/mmflags.h |   3 +-
+ mm/huge_memory.c               |   1 +
+ mm/page_alloc.c                | 126 +++++++++++++++++++++++++++++++++
+ 4 files changed, 144 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+index 7a863572a..eedbf35b0 100644
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -111,6 +111,7 @@ enum pageflags {
+ 	PG_swapbacked,		/* Page is backed by RAM/swap */
+ 	PG_unevictable,		/* Page is "unevictable"  */
+ 	PG_dropbehind,		/* drop pages on IO completion */
++	PG_rcu_free,		/* free only after an RCU grace period */
+ #ifdef CONFIG_MMU
+ 	PG_mlocked,		/* Page is vma mlocked */
+ #endif
+@@ -602,6 +603,20 @@ FOLIO_FLAG(dropbehind, FOLIO_HEAD_PAGE)
+ 	FOLIO_TEST_CLEAR_FLAG(dropbehind, FOLIO_HEAD_PAGE)
+ 	__FOLIO_SET_FLAG(dropbehind, FOLIO_HEAD_PAGE)
+ 
++/*
++ * A folio with PG_rcu_free set is not returned to the page allocator until
++ * an RCU grace period after its refcount reached zero.  A lockless lookup
++ * that found the folio under rcu_read_lock() can then access its memory
++ * until rcu_read_unlock(), provided the folio was removed from where the
++ * lookup finds it, and the flag set, before its last reference was dropped.
++ * The flag is cleared when the folio is freed.
++ *
++ * Not for folios freed with free_pages_nolock(), or freed somewhere other
++ * than the page allocator (hugetlb).
++ */
++FOLIO_FLAG(rcu_free, FOLIO_HEAD_PAGE)
++	__FOLIO_CLEAR_FLAG(rcu_free, FOLIO_HEAD_PAGE)
++
+ #ifdef CONFIG_HIGHMEM
+ /*
+  * Must use a macro here due to header dependency issues. page_zone() is not
+diff --git a/include/trace/events/mmflags.h b/include/trace/events/mmflags.h
+index 935893e5e..87d00f431 100644
+--- a/include/trace/events/mmflags.h
++++ b/include/trace/events/mmflags.h
+@@ -151,7 +151,8 @@ TRACE_DEFINE_ENUM(___GFP_LAST_BIT);
+ 	DEF_PAGEFLAG_NAME(reclaim),					\
+ 	DEF_PAGEFLAG_NAME(swapbacked),					\
+ 	DEF_PAGEFLAG_NAME(unevictable),					\
+-	DEF_PAGEFLAG_NAME(dropbehind)					\
++	DEF_PAGEFLAG_NAME(dropbehind),					\
++	DEF_PAGEFLAG_NAME(rcu_free)					\
+ IF_HAVE_PG_MLOCK(mlocked)						\
+ IF_HAVE_PG_HWPOISON(hwpoison)						\
+ IF_HAVE_PG_IDLE(idle)							\
+diff --git a/mm/huge_memory.c b/mm/huge_memory.c
+index 1e5d68acf..c1c8125c4 100644
+--- a/mm/huge_memory.c
++++ b/mm/huge_memory.c
+@@ -3743,6 +3743,7 @@ static void __split_folio_to_order(struct folio *folio, int old_order,
+ #endif
+ 				 (1L << PG_dirty) |
+ 				 (1L << PG_dropbehind) |
++				 (1L << PG_rcu_free) |
+ 				 LRU_GEN_MASK | LRU_REFS_MASK));
+ 
+ 		new_folio->mapping = folio->mapping;
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 12fac9084..44eba1f67 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1313,6 +1313,111 @@ static inline void pgalloc_tag_sub_pages(struct alloc_tag *tag, unsigned int nr)
+ 
+ #endif /* CONFIG_MEM_ALLOC_PROFILING */
+ 
++/*
++ * Folios with PG_rcu_free set wait here for an RCU grace period before
++ * they go back to the allocator.  They are linked through ->lru: a folio
++ * whose refcount has reached zero is on no LRU and not yet on the
++ * allocator's lists.
++ *
++ * Each CPU has at most one grace period in flight.  @batch holds the
++ * folios it covers: they were moved from @pending when queue_rcu_work()
++ * started it.  Folios freed meanwhile collect on @pending.  When the grace
++ * period ends, the work takes @batch, moves @pending to @batch and starts
++ * the next grace period, and then frees what it took.  The move and the
++ * queue_rcu_work() happen together under @lock, so no folio joins a batch
++ * after its grace period started.  A folio waits one to two grace periods.
++ *
++ * @batch is non-empty from the queue_rcu_work() until the work has taken
++ * it.  So @batch being empty means that no grace period is in flight and
++ * @rwork is not queued.
++ *
++ * Reclaim makes progress only when these frees complete, so the work must
++ * not wait for a new worker: the workqueue is WQ_MEM_RECLAIM.
++ *
++ * rcu_free_init() runs before vfs_caches_init(), so before anything can
++ * be mounted: no folio is in a page cache until the workqueue exists.
++ */
++struct rcu_free_pcpu {
++	spinlock_t lock;
++	struct list_head pending;
++	struct list_head batch;
++	struct rcu_work rwork;
++};
++static DEFINE_PER_CPU(struct rcu_free_pcpu, rcu_free_pcpu) = {
++	.lock = __SPIN_LOCK_UNLOCKED(rcu_free_pcpu.lock),
++};
++static struct workqueue_struct *rcu_free_wq __ro_after_init;
++
++/* Called with r->lock held */
++static void rcu_free_start(struct rcu_free_pcpu *r)
++{
++	/* A grace period is in flight: its work starts the next one */
++	if (!list_empty(&r->batch))
++		return;
++
++	list_splice_init(&r->pending, &r->batch);
++	if (!list_empty(&r->batch))
++		WARN_ON_ONCE(!queue_rcu_work(rcu_free_wq, &r->rwork));
++}
++
++static void rcu_free_pages(struct list_head *list)
++{
++	struct folio_batch fbatch;
++	struct folio *folio, *next;
++
++	folio_batch_init(&fbatch);
++	/* Freeing a folio reuses its ->lru: @next is read before that */
++	list_for_each_entry_safe(folio, next, list, lru) {
++		if (!folio_batch_add(&fbatch, folio)) {
++			free_unref_folios(&fbatch);
++			/* Unbounded: one truncate can put a whole file here */
++			cond_resched();
++		}
++	}
++	if (folio_batch_count(&fbatch))
++		free_unref_folios(&fbatch);
++}
++
++static void rcu_free_workfn(struct work_struct *work)
++{
++	struct rcu_free_pcpu *r = container_of(to_rcu_work(work),
++					       struct rcu_free_pcpu, rwork);
++	LIST_HEAD(done);
++
++	spin_lock_irq(&r->lock);
++	list_splice_init(&r->batch, &done);
++	rcu_free_start(r);
++	spin_unlock_irq(&r->lock);
++
++	rcu_free_pages(&done);
++}
++
++static void rcu_free_defer(struct folio *folio)
++{
++	struct rcu_free_pcpu *r = raw_cpu_ptr(&rcu_free_pcpu);
++	unsigned long flags;
++
++	spin_lock_irqsave(&r->lock, flags);
++	list_add_tail(&folio->lru, &r->pending);
++	rcu_free_start(r);
++	spin_unlock_irqrestore(&r->lock, flags);
++}
++
++static void __init rcu_free_init(void)
++{
++	int cpu;
++
++	rcu_free_wq = alloc_workqueue("rcu_free", WQ_MEM_RECLAIM | WQ_PERCPU, 0);
++
++	for_each_possible_cpu(cpu) {
++		struct rcu_free_pcpu *r = per_cpu_ptr(&rcu_free_pcpu, cpu);
++
++		INIT_LIST_HEAD(&r->pending);
++		INIT_LIST_HEAD(&r->batch);
++		INIT_RCU_WORK(&r->rwork, rcu_free_workfn);
++	}
++}
++
+ static __always_inline bool __free_pages_prepare(struct page *page,
+ 		unsigned int order, fpi_t fpi_flags)
+ {
+@@ -1327,6 +1432,25 @@ static __always_inline bool __free_pages_prepare(struct page *page,
+ 
+ 	VM_BUG_ON_PAGE(PageTail(page), page);
+ 
++	/*
++	 * Defer: rcu_free_pages() frees the folio after a grace period, and
++	 * it comes through here again with the flag clear.  rcu_free_defer()
++	 * takes a spinlock, so the flag must not be set on a folio freed
++	 * with free_pages_nolock() (FPI_NOLOCK).
++	 *
++	 * Not for a hwpoisoned order-0 page: it never reaches the allocator
++	 * (see below), and page_handle_poison() takes a reference on it right
++	 * after the put that brought it here, so rcu_free_pages() would free
++	 * a page that has a reference.
++	 */
++	if (unlikely(folio_test_rcu_free(folio)) &&
++	    !(PageHWPoison(page) && !order)) {
++		VM_WARN_ON_ONCE(fpi_flags & FPI_NOLOCK);
++		__folio_clear_rcu_free(folio);
++		rcu_free_defer(folio);
++		return false;
++	}
++
+ 	trace_mm_page_free(page, order);
+ 	kmsan_free_page(page, order);
+ 
+@@ -6401,6 +6525,8 @@ void __init setup_per_cpu_pageset(void)
+ 	for_each_online_pgdat(pgdat)
+ 		pgdat->per_cpu_nodestats =
+ 			alloc_percpu(struct per_cpu_nodestat);
++
++	rcu_free_init();
+ }
+ 
+ __meminit void zone_pcp_init(struct zone *zone)
+
+From 4ecdb93a37c4a651f04f98996332e0c413b1e302 Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 7 Oct 2026 02:23:01 +0200
+Subject: [PATCH 2/9] mm: free folios removed from the page cache only after an
+ RCU grace period
+
+Set PG_rcu_free on a folio when it is taken out of a mapping's i_pages
+("mark" it).  A lockless page cache lookup that loaded a folio pointer
+under rcu_read_lock() then cannot find that folio's memory reallocated
+before rcu_read_unlock().  It can still find the refcount frozen by
+reclaim, migration or split, so folio_try_get() stays conditional.  The
+lockless read later in this series depends on this.
+
+folio_mark_removed_from_cache() is called where a folio leaves i_pages,
+before the page cache's references to it are dropped:
+page_cache_delete() (so every __filemap_remove_folio(): truncate,
+reclaim, invalidate, split tails past EOF), page_cache_delete_batch(),
+replace_page_cache_folio(), __folio_migrate_mapping(), collapse_file()
+and shmem_delete_from_page_cache().  The list comes from a git grep of
+the xarray store and erase calls in mm/ and fs/.  nilfs2 moves folios
+between its own internal mappings without freeing them, and is left
+alone.
+
+Not covered: hugetlb folios, which go back to the hugetlb pool, and the
+swap cache.  A shmem folio that moves to the swap cache is marked when it
+leaves the shmem mapping.
+
+The flag only delays the free.  A folio that is removed and then given
+another use without being freed is not delayed.
+
+From here on, memory waits on the lists of the previous patch.  Those
+folios have refcount 0, are not PageBuddy and are not in NR_FREE_PAGES,
+and nothing else in mm/ knows about them:
+
+ - alloc_contig_range() migrates page cache out of a range and then
+   finds the source folios still busy in test_pages_isolated(), so it
+   returns -EBUSY.
+ - should_reclaim_retry() does not count them as available, so it can
+   decide for the OOM killer while reclaimed page cache is still
+   waiting; reclaim overshoots for the same reason.
+ - Compaction does not find the pages it migrated away from on the free
+   lists.
+ - Memory offlining loops until they reach the free lists.
+
+The lists need a drain where drain_all_pages() is called, and a counter
+that the allocator can read.  Neither is in this series.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/filemap.c    | 19 +++++++++++++------
+ mm/internal.h   | 19 +++++++++++++++++++
+ mm/khugepaged.c |  1 +
+ mm/migrate.c    |  6 ++++--
+ mm/shmem.c      |  1 +
+ 5 files changed, 38 insertions(+), 8 deletions(-)
+
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 00fd89cf6..fd1db10df 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -141,6 +141,7 @@ static void page_cache_delete(struct address_space *mapping,
+ 
+ 	xas_store(&xas, shadow);
+ 	xas_init_marks(&xas);
++	folio_mark_removed_from_cache(folio);
+ 
+ 	folio->mapping = NULL;
+ 	/* Leave folio->index set: truncation lookup relies upon it */
+@@ -312,6 +313,7 @@ static void page_cache_delete_batch(struct address_space *mapping,
+ 
+ 		i++;
+ 		xas_store(&xas, NULL);
++		folio_mark_removed_from_cache(folio);
+ 		total_pages += folio_nr_pages(folio);
+ 	}
+ 	mapping->nrpages -= total_pages;
+@@ -827,6 +829,7 @@ void replace_page_cache_folio(struct folio *old, struct folio *new)
+ 
+ 	xas_lock_irq(&xas);
+ 	xas_store(&xas, new);
++	folio_mark_removed_from_cache(old);
+ 
+ 	old->mapping = NULL;
+ 	/* hugetlb pages do not participate in page cache accounting. */
+@@ -1876,12 +1879,16 @@ EXPORT_SYMBOL(page_cache_prev_miss);
+  * B. Remove the page from i_pages
+  * C. Return the page to the page allocator
+  *
+- * This means that any page may have its reference count temporarily
+- * increased by a speculative page cache (or GUP-fast) lookup as it can
+- * be allocated by another user before the RCU grace period expires.
+- * Because the refcount temporarily acquired here may end up being the
+- * last refcount on the page, any page allocation must be freeable by
+- * folio_put().
++ * B marks the folio PG_rcu_free, so C happens only after an RCU grace
++ * period.  Steps 1 to 3 run under rcu_read_lock(), so a page cache lookup
++ * never increments the refcount of a page that has been reallocated
++ * (hugetlb folios excepted, for now).  It can still find the refcount
++ * frozen by A, so step 2 stays conditional.
++ *
++ * A GUP-fast lookup can still increment the reference count of a page
++ * that has been allocated by another user.  Because the refcount
++ * temporarily acquired there may end up being the last refcount on the
++ * page, any page allocation must be freeable by folio_put().
+  */
+ 
+ /*
+diff --git a/mm/internal.h b/mm/internal.h
+index 38b116521..d3b4edb12 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -630,6 +630,25 @@ long mapping_evict_folio(struct address_space *mapping, struct folio *folio);
+ unsigned long mapping_try_invalidate(struct address_space *mapping,
+ 		pgoff_t start, pgoff_t end, unsigned long *nr_failed);
+ 
++/*
++ * @folio has been taken out of a mapping's i_pages.  Lockless lookups may
++ * still hold a pointer to it that they loaded under rcu_read_lock(), so
++ * mark it: set PG_rcu_free, which keeps its memory out of the page
++ * allocator until an RCU grace period has passed.  Call before dropping
++ * the page cache's references to @folio.
++ *
++ * The mark delays only the free.  A caller that keeps the folio and puts
++ * it to another use gets no delay.
++ *
++ * XXX: hugetlb folios go back to the hugetlb pool, not to the page
++ * allocator, and are not covered.
++ */
++static inline void folio_mark_removed_from_cache(struct folio *folio)
++{
++	if (!folio_test_hugetlb(folio))
++		folio_set_rcu_free(folio);
++}
++
+ /**
+  * folio_evictable - Test whether a folio is evictable.
+  * @folio: The folio to test.
+diff --git a/mm/khugepaged.c b/mm/khugepaged.c
+index 75639298e..e04511058 100644
+--- a/mm/khugepaged.c
++++ b/mm/khugepaged.c
+@@ -2637,6 +2637,7 @@ immap_locked:
+ 			lruvec_stat_mod_folio(folio, NR_SHMEM,
+ 					      -folio_nr_pages(folio));
+ 		folio->mapping = NULL;
++		folio_mark_removed_from_cache(folio);
+ 		folio_clear_active(folio);
+ 		folio_clear_unevictable(folio);
+ 		folio_unlock(folio);
+diff --git a/mm/migrate.c b/mm/migrate.c
+index 15b45832b..78164642d 100644
+--- a/mm/migrate.c
++++ b/mm/migrate.c
+@@ -653,10 +653,12 @@ static int __folio_migrate_mapping(struct address_space *mapping,
+ 		folio_set_dirty(newfolio);
+ 	}
+ 
+-	if (folio_test_swapcache(folio))
++	if (folio_test_swapcache(folio)) {
+ 		__swap_cache_replace_folio(ci, folio, newfolio);
+-	else
++	} else {
+ 		xas_store(&xas, newfolio);
++		folio_mark_removed_from_cache(folio);
++	}
+ 
+ 	/*
+ 	 * Drop cache reference from old folio by unfreezing
+diff --git a/mm/shmem.c b/mm/shmem.c
+index 848316eaa..e82e34a9e 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -959,6 +959,7 @@ static void shmem_delete_from_page_cache(struct folio *folio, void *radswap)
+ 
+ 	xa_lock_irq(&mapping->i_pages);
+ 	error = shmem_replace_entry(mapping, folio->index, folio, radswap);
++	folio_mark_removed_from_cache(folio);
+ 	folio->mapping = NULL;
+ 	mapping->nrpages -= nr;
+ 	shmem_update_stats(folio, -nr);
+
+From 74932d065294b1804e4d152f759ae054e6f3bb49 Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 7 Oct 2026 05:56:54 +0200
+Subject: [PATCH 3/9] mm: don't defer the free of page cache folios of an inode
+ being evicted
+
+Deleting a large file sends all of its page cache through the deferred
+free: a lock and a list for every folio, and one to two grace periods
+before the memory is free, for folios that no lookup can reach any more.
+
+This patch adds the rule that makes that last part true: a lockless
+lookup that relies on PG_rcu_free has to hold a reference to the inode
+that owns the mapping.  I_FREEING is set only once the inode has no
+references (fs/inode.c), so a folio removed from the mapping of an inode
+with I_FREEING set cannot be in use by such a lookup.  Don't set
+PG_rcu_free on it.  The rule is stated in the lockless protocol comment
+and at folio_mark_removed_from_cache(), which now takes the mapping.
+
+A lookup on behalf of an open file follows the rule if the file holds
+the inode that owns file->f_mapping.  From a git grep of the assignments
+to ->f_mapping:
+
+ - the common case: f_mapping is the mapping of the file's own inode,
+   which the file's dentry holds;
+ - block devices: the bdev inode's mapping.  The file holds bd_device,
+   and the bdev inode's own reference is dropped only in part_release()
+   and disk_release();
+ - coda: the host file's mapping.  The coda file keeps host_file open;
+ - alloc_file_clone(): the original file's mapping and its struct path,
+   so the same dentry;
+ - device files (drm, vfio, dax, /dev/mem, PCI resources), which do not
+   read through the page cache; checked by name, not by reading each
+   ->read_iter().
+
+erofs page cache sharing reads through a second file, opened on the
+shared inode, and passes that file to filemap_read(), which is the
+common case again.
+
+AS_EXITING is not the same test: f2fs calls truncate_inode_pages_final()
+on inodes that are open, from f2fs_ioc_start_atomic_write() and
+f2fs_abort_atomic_write(), and nothing clears AS_EXITING again.
+
+A remover that sees I_FREEING skips the mark, so no lookup may still be
+inside its RCU read section at that point.  The remover need not be the
+evicting task.  Reclaim, truncation and invalidation test I_FREEING with
+mapping->host->i_lock held, and it is set under i_lock.
+replace_page_cache_folio(), __folio_migrate_mapping() and
+shmem_delete_from_page_cache() hold only the i_pages lock, and
+collapse_file() only the folio lock.  For those the argument is one of
+ordering: a lookup's last access to the folio comes before the last
+reference to its file is dropped, that comes before the last reference
+to the inode is dropped, and I_FREEING is set after that.  The file's
+and the inode's reference drops are value-returning atomic operations,
+which are fully ordered (Documentation/atomic_t.txt); the dentry step
+between them was not looked at separately.  None of this has been
+checked with a tools/memory-model litmus test.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/filemap.c    | 12 +++++++-----
+ mm/internal.h   | 18 ++++++++++++++----
+ mm/khugepaged.c |  2 +-
+ mm/migrate.c    |  2 +-
+ mm/shmem.c      |  2 +-
+ 5 files changed, 24 insertions(+), 12 deletions(-)
+
+diff --git a/mm/filemap.c b/mm/filemap.c
+index fd1db10df..0d2bbf435 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -141,7 +141,7 @@ static void page_cache_delete(struct address_space *mapping,
+ 
+ 	xas_store(&xas, shadow);
+ 	xas_init_marks(&xas);
+-	folio_mark_removed_from_cache(folio);
++	folio_mark_removed_from_cache(mapping, folio);
+ 
+ 	folio->mapping = NULL;
+ 	/* Leave folio->index set: truncation lookup relies upon it */
+@@ -313,7 +313,7 @@ static void page_cache_delete_batch(struct address_space *mapping,
+ 
+ 		i++;
+ 		xas_store(&xas, NULL);
+-		folio_mark_removed_from_cache(folio);
++		folio_mark_removed_from_cache(mapping, folio);
+ 		total_pages += folio_nr_pages(folio);
+ 	}
+ 	mapping->nrpages -= total_pages;
+@@ -829,7 +829,7 @@ void replace_page_cache_folio(struct folio *old, struct folio *new)
+ 
+ 	xas_lock_irq(&xas);
+ 	xas_store(&xas, new);
+-	folio_mark_removed_from_cache(old);
++	folio_mark_removed_from_cache(mapping, old);
+ 
+ 	old->mapping = NULL;
+ 	/* hugetlb pages do not participate in page cache accounting. */
+@@ -1881,8 +1881,10 @@ EXPORT_SYMBOL(page_cache_prev_miss);
+  *
+  * B marks the folio PG_rcu_free, so C happens only after an RCU grace
+  * period.  Steps 1 to 3 run under rcu_read_lock(), so a page cache lookup
+- * never increments the refcount of a page that has been reallocated
+- * (hugetlb folios excepted, for now).  It can still find the refcount
++ * never increments the refcount of a page that has been reallocated.
++ * Excepted are hugetlb folios, for now, and folios of an inode being
++ * evicted, which are not marked: a lookup that relies on the mark must
++ * hold a reference to the inode.  A lookup can still find the refcount
+  * frozen by A, so step 2 stays conditional.
+  *
+  * A GUP-fast lookup can still increment the reference count of a page
+diff --git a/mm/internal.h b/mm/internal.h
+index d3b4edb12..e276dc4b9 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -631,7 +631,7 @@ unsigned long mapping_try_invalidate(struct address_space *mapping,
+ 		pgoff_t start, pgoff_t end, unsigned long *nr_failed);
+ 
+ /*
+- * @folio has been taken out of a mapping's i_pages.  Lockless lookups may
++ * @folio has been taken out of @mapping's i_pages.  Lockless lookups may
+  * still hold a pointer to it that they loaded under rcu_read_lock(), so
+  * mark it: set PG_rcu_free, which keeps its memory out of the page
+  * allocator until an RCU grace period has passed.  Call before dropping
+@@ -640,13 +640,23 @@ unsigned long mapping_try_invalidate(struct address_space *mapping,
+  * The mark delays only the free.  A caller that keeps the folio and puts
+  * it to another use gets no delay.
+  *
++ * A lockless lookup that relies on the mark must hold a reference to the
++ * inode that owns @mapping, as an open file whose f_mapping is @mapping
++ * does.  I_FREEING is set only once the inode has no references, so when
++ * the inode is being evicted no such lookup is left, and its folios are
++ * not marked.
++ *
+  * XXX: hugetlb folios go back to the hugetlb pool, not to the page
+  * allocator, and are not covered.
+  */
+-static inline void folio_mark_removed_from_cache(struct folio *folio)
++static inline void folio_mark_removed_from_cache(struct address_space *mapping,
++						 struct folio *folio)
+ {
+-	if (!folio_test_hugetlb(folio))
+-		folio_set_rcu_free(folio);
++	if (folio_test_hugetlb(folio))
++		return;
++	if (mapping->host && (inode_state_read_once(mapping->host) & I_FREEING))
++		return;
++	folio_set_rcu_free(folio);
+ }
+ 
+ /**
+diff --git a/mm/khugepaged.c b/mm/khugepaged.c
+index e04511058..5bd24ac38 100644
+--- a/mm/khugepaged.c
++++ b/mm/khugepaged.c
+@@ -2637,7 +2637,7 @@ immap_locked:
+ 			lruvec_stat_mod_folio(folio, NR_SHMEM,
+ 					      -folio_nr_pages(folio));
+ 		folio->mapping = NULL;
+-		folio_mark_removed_from_cache(folio);
++		folio_mark_removed_from_cache(mapping, folio);
+ 		folio_clear_active(folio);
+ 		folio_clear_unevictable(folio);
+ 		folio_unlock(folio);
+diff --git a/mm/migrate.c b/mm/migrate.c
+index 78164642d..cf6459617 100644
+--- a/mm/migrate.c
++++ b/mm/migrate.c
+@@ -657,7 +657,7 @@ static int __folio_migrate_mapping(struct address_space *mapping,
+ 		__swap_cache_replace_folio(ci, folio, newfolio);
+ 	} else {
+ 		xas_store(&xas, newfolio);
+-		folio_mark_removed_from_cache(folio);
++		folio_mark_removed_from_cache(mapping, folio);
+ 	}
+ 
+ 	/*
+diff --git a/mm/shmem.c b/mm/shmem.c
+index e82e34a9e..53c6e8293 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -959,7 +959,7 @@ static void shmem_delete_from_page_cache(struct folio *folio, void *radswap)
+ 
+ 	xa_lock_irq(&mapping->i_pages);
+ 	error = shmem_replace_entry(mapping, folio->index, folio, radswap);
+-	folio_mark_removed_from_cache(folio);
++	folio_mark_removed_from_cache(mapping, folio);
+ 	folio->mapping = NULL;
+ 	mapping->nrpages -= nr;
+ 	shmem_update_stats(folio, -nr);
+
+From bbb42039611d46f1dd7aa2d93a2698722d319953 Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 7 Oct 2026 02:32:39 +0200
+Subject: [PATCH 4/9] splice: don't steal page cache folios
+
+page_cache_pipe_buf_try_steal() takes a folio out of the page cache with
+remove_mapping() and gives it to the caller to reuse.
+fuse_try_move_folio() puts it into a fuse file's page cache, where
+writes to that file change it.
+
+PG_rcu_free keeps the memory of a removed folio from being reallocated
+before a lockless lookup's rcu_read_unlock(), but a stolen folio is not
+freed at all.  The lockless read in the next patch holds no reference,
+so it could copy the new owner's data out of a folio that it found
+before the steal.  A reader that holds a reference is safe: the freeze
+in remove_mapping() fails.
+
+Drop ->try_steal from page_cache_pipe_buf_ops.  pipe_buf_try_steal() then
+fails for page cache buffers, and its callers, fuse_try_move_folio() and
+pipe_to_sg() in virtio_console, copy the data instead, as they already
+do when stealing fails.  What is lost is SPLICE_F_MOVE of page cache
+pages into a fuse file without a copy.  page_cache_pipe_buf_release()
+still clears PIPE_BUF_FLAG_LRU: user_page_pipe_buf_ops uses it as well,
+and user_page_pipe_buf_try_steal() sets the flag.
+
+The remaining ->try_steal implementations take a page only when the
+pipe holds its only reference.  A page cache page gets into that state
+only after it has left i_pages: vmsplice(SPLICE_F_GIFT) of a mapped file
+page, then a truncate.  It then has PG_rcu_free, and fuse_check_folio()
+refuses it, but only because the flag is not in its list of allowed
+flags, and with a dump_page().  That needs an explicit test, which is
+not in this patch.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/splice.c | 51 ---------------------------------------------------
+ 1 file changed, 51 deletions(-)
+
+diff --git a/fs/splice.c b/fs/splice.c
+index 9d8f63e2f..0133c2348 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -55,56 +55,6 @@ static noinline void pipe_clear_nowait(struct file *file)
+ 	} while (!try_cmpxchg(&file->f_mode, &fmode, fmode & ~FMODE_NOWAIT));
+ }
+ 
+-/*
+- * Attempt to steal a page from a pipe buffer. This should perhaps go into
+- * a vm helper function, it's already simplified quite a bit by the
+- * addition of remove_mapping(). If success is returned, the caller may
+- * attempt to reuse this page for another destination.
+- */
+-static bool page_cache_pipe_buf_try_steal(struct pipe_inode_info *pipe,
+-		struct pipe_buffer *buf)
+-{
+-	struct folio *folio = page_folio(buf->page);
+-	struct address_space *mapping;
+-
+-	folio_lock(folio);
+-
+-	mapping = folio_mapping(folio);
+-	if (mapping) {
+-		WARN_ON(!folio_test_uptodate(folio));
+-
+-		/*
+-		 * At least for ext2 with nobh option, we need to wait on
+-		 * writeback completing on this folio, since we'll remove it
+-		 * from the pagecache.  Otherwise truncate wont wait on the
+-		 * folio, allowing the disk blocks to be reused by someone else
+-		 * before we actually wrote our data to them. fs corruption
+-		 * ensues.
+-		 */
+-		folio_wait_writeback(folio);
+-
+-		if (!filemap_release_folio(folio, GFP_KERNEL))
+-			goto out_unlock;
+-
+-		/*
+-		 * If we succeeded in removing the mapping, set LRU flag
+-		 * and return good.
+-		 */
+-		if (remove_mapping(mapping, folio)) {
+-			buf->flags |= PIPE_BUF_FLAG_LRU;
+-			return true;
+-		}
+-	}
+-
+-	/*
+-	 * Raced with truncate or failed to remove folio from current
+-	 * address space, unlock and return failure.
+-	 */
+-out_unlock:
+-	folio_unlock(folio);
+-	return false;
+-}
+-
+ static void page_cache_pipe_buf_release(struct pipe_inode_info *pipe,
+ 					struct pipe_buffer *buf)
+ {
+@@ -155,7 +105,6 @@ error:
+ const struct pipe_buf_operations page_cache_pipe_buf_ops = {
+ 	.confirm	= page_cache_pipe_buf_confirm,
+ 	.release	= page_cache_pipe_buf_release,
+-	.try_steal	= page_cache_pipe_buf_try_steal,
+ 	.get		= generic_pipe_buf_get,
+ };
+ 
+
+From 88f0c6cbc4edb798df8a87ed8a53f70c58ce6a4b Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 7 Oct 2026 02:32:40 +0200
+Subject: [PATCH 5/9] mm/filemap: read from the page cache without folio
+ references
+
+filemap_read() takes and drops a reference on every folio it copies
+from, and small reads of one file from many CPUs contend on the
+refcount.
+
+A folio removed from the page cache is now freed only after an RCU grace
+period, and the one place found that gave a removed folio to a new owner
+without freeing it is gone (the previous patch).  So a page that
+xas_load() finds in i_pages under rcu_read_lock() holds the file's data
+until rcu_read_unlock().  Before the slow path, copy from such pages
+straight to the destination, with user page faults disabled.  That is
+what the slow path's reference gives it from the lookup to the end of
+the copy.  Earlier proposals for a read without references copied into
+an on-stack buffer and looked the folio up again afterwards; neither is
+needed here.
+
+Numbers from a laptop, an i7-8565U: 4 cores, 8 threads, one die.
+16-byte pread() at offset 0 of a one-page file on ext4, every thread
+with its own file descriptor, 5 second runs:
+
+                        reads/s   kernel cycles   kernel instructions
+                                    per read           per read
+  1 thread,  before    7.9-8.1 M    452-454              973
+  1 thread,  after       8.8 M      408-411              873
+  8 threads, before   9.9-10.4 M   2937-2975           988-989
+  8 threads, after     31-33 M      719-722              864
+
+"Before" is 0f2732620d6e: the base of this series plus six pulls of
+fixes, none of them in mm/ or fs/.  The laptop throttles on
+temperature, which moves reads per second between runs by more than it
+moves cycles per read.
+
+So at 8 threads: three times the reads, for a quarter of the cycles.
+Four threads on four cores cost 420-451 cycles per read (before:
+1318-1401) and four threads on two cores 734 (before: 1081-1109), so
+what remains at 8 threads is two hyperthreads sharing a core.  Eight
+threads that each read a file of their own, and so share no folio, cost
+827 cycles per read before and 728-729 after.
+
+The laptop has all its cores on one die, sharing one L3, and the
+difference is not a subtle one even there.  The cost removed is the
+refcount's cache line moving between the CPUs that read the file, so a
+machine with more CPUs, or with more than one socket, should gain more.
+That is an expectation: nothing bigger than this laptop has been
+measured.
+
+The cost: a read into a user page that is not present takes the fault
+with page faults disabled, fails, and takes it again in the slow path,
+one extra exception per read().  A 16-byte read into such a page costs
+6701-6720 cycles, against 4117-4188 before; a 64 KiB read that takes 16
+faults costs 60485-60870, against 57478-58073.
+
+Reads larger than a page stay in the fast path.  One thread, kernel
+instructions and cycles per read: 64 KiB 4201-4202 and 7223-7646,
+against 4424-4425 and 7334-7346 before; 1 MiB 64586-64665 and
+161954-167126, against 60900-60948 and 166544-171752.  Eight threads
+reading 64 KiB of one file: 11037-11096 cycles, against 17948-18051.
+1 MiB reads from 8 threads are left out: their cycle counts followed
+the clock the CPUs ran at, which differed between runs.
+
+The exceptions to the deferred free do not reach filemap_read(): the
+file in the iocb holds the reference to the inode that keeps I_FREEING
+clear, hugetlbfs has its own read, and the swap cache is not read
+through a file.
+
+Copy one page at a time, each looked up in i_pages.  Without a reference
+a concurrent split can rewrite the order that folio_size() reads, so
+only the page at the looked-up index is known to belong to the folio.
+The checks of the folio's flags are made once per folio, when the folio
+differs from that of the previous page.
+
+Page faults are disabled for the whole RCU read section, because a fault
+cannot sleep there, and the copy is copy_page_to_iter(), as in the slow
+path.  It is not copy_page_to_iter_nofault(): that one ends in
+copy_to_user_nofault(), which runs the hardened usercopy check.
+check_heap_object() loads the page's compound head and then compares the
+copy with page_size() of that head; a split that runs between the two
+loads gives it the old head with the new, smaller size, and
+usercopy_abort().  copy_page_to_iter() has page_copy_sane() instead,
+which returns before it reads the order for a copy within one page.
+
+The fast path is not used when the architecture needs
+flush_dcache_folio() and the mapping is writably mapped:
+flush_dcache_folio() has not been checked for a folio without a
+reference (arm's writes folio->flags).
+
+Copy in batches of up to FOLIO_BATCH_SIZE pages under rcu_read_lock(),
+with rcu_read_unlock() and cond_resched() between batches, to bound the
+time in one read-side critical section.  Each batch starts without a
+previous folio, since after rcu_read_unlock() a different folio can be
+at the same address, and tests mapping_writably_mapped() again, as the
+slow path does for each of its batches.
+
+The fast path stops, and the slow path continues from there, at a user
+fault, at EOF, at a folio that is missing, not uptodate, or marked for
+readahead or dropbehind, and at a folio that folio_mark_accessed() would
+change, because that needs a reference.  It also stops at a fatal
+signal, tested between batches; filemap_get_pages() then stops the slow
+path too, and the read returns what was copied.
+
+Like the slow path, it does not call folio_mark_accessed() for the folio
+the previous read ended in, and the end of a batch counts as the end of
+a read for this, as it does in the slow path.
+folio_mark_accessed_noop() tells from the flags alone whether
+folio_mark_accessed() would change anything.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/filemap.c  | 143 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ mm/folio.c    |  32 +++++++++++
+ mm/internal.h |   1 +
+ 3 files changed, 176 insertions(+)
+
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 0d2bbf435..206583191 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -2780,6 +2780,139 @@ static void filemap_end_dropbehind_read(struct folio *folio)
+ 	}
+ }
+ 
++/*
++ * Copy from the page cache under rcu_read_lock(), without taking folio
++ * references.  A folio removed from the page cache is freed only after an
++ * RCU grace period (PG_rcu_free), so a page found in i_pages here holds
++ * the file's data until rcu_read_unlock(), whatever happens to the folio
++ * meanwhile: reclaim, truncation, migration or a split.  That is what the
++ * slow path's reference gives it, from the lookup to the end of the copy.
++ * The folios that are not marked do not get here: the file holds the
++ * reference to the inode that folio_mark_removed_from_cache() asks for,
++ * and hugetlbfs has its own read.
++ *
++ * Copy page by page, each page looked up in i_pages.  Without a reference
++ * a split can change the folio's size under us, so only the page at the
++ * index xas_load() returned the folio for is known to be part of it.
++ * The folio's flags are checked once per folio: prev is the folio of the
++ * previous page.
++ *
++ * Copy at most FOLIO_BATCH_SIZE pages under one rcu_read_lock().  Return
++ * true if that many were copied and the read is not done.  prev is not
++ * kept across batches: after rcu_read_unlock() another folio can be at
++ * the same address.
++ */
++static bool filemap_read_rcu_batch(struct kiocb *iocb, struct iov_iter *iter,
++		loff_t last_pos, size_t *copied)
++{
++	struct address_space *mapping = iocb->ki_filp->f_mapping;
++	struct inode *inode = mapping->host;
++	XA_STATE(xas, &mapping->i_pages, 0);
++	struct folio *prev = NULL;
++	bool more = false;
++	int nr;
++
++	/*
++	 * No flush_dcache_folio() here: it has not been checked for a folio
++	 * without a reference (arm's writes folio->flags).  The slow path
++	 * reads such mappings.
++	 */
++	if (ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE &&
++	    mapping_writably_mapped(mapping))
++		return false;
++
++	/* A user fault cannot sleep in the RCU read section: it ends the copy */
++	rcu_read_lock();
++	pagefault_disable();
++	for (nr = 0; iov_iter_count(iter); nr++) {
++		loff_t pos = iocb->ki_pos;
++		pgoff_t index = pos >> PAGE_SHIFT;
++		size_t offset = offset_in_page(pos);
++		struct folio *folio;
++		size_t bytes, n;
++		loff_t isize;
++
++		if (nr == FOLIO_BATCH_SIZE) {
++			more = true;
++			break;
++		}
++
++		xas_set(&xas, index);
++		folio = xas_load(&xas);
++		if (xas_retry(&xas, folio) || !folio || xa_is_value(folio))
++			break;
++
++		if (folio != prev) {
++			if (!folio_test_uptodate(folio) ||
++			    folio_test_readahead(folio) ||
++			    folio_test_dropbehind(folio))
++				break;
++			/*
++			 * folio_mark_accessed() needs a reference, so stop
++			 * unless it would do nothing.  The slow path does not
++			 * call it for the folio the previous read ended in.
++			 * The folio's size cannot be read here, so this folio
++			 * is known to be that one only if the previous read
++			 * ended in a page from folio->index to index.
++			 */
++			if (!folio_mark_accessed_noop(folio) &&
++			    (prev || last_pos <= 0 ||
++			     (last_pos - 1) >> PAGE_SHIFT < folio->index ||
++			     (last_pos - 1) >> PAGE_SHIFT > index))
++				break;
++			prev = folio;
++		}
++
++		/* i_size must be checked after we know the folio is uptodate */
++		isize = i_size_read(inode);
++		if (pos >= isize)
++			break;
++		bytes = min_t(loff_t, isize - pos,
++			      min_t(size_t, iov_iter_count(iter),
++				    PAGE_SIZE - offset));
++
++		/*
++		 * Not copy_page_to_iter_nofault(): it runs the hardened
++		 * usercopy check, which loads the page's compound head and
++		 * then that head's order, and a split can run in between.
++		 * page_copy_sane() does not read the order for a copy within
++		 * one page.
++		 */
++		n = copy_page_to_iter(folio_page(folio, index - folio->index),
++				      offset, bytes, iter);
++		*copied += n;
++		iocb->ki_pos += n;
++		if (n < bytes)
++			break;
++	}
++	pagefault_enable();
++	rcu_read_unlock();
++
++	return more;
++}
++
++/*
++ * Copy from the page cache without folio references, in batches of
++ * FOLIO_BATCH_SIZE pages.  Stop at a user fault, at EOF, at a folio that
++ * is missing or not uptodate, at one that needs readahead, dropbehind or
++ * folio_mark_accessed(), and at a fatal signal.  The slow path continues
++ * from there.
++ */
++static size_t filemap_read_rcu(struct kiocb *iocb, struct iov_iter *iter,
++		loff_t last_pos)
++{
++	size_t copied = 0;
++
++	while (filemap_read_rcu_batch(iocb, iter, last_pos, &copied)) {
++		if (fatal_signal_pending(current))
++			break;
++		cond_resched();
++		/* Like the slow path, don't mark the folio we stopped in */
++		last_pos = iocb->ki_pos;
++	}
++	return copied;
++}
++
+ /**
+  * filemap_read - Read data from the page cache.
+  * @iocb: The iocb to read.
+@@ -2805,6 +2938,7 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 	bool writably_mapped;
+ 	loff_t isize, end_offset;
+ 	loff_t last_pos = ra->prev_pos;
++	size_t fast_read;
+ 
+ 	if (unlikely(iocb->ki_pos < 0))
+ 		return -EINVAL;
+@@ -2816,6 +2950,14 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 	iov_iter_truncate(iter, inode->i_sb->s_maxbytes - iocb->ki_pos);
+ 	folio_batch_init(&fbatch);
+ 
++	fast_read = filemap_read_rcu(iocb, iter, last_pos);
++	if (fast_read) {
++		already_read += fast_read;
++		last_pos = iocb->ki_pos;
++		if (!iov_iter_count(iter))
++			goto out;
++	}
++
+ 	do {
+ 		cond_resched();
+ 
+@@ -2902,6 +3044,7 @@ put_folios:
+ 		folio_batch_init(&fbatch);
+ 	} while (iov_iter_count(iter) && iocb->ki_pos < isize && !error);
+ 
++out:
+ 	file_accessed(filp);
+ 	ra->prev_pos = last_pos;
+ 	return already_read ? already_read : error;
+diff --git a/mm/folio.c b/mm/folio.c
+index 50a6dbe55..9b0669dcf 100644
+--- a/mm/folio.c
++++ b/mm/folio.c
+@@ -456,6 +472,22 @@ void folio_mark_accessed(struct folio *folio)
+ }
+ EXPORT_SYMBOL(folio_mark_accessed);
+ 
++/*
++ * Whether folio_mark_accessed() would leave @folio unchanged.  Only reads
++ * the flags, so it can be called without a reference on @folio.
++ */
++bool folio_mark_accessed_noop(struct folio *folio)
++{
++	if (folio_test_dropbehind(folio))
++		return true;
++	if (lru_gen_enabled())
++		return lru_gen_refs_full(folio);
++
++	return folio_test_referenced(folio) &&
++	       (folio_test_unevictable(folio) || folio_test_active(folio)) &&
++	       !folio_test_idle(folio);
++}
++
+ /**
+  * folio_add_lru - Add a folio to an LRU list.
+  * @folio: The folio to be added to the LRU.
+diff --git a/mm/internal.h b/mm/internal.h
+index e276dc4b9..e99e44827 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -64,6 +64,7 @@ void lru_add_drain_cpu(int cpu);
+ void lru_add_drain_cpu_zone(struct zone *zone);
+ void folio_deactivate(struct folio *folio);
+ void folio_mark_lazyfree(struct folio *folio);
++bool folio_mark_accessed_noop(struct folio *folio);
+ 
+ /* mm/vmscan.c */
+ unsigned long zone_reclaimable_pages(struct zone *zone);
+
+From 59b394dd1882e25acab7450864d84820811ac9ae Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 8 Oct 2026 23:00:27 +0200
+Subject: [PATCH 6/9] mm: count pages whose free waits for an RCU grace period
+
+Three vm events in /proc/vmstat: pgfree_rcu counts pages whose free
+__free_pages_prepare() deferred because PG_rcu_free was set,
+pgfree_rcu_done counts pages rcu_free_pages() returned to the allocator
+after the grace period, and pgfree_rcu_skip counts pages that
+folio_mark_removed_from_cache() did not mark because the inode is being
+evicted.  pgfree_rcu - pgfree_rcu_done is the number of pages waiting;
+it is approximate, because the per-CPU event counters are not summed
+atomically.
+
+These are for observation.  The waiting pages are still not in
+NR_FREE_PAGES, and kernel code cannot read vm events cheaply, so this is
+not the counter that the allocator needs.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/vm_event_item.h | 1 +
+ mm/internal.h                 | 4 +++-
+ mm/page_alloc.c               | 4 ++++
+ mm/vmstat.c                   | 3 +++
+ 4 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
+index 2628ccda0..7623a6525 100644
+--- a/include/linux/vm_event_item.h
++++ b/include/linux/vm_event_item.h
+@@ -36,6 +36,7 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
+ 		FOR_ALL_ZONES(ALLOCSTALL)
+ 		FOR_ALL_ZONES(PGSCAN_SKIP)
+ 		PGFREE, PGACTIVATE, PGDEACTIVATE, PGLAZYFREE,
++		PGFREE_RCU, PGFREE_RCU_DONE, PGFREE_RCU_SKIP,
+ 		PGFAULT, PGMAJFAULT,
+ 		PGLAZYFREED,
+ 		PGREUSE,
+diff --git a/mm/internal.h b/mm/internal.h
+index e99e44827..abfaf67da 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -655,8 +655,10 @@ static inline void folio_mark_removed_from_cache(struct address_space *mapping,
+ {
+ 	if (folio_test_hugetlb(folio))
+ 		return;
+-	if (mapping->host && (inode_state_read_once(mapping->host) & I_FREEING))
++	if (mapping->host && (inode_state_read_once(mapping->host) & I_FREEING)) {
++		count_vm_events(PGFREE_RCU_SKIP, folio_nr_pages(folio));
+ 		return;
++	}
+ 	folio_set_rcu_free(folio);
+ }
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 44eba1f67..773b31f0c 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1364,10 +1364,12 @@ static void rcu_free_pages(struct list_head *list)
+ {
+ 	struct folio_batch fbatch;
+ 	struct folio *folio, *next;
++	unsigned long nr = 0;
+ 
+ 	folio_batch_init(&fbatch);
+ 	/* Freeing a folio reuses its ->lru: @next is read before that */
+ 	list_for_each_entry_safe(folio, next, list, lru) {
++		nr += folio_nr_pages(folio);
+ 		if (!folio_batch_add(&fbatch, folio)) {
+ 			free_unref_folios(&fbatch);
+ 			/* Unbounded: one truncate can put a whole file here */
+@@ -1376,6 +1378,7 @@ static void rcu_free_pages(struct list_head *list)
+ 	}
+ 	if (folio_batch_count(&fbatch))
+ 		free_unref_folios(&fbatch);
++	count_vm_events(PGFREE_RCU_DONE, nr);
+ }
+ 
+ static void rcu_free_workfn(struct work_struct *work)
+@@ -1447,6 +1450,7 @@ static __always_inline bool __free_pages_prepare(struct page *page,
+ 	    !(PageHWPoison(page) && !order)) {
+ 		VM_WARN_ON_ONCE(fpi_flags & FPI_NOLOCK);
+ 		__folio_clear_rcu_free(folio);
++		count_vm_events(PGFREE_RCU, 1 << order);
+ 		rcu_free_defer(folio);
+ 		return false;
+ 	}
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index cb5771453..2db8fe52e 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -1343,6 +1343,9 @@ const char * const vmstat_text[] = {
+ 	[I(PGACTIVATE)]				= "pgactivate",
+ 	[I(PGDEACTIVATE)]			= "pgdeactivate",
+ 	[I(PGLAZYFREE)]				= "pglazyfree",
++	[I(PGFREE_RCU)]				= "pgfree_rcu",
++	[I(PGFREE_RCU_DONE)]			= "pgfree_rcu_done",
++	[I(PGFREE_RCU_SKIP)]			= "pgfree_rcu_skip",
+ 
+ 	[I(PGFAULT)]				= "pgfault",
+ 	[I(PGMAJFAULT)]				= "pgmajfault",
+
+From 4a130e1af84808e58a7907e4afb7dc7d0dc40a18 Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 10 Oct 2026 01:19:37 +0200
+Subject: [PATCH 7/9] mm: expedite the grace period when a CPU has many
+ deferred frees
+
+A folio whose free is deferred waits one to two grace periods on a
+per-CPU list, where the allocator does not see it.  The memory on the
+lists is the rate of deferred frees times that wait, which is 20 to
+25 ms on an 8-CPU laptop.  Four processes that fallocate() and
+hole-punch 64 MiB of a memfd in a loop free 23.7 GiB/s there and keep
+565 MiB waiting on average, 1.2 GiB at the peak.  Kiryl Shutsemau
+reported that this loop, next to a process that touches 1400 MiB of
+anonymous memory, ends in an OOM kill.
+
+Count the pages on each CPU's pending list.  When a free takes the
+count above RCU_FREE_EXPEDITE pages, queue a work item that takes the
+list, calls synchronize_rcu_expedited() and frees it.  Only that work
+waits for the grace period: the task that frees does not, and neither
+does reclaim.
+
+The batch whose grace period is already in flight stays with its
+callback, so nothing changes for the existing work.
+
+The limit is a guess, and the allocator still does not see what is
+below it on each CPU.  Measurements are in the last patch of the
+series.
+
+Reported-by: Kiryl Shutsemau <kirill@shutemov.name>
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/page_alloc.c | 47 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 773b31f0c..bb67b653d 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1334,14 +1334,24 @@ static inline void pgalloc_tag_sub_pages(struct alloc_tag *tag, unsigned int nr)
+  * Reclaim makes progress only when these frees complete, so the work must
+  * not wait for a new worker: the workqueue is WQ_MEM_RECLAIM.
+  *
++ * The allocator does not see the folios on these lists, and a CPU that
++ * frees faster than grace periods end can put any amount of memory here.
++ * So @nr_pending counts the pages on @pending, and above
++ * RCU_FREE_EXPEDITE the CPU queues @expedite, which takes @pending and
++ * runs an expedited grace period for it.
++ *
+  * rcu_free_init() runs before vfs_caches_init(), so before anything can
+  * be mounted: no folio is in a page cache until the workqueue exists.
+  */
++#define RCU_FREE_EXPEDITE	1024
++
+ struct rcu_free_pcpu {
+ 	spinlock_t lock;
+ 	struct list_head pending;
+ 	struct list_head batch;
++	unsigned long nr_pending;
+ 	struct rcu_work rwork;
++	struct work_struct expedite;
+ };
+ static DEFINE_PER_CPU(struct rcu_free_pcpu, rcu_free_pcpu) = {
+ 	.lock = __SPIN_LOCK_UNLOCKED(rcu_free_pcpu.lock),
+@@ -1356,6 +1366,7 @@ static void rcu_free_start(struct rcu_free_pcpu *r)
+ 		return;
+ 
+ 	list_splice_init(&r->pending, &r->batch);
++	r->nr_pending = 0;
+ 	if (!list_empty(&r->batch))
+ 		WARN_ON_ONCE(!queue_rcu_work(rcu_free_wq, &r->rwork));
+ }
+@@ -1395,6 +1406,38 @@ static void rcu_free_workfn(struct work_struct *work)
+ 	rcu_free_pages(&done);
+ }
+ 
++/*
++ * Take @pending and free it after an expedited grace period, which starts
++ * once the folios are off the list.  Only this work waits for it.
++ *
++ * @batch is left alone: its grace period is in flight and @rwork frees it.
++ */
++static void rcu_free_expedite_workfn(struct work_struct *work)
++{
++	struct rcu_free_pcpu *r = container_of(work, struct rcu_free_pcpu,
++					       expedite);
++	LIST_HEAD(list);
++
++	spin_lock_irq(&r->lock);
++	list_splice_init(&r->pending, &list);
++	r->nr_pending = 0;
++	spin_unlock_irq(&r->lock);
++
++	/* @rwork got there first and moved @pending to @batch */
++	if (list_empty(&list))
++		return;
++
++	synchronize_rcu_expedited();
++	rcu_free_pages(&list);
++}
++
++static void rcu_free_expedite(struct rcu_free_pcpu *r, unsigned long limit)
++{
++	/* Unlocked: a stale @nr_pending moves the expedite by one free */
++	if (data_race(r->nr_pending) > limit && !work_pending(&r->expedite))
++		queue_work(rcu_free_wq, &r->expedite);
++}
++
+ static void rcu_free_defer(struct folio *folio)
+ {
+ 	struct rcu_free_pcpu *r = raw_cpu_ptr(&rcu_free_pcpu);
+@@ -1402,8 +1445,11 @@ static void rcu_free_defer(struct folio *folio)
+ 
+ 	spin_lock_irqsave(&r->lock, flags);
+ 	list_add_tail(&folio->lru, &r->pending);
++	r->nr_pending += folio_nr_pages(folio);
+ 	rcu_free_start(r);
+ 	spin_unlock_irqrestore(&r->lock, flags);
++
++	rcu_free_expedite(r, RCU_FREE_EXPEDITE);
+ }
+ 
+ static void __init rcu_free_init(void)
+@@ -1418,6 +1464,7 @@ static void __init rcu_free_init(void)
+ 		INIT_LIST_HEAD(&r->pending);
+ 		INIT_LIST_HEAD(&r->batch);
+ 		INIT_RCU_WORK(&r->rwork, rcu_free_workfn);
++		INIT_WORK(&r->expedite, rcu_free_expedite_workfn);
+ 	}
+ }
+ 
+
+From e69e58a909381aec305fc793625f52ec427f74e2 Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 10 Oct 2026 01:20:45 +0200
+Subject: [PATCH 8/9] mm: make way for the expedite work in the page cache
+ removal loops
+
+The expedite work runs on the CPU of the task whose frees queued it.
+With lazy preemption that task keeps the CPU until the next tick: the
+wakeup of the kworker sets TIF_NEED_RESCHED_LAZY, and cond_resched()
+does nothing.  With one hole-punching process the work waits 0.84 ms
+to start and spends 0.53 ms in synchronize_rcu_expedited(), and the
+process goes on freeing all the while.
+
+Add rcu_free_cond_resched() next to the cond_resched() of the loops in
+truncate_inode_pages_range(), mapping_try_invalidate(),
+invalidate_inode_pages2_range() and shmem_undo_range(): if a lazy
+reschedule is pending, call schedule().  This is what cond_resched()
+does there without lazy preemption.  A task that has not been asked to
+make way keeps the CPU.
+
+With that the work starts after 20 us and spends 24 us in
+synchronize_rcu_expedited().
+
+Memory waiting for a grace period, mean in MiB, while N processes
+fallocate() and hole-punch 64 MiB of a memfd each in a loop, on 8 CPUs
+(i7-8565U), without and with this patch and the previous one:
+
+   N   without   with
+   1     148      6.6
+   4     565       15
+   8     503       70
+  16     540      177
+
+At N = 4 the processes fill and free 23.5 GiB/s with the two patches
+and 23.7 without, and the work runs 4600 times a second.  The table
+was measured on these two patches with a counter added, the times on
+an earlier build with timing added.
+
+An unbound workqueue gets the work started as fast while a CPU is
+idle, and changes nothing at N = 8 and 16, where none is.
+
+This puts a reschedule point back where lazy preemption took one out,
+and it acts on any lazy reschedule request, not only on the one the
+expedite work caused.  Whether that is acceptable is a question for
+the scheduler maintainers.  Reclaim's loops are not changed.
+
+Assisted-by: LLM
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/internal.h | 13 +++++++++++++
+ mm/shmem.c    |  2 ++
+ mm/truncate.c |  4 ++++
+ 3 files changed, 19 insertions(+)
+
+diff --git a/mm/internal.h b/mm/internal.h
+index abfaf67da..e3bddef84 100644
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -662,6 +662,19 @@ static inline void folio_mark_removed_from_cache(struct address_space *mapping,
+ 	folio_set_rcu_free(folio);
+ }
+ 
++/*
++ * For a loop that removes folios from the page cache, next to its
++ * cond_resched().  The frees can queue the expedite work for this CPU
++ * (mm/page_alloc.c).  With lazy preemption cond_resched() does nothing
++ * and the woken kworker gets the CPU at the next tick, so make way here
++ * if the scheduler has asked for it.
++ */
++static inline void rcu_free_cond_resched(void)
++{
++	if (tif_test_bit(TIF_NEED_RESCHED_LAZY))
++		schedule();
++}
++
+ /**
+  * folio_evictable - Test whether a folio is evictable.
+  * @folio: The folio to test.
+diff --git a/mm/shmem.c b/mm/shmem.c
+index 53c6e8293..a978ba54f 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -1371,6 +1371,7 @@
+ 		folio_batch_remove_exceptionals(&fbatch);
+ 		folio_batch_release(&fbatch);
+ 		cond_resched_tasks_rcu_qs();
++		rcu_free_cond_resched();
+ 	}
+ 
+ 	/*
+@@ -1408,6 +1409,7 @@
+ 	index = start;
+ 	while (index < end) {
+ 		cond_resched_tasks_rcu_qs();
++		rcu_free_cond_resched();
+ 
+ 		if (!find_get_entries(mapping, &index, end - 1, &fbatch,
+ 				indices)) {
+diff --git a/mm/truncate.c b/mm/truncate.c
+index b58ba940b..8791d0d95 100644
+--- a/mm/truncate.c
++++ b/mm/truncate.c
+@@ -407,6 +407,7 @@ void truncate_inode_pages_range(struct address_space *mapping,
+ 			folio_unlock(fbatch.folios[i]);
+ 		folio_batch_release(&fbatch);
+ 		cond_resched();
++		rcu_free_cond_resched();
+ 	}
+ 
+ 	same_folio = (lstart >> PAGE_SHIFT) == (lend >> PAGE_SHIFT);
+@@ -437,6 +438,7 @@ void truncate_inode_pages_range(struct address_space *mapping,
+ 	index = start;
+ 	while (index < end) {
+ 		cond_resched();
++		rcu_free_cond_resched();
+ 		if (!find_get_entries(mapping, &index, end - 1, &fbatch,
+ 				indices)) {
+ 			/* If all gone from start onwards, we're done */
+@@ -578,6 +580,7 @@ unsigned long mapping_try_invalidate(struct address_space *mapping,
+ 		folio_batch_remove_exceptionals(&fbatch);
+ 		folio_batch_release(&fbatch);
+ 		cond_resched();
++		rcu_free_cond_resched();
+ 	}
+ 	return count;
+ }
+@@ -735,6 +738,7 @@ int invalidate_inode_pages2_range(struct address_space *mapping,
+ 		folio_batch_remove_exceptionals(&fbatch);
+ 		folio_batch_release(&fbatch);
+ 		cond_resched();
++		rcu_free_cond_resched();
+ 	}
+ 	/*
+ 	 * For DAX we invalidate page tables after invalidating page cache.  We
+
+From 4c0f3697118eb3a708ea79175f7f07c43339bfab Mon Sep 17 00:00:00 2001
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 10 Oct 2026 07:05:38 +0200
+Subject: [PATCH 9/9] mm: read from the page cache without folio references
+
+Problem
+-------
+
+Small reads of one file from many threads contend on the folio refcount:
+filemap_get_read_batch() takes a reference (lock cmpxchg) and
+filemap_read() drops it (lock decl), so every read writes the struct
+page line twice.  Matthew raised it in 2024 from a customer workload
+[1].  On my laptop (i7-8565U, 4 cores / 8 threads), with 8 threads doing
+16-byte pread() of one page, that line takes 99.92% of the load HITMs.
+
+Idea
+----
+
+  A folio removed from the page cache goes back to the page allocator
+  only after an RCU grace period.
+
+Then a page that xas_load() finds in i_pages under rcu_read_lock() holds
+that file's data until rcu_read_unlock(), and filemap_read() copies from
+it straight to the user buffer with page faults disabled.  No reference,
+no on-stack bounce buffer, no seqcount, no check after the copy, and no
+limit on the size of the read.
+
+The earlier attempts ([2], and Kiryl's "fast short reads" [3]) copied
+without a reference into a stack buffer and validated afterwards.  They
+stopped at what the validation cannot see: free, reuse and re-insert at
+the same index [4], migration ("__folio_migrate_mapping() does not use
+page_cache_delete()", Hugh [5]), and reading memory that is no longer
+page cache at all: secretmem (Pedro), unaccepted memory (Kiryl), "or
+even worse MMIO with undesired read-effects" (David [6]; all three in
+the thread of [3]).
+
+Deferring the free removes those cases instead of detecting them.  It
+has been suggested several times and not tried; Matthew's objection was
+"it just feels too risky to have so much memory waiting to be reused"
+[7], and that is the part of this series that is least solved (patches 7
+and 8, and problem 1 below).
+
+Design decisions
+----------------
+
+ - The final free is deferred, not the removal and not the reference.
+   PG_rcu_free is set where a folio leaves i_pages (page_cache_delete(),
+   page_cache_delete_batch(), replace_page_cache_folio(),
+   __folio_migrate_mapping(), collapse_file(),
+   shmem_delete_from_page_cache()). __free_pages_prepare() tests it,
+   queues the page and returns false, so whoever drops the last
+   reference does not need to know.
+
+   So the guarantee is "the memory is not reused", not "the refcount
+   stays above zero". Reclaim, migration and split still freeze the
+   count under a reader, folio_try_get() stays conditional, and the
+   lockless lookup protocol is unchanged. Deferring the page cache's own
+   reference instead would be the stronger guarantee, but reclaim frees
+   from a frozen count without a put, so there is nothing to defer
+   there.
+
+ - Queueing: per CPU, a pending list and one batch whose grace period is
+   in flight (queue_rcu_work(), WQ_MEM_RECLAIM workqueue). A per-CPU
+   spinlock, irqsave, makes "cut pending into the batch" and "start the
+   grace period" one step; without it a page can join a batch whose
+   grace period has already started. A page waits one to two grace
+   periods. This is the shape of kfree_rcu() batching, without its
+   shrinker.
+
+ - A CPU that frees faster than grace periods end must not fill the
+   lists. Above 1024 pages on a CPU's pending list a second work item
+   takes the list, calls synchronize_rcu_expedited() and frees it
+   (patch 7); only that work waits. The loops that remove page cache
+   reschedule when the scheduler has asked for it, so that the work gets
+   the CPU before the next tick (patch 8).
+
+ - Not deferred: folios of an inode that has I_FREEING, so that rm of a
+   big file does not send all of it through the lists. The rule this
+   creates: a lockless reader that relies on the deferral must hold a
+   reference to mapping->host. An open file does. Also not covered:
+   hugetlb (frees to its pool) and the swap cache. filemap_read() reads
+   neither.
+
+ - Reuse without a free breaks the guarantee as well.
+   page_cache_pipe_buf_try_steal() takes a folio out of the page cache
+   and fuse puts it into another file. Patch 4 removes the steal; fuse
+   and virtio_console copy instead.
+
+ - Read path: per page, xas_load(), then uptodate, readahead mark,
+   dropbehind, i_size, copy. It never reads folio_size() or anything
+   else of the head that a split rewrites: a split leaves the bytes in
+   place, so the page at the looked-up index is right whatever the folio
+   looks like by then. Page faults are disabled for the whole RCU read
+   section, and the copy is plain copy_page_to_iter():
+   copy_page_to_iter_nofault() would run the hardened usercopy check,
+   which reads the compound order.
+
+   FOLIO_BATCH_SIZE pages per rcu_read_lock(). On any reason to stop
+   (user fault, folio missing or not uptodate, readahead mark, EOF,
+   fatal signal, flush_dcache_folio() needed) the existing path,
+   unchanged, continues the read from there.
+
+   folio_mark_accessed() needs a reference, so the fast path is taken
+   only where it would change nothing (a test of the flags, for both LRU
+   implementations). A hot folio gets there after a few reads through
+   the old path.
+
+Numbers
+-------
+
+My laptop only, ext4, mitigations off, CONFIG_HARDENED_USERCOPY off.
+The laptop throttles on temperature, so compare cost per read, not
+reads per second.  16-byte pread() at offset 0 of a one-page file, one
+fd per thread:
+
+                          kernel insn   kernel cycles   reads/s
+                            per read       per read
+  base,   1 thread             973         452-454      7.9-8.1 M
+  base,   8 threads          988-989      2937-2975    9.9-10.4 M
+  base,   4 threads,
+          one per core       979-980      1318-1401     8.9-11.6 M
+  series, 1 thread             873         408-409      8.8-8.9 M
+  series, 8 threads            864         725-726       30-33 M
+  series, 4 threads,
+          one per core       873-876       417-438       25-26 M
+
+With the series one thread per core costs 2-7% more than one thread
+alone; the 8-thread figure is two SMT siblings sharing a core.  Load
+HITMs (perf c2c, 8 threads): 30538 -> 101.
+
+All the cores of this laptop are on one die and share one L3.  A
+machine with more CPUs, or more than one socket, should gain more;
+nothing bigger has been measured.
+
+Kernel cycles per read, base -> series:
+
+ - 16 bytes, a file per thread, so nothing is shared: 8 threads
+   827 -> 730-732, 1 thread 449-456 -> 409-411.  The base pays for SMT
+   too; the rest of its 2937-2975 comes from sharing the file.
+
+ - A read into a user page that is not present costs one extra failed
+   exception per read(); the old path then takes the real fault and
+   finishes the read.  16 bytes, 1 thread: 4117-4188 -> 6543-6593.
+   64 KiB with 16 faults: 57478-58073 -> 59648-59822.
+
+ - Large reads stay on the fast path.  64 KiB, 5% fewer instructions:
+   1 thread 7334-7346 -> 6917-6929; 8 threads, one file, 17948-18051
+   -> 10925-11146.  1 MiB, 6% more instructions: 1 thread
+   166544-171752 -> 161315-166941.  1 MiB at 8 threads is not
+   comparable in cycles (the clock differed between runs).  In time
+   per read: with a file per thread the same, 637-721 us ->
+   616-660 us; with one file 257-280 us -> 215-230 us, two runs.
+
+Memory waiting for a grace period.  N processes each fallocate() and
+hole-punch 64 MiB of a memfd in a loop; together they fill and free
+about 22 GiB/s from N = 4 on.  Mean of what waits, sampled every 2 ms,
+in MiB:
+
+   N   patches 1-6   patches 1-8
+   1       148           6.6
+   4       565            15
+   8       503            70
+  16       540           177
+
+With patches 1-6 a page waits 20-25 ms and the peaks are 1.0 to
+1.2 GiB from N = 4 on.  With patches 7 and 8 the peaks are 59, 128,
+249 and 870 MiB, the expedite work runs 4600 times a second at N = 4,
+and the processes fill and free as fast as before.  The same loop on
+ext4 files (pwrite(), ftruncate(0), 7-9 GiB/s): 124 -> 12 MiB at N = 4.
+
+Kiryl's reproducer (that loop in four processes next to one that
+touches 1400 MiB of anonymous memory 20 times), in a 2 GiB VM without
+swap: with patches 1-6 the OOM killer takes the large process with 4
+and with 8 CPUs, and not with 1 or 2.  With patches 1-8 it runs to the
+end with 1, 2, 4 and 8 CPUs and never enters direct reclaim.
+
+The series' HITM count and the figures below are from earlier builds
+of the series, which copied with copy_page_to_iter_nofault().
+
+ - Slower frees: a loop of fadvise(DONTNEED) freeing 850 MiB/s had at
+   most 28 MiB waiting (sampled every 12 ms).  Truncating a 256 MiB
+   file had 208 MiB waiting, gone within 25 ms.  On this laptop from
+   boot until the test runs: 3323 pages deferred, 3.29 M not deferred
+   because their inode was being evicted.
+
+Testing
+-------
+
+evict-race: 4 readers check every byte they read from a clean file
+while one thread evicts it with fadvise(DONTNEED) in a loop and reuses
+the freed pages at once, and two more recycle page cache and anonymous
+memory.  0 bad reads in 30 s runs of about 10^8 reads each.  With a
+debug patch that frees PG_rcu_free pages immediately, the same test
+gets bytes that are not the file's (12 and 138 bad reads in two runs),
+some of them from other users of the freed page, so it does detect a
+broken guarantee.  That control was run on an earlier build of the
+series; the debug patch has not been redone for this one.
+
+partial-fault: reads of a cached file into buffers with some pages
+zapped by MADV_DONTNEED, so that copies fault partway through a page,
+with every byte checked.  0 bad in 1.15 M reads.
+
+punch-wait and the VM: the hole-punch loop of "Numbers" with a sampler
+of the vmstat counters, and Kiryl's reproducer as the only program of
+an initramfs under qemu/KVM.
+
+Those, a gcc build of one x86-64 config, and running the laptop on it,
+are all the testing there is.  That config has CONFIG_DEBUG_VM, lazy
+preemption and preemptible RCU, and no lockdep, no
+CONFIG_DEBUG_ATOMIC_SLEEP and no KASAN.  The last commit builds
+without warnings.  An earlier form of the first six was compiled at
+each commit, and with clang at the last; patch 7 has not been built
+without patch 8.
+
+Known problems, and what I'd like eyes on
+-----------------------------------------
+
+ 1. The allocator cannot see the waiting pages.  They have refcount 0,
+    are not PageBuddy, are on no pcp list and in no counter.
+
+    - It ran a machine out of memory (Kiryl's reproducer, under
+      "Numbers").  should_reclaim_retry() computes "available" from
+      the LRU counters and NR_FREE_PAGES, the waiting pages are in
+      neither, and it decides for the OOM killer while hundreds of MiB
+      wait.  Patches 7 and 8 keep the lists short; they do not make
+      the allocator see what is on them.  The limit of 1024 pages is a
+      guess.  With no idle CPU (N = 16 above) 177 MiB still waits on
+      average and 870 MiB at the peak.  kswapd and direct reclaim
+      overshoot for the same reason, and compaction's source pages
+      reach the free lists late.
+    - alloc_contig_range() fails.  The sources of its migration are
+      still waiting when test_pages_isolated() runs, so it returns
+      -EBUSY for a range that had page cache in it, and cma_alloc()
+      goes on to the next range.  That is a regression for CMA as the
+      series stands.  hugetlb's deferred free has the same shape, and
+      test_pages_isolated() calls wait_for_freed_hugetlb_folios() for
+      it.
+    - Nothing bounds what waits when a grace period is slow.
+
+    I would rather expedite than wait in the allocator: a
+    synchronize_rcu() there throttles page-out.  alloc_contig_range()
+    is different, it needs those very pages: a
+    get_state_synchronize_rcu() cookie per batch, and
+    cond_synchronize_rcu_expedited() plus the free from
+    test_pages_isolated().  Not written.  A zone counter for what
+    waits is not written either.
+
+ 2. One more page flag.  With MAXSMP, NUMA balancing and the page idle
+    flag it takes one of MGLRU's two refs bits (arithmetic from
+    page-flags-layout.h, not built).  Is there a bit that is dead once
+    a folio has left the page cache?
+
+ 3. splice.  SPLICE_F_MOVE of page cache pages into fuse is gone; does
+    anyone depend on it?  And one more way in is closed only by
+    accident: vmsplice(SPLICE_F_GIFT) of a mapped page cache page, then
+    truncate, leaves the pipe with the only reference,
+    generic_pipe_buf_try_steal() takes the page, and fuse_check_folio()
+    refuses it only because PG_rcu_free is not in its list of allowed
+    flags (with a dump_page()).  That needs an explicit test.
+
+ 4. s390: __make_folio_secure() freezes the refcount.  A reference
+    blocks it, an RCU reader does not.  What a reader copies from a
+    page that goes secure under it is not worked out.
+
+ 5. Cost outside the read path is not measured.  Every deferred free
+    takes an irqsave spinlock, and the free itself moves to a kworker
+    on whichever CPU ran the RCU callback: cold pages, CPU time not
+    charged to the task that freed, and bad-page reports and
+    page_owner free stacks that name the kworker.  Reclaim-heavy and
+    truncate-heavy loads need numbers.
+
+ 6. Arguments that are only arguments.  The ordering from the i_pages
+    store to the start of the grace period (store; the remover's
+    reference drop; the final dec-and-test; the per-CPU lock; the cut;
+    queue_rcu_work()) is argued from the documented guarantees, with no
+    litmus test.  Not every ->migrate_folio() was read for "the
+    destination is not uptodate before its data is there".
+
+ 7. Not tested: xfstests (generic/095 and generic/741 failed with the
+    2024 patch [8]), anything that splits folios under the fast path,
+    memory pressure other than Kiryl's reproducer in a VM, lockdep,
+    KASAN, a kernel linked by clang, 32-bit, CONFIG_HARDENED_USERCOPY,
+    any machine but this one.  And any preemption model but lazy with
+    preemptible RCU: without preemptible RCU a task that punches holes
+    in a loop reports no quiescent state until RCU asks for one, about
+    HZ/10 into the grace period, so more would wait (from the code,
+    not run).
+
+ 8. trace_mm_filemap_get_pages and folio_mark_accessed() are not
+    reached by reads the fast path serves, so tools that count either
+    see fewer page cache hits.
+
+ 9. For RCU.  The deferral keeps its own per-CPU pending list and one
+    batch per grace period, started with queue_rcu_work().  That is
+    the shape of kfree_rcu(), and RCU's segmented callback lists
+    already do the same thing in general.  call_rcu_hurry() per folio
+    would need no lock and no workqueue, and would lose the batched
+    free_unref_folios(); not tried.  Is there a better way to hook
+    in?
+
+    Patch 7 calls synchronize_rcu_expedited() from a work item every
+    time a CPU has 1024 pages waiting, 4600 times a second with four
+    hole-punching processes.  Its kernel-doc says not to use it in a
+    loop.  What the IPIs cost a task that frees nothing is not
+    measured.  Is there a way to get a short grace period without
+    them?
+
+10. For the scheduler.  With lazy preemption the kworker that runs the
+    expedite work waits for the tick while the task that queued it
+    keeps the CPU: 0.84 ms to start, against 20 us once that task
+    makes way.  Patch 8 calls schedule() in the page cache removal
+    loops when TIF_NEED_RESCHED_LAZY is set, which is the
+    cond_resched() that lazy preemption took out, and it acts on any
+    lazy request.  An unbound workqueue does as well while a CPU is
+    idle and nothing when none is.  I am not sure this is the
+    direction; I would rather have the freeing task do something
+    synchronous that leaves the scheduler alone.
+
+Tools
+-----
+
+The code, the test programs, the review behind the list above and the
+first draft of this text were done with an LLM coding assistant (Claude
+Code) under my direction.  The measurements were run on my machine.
+
+Patches
+-------
+
+  1  mm: free PG_rcu_free folios only after an RCU grace period
+  2  mm: free folios removed from the page cache only after an RCU
+     grace period
+  3  mm: don't defer the free of page cache folios of an inode being
+     evicted
+  4  splice: don't steal page cache folios
+  5  mm/filemap: read from the page cache without folio references
+  6  mm: count pages whose free waits for an RCU grace period
+  7  mm: expedite the grace period when a CPU has many deferred frees
+  8  mm: make way for the expedite work in the page cache removal
+     loops
+
+Base: 7.3-rc6 plus fixes, 0c2669a9f4a1.
+
+[1] https://lore.kernel.org/all/Zduto30LUEqIHg4h@casper.infradead.org/
+[2] https://lore.kernel.org/all/CAHk-=wjOogaW0yLoUqQ0WfQ=etPA4cOFLy56VYCnHVU_DOMLrg@mail.gmail.com/
+[3] https://lore.kernel.org/all/20251017141536.577466-1-kirill@shutemov.name/
+[4] https://lore.kernel.org/all/Zds8T9O4AYAmdS9d@casper.infradead.org/
+[5] https://lore.kernel.org/all/b8e56515-3903-068c-e4bd-fc0ca5c30d94@google.com/
+[6] https://lore.kernel.org/all/dcdfb58c-5ba7-4015-9446-09d98449f022@redhat.com/
+[7] https://lore.kernel.org/all/Zdz9p_Kn0puI1KEL@casper.infradead.org/
+[8] https://lore.kernel.org/all/ZkNQiWpTOZDMp3kS@bombadil.infradead.org/
+
+diff --git a/mm/folio.c b/mm/folio.c
+--- a/mm/folio.c
++++ b/mm/folio.c
+@@ -400,7 +400,34 @@ EXPORT_SYMBOL(folio_mark_accessed);
+ EXPORT_SYMBOL(folio_mark_accessed);
+ 
++#ifdef CONFIG_LRU_GEN
++/*
++ * Whether folio_mark_accessed()'s LRU-gen path would leave @folio unchanged.
++ *
++ * Derived from this tree's folio_inc_lru_refs() (mm/vmscan.c, from the mm-new queue),
++ * not the old lru_gen_inc_refs() the upstream predicate mirrored: with flags == 0 that
++ * function writes the refs count unless it is already saturated, and takes an early out
++ * only for an unaccounted generation or one that is already the newest.  Only the
++ * flags-only subset is answerable without a lruvec lookup.
++ */
++static bool lru_gen_refs_full(struct folio *folio)
++{
++	unsigned long old_flags = READ_ONCE(*folio_flags(folio, 0));
++
++	if (folio_test_unevictable(folio))
++		return true;
++	if (lru_get_refs_flags(old_flags) < LRU_REFS_MAX)
++		return false;
++	return lru_get_gen_flags(old_flags) < 0;
++}
++#else
++static bool lru_gen_refs_full(struct folio *folio)
++{
++	return false;
++}
++#endif
++
+ /*
+  * Whether folio_mark_accessed() would leave @folio unchanged.  Only reads
+  * the flags, so it can be called without a reference on @folio.
+  */
+ bool folio_mark_accessed_noop(struct folio *folio)

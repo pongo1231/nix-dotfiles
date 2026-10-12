@@ -1,3 +1,22 @@
+PROVENANCE UNVERIFIED - this file carries no upstream provenance.
+===================================================================
+Audited 2026-10-12. No upstream artifact matching this change could be found, despite
+searching: lore.kernel.org (full-text; controls confirmed the index works) and
+lore.freedesktop.org/nouveau, elixir.bootlin.com (v7.3-rc6/v7.2.9), the linux-next
+mirror, the local torvalds clone's object database, and the CachyOS/kernel-patches and
+babiulep/my-kernel-patches trees. The three symbols it introduces
+(nouveau_ttm_fini_hw, nouveau_ttm_evict_manager, nouveau_drm_release) exist in no
+reachable upstream tree, and 5 of the 6 recorded 'index <pre>' blobs do not match this
+base's files (only nouveau_ttm.h does), with two recorded pre-images not being objects in
+torvalds' history at all. That signature means a regenerated or hand-written diff; it is
+equally consistent with a locally authored change or one taken from an unobtainable
+vendor branch. It applies cleanly to the pristine v7.3-rc7 tree and is internally
+coherent (splits nouveau_ttm_fini() into fini_hw/fini, runs manager teardown from a new
+drm_driver.release, moves client teardown before nouveau_accel_fini, adds a fence guard
+in nouveau_channel_idle()).
+Action: if the origin is established, or if this is known to be locally authored, replace
+this note with the real provenance. It predates the 2026-10-12 patch-stack audit.
+
 diff --git a/drivers/gpu/drm/nouveau/nouveau_chan.c b/drivers/gpu/drm/nouveau/nouveau_chan.c
 index 598513f60449..b0b10fce90b5 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_chan.c

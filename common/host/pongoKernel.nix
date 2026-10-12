@@ -79,12 +79,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0-rc6";
+                      modDirVersion = "7.3.0-rc7";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "af32da41b0327b9c6a37856ba82b6760d6c8d10e";
-                        hash = "sha256-3AUSlgJmXQvpxuey+1aBL+JoRW9PmPpNcH8XqZpglBI=";
+                        rev = "24a19b953e2a3d0ea5a8c4951a0ab8f32720c907";
+                        hash = "sha256-b9Slv//a1PSty23X8RcdcMD6UiyhySL9MLx5MTZpNIU=";
                       };
                     };
                 };
@@ -156,6 +156,10 @@ in
           patch = patch /linux/v2_20260908_mario_limonciello_iommu_performance_optimization_support.patch;
         }
         {
+          name = "iommu/amd: Make PerfOpt compulsory";
+          patch = patch /linux/20261012_mario_limonciello_iommu_amd_make_perfopt_compulsory.patch;
+        }
+        {
           name = "batch lookups in follow_page_mask()";
           patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
         }
@@ -192,8 +196,8 @@ in
           patch = patch /linux/20260916_joanne_koong_fuse_enable_large_folios.patch;
         }
         {
-          name = "kbuild: significantly speed up kernel builds";
-          patch = patch /linux/v3_20260917_lorenzo_stoakes_kbuild_significantly_speed_up_kernel_builds.patch;
+          name = "kbuild: kbuild-next-speedups (build speedups v4 + deps)";
+          patch = patch /linux/20261012_kbuild_kbuild-next-speedups.patch;
         }
         {
           name = "sched: improving latency of short slice tasks (rebased)";
@@ -209,11 +213,27 @@ in
         }
         {
           name = "mm: zswap: reduce request contention on loads";
-          patch = patch /linux/20261006_usama_arif_mm_zswap_reduce_request_contention_on_loads.patch;
+          patch = patch /linux/20261009_usama_arif_mm_zswap_reduce_request_contention_on_loads.patch;
         }
         {
           name = "mm/zswap: batch the writeback IO";
           patch = patch /linux/20261007_alexandre_ghiti_mm_zswap_batch_the_writeback_io.patch;
+        }
+        {
+          name = "assoc_array fixes";
+          patch = patch /linux/20261012_torvalds_assoc-array-fixes.patch;
+        }
+        {
+          name = "mm: page cache reads without folio references";
+          patch = patch /linux/20261012_torvalds_noref-filemap-read-with-llm.patch;
+        }
+        {
+          name = "mm/filemap: keep the lockless read loop for LRU-gen folios";
+          patch = patch /linux/20261012_noref-filemap-lru-gen-fastpath.patch;
+        }
+        {
+          name = "ext4: dev branch (whole branch)";
+          patch = patch /linux/20261012_tytso_ext4_dev.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
