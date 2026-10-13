@@ -6,6 +6,15 @@ compulsory for APU iGPUs in identity mode).
 Consequence, accepted deliberately: PASID is disabled and VFIO/iommufd attachment of such
 devices is blocked.
 
+Local change (zephyr): v4 keys dev_data->perfopt on the IOMMU's FEATURE_PERF_OPT alone, so
+every PASID-capable device behind that IOMMU gets clamped - including the XDNA NPU, which is
+then unopenable:
+  amdxdna_sva_init: SVA bind device failed, ret -28 (ENOSPC)
+  amdxdna_drm_open: PASID unavailable and carveout not configured
+Restrict the assignment to display-class PCI devices (pci_is_display()), which is the APU
+iGPU the feature is meant for. Every other device keeps PASID/SVA and stays attachable to
+vfio/iommufd.
+
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
 index 0e53a02ad1bab..a9c6f5d4a6397 100644
 --- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
@@ -578,12 +587,19 @@ index 104817e8d8977..5c9dcf720f846 100644
 diff --git a/drivers/iommu/amd/iommu.c b/drivers/iommu/amd/iommu.c
 --- a/drivers/iommu/amd/iommu.c
 +++ b/drivers/iommu/amd/iommu.c
-@@ -3188,6 +3188,27 @@
+@@ -3188,6 +3188,34 @@
  	if (pdev_pasid_supported(dev_data) &&
  	    !cc_platform_has(CC_ATTR_MEM_ENCRYPT) &&
  	    !amd_iommu_snp_en) {
-+		dev_data->perfopt = get_amd_iommu_from_dev_data(dev_data)->features &
-+				    FEATURE_PERF_OPT;
++		/*
++		 * PerfOpt is only for the APU's integrated GPU; keying it on the
++		 * IOMMU's feature alone also clamps every other PASID-capable
++		 * device behind this IOMMU. amdxdna requires PASID, so the NPU
++		 * cannot be opened (SVA bind device failed, ret -28).
++		 */
++		if (dev_is_pci(dev) && pci_is_display(to_pci_dev(dev)))
++			dev_data->perfopt = get_amd_iommu_from_dev_data(dev_data)->features &
++					    FEATURE_PERF_OPT;
 +
 +		/*
 +		 * With PerfOpt the device is locked into the identity fast path
