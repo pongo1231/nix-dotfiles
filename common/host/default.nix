@@ -148,6 +148,19 @@ args:
 
     rtkit.enable = true;
 
+    pam.loginLimits = [
+      {
+        domain = "@users";
+        item = "rtprio";
+        value = 95;
+      }
+      {
+        domain = "@users";
+        item = "nice";
+        value = -20;
+      }
+    ];
+
     sudo-rs = {
       enable = true;
       execWheelOnly = true;
