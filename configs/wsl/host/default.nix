@@ -1,5 +1,6 @@
 {
   inputs,
+  config,
   lib,
   pkgs,
   ...
@@ -12,6 +13,12 @@
   system = {
     nixos-init.enable = false;
     etc.overlay.enable = false;
+
+    activationScripts.shimSystemd.text = lib.mkForce ''
+      echo "setting up /sbin/init shim..."
+      rm -f /sbin/init
+      ln -s ${config.system.build.nativeUtils}/bin/systemd-shim /sbin/init
+    '';
   };
 
   boot = {
