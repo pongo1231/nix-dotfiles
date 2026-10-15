@@ -150,12 +150,12 @@ args:
 
     pam.loginLimits = [
       {
-        domain = "@users";
+        domain = "@wheel";
         item = "rtprio";
         value = 95;
       }
       {
-        domain = "@users";
+        domain = "@wheel";
         item = "nice";
         value = -20;
       }
