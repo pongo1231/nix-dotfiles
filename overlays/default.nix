@@ -90,6 +90,17 @@ in
     ];
   });
 
+  gamescope = prev.gamescope.overrideAttrs (prevAttrs: {
+    src = final.fetchFromGitHub {
+      owner = "ValveSoftware";
+      repo = "gamescope";
+      rev = "2b5cf191d1047d6895516a834de8a72ac1c342f3";
+      fetchSubmodules = true;
+      hash = "sha256-y1s9aJ3YmPbd3FM3soGgmot0pgvjmoT8Rz0p52ZGDSs=";
+    };
+    patches = (prevAttrs.patches or [ ]) ++ [ (patch /gamescope/fsr1lite-ls1.patch) ];
+  });
+
   /*
     kdePackages = prev.kdePackages.overrideScope (
       kfinal: kprev: {

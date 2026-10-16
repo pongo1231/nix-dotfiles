@@ -1,0 +1,1097 @@
+diff --git a/README.md b/README.md
+index 0f53c608..0bee26e9 100644
+--- a/README.md
++++ b/README.md
+@@ -47,6 +47,18 @@ meson install -C build/ --skip-subprojects
+ * **Super + O** : Decrease FSR sharpness by 1
+ * **Super + S** : Take screenshot (currently goes to `/tmp/gamescope_$DATE.png`)
+ * **Super + G** : Toggle keyboard grab
++* **Super + J** : Toggle FSR1 Lite upscaling
++* **Super + K** : Toggle LS1 upscaling
++* **Super + T** : Toggle SGSR upscaling
++
++`fsr1lite` and `ls1` are also switchable over the control socket, for scripts and
++session hotkey clients:
++
++```sh
++gamescopectl toggle_fsr1lite     # or: scaling_filter fsr1lite
++gamescopectl toggle_ls1          # or: scaling_filter ls1
++gamescopectl toggle_sgsr         # or: scaling_filter sgsr
++```
+ 
+ ## Examples
+ 
+diff --git a/src/Backends/DRMBackend.cpp b/src/Backends/DRMBackend.cpp
+index 9aaab7b3..0b0eb0a2 100644
+--- a/src/Backends/DRMBackend.cpp
++++ b/src/Backends/DRMBackend.cpp
+@@ -3927,6 +3927,7 @@ namespace gamescope
+ 			bNeedsFullComposite |= pFrameInfo->useFSRLayer0;
+ 			bNeedsFullComposite |= pFrameInfo->useNISLayer0;
+ 			bNeedsFullComposite |= pFrameInfo->useSGSRLayer0;
++			bNeedsFullComposite |= pFrameInfo->useLS1Layer0;
+ 			bNeedsFullComposite |= pFrameInfo->blurLayer0;
+ 			bNeedsFullComposite |= bNeedsCompositeFromFilter;
+ 			bNeedsFullComposite |= !cv_drm_cursor_plane && bDrewCursor;
+diff --git a/src/Backends/OpenVRBackend.cpp b/src/Backends/OpenVRBackend.cpp
+index dae8cb32..11224004 100644
+--- a/src/Backends/OpenVRBackend.cpp
++++ b/src/Backends/OpenVRBackend.cpp
+@@ -1852,6 +1852,7 @@ namespace gamescope
+         bNeedsFullComposite |= pFrameInfo->useFSRLayer0;
+         bNeedsFullComposite |= pFrameInfo->useNISLayer0;
+         bNeedsFullComposite |= pFrameInfo->useSGSRLayer0;
++        bNeedsFullComposite |= pFrameInfo->useLS1Layer0;
+         bNeedsFullComposite |= pFrameInfo->blurLayer0;
+         bNeedsFullComposite |= bNeedsCompositeFromFilter;
+         bNeedsFullComposite |= g_bColorSliderInUse;
+diff --git a/src/Backends/SDLBackend.cpp b/src/Backends/SDLBackend.cpp
+index d35e218e..853da2ff 100644
+--- a/src/Backends/SDLBackend.cpp
++++ b/src/Backends/SDLBackend.cpp
+@@ -746,7 +746,8 @@ namespace gamescope
+ 					if ( event.key.keysym.mod & KMOD_LGUI )
+ 					{
+ 						uint32_t key = SDLScancodeToLinuxKey( event.key.keysym.scancode );
+-						const uint32_t shortcutKeys[] = {KEY_F, KEY_N, KEY_B, KEY_U, KEY_Y, KEY_I, KEY_O, KEY_S, KEY_G};
++						// J/K, not H/L: GNOME binds Super+H, GNOME/KDE bind Super+L session-wide.
++						const uint32_t shortcutKeys[] = {KEY_F, KEY_N, KEY_B, KEY_J, KEY_K, KEY_T, KEY_U, KEY_Y, KEY_I, KEY_O, KEY_S, KEY_G};
+ 						const bool isShortcutKey = std::find(std::begin(shortcutKeys), std::end(shortcutKeys), key) != std::end(shortcutKeys);
+ 						if ( isShortcutKey )
+ 						{
+@@ -782,6 +783,18 @@ namespace gamescope
+ 								g_wantedUpscaleFilter = (g_wantedUpscaleFilter == GamescopeUpscaleFilter::NIS) ? 
+ 									GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::NIS;
+ 								break;
++							case KEY_J:
++								g_wantedUpscaleFilter = (g_wantedUpscaleFilter == GamescopeUpscaleFilter::FSR1LITE) ?
++									GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::FSR1LITE;
++								break;
++							case KEY_K:
++								g_wantedUpscaleFilter = (g_wantedUpscaleFilter == GamescopeUpscaleFilter::LS1) ?
++									GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::LS1;
++								break;
++							case KEY_T:
++								g_wantedUpscaleFilter = (g_wantedUpscaleFilter == GamescopeUpscaleFilter::SGSR) ?
++									GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::SGSR;
++								break;
+ 							case KEY_I:
+ 								g_upscaleFilterSharpness = std::min(20, g_upscaleFilterSharpness + 1);
+ 								break;
+diff --git a/src/Backends/WaylandBackend.cpp b/src/Backends/WaylandBackend.cpp
+index bc9293d8..398efb42 100644
+--- a/src/Backends/WaylandBackend.cpp
++++ b/src/Backends/WaylandBackend.cpp
+@@ -1103,6 +1103,7 @@ namespace gamescope
+             bNeedsFullComposite |= pFrameInfo->useFSRLayer0;
+             bNeedsFullComposite |= pFrameInfo->useNISLayer0;
+             bNeedsFullComposite |= pFrameInfo->useSGSRLayer0;
++            bNeedsFullComposite |= pFrameInfo->useLS1Layer0;
+             bNeedsFullComposite |= pFrameInfo->blurLayer0;
+             bNeedsFullComposite |= bNeedsCompositeFromFilter;
+             bNeedsFullComposite |= g_bColorSliderInUse;
+@@ -2988,6 +2989,11 @@ namespace gamescope
+             case KEY_F:
+             case KEY_N:
+             case KEY_B:
++            // NOTE: deliberately not H/L - GNOME binds Super+H (hide window) and
++            // GNOME/KDE bind Super+L (lock screen) as session shortcuts.
++            case KEY_J:
++            case KEY_K:
++            case KEY_T:
+             case KEY_U:
+             case KEY_Y:
+             case KEY_I:
+@@ -3053,6 +3059,21 @@ namespace gamescope
+                     GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::NIS;
+                 break;
+ 
++            case KEY_J:
++                g_wantedUpscaleFilter = ( g_wantedUpscaleFilter == GamescopeUpscaleFilter::FSR1LITE ) ?
++                    GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::FSR1LITE;
++                break;
++
++            case KEY_K:
++                g_wantedUpscaleFilter = ( g_wantedUpscaleFilter == GamescopeUpscaleFilter::LS1 ) ?
++                    GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::LS1;
++                break;
++
++            case KEY_T:
++                g_wantedUpscaleFilter = ( g_wantedUpscaleFilter == GamescopeUpscaleFilter::SGSR ) ?
++                    GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::SGSR;
++                break;
++
+             case KEY_I:
+                 g_upscaleFilterSharpness = std::min( 20, g_upscaleFilterSharpness + 1 );
+                 break;
+diff --git a/src/commit.cpp b/src/commit.cpp
+index 456bae77..f30d4a66 100644
+--- a/src/commit.cpp
++++ b/src/commit.cpp
+@@ -158,7 +158,10 @@ bool commit_t::ShouldPreemptivelyUpscale( GamescopeUpscaleFilter eFilter, Gamesc
+     calc_scale_factor( eScaler, flScaleX, flScaleY, vulkanTex->width(), vulkanTex->height() );
+ 
+     // The pre-emptive paint forces the global scale to one, so judge magnification without it and on both axes like the paint path.
+-    if ( ResolveUpscaleFilter( eFilter, colorspace(), vulkanTex->isYcbcr() ) == GamescopeUpscaleFilter::SGSR )
++    // SGSR and LS1 are upscalers: pre-emptively upscaling for them only makes sense when
++    // both axes actually magnify.
++    const GamescopeUpscaleFilter eResolved = ResolveUpscaleFilter( eFilter, colorspace(), vulkanTex->isYcbcr() );
++    if ( eResolved == GamescopeUpscaleFilter::SGSR || eResolved == GamescopeUpscaleFilter::LS1 )
+     {
+         float flUpscaleX = 1.0f;
+         float flUpscaleY = 1.0f;
+diff --git a/src/main.cpp b/src/main.cpp
+index 6a0fdb13..d12d47dd 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -176,7 +176,7 @@ const char usage[] =
+ 	"  -r, --nested-refresh           game refresh rate (frames per second)\n"
+ 	"  -m, --max-scale                maximum scale factor\n"
+ 	"  -S, --scaler                   upscaler type (auto, integer, fit, fill, stretch)\n"
+-	"  -F, --filter                   upscaler filter (linear, nearest, fsr, nis, pixel, sgsr)\n"
++	"  -F, --filter                   upscaler filter (linear, nearest, fsr, fsr1lite, nis, pixel, sgsr, ls1)\n"
+ 	"                                     fsr => AMD FidelityFX™ Super Resolution 1.0\n"
+ 	"                                     nis => NVIDIA Image Scaling v1.0.3\n"
+ 	"                                     sgsr => Snapdragon™ Game Super Resolution 1 with RCAS\n"
+@@ -290,6 +290,9 @@ const char usage[] =
+ 	"  Super + O                      decrease FSR sharpness by 1\n"
+ 	"  Super + S                      take a screenshot\n"
+ 	"  Super + G                      toggle keyboard grab\n"
++	"  Super + J                      toggle FSR1 Lite upscaling\n"
++	"  Super + K                      toggle LS1 upscaling\n"
++	"  Super + T                      toggle SGSR upscaling\n"
+ 	"";
+ 
+ std::atomic< bool > g_bRun{true};
+@@ -762,6 +765,16 @@ int main(int argc, char **argv)
+ 				break;
+ 			case 'F':
+ 				g_wantedUpscaleFilter = parse_upscaler_filter(optarg);
++				if ( g_wantedUpscaleFilter == GamescopeUpscaleFilter::LS1 )
++				{
++					// Fail loudly up front if the runtime shaders are missing,
++					// rather than silently falling back to linear later.
++					const char *pLs1Dir = vulkan_ls1_shader_dir();
++					if ( pLs1Dir )
++						fprintf( stderr, "gamescope: ls1 shaders: %s\n", pLs1Dir );
++					else
++						fprintf( stderr, "gamescope: ls1 shaders not found - the ls1 filter will fall back to linear\n" );
++				}
+ 				break;
+ 			case 'b':
+ 				g_bBorderlessOutputWindow = true;
+diff --git a/src/main.hpp b/src/main.hpp
+index b2a169f1..df1c10ab 100644
+--- a/src/main.hpp
++++ b/src/main.hpp
+@@ -45,13 +45,19 @@ enum class GamescopeUpscaleFilter : uint32_t
+     NIS,
+     PIXEL,
+     SGSR,
++    FSR1LITE,
++    LS1,
+ 
+     FROM_VIEW = 0xF, // internal
+ };
+ 
+ static constexpr bool UpscaleFilterUsesSharpness( GamescopeUpscaleFilter eFilter )
+ {
++    // LS1 is deliberately absent: it finishes in a plain blit and its network has no sharpness
++    // input, so --fsr-sharpness does not apply to it. Its own control is the LS1 variant ladder
++    // (GAMESCOPE_LS1_TYPE).
+     return eFilter == GamescopeUpscaleFilter::FSR ||
++           eFilter == GamescopeUpscaleFilter::FSR1LITE ||
+            eFilter == GamescopeUpscaleFilter::NIS ||
+            eFilter == GamescopeUpscaleFilter::SGSR;
+ }
+@@ -62,12 +68,17 @@ static constexpr bool SgsrSupportsInput( GamescopeAppTextureColorspace eColorspa
+     return !bYcbcr && ( eColorspace == GAMESCOPE_APP_TEXTURE_COLORSPACE_LINEAR || eColorspace == GAMESCOPE_APP_TEXTURE_COLORSPACE_SRGB );
+ }
+ 
+-// Sharp ran FSR before SGSR existed, so HDR keeps that rather than losing the sharpening. Neither pre-pass reads the YCbCr slot.
++// Sharp ran FSR before SGSR existed, so HDR keeps that rather than losing the sharpening; an
++// LS1 request on HDR lands in the same place, because the LS1 network reads the same plain RGB
++// view as cs_sgsr (neither pre-pass reads the YCbCr slot, and neither handles HDR inside the
++// network). A planar layer has no RGB view to read at all, so both drop to linear there.
+ static constexpr GamescopeUpscaleFilter ResolveUpscaleFilter( GamescopeUpscaleFilter eFilter, GamescopeAppTextureColorspace eColorspace, bool bYcbcr )
+ {
+-    if ( eFilter != GamescopeUpscaleFilter::SGSR || SgsrSupportsInput( eColorspace, bYcbcr ) )
+-        return eFilter;
+-    return bYcbcr ? GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::FSR;
++    const bool bReadsPlainRgb = eFilter == GamescopeUpscaleFilter::SGSR || eFilter == GamescopeUpscaleFilter::LS1;
++    if ( bReadsPlainRgb && !SgsrSupportsInput( eColorspace, bYcbcr ) )
++        return bYcbcr ? GamescopeUpscaleFilter::LINEAR : GamescopeUpscaleFilter::FSR;
++
++    return eFilter;
+ }
+ 
+ static constexpr bool DoesHardwareSupportUpscaleFilter( GamescopeUpscaleFilter eFilter )
+@@ -115,9 +126,11 @@ inline std::optional<GamescopeUpscaleFilter> ParseUpscaleFilter( std::string_vie
+         { "linear",  GamescopeUpscaleFilter::LINEAR },
+         { "nearest", GamescopeUpscaleFilter::NEAREST },
+         { "fsr",     GamescopeUpscaleFilter::FSR },
++        { "fsr1lite",GamescopeUpscaleFilter::FSR1LITE },
+         { "nis",     GamescopeUpscaleFilter::NIS },
+         { "pixel",   GamescopeUpscaleFilter::PIXEL },
+         { "sgsr",    GamescopeUpscaleFilter::SGSR },
++        { "ls1",     GamescopeUpscaleFilter::LS1 },
+     };
+     for ( const auto &[svFilterName, eFilter] : k_Filters )
+     {
+diff --git a/src/meson.build b/src/meson.build
+index ae3ac167..dd0ef905 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -66,6 +66,7 @@ shader_src = [
+   'shaders/cs_composite_rcas_1px.comp',
+   'shaders/cs_easu.comp',
+   'shaders/cs_easu_fp16.comp',
++  'shaders/cs_fsr1lite.comp',
+   'shaders/cs_gaussian_blur_horizontal.comp',
+   'shaders/cs_nis.comp',
+   'shaders/cs_nis_fp16.comp',
+diff --git a/src/rendervulkan.cpp b/src/rendervulkan.cpp
+index b601320b..2039deb2 100644
+--- a/src/rendervulkan.cpp
++++ b/src/rendervulkan.cpp
+@@ -45,6 +45,7 @@
+ #include "cs_composite_rcas_1px.h"
+ #include "cs_easu.h"
+ #include "cs_easu_fp16.h"
++#include "cs_fsr1lite.h"
+ #include "cs_gaussian_blur_horizontal.h"
+ #include "cs_nis.h"
+ #include "cs_nis_fp16.h"
+@@ -985,6 +986,7 @@ bool CVulkanDevice::createShaders()
+ 	}
+ 	SHADER(RGB_TO_NV12, cs_rgb_to_nv12);
+ 	SHADER(SGSR, cs_sgsr);
++	SHADER(FSR1LITE, cs_fsr1lite);
+ #undef SHADER
+ 
+ 	for (uint32_t i = 0; i < shaderInfos.size(); i++)
+@@ -1216,6 +1218,7 @@ void CVulkanDevice::compileAllPipelines(std::stop_token st)
+ 	SHADER(NIS, 1, 1, 1);
+ 	SHADER(RGB_TO_NV12, 1, 1, 1);
+ 	SHADER(SGSR, 1, 1, 1);
++	SHADER(FSR1LITE, 1, 1, 1);
+ #undef SHADER
+ 
+ 	for (auto& info : pipelineInfos) {
+@@ -3653,6 +3656,472 @@ static bool init_nis_data()
+ 	return true;
+ }
+ 
++// ---------------------------------------------------------------------------
++// Lossless Scaling LS1 upscaler
++//
++// LS1 is a four pass compute network: three passes at source resolution plus a
++// reconstruction pass at destination resolution. The network itself is not
++// shipable - the SPIR-V is derived from the user's own copy of Lossless Scaling
++// and loaded from disk at runtime, like the other compatibility shims do:
++//
++//   $GAMESCOPE_LS1_SHADER_DIR  overrides the directory
++//                              (default $XDG_DATA_HOME/gamescope/ls1)
++//   $GAMESCOPE_LS1_TYPE        appends /v<TYPE>, matching the LS1 "type"
++//                              setting in Lossless Scaling (default 1)
++//
++// <dir>/pass0.spv .. pass3.spv are expected to use this layout (produced by the
++// binding repack step of the extraction tool):
++//   binding 0: uniform buffer  (48 bytes, see Ls1Constants_t)
++//   binding 1: sampler
++//   binding 2: sampled image   (t0)
++//   binding 3: sampled image   (t1, reconstruction pass only)
++//   binding 4: storage image   (u0)
++//
++// The layer is sampled directly and the result written into the compositor's
++// temporary image, so no copies of either boundary are needed (copying would
++// require TRANSFER_SRC/DST on textures the compositor may not have flagged for
++// it). Image layout transitions go through the command buffer's helpers, so
++// layout tracking stays consistent with the rest of the compositor.
++// ---------------------------------------------------------------------------
++
++struct Ls1Constants_t
++{
++	uint32_t u_srcSize[2];
++	uint32_t u_srcSize2[2];
++	uint32_t u_srcOffset[2];
++	uint32_t u_hdr;
++	uint32_t u_pad0;
++	uint32_t u_dstSize[2];
++	uint32_t u_pad1[2];
++};
++static_assert( sizeof(Ls1Constants_t) == 48, "LS1 constants are 48 bytes" );
++
++namespace
++{
++struct Ls1State_t
++{
++	bool bTried = false;
++	bool bAvailable = false;
++
++	std::string sShaderDir;
++	VkShaderModule shaderModules[4] = {};
++	VkPipeline pipelines[4] = {};
++	VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
++	VkPipelineLayout pipeLayout = VK_NULL_HANDLE;
++	VkDescriptorPool descPool = VK_NULL_HANDLE;
++	VkDescriptorSet descSets[4] = {};
++	VkBuffer constantsBuffer = VK_NULL_HANDLE;
++	VkDeviceMemory constantsMemory = VK_NULL_HANDLE;
++	Ls1Constants_t *pConstants = nullptr;
++	VkSampler sampler = VK_NULL_HANDLE;
++
++	gamescope::OwningRc<CVulkanTexture> texA;
++	gamescope::OwningRc<CVulkanTexture> texB;
++	gamescope::OwningRc<CVulkanTexture> texC;
++
++	uint32_t uSrcW = 0, uSrcH = 0, uDstW = 0, uDstH = 0;
++	uint32_t uSrcFormat = 0;
++};
++}
++
++static Ls1State_t g_ls1;
++
++static std::vector<uint32_t> ls1_read_spirv( const std::string &sPath )
++{
++	FILE *pFile = fopen( sPath.c_str(), "rb" );
++	if ( !pFile )
++		return {};
++
++	fseek( pFile, 0, SEEK_END );
++	long lSize = ftell( pFile );
++	fseek( pFile, 0, SEEK_SET );
++	if ( lSize <= 0 || ( lSize % 4 ) != 0 )
++	{
++		fclose( pFile );
++		return {};
++	}
++
++	std::vector<uint32_t> code( size_t( lSize ) / 4 );
++	size_t uRead = fread( code.data(), 1, size_t( lSize ), pFile );
++	fclose( pFile );
++	if ( uRead != size_t( lSize ) )
++		return {};
++
++	return code;
++}
++
++// Resolves the directory holding pass0..3.spv. Pure filesystem, so it can also
++// be used from the command line before Vulkan exists.
++static bool ls1_resolve_shader_dir()
++{
++	std::string sBase;
++	const char *pDir = getenv( "GAMESCOPE_LS1_SHADER_DIR" );
++	if ( pDir && *pDir )
++		sBase = pDir;
++	else
++	{
++		const char *pDataHome = getenv( "XDG_DATA_HOME" );
++		const char *pHome = getenv( "HOME" );
++		if ( pDataHome && *pDataHome )
++			sBase = std::string( pDataHome ) + "/gamescope/ls1";
++		else if ( pHome && *pHome )
++			sBase = std::string( pHome ) + "/.local/share/gamescope/ls1";
++		else
++			sBase = "/usr/share/gamescope/ls1";
++	}
++
++	// The generator installs one directory per LS1 type (matching Lossless
++	// Scaling's LS1Sharpness setting), the default being v1 - so plain <base>
++	// usually has no shaders in it.
++	std::vector<std::string> candidates;
++	const char *pType = getenv( "GAMESCOPE_LS1_TYPE" );
++	if ( pType && *pType )
++		candidates.push_back( sBase + "/v" + pType );
++	candidates.push_back( sBase );
++	for ( int i = 1; i <= 4; i++ )
++		candidates.push_back( sBase + "/v" + std::to_string( i ) );
++
++	for ( const std::string &sCandidate : candidates )
++	{
++		FILE *pFile = fopen( ( sCandidate + "/pass0.spv" ).c_str(), "rb" );
++		if ( pFile )
++		{
++			fclose( pFile );
++			g_ls1.sShaderDir = sCandidate;
++			return true;
++		}
++	}
++
++	vk_log.errorf( "LS1: no shaders found (looked for pass0.spv in %s and its v1..v4 subdirectories); "
++		"the ls1 filter will fall back to linear. Generate them with "
++		"~/Projects/ls1-shaders/build-ls1-shaders.sh.", sBase.c_str() );
++	return false;
++}
++
++// Extern-visible, Vulkan-free probe so `gamescope -F ls1` can report up front
++// whether the filter is actually usable.
++const char *vulkan_ls1_shader_dir()
++{
++	if ( g_ls1.sShaderDir.empty() && !ls1_resolve_shader_dir() )
++		return nullptr;
++	return g_ls1.sShaderDir.c_str();
++}
++
++// Every failure here has to say so. Without this, a filter that cannot initialise is
++// indistinguishable from one that was never selected: the layer is simply blitted and the
++// user sees "the filter does nothing".
++static bool ls1_init_failed( const char *pszWhat )
++{
++	vk_log.errorf( "LS1: %s failed, filter unavailable - the layer will be blitted", pszWhat );
++	return false;
++}
++
++static bool ls1_init()
++{
++	if ( g_ls1.sShaderDir.empty() && !ls1_resolve_shader_dir() )
++		return false; // ls1_resolve_shader_dir said why
++
++	for ( uint32_t i = 0; i < 4; i++ )
++	{
++		std::string sPath = g_ls1.sShaderDir + "/pass" + std::to_string( i ) + ".spv";
++		std::vector<uint32_t> code = ls1_read_spirv( sPath );
++		if ( code.empty() )
++		{
++			vk_log.errorf( "LS1: could not read %s, filter unavailable", sPath.c_str() );
++			return false;
++		}
++
++		VkShaderModuleCreateInfo createInfo = {
++			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
++			.codeSize = code.size() * sizeof( uint32_t ),
++			.pCode = code.data(),
++		};
++		if ( g_device.vk.CreateShaderModule( g_device.device(), &createInfo, nullptr, &g_ls1.shaderModules[i] ) != VK_SUCCESS )
++			return ls1_init_failed( "shader module creation" );
++	}
++
++	VkDescriptorSetLayoutBinding bindings[5] = {
++		{ .binding = 0, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT },
++		{ .binding = 1, .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = 1, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT },
++		{ .binding = 2, .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 1, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT },
++		{ .binding = 3, .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 1, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT },
++		{ .binding = 4, .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1, .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT },
++	};
++
++	VkDescriptorSetLayoutCreateInfo setLayoutInfo = {
++		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
++		.bindingCount = 5,
++		.pBindings = bindings,
++	};
++	if ( g_device.vk.CreateDescriptorSetLayout( g_device.device(), &setLayoutInfo, nullptr, &g_ls1.setLayout ) != VK_SUCCESS )
++		return ls1_init_failed( "descriptor set layout creation" );
++
++	VkPipelineLayoutCreateInfo pipeLayoutInfo = {
++		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
++		.setLayoutCount = 1,
++		.pSetLayouts = &g_ls1.setLayout,
++	};
++	if ( g_device.vk.CreatePipelineLayout( g_device.device(), &pipeLayoutInfo, nullptr, &g_ls1.pipeLayout ) != VK_SUCCESS )
++		return ls1_init_failed( "pipeline layout creation" );
++
++	for ( uint32_t i = 0; i < 4; i++ )
++	{
++		VkComputePipelineCreateInfo pipeInfo = {
++			.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
++			.stage = {
++				.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
++				.stage = VK_SHADER_STAGE_COMPUTE_BIT,
++				.module = g_ls1.shaderModules[i],
++				.pName = "main",
++			},
++			.layout = g_ls1.pipeLayout,
++		};
++		if ( g_device.vk.CreateComputePipelines( g_device.device(), VK_NULL_HANDLE, 1, &pipeInfo, nullptr, &g_ls1.pipelines[i] ) != VK_SUCCESS )
++		{
++			vk_log.errorf( "LS1: compute pipeline creation failed for pass %u, filter unavailable - the layer will be blitted", i );
++			return false;
++		}
++	}
++
++	VkDescriptorPoolSize poolSizes[4] = {
++		{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 4 },
++		{ .type = VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = 4 },
++		{ .type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 8 },
++		{ .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 4 },
++	};
++
++	VkDescriptorPoolCreateInfo poolInfo = {
++		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
++		.maxSets = 4,
++		.poolSizeCount = 4,
++		.pPoolSizes = poolSizes,
++	};
++	if ( g_device.vk.CreateDescriptorPool( g_device.device(), &poolInfo, nullptr, &g_ls1.descPool ) != VK_SUCCESS )
++		return ls1_init_failed( "descriptor pool creation" );
++
++	VkDescriptorSetLayout setLayouts[4] = { g_ls1.setLayout, g_ls1.setLayout, g_ls1.setLayout, g_ls1.setLayout };
++	VkDescriptorSetAllocateInfo allocInfo = {
++		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
++		.descriptorPool = g_ls1.descPool,
++		.descriptorSetCount = 4,
++		.pSetLayouts = setLayouts,
++	};
++	if ( g_device.vk.AllocateDescriptorSets( g_device.device(), &allocInfo, g_ls1.descSets ) != VK_SUCCESS )
++		return ls1_init_failed( "descriptor set allocation" );
++
++	VkBufferCreateInfo bufferInfo = {
++		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
++		.size = sizeof( Ls1Constants_t ),
++		.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
++	};
++	if ( g_device.vk.CreateBuffer( g_device.device(), &bufferInfo, nullptr, &g_ls1.constantsBuffer ) != VK_SUCCESS )
++		return ls1_init_failed( "constants buffer creation" );
++
++	VkMemoryRequirements reqs = {};
++	g_device.vk.GetBufferMemoryRequirements( g_device.device(), g_ls1.constantsBuffer, &reqs );
++
++	VkMemoryAllocateInfo memInfo = {
++		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
++		.allocationSize = reqs.size,
++		.memoryTypeIndex = uint32_t( g_device.findMemoryType( VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, reqs.memoryTypeBits ) ),
++	};
++	if ( g_device.vk.AllocateMemory( g_device.device(), &memInfo, nullptr, &g_ls1.constantsMemory ) != VK_SUCCESS )
++		return ls1_init_failed( "constants memory allocation" );
++	g_device.vk.BindBufferMemory( g_device.device(), g_ls1.constantsBuffer, g_ls1.constantsMemory, 0 );
++	if ( g_device.vk.MapMemory( g_device.device(), g_ls1.constantsMemory, 0, sizeof( Ls1Constants_t ), 0, (void **)&g_ls1.pConstants ) != VK_SUCCESS || g_ls1.pConstants == nullptr )
++		return ls1_init_failed( "constants mapping" );
++
++	VkSamplerCreateInfo samplerInfo = {
++		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
++		.magFilter = VK_FILTER_LINEAR,
++		.minFilter = VK_FILTER_LINEAR,
++		.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
++		.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
++		.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
++		.maxLod = VK_LOD_CLAMP_NONE,
++	};
++	if ( g_device.vk.CreateSampler( g_device.device(), &samplerInfo, nullptr, &g_ls1.sampler ) != VK_SUCCESS )
++		return ls1_init_failed( "sampler creation" );
++
++	vk_log.infof( "LS1: loaded shaders from %s", g_ls1.sShaderDir.c_str() );
++	return true;
++}
++
++static gamescope::OwningRc<CVulkanTexture> ls1_create_texture( uint32_t uWidth, uint32_t uHeight, uint32_t uFormat )
++{
++	CVulkanTexture::createFlags createFlags;
++	createFlags.bSampled = true;
++	createFlags.bStorage = true;
++	createFlags.bTransferSrc = true;
++	createFlags.bTransferDst = true;
++
++	gamescope::OwningRc<CVulkanTexture> pTexture = new CVulkanTexture();
++	if ( !pTexture->BInit( uWidth, uHeight, 1u, uFormat, createFlags, nullptr ) )
++		return nullptr;
++
++	return pTexture;
++}
++
++static bool ls1_ensure_textures( CVulkanTexture *pSrc, CVulkanTexture *pDst, uint32_t uDstW, uint32_t uDstH )
++{
++	const uint32_t uSrcW = pSrc->width();
++	const uint32_t uSrcH = pSrc->height();
++	const uint32_t uSrcFormat = pSrc->format();
++
++	// Only the intermediates are cached (on the sizes and format that determine them).
++	// The descriptor sets are rewritten on every call below, because they reference the
++	// compositor's own textures: those can be recreated between frames, and a recycled
++	// address would make a pointer-keyed cache look like a hit while the image views it
++	// holds have already been destroyed.
++	const bool bNeedNewIntermediates = g_ls1.texA == nullptr
++		|| g_ls1.uSrcW != uSrcW || g_ls1.uSrcH != uSrcH
++		|| g_ls1.uDstW != uDstW || g_ls1.uDstH != uDstH
++		|| g_ls1.uSrcFormat != uSrcFormat;
++
++	if ( bNeedNewIntermediates )
++	{
++		g_ls1.texA = ls1_create_texture( uSrcW, uSrcH, DRM_FORMAT_ABGR8888 );
++		g_ls1.texB = ls1_create_texture( uSrcW, uSrcH, DRM_FORMAT_ABGR8888 );
++		g_ls1.texC = ls1_create_texture( uSrcW * 2u, uSrcH * 2u, DRM_FORMAT_ABGR16161616F );
++
++		if ( g_ls1.texA == nullptr || g_ls1.texB == nullptr || g_ls1.texC == nullptr )
++		{
++			vk_log.errorf( "LS1: failed to create intermediate textures" );
++			g_ls1.bAvailable = false;
++			return false;
++		}
++
++		g_ls1.uSrcW = uSrcW;
++		g_ls1.uSrcH = uSrcH;
++		g_ls1.uDstW = uDstW;
++		g_ls1.uDstH = uDstH;
++		g_ls1.uSrcFormat = uSrcFormat;
++	}
++
++	// passes: 0 src->A, 1 A->B, 2 B->C, 3 (C, src)->dst
++	for ( uint32_t uPass = 0; uPass < 4; uPass++ )
++	{
++		// The layer is sampled like the other scalers do it: through the sRGB
++		// view, so the hardware decodes it before the network sees it.
++		CVulkanTexture *pIn = uPass == 0 ? pSrc
++			: uPass == 1 ? g_ls1.texA.get()
++			: uPass == 2 ? g_ls1.texB.get()
++			: g_ls1.texC.get();
++		CVulkanTexture *pIn1 = uPass == 3 ? pSrc : pIn;
++		CVulkanTexture *pOut = uPass == 0 ? g_ls1.texA.get()
++			: uPass == 1 ? g_ls1.texB.get()
++			: uPass == 2 ? g_ls1.texC.get()
++			: pDst;
++
++		VkDescriptorBufferInfo bufferDesc = { .buffer = g_ls1.constantsBuffer, .offset = 0, .range = sizeof( Ls1Constants_t ) };
++		VkDescriptorImageInfo samplerDesc = { .sampler = g_ls1.sampler };
++		VkDescriptorImageInfo inDesc = { .imageView = uPass == 0 ? pSrc->srgbView() : pIn->linearView(), .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
++		VkDescriptorImageInfo in1Desc = { .imageView = uPass == 3 ? pSrc->srgbView() : pIn1->linearView(), .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
++		VkDescriptorImageInfo outDesc = { .imageView = pOut->linearView(), .imageLayout = VK_IMAGE_LAYOUT_GENERAL };
++
++		VkWriteDescriptorSet writes[5] = {
++			{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = g_ls1.descSets[uPass], .dstBinding = 0, .descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .pBufferInfo = &bufferDesc },
++			{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = g_ls1.descSets[uPass], .dstBinding = 1, .descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER, .pImageInfo = &samplerDesc },
++			{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = g_ls1.descSets[uPass], .dstBinding = 2, .descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .pImageInfo = &inDesc },
++			{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = g_ls1.descSets[uPass], .dstBinding = 3, .descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .pImageInfo = &in1Desc },
++			{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = g_ls1.descSets[uPass], .dstBinding = 4, .descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .pImageInfo = &outDesc },
++		};
++		g_device.vk.UpdateDescriptorSets( g_device.device(), 5, writes, 0, nullptr );
++	}
++
++	return true;
++}
++
++// Copies the layer into our own texture, runs the four passes and copies the
++// result into pDst. Returns false if LS1 is unavailable for this frame.
++static bool ls1_upscale( CVulkanCmdBuffer *pCmdBuffer, CVulkanTexture *pSrc, CVulkanTexture *pDst, uint32_t uDstW, uint32_t uDstH )
++{
++	if ( !g_ls1.bTried )
++	{
++		g_ls1.bTried = true;
++		g_ls1.bAvailable = ls1_init();
++	}
++
++	if ( !g_ls1.bAvailable )
++		return false;
++
++	const uint32_t uSrcW = pSrc->width();
++	const uint32_t uSrcH = pSrc->height();
++
++	if ( !ls1_ensure_textures( pSrc, pDst, uDstW, uDstH ) )
++		return false;
++
++	g_ls1.pConstants->u_srcSize[0] = uSrcW;
++	g_ls1.pConstants->u_srcSize[1] = uSrcH;
++	g_ls1.pConstants->u_srcSize2[0] = uSrcW;
++	g_ls1.pConstants->u_srcSize2[1] = uSrcH;
++	g_ls1.pConstants->u_srcOffset[0] = 0;
++	g_ls1.pConstants->u_srcOffset[1] = 0;
++	g_ls1.pConstants->u_hdr = 0;
++	g_ls1.pConstants->u_pad0 = 0;
++	g_ls1.pConstants->u_dstSize[0] = uDstW;
++	g_ls1.pConstants->u_dstSize[1] = uDstH;
++	g_ls1.pConstants->u_pad1[0] = 0;
++	g_ls1.pConstants->u_pad1[1] = 0;
++
++	// LS1's intermediates move ~80 B per source pixel, so a large source is expensive;
++	// say so once instead of silently costing frames.
++	static bool s_bWarnedLargeSource = false;
++	if ( !s_bWarnedLargeSource && uSrcW > 1600 )
++	{
++		s_bWarnedLargeSource = true;
++		vk_log.infof( "LS1: source is %ux%u - LS1 moves ~80 B/source-pixel through its "
++			"intermediates, so FSR/NIS are the better choice at this size", uSrcW, uSrcH );
++	}
++
++	// The layer is sampled directly rather than copied first: copying needed
++	// TRANSFER_SRC/DST on the compositor's textures, which they may not have.
++	pCmdBuffer->prepareSrcImage( pSrc );
++
++	VkCommandBuffer vkCmd = pCmdBuffer->rawBuffer();
++
++	for ( uint32_t uPass = 0; uPass < 4; uPass++ )
++	{
++		g_device.vk.CmdBindPipeline( vkCmd, VK_PIPELINE_BIND_POINT_COMPUTE, g_ls1.pipelines[uPass] );
++		g_device.vk.CmdBindDescriptorSets( vkCmd, VK_PIPELINE_BIND_POINT_COMPUTE, g_ls1.pipeLayout, 0, 1, &g_ls1.descSets[uPass], 0, nullptr );
++
++		// The texture this pass samples has to be readable, the one it writes has to be writable.
++		pCmdBuffer->prepareSrcImage( uPass == 0 ? pSrc
++			: uPass == 1 ? g_ls1.texA.get()
++			: uPass == 2 ? g_ls1.texB.get()
++			: g_ls1.texC.get() );
++		if ( uPass == 3 )
++			pCmdBuffer->prepareSrcImage( pSrc );
++
++		pCmdBuffer->prepareDestImage( uPass == 0 ? g_ls1.texA.get()
++			: uPass == 1 ? g_ls1.texB.get()
++			: uPass == 2 ? g_ls1.texC.get()
++			: pDst );
++		pCmdBuffer->insertBarrier();
++
++		uint32_t uGroupsX, uGroupsY;
++		if ( uPass < 3 )
++		{
++			uGroupsX = div_roundup( uSrcW, 16u );
++			uGroupsY = div_roundup( uSrcH, 16u );
++		}
++		else
++		{
++			uGroupsX = div_roundup( uDstW, 16u );
++			uGroupsY = div_roundup( uDstH, 16u );
++		}
++
++		g_device.vk.CmdDispatch( vkCmd, uGroupsX, uGroupsY, 1 );
++		pCmdBuffer->insertBarrier();
++	}
++
++	// Pass 3 wrote straight into the compositor's tmp image; tell it the
++	// contents changed so the following composite pass re-transitions it.
++	pCmdBuffer->markDirty( pDst );
++
++	return true;
++}
++
+ VkInstance vulkan_get_instance( void )
+ {
+ 	static VkInstance s_pVkInstance = []() -> VkInstance
+@@ -3997,6 +4466,16 @@ struct EasuPushData_t
+ 	}
+ };
+ 
++struct Fsr1LitePushData_t
++{
++	uvec2_t u_dstSize;
++
++	Fsr1LitePushData_t(uint32_t tempX, uint32_t tempY)
++		: u_dstSize{ tempX, tempY }
++	{
++	}
++};
++
+ struct SgsrPushData_t
+ {
+ 	uint32_t u_width;
+@@ -4230,6 +4709,8 @@ namespace
+ 			case GamescopeUpscaleFilter::NIS:     return "nis";
+ 			case GamescopeUpscaleFilter::PIXEL:   return "pixel";
+ 			case GamescopeUpscaleFilter::SGSR:    return "sgsr";
++			case GamescopeUpscaleFilter::FSR1LITE: return "fsr1lite";
++			case GamescopeUpscaleFilter::LS1:     return "ls1";
+ 			default:                              return "view";
+ 		}
+ 	}
+@@ -4416,6 +4897,10 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 
+ 	if ( frameInfo->useFSRLayer0 || frameInfo->useSGSRLayer0 )
+ 	{
++		const bool bFsr1Lite = frameInfo->useFSRLayer0
++			&& frameInfo->layers.count() > 0
++			&& frameInfo->layers.get( 0 ).filter == GamescopeUpscaleFilter::FSR1LITE;
++
+ 		uint32_t inputX = frameInfo->layers.get( 0 ).tex->width();
+ 		uint32_t inputY = frameInfo->layers.get( 0 ).tex->height();
+ 
+@@ -4424,7 +4909,7 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 
+ 		update_tmp_images(tempX, tempY);
+ 
+-		cmdBuffer->bindPipeline(g_device.pipeline(frameInfo->useSGSRLayer0 ? SHADER_TYPE_SGSR : SHADER_TYPE_EASU));
++		cmdBuffer->bindPipeline(g_device.pipeline(frameInfo->useSGSRLayer0 ? SHADER_TYPE_SGSR : ( bFsr1Lite ? SHADER_TYPE_FSR1LITE : SHADER_TYPE_EASU)));
+ 		cmdBuffer->bindTarget(g_output.tmpOutput);
+ 		cmdBuffer->bindTexture(0, frameInfo->layers.get( 0 ).tex);
+ 		cmdBuffer->setTextureSrgb(0, true);
+@@ -4432,6 +4917,8 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 		cmdBuffer->setSamplerNearest(0, false);
+ 		if ( frameInfo->useSGSRLayer0 )
+ 			cmdBuffer->uploadConstants<SgsrPushData_t>(tempX, tempY);
++		else if ( bFsr1Lite )
++			cmdBuffer->uploadConstants<Fsr1LitePushData_t>(tempX, tempY);
+ 		else
+ 			cmdBuffer->uploadConstants<EasuPushData_t>(inputX, inputY, tempX, tempY);
+ 
+@@ -4498,6 +4985,47 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 
+ 		cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
+ 	}
++	else if ( frameInfo->useLS1Layer0 )
++	{
++		uint32_t tempX = frameInfo->layers.get( 0 ).integerWidth();
++		uint32_t tempY = frameInfo->layers.get( 0 ).integerHeight();
++
++		update_tmp_images(tempX, tempY);
++
++		if ( ls1_upscale( cmdBuffer.get(), frameInfo->layers.get( 0 ).tex.get(), g_output.tmpOutput.get(), tempX, tempY ) )
++		{
++			// A blit, not the RCAS composite: LS1's network already sharpens, and RCAS on top of
++			// it only adds its own per-pixel texture. Measured on a smooth gradient, RCAS raised
++			// the 1px-vs-4px jaggedness ratio from 0.34 (LS1 alone) to 0.51, identical to a
++			// bilinear input's 0.50 - i.e. it is RCAS's texture, not the network's, and it read as
++			// a CRT-like screen grid. LS1's own sharpness control is its variant ladder
++			// (GAMESCOPE_LS1_TYPE, v0 softest to v4 sharpest).
++			struct FrameInfo_t ls1FrameInfo = *frameInfo;
++			ls1FrameInfo.layers.get( 0 ).tex = g_output.tmpOutput;
++			ls1FrameInfo.layers.get( 0 ).scale.x = 1.0f;
++			ls1FrameInfo.layers.get( 0 ).scale.y = 1.0f;
++
++			cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_BLIT, ls1FrameInfo.layers.count(), ls1FrameInfo.ycbcrMask(), 0u, ls1FrameInfo.colorspaceMask(), outputTF ));
++			bind_all_layers(cmdBuffer.get(), &ls1FrameInfo);
++			cmdBuffer->bindTarget(compositeImage);
++			cmdBuffer->uploadConstants<BlitPushData_t>(&ls1FrameInfo, uOutputRotation);
++
++			int pixelsPerGroup = 8;
++
++			cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
++		}
++		else
++		{
++			cmdBuffer->bindPipeline( g_device.pipeline(SHADER_TYPE_BLIT, frameInfo->layers.count(), frameInfo->ycbcrMask(), 0u, frameInfo->colorspaceMask(), outputTF ));
++			bind_all_layers(cmdBuffer.get(), frameInfo);
++			cmdBuffer->bindTarget(compositeImage);
++			cmdBuffer->uploadConstants<BlitPushData_t>(frameInfo, uOutputRotation);
++
++			int pixelsPerGroup = 8;
++
++			cmdBuffer->dispatch(div_roundup(currentOutputWidth, pixelsPerGroup), div_roundup(currentOutputHeight, pixelsPerGroup));
++		}
++	}
+ 	else if ( frameInfo->blurLayer0 )
+ 	{
+ 		update_tmp_images(currentOutputWidth, currentOutputHeight);
+@@ -4608,6 +5136,8 @@ std::optional<uint64_t> vulkan_composite( struct FrameInfo_t *frameInfo, gamesco
+ 			eFilter = GamescopeUpscaleFilter::FSR;
+ 		else if ( frameInfo->useNISLayer0 )
+ 			eFilter = GamescopeUpscaleFilter::NIS;
++		else if ( frameInfo->useLS1Layer0 )
++			eFilter = GamescopeUpscaleFilter::LS1;
+ 		else if ( UpscaleFilterUsesSharpness( eFilter ) )
+ 			eFilter = GamescopeUpscaleFilter::LINEAR;
+ 		const uint32_t uFilter = std::min<uint32_t>( uint32_t( eFilter ), 7u );
+diff --git a/src/rendervulkan.hpp b/src/rendervulkan.hpp
+index 6d5e7dcc..ff0adffa 100644
+--- a/src/rendervulkan.hpp
++++ b/src/rendervulkan.hpp
+@@ -289,6 +289,7 @@ struct FrameInfo_t
+ 	bool useFSRLayer0;
+ 	bool useNISLayer0;
+ 	bool useSGSRLayer0;
++	bool useLS1Layer0;
+ 	// Upscale settings for this frame.
+ 	GamescopeUpscaleFilter eUpscaleFilter = GamescopeUpscaleFilter::LINEAR;
+ 	GamescopeUpscaleScaler eUpscaleScaler = GamescopeUpscaleScaler::AUTO;
+@@ -621,12 +622,17 @@ enum ShaderType {
+ 	SHADER_TYPE_NIS,
+ 	SHADER_TYPE_RGB_TO_NV12,
+ 	SHADER_TYPE_SGSR,
++	SHADER_TYPE_FSR1LITE,
+ 
+ 	SHADER_TYPE_COUNT
+ };
+ 
+ extern VulkanOutput_t g_output;
+ 
++// Directory the LS1 runtime shaders were resolved from, or nullptr if missing.
++// Safe to call before Vulkan init.
++const char *vulkan_ls1_shader_dir();
++
+ struct SamplerState
+ {
+ 	bool bNearest : 1;
+diff --git a/src/shaders/cs_fsr1lite.comp b/src/shaders/cs_fsr1lite.comp
+new file mode 100644
+index 00000000..cd9f3db5
+--- /dev/null
++++ b/src/shaders/cs_fsr1lite.comp
+@@ -0,0 +1,54 @@
++#version 460
++
++#extension GL_GOOGLE_include_directive : require
++#extension GL_EXT_scalar_block_layout : require
++
++#include "descriptor_set.h"
++
++#define A_GPU 1
++#define A_GLSL 1
++#include "ffx_a.h"
++
++// FSR1 "lite"/optimized upscale pass: the same role as cs_easu.comp, but instead of
++// the EASU directional 12-tap filter it resamples with a single bilinear fetch. That
++// is the cheapest kernel that keeps the geometry exact, and the sharpening this mode
++// is known for comes from the RCAS composite pass that follows it - the structure
++// Lossless Scaling's "Optimized Version"/FSR Lite and Proton's WINE_FULLSCREEN_FSR=lite
++// use (a cheap upscale pass plus RCAS) rather than full EASU.
++
++layout(
++  local_size_x = 64,
++  local_size_y = 1,
++  local_size_z = 1) in;
++
++layout(binding = 0, scalar)
++uniform push_t {
++    uvec2 u_dstSize;
++};
++
++void litePass(uvec2 pos)
++{
++    // Sample the source at this destination pixel's centre, in destination-relative
++    // coordinates: srcSize/dstSize/srcSize collapses to 1/dstSize, so this needs no
++    // division by the source size and no scale vector. One bilinear fetch keeps the
++    // geometry exact - no half-texel shift, and a 1:1 scale reproduces the source
++    // sample for sample.
++    vec2 uv = (vec2(pos) + 0.5) / vec2(u_dstSize);
++
++    vec4 color = texture(s_samplers[0], uv);
++
++    imageStore(dst, ivec2(pos), vec4(color.rgb, 1.0));
++}
++
++void main()
++{
++    // Same swizzle as the other scalers: 4 pixels per invocation.
++    uvec2 pos = ARmp8x8(gl_LocalInvocationID.x) + uvec2(gl_WorkGroupID.x << 4u, gl_WorkGroupID.y << 4u);
++    litePass(pos);
++    pos.x += 8u;
++    litePass(pos);
++    pos.y += 8u;
++    litePass(pos);
++    pos.x -= 8u;
++    litePass(pos);
++}
+diff --git a/src/steamcompmgr.cpp b/src/steamcompmgr.cpp
+index 7c84d44c..2f7de644 100644
+--- a/src/steamcompmgr.cpp
++++ b/src/steamcompmgr.cpp
+@@ -1138,7 +1138,7 @@ static gamescope::ConCommand cc_focus_info( "focus_info", "Dump debug info about
+ static std::atomic<int32_t> g_nPendingUpscaleFilter = { -1 };
+ static std::atomic<int32_t> g_nPendingUpscaleSharpness = { -1 };
+ 
+-static gamescope::ConCommand cc_scaling_filter( "scaling_filter", "Set the scaling filter (linear, nearest, fsr, nis, pixel, sgsr)",
++static gamescope::ConCommand cc_scaling_filter( "scaling_filter", "Set the scaling filter (linear, nearest, fsr, fsr1lite, nis, pixel, sgsr, ls1)",
+ []( std::span<std::string_view> args )
+ {
+ 	if ( args.size() < 2 )
+@@ -1157,6 +1157,32 @@ static gamescope::ConCommand cc_scaling_filter( "scaling_filter", "Set the scali
+ 	g_nPendingUpscaleFilter = int32_t( *oFilter );
+ });
+ 
++// Toggle helpers for the filters added on top of FSR/NIS. The Super+? bindings live in
++// the backends; these give scripts and session hotkey clients the same thing over the
++// control socket, eg. `gamescopectl toggle_ls1` or `scaling_filter ls1`.
++static void ToggleUpscaleFilter( GamescopeUpscaleFilter eFilter )
++{
++	g_nPendingUpscaleFilter = int32_t( g_wantedUpscaleFilter == eFilter ? GamescopeUpscaleFilter::LINEAR : eFilter );
++}
++
++static gamescope::ConCommand cc_toggle_fsr1lite( "toggle_fsr1lite", "Toggle FSR1 Lite upscaling",
++[]( std::span<std::string_view> )
++{
++	ToggleUpscaleFilter( GamescopeUpscaleFilter::FSR1LITE );
++});
++
++static gamescope::ConCommand cc_toggle_ls1( "toggle_ls1", "Toggle LS1 upscaling",
++[]( std::span<std::string_view> )
++{
++	ToggleUpscaleFilter( GamescopeUpscaleFilter::LS1 );
++});
++
++static gamescope::ConCommand cc_toggle_sgsr( "toggle_sgsr", "Toggle SGSR upscaling",
++[]( std::span<std::string_view> )
++{
++	ToggleUpscaleFilter( GamescopeUpscaleFilter::SGSR );
++});
++
+ static gamescope::ConCommand cc_scaling_sharpness( "scaling_sharpness", "Set the scaling sharpness (0 to 20)",
+ []( std::span<std::string_view> args )
+ {
+@@ -3224,9 +3250,10 @@ paint_all( global_focus_t *pFocus, bool async )
+ 
+ 					bool needsScaling = frameInfo.layers.get( 0 ).scale.x < 0.999f && frameInfo.layers.get( 0 ).scale.y < 0.999f;
+ 					GamescopeUpscaleFilter eLayer0Filter = ResolveUpscaleFilter( frameInfo.eUpscaleFilter, frameInfo.layers.get( 0 ).colorspace, frameInfo.layers.get( 0 ).isYcbcr() );
+-					frameInfo.useFSRLayer0 = eLayer0Filter == GamescopeUpscaleFilter::FSR && needsScaling;
++					frameInfo.useFSRLayer0 = ( eLayer0Filter == GamescopeUpscaleFilter::FSR || eLayer0Filter == GamescopeUpscaleFilter::FSR1LITE ) && needsScaling;
+ 					frameInfo.useNISLayer0 = eLayer0Filter == GamescopeUpscaleFilter::NIS && needsScaling;
+ 					frameInfo.useSGSRLayer0 = eLayer0Filter == GamescopeUpscaleFilter::SGSR && needsScaling;
++					frameInfo.useLS1Layer0 = eLayer0Filter == GamescopeUpscaleFilter::LS1 && needsScaling;
+ 				}
+ 				if ( pFocus == GetCurrentMouseFocus() )
+ 					update_touch_scaling( &frameInfo );
+@@ -3400,6 +3427,7 @@ paint_all( global_focus_t *pFocus, bool async )
+ 		frameInfo.useFSRLayer0 = false;
+ 		frameInfo.useNISLayer0 = false;
+ 		frameInfo.useSGSRLayer0 = false;
++		frameInfo.useLS1Layer0 = false;
+ 	}
+ 
+ 	pFocus->eActiveUpscaler = GamescopeUpscaleFilter::LINEAR;
+@@ -3409,6 +3437,8 @@ paint_all( global_focus_t *pFocus, bool async )
+ 		pFocus->eActiveUpscaler = GamescopeUpscaleFilter::NIS;
+ 	else if ( frameInfo.useSGSRLayer0 )
+ 		pFocus->eActiveUpscaler = GamescopeUpscaleFilter::SGSR;
++	else if ( frameInfo.useLS1Layer0 )
++		pFocus->eActiveUpscaler = GamescopeUpscaleFilter::LS1;
+ 	// A full blur draws layer 0 from the blurred image, so its filter never runs.
+ 	else if ( frameInfo.layers.count() && !frameInfo.layers.get( 0 ).isScreenSize() && frameInfo.blurLayer0 != BLUR_MODE_ALWAYS )
+ 	{
+@@ -7347,7 +7377,7 @@ handle_property_notify(xwayland_ctx_t *ctx, XPropertyEvent *ev)
+ 	{
+ 		uint32_t uScalingFilter = get_prop( ctx, ctx->root, ctx->atoms.gamescopeNewScalingFilter, 0 );
+ 
+-		if ( uScalingFilter > uint32_t( GamescopeUpscaleFilter::SGSR ) )
++		if ( uScalingFilter > uint32_t( GamescopeUpscaleFilter::LS1 ) )
+ 			xwm_log.errorf( "Unknown scaling filter %u, keeping %u", uScalingFilter, uint32_t( g_wantedUpscaleFilter ) );
+ 		else if ( g_wantedUpscaleFilter != GamescopeUpscaleFilter( uScalingFilter ) )
+ 		{
+@@ -8605,9 +8635,12 @@ void update_wayland_res(const std::shared_ptr<CommitDoneList_t> &doneCommits, st
+ 		upscaledFrameInfo.nUpscaleSharpness = pUpscaleFocus->nUpscaleSharpness;
+ 		paint_window_commit( newCommit, w, w, &upscaledFrameInfo, nullptr );
+ 		GamescopeUpscaleFilter eLayer0Filter = ResolveUpscaleFilter( upscaledFrameInfo.eUpscaleFilter, upscaledFrameInfo.layers.get( 0 ).colorspace, upscaledFrameInfo.layers.get( 0 ).isYcbcr() );
+-		upscaledFrameInfo.useFSRLayer0 = eLayer0Filter == GamescopeUpscaleFilter::FSR;
++		// This path picks the pre-pass itself, so these have to stay in step with the ones the
++		// normal paint path sets - otherwise a requested filter silently never runs here.
++		upscaledFrameInfo.useFSRLayer0 = eLayer0Filter == GamescopeUpscaleFilter::FSR || eLayer0Filter == GamescopeUpscaleFilter::FSR1LITE;
+ 		upscaledFrameInfo.useNISLayer0 = eLayer0Filter == GamescopeUpscaleFilter::NIS;
+ 		upscaledFrameInfo.useSGSRLayer0 = eLayer0Filter == GamescopeUpscaleFilter::SGSR;
++		upscaledFrameInfo.useLS1Layer0 = eLayer0Filter == GamescopeUpscaleFilter::LS1;
+ 		globalScaleRatio = flOldGlobalScale;
+ 		zoomScaleRatio = flOldZoomScale;
+ 		overscanScaleRatio = flOldOverscanScale;
+diff --git a/tests/test_upscale.cpp b/tests/test_upscale.cpp
+index 6161c612..8f919691 100644
+--- a/tests/test_upscale.cpp
++++ b/tests/test_upscale.cpp
+@@ -66,3 +66,39 @@ TEST_CASE("GetUpscaleSettings", "[upscale]") {
+ 		REQUIRE( settings.eScaler == GamescopeUpscaleScaler::AUTO );
+ 	}
+ }
++
++TEST_CASE("the added filters keep their wire values", "[upscale]") {
++	// Steam writes the filter as a number into the app's X11 properties, and the
++	// control socket takes it the same way, so these values are ABI.
++	REQUIRE( uint32_t( GamescopeUpscaleFilter::FSR1LITE ) == 6 );
++	REQUIRE( uint32_t( GamescopeUpscaleFilter::LS1 ) == 7 );
++}
++
++TEST_CASE("the added filters parse by name", "[upscale]") {
++	REQUIRE( ParseUpscaleFilter( "fsr1lite" ) == GamescopeUpscaleFilter::FSR1LITE );
++	REQUIRE( ParseUpscaleFilter( "ls1" ) == GamescopeUpscaleFilter::LS1 );
++
++	// One name table backs both --filter and the scaling_filter command, and it
++	// matches exactly, so a casing slip is a startup error rather than a silent
++	// fallback to a different filter.
++	REQUIRE_FALSE( ParseUpscaleFilter( "FSR1Lite" ).has_value() );
++	REQUIRE_FALSE( ParseUpscaleFilter( "LS1" ).has_value() );
++
++	// fsr1lite is a spatial pre-pass over the layer's RGB view, so it takes any
++	// colourspace the composite handles.
++	REQUIRE( ResolveUpscaleFilter( GamescopeUpscaleFilter::FSR1LITE, GAMESCOPE_APP_TEXTURE_COLORSPACE_HDR10_PQ, false ) == GamescopeUpscaleFilter::FSR1LITE );
++
++	// ls1's network reads plain RGB, so it takes exactly the inputs cs_sgsr takes: HDR keeps
++	// FSR so the user does not silently lose sharpening, and a planar layer has no RGB view
++	// to read, so that drops to linear.
++	REQUIRE( ResolveUpscaleFilter( GamescopeUpscaleFilter::LS1, GAMESCOPE_APP_TEXTURE_COLORSPACE_SRGB, false ) == GamescopeUpscaleFilter::LS1 );
++	REQUIRE( ResolveUpscaleFilter( GamescopeUpscaleFilter::LS1, GAMESCOPE_APP_TEXTURE_COLORSPACE_HDR10_PQ, false ) == GamescopeUpscaleFilter::FSR );
++	REQUIRE( ResolveUpscaleFilter( GamescopeUpscaleFilter::LS1, GAMESCOPE_APP_TEXTURE_COLORSPACE_SCRGB, false ) == GamescopeUpscaleFilter::FSR );
++	REQUIRE( ResolveUpscaleFilter( GamescopeUpscaleFilter::LS1, GAMESCOPE_APP_TEXTURE_COLORSPACE_SRGB, true ) == GamescopeUpscaleFilter::LINEAR );
++
++	// fsr1lite finishes in the RCAS composite, so the sharpness setting applies to it. LS1
++	// deliberately does not - it blits its network output, and its own control is the variant
++	// ladder (GAMESCOPE_LS1_TYPE).
++	REQUIRE( UpscaleFilterUsesSharpness( GamescopeUpscaleFilter::FSR1LITE ) );
++	REQUIRE_FALSE( UpscaleFilterUsesSharpness( GamescopeUpscaleFilter::LS1 ) );
++}
