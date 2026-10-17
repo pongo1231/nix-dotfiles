@@ -10,7 +10,10 @@
   ];
 
   boot = {
-    kernelModules = [ "ntsync" ];
+    kernelModules = [
+      "ntsync"
+      "i2c-dev"
+    ];
 
     plymouth.enable = lib.mkDefault true;
   };
@@ -45,6 +48,8 @@
     power-profiles-daemon.enable = true;
 
     kmscon.hwRender = true;
+
+    udev.packages = [ pkgs.ddcutil ];
   };
 
   virtualisation.waydroid.enable = true;
@@ -58,6 +63,7 @@
     with pkgs;
     [
       #systemdgenie
+      ddcutil
     ]
     ++ (import ../lsfgScripts.nix pkgs);
 }

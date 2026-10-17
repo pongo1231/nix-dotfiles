@@ -240,7 +240,6 @@ args:
 
     systemPackages = with pkgs; [
       home-manager
-      ddcutil
       distrobox
       sshfs
       ssh-to-age
