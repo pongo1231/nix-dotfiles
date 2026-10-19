@@ -112,7 +112,7 @@ args:
         theme.dark = "titanium";
         symbolPreset = "unicode";
         composer.shape = "band";
-        modelRoles.default = "deepseek/deepseek-v4-flash-vision-exp";
+        modelRoles.default = "deepseek/deepseek-flash";
         memory.backend = "mnemopi";
         autolearn.enabled = true;
         setupVersion = 2;
