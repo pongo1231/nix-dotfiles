@@ -1,15 +1,16 @@
 diff --git a/src/core/exec-invoke.c b/src/core/exec-invoke.c
-index d0c69d98ec..97ca102213 100644
 --- a/src/core/exec-invoke.c
 +++ b/src/core/exec-invoke.c
-@@ -5041,7 +5041,9 @@ int exec_invoke(
+@@ -5702,7 +5702,11 @@ int exec_invoke(
                  }
          }
  
--        if (context->memory_ksm >= 0)
-+        if (context->memory_ksm == -1)
-+                prctl(PR_SET_MEMORY_MERGE, 1, 0, 0, 0);
-+        else
-                 if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
-                         if (ERRNO_IS_NOT_SUPPORTED(errno))
-                                 log_debug_errno(errno, "KSM support not available, ignoring.");
+-        if (context->memory_ksm >= 0) {
++        if (context->memory_ksm == -1) {
++                /* MemoryKSM= unset: enable KSM for every process by default.
++                 * Best-effort, like the explicit case below. */
++                (void) prctl_safe(PR_SET_MEMORY_MERGE, 1, 0, 0, 0);
++        } else {
+                 r = prctl_safe(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0);
+                 if (r < 0) {
+                         if (ERRNO_IS_NOT_SUPPORTED(r))

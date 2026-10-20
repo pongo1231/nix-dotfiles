@@ -66,10 +66,14 @@
         installPhase = ''
           runHook preInstall
 
-          install steamdeck.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/mfd
-          install steamdeck_hwmon.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/hwmon
-          install steamdeck_leds.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/leds
-          install steamdeck_extcon.ko -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/extcon
+          for entry in mfd:steamdeck hwmon:steamdeck_hwmon leds:steamdeck_leds extcon:steamdeck_extcon; do
+            dir="''${entry%%:*}"
+            mod="''${entry##*:}.ko"
+
+            install "$mod" -Dm755 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/"$dir"
+            ${pkgs.kmodigest}/bin/kmodigest "$mod"
+            install "$mod.cer" -Dm444 -t $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/"$dir"
+          done
 
           runHook postInstall
         '';
@@ -145,5 +149,5 @@
     scx.enable = false;
   };
 
-  environment.systemPackages = with pkgs; [ steamdeck-firmware ];
+  environment.systemPackages = with pkgs; [ jovianPackages.steamdeck-firmware ];
 }
