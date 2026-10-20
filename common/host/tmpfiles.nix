@@ -1,8 +1,3 @@
-config:
-let
-  override = config.pongo.users.defaultOverride;
-  user = if override ? name then override.user else "pongo";
-in
 [
   #"w /sys/class/rtc/rtc0/max_user_freq - - - - 3072"
   #"w /proc/sys/dev/hpet/max-user-freq - - - - 3072"
@@ -13,7 +8,4 @@ in
 
   "w /sys/kernel/mm/transparent_hugepage/hugepages-*/enabled - - - - inherit"
   "w /sys/kernel/mm/transparent_hugepage/hugepages-*/shmem_enabled - - - - inherit"
-
-  "d /tmp/.X11-unix 1777 ${user} users -"
-  "z /tmp/.X11-unix 1777 ${user} users -"
 ]

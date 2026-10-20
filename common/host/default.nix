@@ -183,7 +183,7 @@ args:
       enableUserSlices = true;
     };
 
-    tmpfiles.rules = import ./tmpfiles.nix config;
+    tmpfiles.rules = import ./tmpfiles.nix;
 
     services = {
       "user@".serviceConfig.Delegate = "cpu cpuset io memory pids";
