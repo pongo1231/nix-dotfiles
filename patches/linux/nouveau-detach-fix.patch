@@ -1,19 +1,27 @@
 PROVENANCE UNVERIFIED - this file carries no upstream provenance.
 ===================================================================
-Audited 2026-10-12. No upstream artifact matching this change could be found, despite
-searching: lore.kernel.org (full-text; controls confirmed the index works) and
-lore.freedesktop.org/nouveau, elixir.bootlin.com (v7.3-rc6/v7.2.9), the linux-next
-mirror, the local torvalds clone's object database, and the CachyOS/kernel-patches and
-babiulep/my-kernel-patches trees. The three symbols it introduces
-(nouveau_ttm_fini_hw, nouveau_ttm_evict_manager, nouveau_drm_release) exist in no
-reachable upstream tree, and 5 of the 6 recorded 'index <pre>' blobs do not match this
-base's files (only nouveau_ttm.h does), with two recorded pre-images not being objects in
-torvalds' history at all. That signature means a regenerated or hand-written diff; it is
-equally consistent with a locally authored change or one taken from an unobtainable
-vendor branch. It applies cleanly to the pristine v7.3-rc7 tree and is internally
-coherent (splits nouveau_ttm_fini() into fini_hw/fini, runs manager teardown from a new
-drm_driver.release, moves client teardown before nouveau_accel_fini, adds a fence guard
-in nouveau_channel_idle()).
+Audited 2026-10-12, re-audited 2026-10-20. No upstream artifact matching this change could
+be found. Checks that do hold, each with a working control:
+ - patchwork.kernel.org subject search: no record ([] result).
+ - elixir.bootlin.com A/ident for the three symbols on v7.3 and v7.2.9: no hit
+   (control: nouveau_ttm_fini = 5 hits).
+ - grep of the current drm-misc-next and the nouveau drm-next tips: no hit (control =
+   5 matches), and no commit in the local torvalds history introduces them.
+ - web search for the symbol names and for the change's own description: nothing.
+ - lore.kernel.org full-text search, with controls confirming the index works: nothing.
+ - CachyOS/kernel-patches and babiulep/my-kernel-patches: absent.
+Not evidence: marc.info, which splits the search token on '_' and ORs the parts, so it
+cannot demonstrate absence for these identifiers.
+The three symbols it introduces (nouveau_ttm_fini_hw, nouveau_ttm_evict_manager,
+nouveau_drm_release) exist in no reachable upstream tree. Of the six recorded
+'index <pre>' blobs, five do not match this base's files (only nouveau_ttm.h does), and
+one of them (517ff2c3, nouveau_drv.h) is not an object in any reachable upstream, so this
+cannot be a single upstream commit. That signature means a regenerated or hand-written
+diff; it is equally consistent with a locally authored change or one taken from an
+unobtainable vendor branch. It applies cleanly to the pinned 7.3.0 tree (and to the
+earlier 7.3-rc7 one) and is internally coherent (splits nouveau_ttm_fini() into
+fini_hw/fini, runs manager teardown from a new drm_driver.release, moves client teardown
+before nouveau_accel_fini, adds a fence guard in nouveau_channel_idle()).
 Action: if the origin is established, or if this is known to be locally authored, replace
 this note with the real provenance. It predates the 2026-10-12 patch-stack audit.
 

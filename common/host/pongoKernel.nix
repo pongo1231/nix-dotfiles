@@ -79,12 +79,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0-rc7";
+                      modDirVersion = "7.3.0";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "24a19b953e2a3d0ea5a8c4951a0ab8f32720c907";
-                        hash = "sha256-b9Slv//a1PSty23X8RcdcMD6UiyhySL9MLx5MTZpNIU=";
+                        rev = "f47d223627f80cb7a1eb14c585fe6cb35de5e984";
+                        hash = "sha256-c8nnJcR4TjleIHb/3RS1clICIo0UXV8f5INUwCVeYUc=";
                       };
                     };
                 };
@@ -130,7 +130,7 @@ in
         }
         {
           name = "mm: the whole mm-new queue (wholesale)";
-          patch = patch /linux/20261009_mm-queue_mm-new_wholesale.patch;
+          patch = patch /linux/20261020_mm-queue_mm-new_wholesale.patch;
         }
         {
           name = "nouveau detach fix";
@@ -180,16 +180,8 @@ in
           patch = patch /linux/20260825_usama_arif_crypto_zstd_avoid_initializing_the_workspace_twice.patch;
         }
         {
-          name = "btrfs: zstd: avoid a copy in zstd_decompress_bio()";
-          patch = patch /linux/20260904_usama_arif_btrfs_zstd_avoid_a_copy_in_zstd_decompress_bio.patch;
-        }
-        {
           name = "lib/lz4: stop forking upstream LZ4, vendor it";
           patch = patch /linux/v1_20260925_michal_wilczynski_lib_lz4_stop_forking_upstream_lz4_vendor_it.patch;
-        }
-        {
-          name = "fs: avoid spurious dentry ref/unref cycle on open";
-          patch = patch /linux/20260803_mateusz_guzik_fs_avoid_spurious_dentry_ref_unref_cycle_on_open.patch;
         }
         {
           name = "fuse: enable large folios";
@@ -205,15 +197,11 @@ in
         }
         {
           name = "mm/mglru: frequency guided promotion (MGLRU-FG)";
-          patch = patch /linux/v3_20261003_kairui_song_mm_mglru_frequency_guided_promotion_and_flag_cleanup.patch;
+          patch = patch /linux/v4_20261015_kairui_song_mm_mglru_frequency_guided_promotion_and_flag_cleanup.patch;
         }
         {
           name = "zram: redesign zcomp and rework backends (rebased)";
           patch = patch /linux/20261009_sergey_senozhatsky_zram_redesign_zcomp_and_rework_backends_rebased.patch;
-        }
-        {
-          name = "mm: zswap: reduce request contention on loads";
-          patch = patch /linux/20261009_usama_arif_mm_zswap_reduce_request_contention_on_loads.patch;
         }
         {
           name = "mm/zswap: batch the writeback IO";
@@ -224,16 +212,16 @@ in
           patch = patch /linux/20261012_torvalds_assoc-array-fixes.patch;
         }
         {
-          name = "mm: page cache reads without folio references";
-          patch = patch /linux/20261012_torvalds_noref-filemap-read-with-llm.patch;
-        }
-        {
-          name = "mm/filemap: keep the lockless read loop for LRU-gen folios";
-          patch = patch /linux/20261012_noref-filemap-lru-gen-fastpath.patch;
+          name = "mm: read the page cache without folio references (RFC v1)";
+          patch = patch /linux/20261019_kiryl_shutsemau_mm_read_page_cache_without_folio_references.patch;
         }
         {
           name = "ext4: dev branch (whole branch)";
-          patch = patch /linux/20261012_tytso_ext4_dev.patch;
+          patch = patch /linux/20261020_tytso_ext4_dev.patch;
+        }
+        {
+          name = "btrfs: 7.4 updates (whole branch)";
+          patch = patch /linux/20261015_david_sterba_btrfs_7_4_pull.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [

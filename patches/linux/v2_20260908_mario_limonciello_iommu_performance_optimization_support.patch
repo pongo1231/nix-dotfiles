@@ -1,3 +1,36 @@
+Upstream-merged form of the posted v2 PerfOpt support series.
+
+Posted revision: v2 only (2026-09-08, Message-ID 20260908041207.38113-2 / -3).
+No v3 exists: the amd-gfx September and October archives carry nothing but the
+v2 pair for this subject, and lkml shows no resend. The follow-up series
+"iommu/amd: Make PerfOpt compulsory" (v4, 2026-10-01) is still pending and does
+not extend this one, it removes most of it.
+
+Applied upstream by joro@ on 2026-09-25 to the iommu tree's amd/amd-vi branch:
+  6e87850d1a8f32c1d91cce32c0d92b20f86689ed  iommu/amd half (5 files)
+  e74db71a3530740bb783e3a01420f6af245630b4  drm/amdgpu half (3 files)
+with exactly one fixup, tagged "[joerg.roedel@amd.com: Fixed build failure on i386]":
+include/linux/amd-iommu.h - the "struct pci_dev;" forward declaration moves out of
+the #ifdef CONFIG_AMD_IOMMU block, above it, so the !CONFIG_AMD_IOMMU inline stubs
+that dereference struct pci_dev compile.
+
+Verified by per-file +/- line sets over all 8 touched files: the merged content is
+the v2 content plus that single forward-declaration move (one '-' and one '+'
+line). Commit messages are unchanged apart from the added fixup tag and the
+Tested/Acked/Co-developed-by trailers.
+
+Local deviation from upstream: NONE in this file. The device-restriction change
+(dev_is_pci()/pci_is_display() instead of keying dev_data->perfopt on the IOMMU's
+FEATURE_PERF_OPT alone) lives in the separate compulsory patch, not here.
+
+Rebuilt mechanically: the amd-iommu.h section was regenerated with git diff from a
+scratch tree (pristine base + this patch + the forward-declaration move); the other
+seven sections are byte-identical to the previous file. Applies to the pristine
+lib-base tree with patch -p1 --fuzz=0, 0 failures.
+
+Source route: cgit /patch/?id=<sha> on git.kernel.org/pub/scm/linux/kernel/git/iommu/linux.git
+(lore.kernel.org and patch.msgid.link are 403 from here).
+
 From mboxrd@z Thu Jan  1 00:00:00 1970
 Received: from SN4PR2101CU001.outbound.protection.outlook.com (mail-southcentralusazon11012006.outbound.protection.outlook.com [40.93.195.6])
 	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
@@ -548,9 +581,22 @@ index 4dc306a4b5c62..fa60affdfc035 100644
  	 * Skip attach device to domain if new domain is same as
  	 * devices current domain
 diff --git a/include/linux/amd-iommu.h b/include/linux/amd-iommu.h
-index edcee9f5335a6..e03575cbc08c6 100644
+index edcee9f..104817e 100644
 --- a/include/linux/amd-iommu.h
 +++ b/include/linux/amd-iommu.h
+@@ -11,11 +11,11 @@
+ #include <linux/types.h>
+ 
+ struct amd_iommu;
++struct pci_dev;
+ 
+ #ifdef CONFIG_AMD_IOMMU
+ 
+ struct task_struct;
+-struct pci_dev;
+ 
+ extern void amd_iommu_detect(void);
+ 
 @@ -76,4 +76,15 @@ static inline int amd_iommu_snp_disable(void) { return 0; }
  static inline bool amd_iommu_sev_tio_supported(void) { return false; }
  #endif

@@ -1,7 +1,3 @@
-ext4 dev branch (whole branch, 41 commits, tip 35aefefd7aba)
-Source: https://git.kernel.org/pub/scm/linux/kernel/git/tytso/ext4.git/log/?h=dev
-Commits not in mainline as of ff47652a, regenerated with --no-renames.
-
 From 981eec6c300bd4e84ffac8f3c28b762d00f13e9c Mon Sep 17 00:00:00 2001
 From: guzebing <guzebing1612@gmail.com>
 Date: Mon, 10 Aug 2026 23:12:00 +0800
@@ -32,7 +28,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/ioctl.c b/fs/ext4/ioctl.c
-index c8387e6a2c6e..1f6d7afb62ec 100644
+index c8387e6a2..1f6d7afb6 100644
 --- a/fs/ext4/ioctl.c
 +++ b/fs/ext4/ioctl.c
 @@ -1362,7 +1362,8 @@ static void ext4_sb_setparams(struct ext4_sb_info *sbi,
@@ -116,7 +112,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 14 insertions(+)
 
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index bca0dc87d0b7..ab243a02a493 100644
+index bca0dc87d..ab243a02a 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -6123,6 +6123,7 @@ static int ext4_load_journal(struct super_block *sb,
@@ -216,7 +212,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index ab243a02a493..fbd808f54054 100644
+index ab243a02a..fbd808f54 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -2832,6 +2832,14 @@ static int ext4_check_opt_consistency(struct fs_context *fc,
@@ -306,7 +302,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/fs/jbd2/journal.c b/fs/jbd2/journal.c
-index 00f5a98f3d4f..55b4ce010228 100644
+index 00f5a98f3..55b4ce010 100644
 --- a/fs/jbd2/journal.c
 +++ b/fs/jbd2/journal.c
 @@ -843,7 +843,6 @@ int jbd2_fc_get_buf(journal_t *journal, struct buffer_head **bh_out)
@@ -381,7 +377,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 26f0f9714f03..8dd3dc9e0217 100644
+index 26f0f9714..8dd3dc9e0 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -6603,8 +6603,14 @@ static int ext4_try_to_expand_extra_isize(struct inode *inode,
@@ -490,7 +486,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  3 files changed, 33 insertions(+), 13 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 724a27e8be61..1edc4a94bb7d 100644
+index 724a27e8b..1edc4a94b 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3905,6 +3905,9 @@ extern void ext4_ext_tree_init(handle_t *handle, struct inode *inode);
@@ -504,7 +500,7 @@ index 724a27e8be61..1edc4a94bb7d 100644
  extern int ext4_ext_remove_space(struct inode *inode, ext4_lblk_t start,
  				 ext4_lblk_t end);
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 76038b6c3655..5409b4c07c3c 100644
+index 76038b6c3..5409b4c07 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
 @@ -4190,21 +4190,19 @@ static int get_implied_cluster_alloc(struct super_block *sb,
@@ -553,7 +549,7 @@ index 76038b6c3655..5409b4c07c3c 100644
  		map->m_pblk = 0;
  		map->m_len = min_t(unsigned int, map->m_len, len);
 diff --git a/fs/ext4/indirect.c b/fs/ext4/indirect.c
-index 5aec759eed70..a495080df710 100644
+index 5aec759ee..a495080df 100644
 --- a/fs/ext4/indirect.c
 +++ b/fs/ext4/indirect.c
 @@ -586,6 +586,23 @@ int ext4_ind_map_blocks(handle_t *handle, struct inode *inode,
@@ -661,7 +657,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
-index a6386c1d237f..231a274b814e 100644
+index a6386c1d2..231a274b8 100644
 --- a/fs/ext4/namei.c
 +++ b/fs/ext4/namei.c
 @@ -3209,19 +3209,20 @@ static int ext4_rmdir(struct inode *dir, struct dentry *dentry)
@@ -752,7 +748,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/fs/ext4/balloc.c b/fs/ext4/balloc.c
-index 52f4c5169f91..778fe8788f06 100644
+index 52f4c5169..778fe8788 100644
 --- a/fs/ext4/balloc.c
 +++ b/fs/ext4/balloc.c
 @@ -329,7 +329,7 @@ struct ext4_group_info *ext4_get_group_info(struct super_block *sb,
@@ -803,7 +799,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  3 files changed, 16 insertions(+), 19 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 1edc4a94bb7d..9d06ddd865d4 100644
+index 1edc4a94b..9d06ddd86 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3542,16 +3542,12 @@ static inline void ext4_isize_set(struct ext4_inode *raw_inode, loff_t i_size)
@@ -827,7 +823,7 @@ index 1edc4a94bb7d..9d06ddd865d4 100644
  
  static inline ext4_group_t ext4_flex_group(struct ext4_sb_info *sbi,
 diff --git a/fs/ext4/mballoc.c b/fs/ext4/mballoc.c
-index 06171a11db12..a15285224cdf 100644
+index 06171a11d..a15285224 100644
 --- a/fs/ext4/mballoc.c
 +++ b/fs/ext4/mballoc.c
 @@ -899,10 +899,8 @@ static ext4_group_t ext4_get_allocation_groups_count(
@@ -844,7 +840,7 @@ index 06171a11db12..a15285224cdf 100644
  	return ngroups;
  }
 diff --git a/fs/ext4/resize.c b/fs/ext4/resize.c
-index 2c5b851c552a..5e3ad8393cf8 100644
+index 2c5b851c5..5e3ad8393 100644
 --- a/fs/ext4/resize.c
 +++ b/fs/ext4/resize.c
 @@ -1462,11 +1462,11 @@ static void ext4_update_super(struct super_block *sb,
@@ -919,7 +915,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/jbd2.h b/include/linux/jbd2.h
-index 1b42fe47c26b..e3886963ba00 100644
+index 1b42fe47c..e3886963b 100644
 --- a/include/linux/jbd2.h
 +++ b/include/linux/jbd2.h
 @@ -795,7 +795,7 @@ struct journal_s
@@ -932,9 +928,9 @@ index 1b42fe47c26b..e3886963ba00 100644
  	/**
  	 * @j_barrier_count:
 
-From f1dac42750c950dbe9f222b7520f082fc063fcf7 Mon Sep 17 00:00:00 2001
+From e9941268bacab2cf13cf40d115eb0d058c897cef Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:13 +0800
+Date: Fri, 9 Oct 2026 18:30:02 +0800
 Subject: [PATCH 11/41] ext4: simplify size updating in ext4_setattr()
 
 The logic for updating the file size in ext4_setattr() is currently
@@ -945,14 +941,15 @@ involving old_disksize and the file size can be avoided.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-2-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-2-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 22 +++++++++-------------
  1 file changed, 9 insertions(+), 13 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 8dd3dc9e0217..1118c72ad7ad 100644
+index 8dd3dc9e0..1118c72ad 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -6080,7 +6080,6 @@ int ext4_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
@@ -1004,9 +1001,9 @@ index 8dd3dc9e0217..1118c72ad7ad 100644
  			if (error)
  				goto out_mmap_sem;
 
-From 7ef800c025eaeb426883c16f02f930da51160306 Mon Sep 17 00:00:00 2001
+From bbe1fc8a29c052237493cd8f56ef1d81f81865dc Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:14 +0800
+Date: Fri, 9 Oct 2026 18:30:03 +0800
 Subject: [PATCH 12/41] ext4: factor out ext4_truncate_[up|down]()
 
 Refactor ext4_setattr() by introducing two helper functions,
@@ -1018,14 +1015,15 @@ truncation paths improves readability.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
-Link: https://patch.msgid.link/20260903123543.2302999-3-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-3-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 199 +++++++++++++++++++++++++++---------------------
  1 file changed, 112 insertions(+), 87 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 1118c72ad7ad..c36290d8761c 100644
+index 1118c72ad..c36290d87 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -5982,6 +5982,112 @@ static void ext4_wait_for_tail_page_commit(struct inode *inode)
@@ -1251,64 +1249,10 @@ index 1118c72ad7ad..c36290d8761c 100644
  	}
  
 
-From 4df90406bf62f90f4270ced45bd8500134dea5ff Mon Sep 17 00:00:00 2001
+From 5b7a0efa8590929e44ae6b3777502314bd6a07a0 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:15 +0800
-Subject: [PATCH 13/41] ext4: skip ordered I/O wait when zeroing beyond
- i_disksize block
-
-ext4_block_zero_eof() zeros the tail of a partial block beyond EOF.
-After zeroing, it waits for ordered I/O completion to prevent stale
-data exposure from concurrent post-EOF mmap writes during folio
-writeback.
-
-However, if the zeroed range lies entirely beyond the block containing
-i_disksize, no stale data can be exposed because the zeroed region is
-beyond existing on-disk data. The zeroed pages will be written out
-before i_disksize is later extended past i_size, so the ordered I/O
-wait is unnecessary. Add a condition to skip it.
-
-Suggested-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-4-yi.zhang@huaweicloud.com
-Signed-off-by: Theodore Ts'o <tytso@mit.edu>
----
- fs/ext4/inode.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
-
-diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index c36290d8761c..d5db15016109 100644
---- a/fs/ext4/inode.c
-+++ b/fs/ext4/inode.c
-@@ -4241,9 +4241,22 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
- 	 * truncating up or performing an append write, because there might be
- 	 * exposing stale on-disk data which may caused by concurrent post-EOF
- 	 * mmap write during folio writeback.
-+	 *
-+	 * Ordered I/O is required only when zeroing the tail of a block that
-+	 * overlaps with i_disksize. If the zeroed range falls outside that
-+	 * block, the zeroed data lies beyond the existing on-disk data. It
-+	 * will be written out before i_disksize is later extended past
-+	 * i_size, so no stale data can be exposed.
-+	 *
-+	 * Note that it's safe to read i_disksize without holding i_data_sem
-+	 * here. Since we already hold i_rwsem, the only possible race is with
-+	 * concurrent writeback that updates i_disksize. And if such a race
-+	 * occurs, it means the previous unaligned EOF block has already been
-+	 * zeroed (if needed) and persisted to disk.
- 	 */
- 	if (ext4_should_order_data(inode) &&
--	    did_zero && zero_written && !IS_DAX(inode)) {
-+	    did_zero && zero_written && !IS_DAX(inode) &&
-+	    from < round_up(READ_ONCE(EXT4_I(inode)->i_disksize), blocksize)) {
- 		handle_t *handle;
- 
- 		handle = ext4_journal_start(inode, EXT4_HT_MISC, 1);
-
-From eaff8d796722ccce34581b03f24534a6c29bcfa1 Mon Sep 17 00:00:00 2001
-From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:16 +0800
-Subject: [PATCH 14/41] ext4: set EXT4_MAP_NEW flag for delayed allocated
+Date: Fri, 9 Oct 2026 18:30:04 +0800
+Subject: [PATCH 13/41] ext4: set EXT4_MAP_NEW flag for delayed allocated
  blocks
 
 Set EXT4_MAP_NEW in ext4_da_map_blocks() to properly indicate that a
@@ -1324,17 +1268,18 @@ Reported-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
 Link: https://lore.kernel.org/linux-ext4/cc05c17d-163e-4251-b2c9-aa3a6f9555d7@huaweicloud.com/
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-5-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-4-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index d5db15016109..947dc7d1359b 100644
+index c36290d87..309c65624 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -1990,7 +1990,7 @@ static int ext4_da_map_blocks(struct inode *inode, struct ext4_map_blocks *map)
+@@ -1990,7 +1990,7 @@ add_delayed:
  		}
  	}
  
@@ -1344,10 +1289,10 @@ index d5db15016109..947dc7d1359b 100644
  	if (!retval)
  		map->m_seq = READ_ONCE(EXT4_I(inode)->i_es_seq);
 
-From 9a9ce46904bd90622947567b58188e34bf370e95 Mon Sep 17 00:00:00 2001
+From ecabe6bd6175dda07b68bf47ec29f4e422edd9c2 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:17 +0800
-Subject: [PATCH 15/41] ext4: recheck extent status tree before block
+Date: Fri, 9 Oct 2026 18:30:05 +0800
+Subject: [PATCH 14/41] ext4: recheck extent status tree before block
  allocation
 
 After acquiring i_data_sem in write mode, recheck that the mapping
@@ -1357,25 +1302,40 @@ and the write lock acquisition, since writeback does not hold i_rwsem
 or the folio locks covering the full extent. This could cause
 ext4_map_create_blocks() to allocate blocks beyond the truncated range,
 potentially leading to quota leaks in the upcomming iomap buffered
-writeback path since the iomap writeback infrastructure caches extents
-beyond the folio range.
+writeback path, because the iomap writeback infrastructure caches
+extents beyond the folio range.
 
 Therefore, if we find a valid extent and the sequence number has
 changed, retry the entire lookup to obtain the correct trimmed mapping.
 
-Cc: stable@kernel.org
+Note that a retry only happens when i_es_seq has actually changed, which
+requires another thread to hold i_data_sem in write mode, so each retry
+implies real lock contention, and the writer yields on the rwsem
+slowpath rather than spinning. Moreover, the read-write lock also tries
+its best to guarantee fairness, so even though no retry limit is added
+here, livelock should not occur in theory. Also, the retry here mirrors
+the existing write_ops->iomap_valid() + IOMAP_F_STALE mechanism in
+iomap, which also rechecks the sequence number and retries without any
+upper bound, and has not shown livelock problems in practice.
+
+In addition, if ext4_map_query_blocks() fails, return the error
+immediately. Otherwise the following sequence number comparison would
+use a map->m_seq that may not have been updated, and silently
+continuing on an error is not advisable.
+
 Suggested-by: Jan Kara <jack@suse.cz>
+Link: https://lore.kernel.org/linux-ext4/b0781809-4759-4e12-be17-71555b764f48@gmail.com/
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://lore.kernel.org/linux-ext4/b0781809-4759-4e12-be17-71555b764f48@gmail.com/
-Link: https://patch.msgid.link/20260903123543.2302999-6-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-5-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/inode.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ fs/ext4/inode.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 947dc7d1359b..0eb1aa406358 100644
+index 309c65624..86d1e027e 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -734,6 +734,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
@@ -1395,7 +1355,7 @@ index 947dc7d1359b..0eb1aa406358 100644
  
  found:
  	if (retval > 0 && map->m_flags & EXT4_MAP_MAPPED) {
-@@ -820,6 +823,19 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -820,6 +823,21 @@ found:
  	 * with create == 1 flag.
  	 */
  	down_write(&EXT4_I(inode)->i_data_sem);
@@ -1403,8 +1363,10 @@ index 947dc7d1359b..0eb1aa406358 100644
 +	/*
 +	 * Check the validity of the mapping found via the extent status
 +	 * tree or the disk query. A racing truncate may have changed the
-+	 * extent, since writeback does not hold i_rwsem or the folio locks
-+	 * covering the full extent.
++	 * extent, since writeback may not hold i_rwsem or the folio locks
++	 * covering the full extent(e.g., the iomap writeback path may
++	 * allocate an extent that extends beyond the length of the locked
++	 * folio in advance).
 +	 */
 +	if (map->m_seq != READ_ONCE(EXT4_I(inode)->i_es_seq)) {
 +		up_write(&EXT4_I(inode)->i_data_sem);
@@ -1416,26 +1378,26 @@ index 947dc7d1359b..0eb1aa406358 100644
  	up_write((&EXT4_I(inode)->i_data_sem));
  
 
-From a151ced18d2f51db2c89c2067c1529d06ff88170 Mon Sep 17 00:00:00 2001
+From 3ec0eefc07cb9e2bb1193f1fa3d8157302a737f5 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:18 +0800
-Subject: [PATCH 16/41] ext4: fix orig_mlen initialization in ext4_map_blocks()
+Date: Fri, 9 Oct 2026 18:30:06 +0800
+Subject: [PATCH 15/41] ext4: fix orig_mlen initialization in ext4_map_blocks()
 
 Save orig_mlen after clamping map->m_len to INT_MAX. Otherwise, the
 unclamped value may be passed below, bypassing its overflow protection.
 
-Cc: stable@kernel.org
 Fixes: 5bb12b1837c0 ("ext4: Add support for EXT4_GET_BLOCKS_QUERY_LEAF_BLOCKS")
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-7-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-6-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 0eb1aa406358..8de72c17a3a3 100644
+index 86d1e027e..c861d4683 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -703,7 +703,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
@@ -1456,34 +1418,47 @@ index 0eb1aa406358..8de72c17a3a3 100644
  	/* We can handle the block number less than EXT_MAX_BLOCKS */
  	if (unlikely(map->m_lblk >= EXT_MAX_BLOCKS))
 
-From 8787d53c6c84dd13d5b5027c7d9c890499b7a03b Mon Sep 17 00:00:00 2001
+From 6585cea3cf58b8e8bbfb2a7befecb7ceeb0792ef Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:19 +0800
-Subject: [PATCH 17/41] ext4: allow ext4_map_blocks() to start its own
+Date: Fri, 9 Oct 2026 18:30:07 +0800
+Subject: [PATCH 16/41] ext4: allow ext4_map_blocks() to start its own
  transaction handle
 
 Make ext4_map_blocks() start its own transaction handle when the caller
 does not provide one. The handle is started after the lookup path
 confirms that allocation is actually needed, and is stopped at the
-unified out_handle exit path. This avoids unnecessarily starting a
-handle for pure mapping queries. This prepares for the buffered iomap
-writeback conversion, which improves performance for fragile overwrite
-cases.
+unified out exit path. This avoids unnecessarily starting a handle for
+pure mapping queries. This prepares for the buffered iomap writeback
+conversion, which improves performance for fragile overwrite cases.
 
 Suggested-by: Jan Kara <jack@suse.cz>
+Link: https://lore.kernel.org/linux-ext4/i536qqwj5eyulec3r2ki2ycnelqdd4bkpat2drn7t72t6p622k@ktueynysgo3j/
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-8-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-7-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/inode.c | 36 +++++++++++++++++++++++++++---------
- 1 file changed, 27 insertions(+), 9 deletions(-)
+ fs/ext4/inode.c | 33 ++++++++++++++++++++++++++-------
+ 1 file changed, 26 insertions(+), 7 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 8de72c17a3a3..27a68fcc57d2 100644
+index c861d4683..0109fb6b6 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -703,6 +703,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -686,6 +686,11 @@ int ext4_map_create_blocks(handle_t *handle, struct inode *inode,
+  * Otherwise, call with ext4_ind_map_blocks() to handle indirect mapping
+  * based files
+  *
++ * ext4_map_blocks() may also be called with a NULL @handle. In that case
++ * it starts its own transaction handle only when block allocation is
++ * actually needed, i.e. after the lookup confirms the blocks are not yet
++ * mapped, and stops it before returning.
++ *
+  * On success, it returns the number of blocks being mapped or allocated.
+  * If flags doesn't contain EXT4_GET_BLOCKS_CREATE the blocks are
+  * pre-allocated and unwritten, the resulting @map is marked as unwritten.
+@@ -703,6 +708,7 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
  	struct extent_status es;
  	int retval;
  	int ret = 0;
@@ -1491,86 +1466,80 @@ index 8de72c17a3a3..27a68fcc57d2 100644
  	unsigned int orig_mlen;
  #ifdef ES_AGGRESSIVE_TEST
  	struct ext4_map_blocks orig_map;
-@@ -787,13 +788,15 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -787,13 +793,13 @@ create_retry:
  	retval = ext4_map_query_blocks(handle, inode, map, flags);
  	up_read((&EXT4_I(inode)->i_data_sem));
  	if (retval < 0)
 -		return retval;
-+		goto out_handle;
++		goto out;
  
  found:
  	if (retval > 0 && map->m_flags & EXT4_MAP_MAPPED) {
  		ret = check_block_validity(inode, map);
--		if (ret != 0)
+ 		if (ret != 0)
 -			return ret;
-+		if (ret != 0) {
-+			retval = ret;
-+			goto out_handle;
-+		}
++			goto out;
  	}
  
  	/* If it is only a block(s) look up */
-@@ -813,8 +816,15 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -813,8 +819,17 @@ found:
  		 * ext4_ext_map_blocks()
  		 */
  		if (!(flags & EXT4_GET_BLOCKS_CONVERT_UNWRITTEN))
 -			return retval;
-+			goto out_handle;
++			goto out;
  
 +	if (!handle) {
 +		handle = ext4_journal_start(inode, EXT4_HT_MAP_BLOCKS,
 +				ext4_chunk_trans_blocks(inode, orig_mlen));
-+		if (IS_ERR(handle))
-+			return PTR_ERR(handle);
++		if (IS_ERR(handle)) {
++			ret = PTR_ERR(handle);
++			goto out;
++		}
 +		internal_handle = true;
 +	}
  
  	ext4_fc_track_inode(handle, inode);
  	/*
-@@ -843,12 +853,14 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -845,12 +860,12 @@ found:
  	if (retval < 0)
  		ext_debug(inode, "failed with err %d\n", retval);
  	if (retval <= 0)
 -		return retval;
-+		goto out_handle;
++		goto out;
  
  	if (map->m_flags & EXT4_MAP_MAPPED) {
  		ret = check_block_validity(inode, map);
--		if (ret != 0)
+ 		if (ret != 0)
 -			return ret;
-+		if (ret != 0) {
-+			retval = ret;
-+			goto out_handle;
-+		}
++			goto out;
  
  		/*
  		 * Inodes with freshly allocated blocks where contents will be
-@@ -869,12 +881,18 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
- 			else
+@@ -872,12 +887,16 @@ found:
  				ret = ext4_jbd2_inode_add_write(handle, inode,
  						start_byte, length);
--			if (ret)
+ 			if (ret)
 -				return ret;
-+			if (ret) {
-+				retval = ret;
-+				goto out_handle;
-+			}
++				goto out;
  		}
  	}
  	ext4_fc_track_range(handle, inode, map->m_lblk, map->m_lblk +
  			    map->m_len - 1);
-+
-+out_handle:
+-	return retval;
++out:
 +	if (internal_handle)
 +		ext4_journal_stop(handle);
- 	return retval;
++
++	return ret ? ret : retval;
  }
  
+ /*
 
-From 5c42228dbb3f2e10ebeae18844e835655e145f0e Mon Sep 17 00:00:00 2001
+From 7f373083b45757b19f36a939f255239d40ccfb24 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:20 +0800
-Subject: [PATCH 18/41] ext4: avoid unnecessary transaction in
+Date: Fri, 9 Oct 2026 18:30:08 +0800
+Subject: [PATCH 17/41] ext4: avoid unnecessary transaction in
  ext4_map_blocks() for unwritten extents
 
 When ext4_map_blocks() finds an unwritten extent in the extent cache and
@@ -1586,17 +1555,18 @@ mark @map as mapped.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-9-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-8-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/inode.c | 19 ++++++++++++++-----
- 1 file changed, 14 insertions(+), 5 deletions(-)
+ fs/ext4/inode.c | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 27a68fcc57d2..2f977661ad45 100644
+index 0109fb6b6..6a00e0fe4 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -809,14 +809,23 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
+@@ -812,14 +812,25 @@ found:
  	 * Note that if blocks have been preallocated
  	 * ext4_ext_map_blocks() returns with buffer head unmapped
  	 */
@@ -1613,23 +1583,25 @@ index 27a68fcc57d2..2f977661ad45 100644
 -		if (!(flags & EXT4_GET_BLOCKS_CONVERT_UNWRITTEN))
 +		if (map->m_flags & EXT4_MAP_MAPPED &&
 +		    !(flags & EXT4_GET_BLOCKS_CONVERT_UNWRITTEN))
- 			goto out_handle;
+ 			goto out;
 +		if (map->m_flags & EXT4_MAP_UNWRITTEN &&
 +		    (flags & EXT4_GET_BLOCKS_UNWRIT_EXT) &&
 +		    !(flags & EXT4_GET_BLOCKS_CONVERT)) {
 +			/* Contains EXT4_GET_BLOCKS_CREATE - mark mapped. */
-+			map->m_flags |= EXT4_MAP_MAPPED;
-+			goto out_handle;
++			ret = check_block_validity(inode, map);
++			if (!ret)
++				map->m_flags |= EXT4_MAP_MAPPED;
++			goto out;
 +		}
 +	}
  
  	if (!handle) {
  		handle = ext4_journal_start(inode, EXT4_HT_MAP_BLOCKS,
 
-From a88a4ccb5d8c09f76fb7eacd85abb34b1d1ee461 Mon Sep 17 00:00:00 2001
+From 244392197bb95955586fbb47f068b2432ed81317 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:21 +0800
-Subject: [PATCH 19/41] ext4: skip block allocation for holes in the data
+Date: Fri, 9 Oct 2026 18:30:09 +0800
+Subject: [PATCH 18/41] ext4: skip block allocation for holes in the data
  submission path
 
 When ext4_map_blocks() is called from the data submission path and I/O
@@ -1640,10 +1612,17 @@ The writeback path can legitimately encounter dirty ranges that map to
 holes. For example, when a folio straddles i_size and the tail beyond
 i_size is dirtied via a mmap write. Allocating blocks for such ranges is
 wrong because there is no data to write back, the dirty bits should
-simply be discarded without submitting I/O. This prepares for the
-buffered iomap writeback conversion, mirrors the existing buffer_head
-writeback path, where mpage_add_bh_to_extent() skip unmapped buffers and
-ext4_bio_write_folio() clears their dirty bits.
+simply be discarded without submitting I/O.
+
+This prepares for the buffered iomap writeback conversion, mirrors the
+existing buffer_head writeback path, where mpage_add_bh_to_extent() skip
+unmapped buffers and ext4_bio_write_folio() clears their dirty bits.
+Since ext4_map_blocks() can now return zero for a hole,
+mpage_map_one_extent() must handle it as well. However, because those
+holes are already filtered out by mpage_add_bh_to_extent(), it only maps
+buffers that are delayed or unwritten, so a hole can never occur in
+normal operation. Add a WARN_ON_ONCE() and bail out with -EINVAL rather
+than proceeding with an invalid physical block number of zero.
 
 In the ioend extent conversion path, holes are also not expected because
 we should wait for folio writeback before punching hole. If one is
@@ -1655,19 +1634,20 @@ ext4_convert_unwritten_extents_atomic() already bail out similarly.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-10-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-9-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/inode.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ fs/ext4/inode.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 2f977661ad45..7827ae2b0fff 100644
+index 6a00e0fe4..89f8246ae 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -825,6 +825,13 @@ int ext4_map_blocks(handle_t *handle, struct inode *inode,
- 			map->m_flags |= EXT4_MAP_MAPPED;
- 			goto out_handle;
+@@ -830,6 +830,13 @@ found:
+ 				map->m_flags |= EXT4_MAP_MAPPED;
+ 			goto out;
  		}
 +	} else if (retval == 0) {
 +		/*
@@ -1675,15 +1655,28 @@ index 2f977661ad45..7827ae2b0fff 100644
 +		 * data submission path.
 +		 */
 +		if (!map->m_flags && (flags & EXT4_GET_BLOCKS_IO_SUBMIT))
-+			goto out_handle;
++			goto out;
  	}
  
  	if (!handle) {
+@@ -2428,6 +2435,12 @@ static int mpage_map_one_extent(handle_t *handle, struct mpage_da_data *mpd)
+ 	err = ext4_map_blocks(handle, inode, map, get_blocks_flags);
+ 	if (err < 0)
+ 		return err;
++	/*
++	 * A hole? This should never happen since mpage_add_bh_to_extent()
++	 * has filtered it out.
++	 */
++	if (WARN_ON_ONCE(!err))
++		return -EINVAL;
+ 	if (dioread_nolock && (map->m_flags & EXT4_MAP_UNWRITTEN)) {
+ 		if (!mpd->io_submit.io_end->handle &&
+ 		    ext4_handle_valid(handle)) {
 
-From d7b0117968de9bac63b67b23bf980494f4d98093 Mon Sep 17 00:00:00 2001
+From a304299a40d92c668c5983d57edc512e4e878686 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:22 +0800
-Subject: [PATCH 20/41] ext4: add iomap address space operations for buffered
+Date: Fri, 9 Oct 2026 18:30:10 +0800
+Subject: [PATCH 19/41] ext4: add iomap address space operations for buffered
  I/O
 
 Introduce initial support for iomap in the buffered I/O path for regular
@@ -1702,7 +1695,8 @@ provided as placeholders and will be implemented in later patches.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-11-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-10-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h  |  7 +++++++
@@ -1710,7 +1704,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  2 files changed, 39 insertions(+)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 9d06ddd865d4..04aa05e26897 100644
+index 9d06ddd86..04aa05e26 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -2049,6 +2049,7 @@ enum {
@@ -1735,10 +1729,10 @@ index 9d06ddd865d4..04aa05e26897 100644
   * Codes for operating systems
   */
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 7827ae2b0fff..16ea997d3aa8 100644
+index 89f8246ae..0c9163e47 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -3958,6 +3958,22 @@ const struct iomap_ops ext4_iomap_report_ops = {
+@@ -3969,6 +3969,22 @@ const struct iomap_ops ext4_iomap_report_ops = {
  	.iomap_next = ext4_iomap_next_report,
  };
  
@@ -1761,7 +1755,7 @@ index 7827ae2b0fff..16ea997d3aa8 100644
  /*
   * For data=journal mode, folio should be marked dirty only when it was
   * writeably mapped. When that happens, it was already attached to the
-@@ -4044,6 +4060,20 @@ static const struct address_space_operations ext4_da_aops = {
+@@ -4055,6 +4071,20 @@ static const struct address_space_operations ext4_da_aops = {
  	.swap_activate		= ext4_iomap_swap_activate,
  };
  
@@ -1782,7 +1776,7 @@ index 7827ae2b0fff..16ea997d3aa8 100644
  static const struct address_space_operations ext4_dax_aops = {
  	.writepages		= ext4_dax_writepages,
  	.dirty_folio		= noop_dirty_folio,
-@@ -4065,6 +4095,8 @@ void ext4_set_aops(struct inode *inode)
+@@ -4076,6 +4106,8 @@ void ext4_set_aops(struct inode *inode)
  	}
  	if (IS_DAX(inode))
  		inode->i_mapping->a_ops = &ext4_dax_aops;
@@ -1792,10 +1786,10 @@ index 7827ae2b0fff..16ea997d3aa8 100644
  		inode->i_mapping->a_ops = &ext4_da_aops;
  	else
 
-From e933fd1b6cd5322563d5caf283dabd9cd09bcef8 Mon Sep 17 00:00:00 2001
+From 331838d93b65f4bcac2ffec8e3da639847fa241c Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:23 +0800
-Subject: [PATCH 21/41] ext4: implement buffered read path using iomap
+Date: Fri, 9 Oct 2026 18:30:11 +0800
+Subject: [PATCH 20/41] ext4: implement buffered read path using iomap
 
 Implement the iomap read path for ext4 by introducing a new
 ext4_iomap_buffered_read_ops instance. This provides the read_folio()
@@ -1812,17 +1806,18 @@ introduces:
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-12-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-11-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 48 +++++++++++++++++++++++++++++++++++++++++++++++-
  1 file changed, 47 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 16ea997d3aa8..cceed2264d7b 100644
+index 0c9163e47..f96f35766 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -3958,14 +3958,60 @@ const struct iomap_ops ext4_iomap_report_ops = {
+@@ -3969,14 +3969,60 @@ const struct iomap_ops ext4_iomap_report_ops = {
  	.iomap_next = ext4_iomap_next_report,
  };
  
@@ -1867,7 +1862,7 @@ index 16ea997d3aa8..cceed2264d7b 100644
 +static DEFINE_IOMAP_ITER_NEXT(ext4_iomap_buffered_read_next,
 +			      ext4_iomap_buffered_read_begin);
 +
-+const struct iomap_ops ext4_iomap_buffered_read_ops = {
++static const struct iomap_ops ext4_iomap_buffered_read_ops = {
 +	.iomap_next = ext4_iomap_buffered_read_next,
 +};
 +
@@ -1885,10 +1880,10 @@ index 16ea997d3aa8..cceed2264d7b 100644
  
  static int ext4_iomap_writepages(struct address_space *mapping,
 
-From d5fc46e0fe6747f5281cd8e8eca09e53137dcd48 Mon Sep 17 00:00:00 2001
+From 935442e001c2570e738cad776662d1c0558cbb52 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:24 +0800
-Subject: [PATCH 22/41] ext4: pass out extent seq counter when mapping da
+Date: Fri, 9 Oct 2026 18:30:12 +0800
+Subject: [PATCH 21/41] ext4: pass out extent seq counter when mapping da
  blocks
 
 The iomap buffered write path does not hold the folio lock between
@@ -1909,17 +1904,18 @@ sequence counter to ensure stale mappings can be detected.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-13-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-12-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index cceed2264d7b..f31dd2821317 100644
+index f96f35766..e96a65b8d 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -1972,7 +1972,7 @@ static int ext4_da_map_blocks(struct inode *inode, struct ext4_map_blocks *map)
+@@ -1977,7 +1977,7 @@ static int ext4_da_map_blocks(struct inode *inode, struct ext4_map_blocks *map)
  	ext4_check_map_extents_env(inode);
  
  	/* Lookup extent status tree firstly */
@@ -1928,7 +1924,7 @@ index cceed2264d7b..f31dd2821317 100644
  		map->m_len = min_t(unsigned int, map->m_len,
  				   es.es_len - (map->m_lblk - es.es_lblk));
  
-@@ -2025,7 +2025,7 @@ static int ext4_da_map_blocks(struct inode *inode, struct ext4_map_blocks *map)
+@@ -2030,7 +2030,7 @@ add_delayed:
  	 * is held in write mode, before inserting a new da entry in
  	 * the extent status tree.
  	 */
@@ -1938,10 +1934,10 @@ index cceed2264d7b..f31dd2821317 100644
  				   es.es_len - (map->m_lblk - es.es_lblk));
  
 
-From ad5eab6106328336f03d59b48332a67f37ae5279 Mon Sep 17 00:00:00 2001
+From 3e28cc4432fe59f0957de775fe4903a860f7b6ef Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:25 +0800
-Subject: [PATCH 23/41] ext4: do not use data=ordered mode for inodes using
+Date: Fri, 9 Oct 2026 18:30:13 +0800
+Subject: [PATCH 22/41] ext4: do not use data=ordered mode for inodes using
  buffered iomap path
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -2055,14 +2051,15 @@ separately in the future.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-14-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-13-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4_jbd2.h | 7 ++++++-
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/ext4_jbd2.h b/fs/ext4/ext4_jbd2.h
-index 2fbf48b3dfe2..be54e93bde0b 100644
+index 2fbf48b3d..be54e93bd 100644
 --- a/fs/ext4/ext4_jbd2.h
 +++ b/fs/ext4/ext4_jbd2.h
 @@ -379,7 +379,12 @@ static inline int ext4_should_journal_data(struct inode *inode)
@@ -2080,10 +2077,10 @@ index 2fbf48b3dfe2..be54e93bde0b 100644
  
  static inline int ext4_should_writeback_data(struct inode *inode)
 
-From 8dccd9f0a1a93f47b758fcf6b3f7f304a1309680 Mon Sep 17 00:00:00 2001
+From 0a6f584e91f4a65f54d4d4c4876e3e6e12977955 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:26 +0800
-Subject: [PATCH 24/41] ext4: implement buffered write path using iomap
+Date: Fri, 9 Oct 2026 18:30:14 +0800
+Subject: [PATCH 23/41] ext4: implement buffered write path using iomap
 
 Introduce two new iomap_ops instances for ext4 buffered writes:
 
@@ -2115,6 +2112,18 @@ Key changes and considerations:
       cause any real issue. These blocks are visible to users and are
       not permanently leaked.
 
+ - Adjust the call frequency of ext4_nonda_switch() so that it is no
+   longer called once per folio in the buffer_head path, but instead
+   once per write. For code simplicity, ext4_iomap_buffered_da_write_ops
+   will be shared with the later page-fault path. Since
+   ext4_nonda_switch() -> try_to_writeback_inodes_sb() synchronously
+   waits for writeback, which could lead to deadlock under the same
+   folio lock acquired by iomap_page_mkwrite(), we can no longer call
+   ext4_nonda_switch() inside ext4_iomap_buffered_da_write_ops. This may
+   increase the probability of a writeback-time allocation failure, but
+   the expected real-world impact is small, so it can be implemented
+   this way for now.
+
  - Lock ordering reversal
    The folio lock and transaction start ordering is reversed compared to
    the buffer_head buffered write path. To handle this, the journal
@@ -2123,7 +2132,8 @@ Key changes and considerations:
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-15-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-14-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h  |   4 ++
@@ -2133,7 +2143,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  4 files changed, 156 insertions(+), 8 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 04aa05e26897..c7f2fd60a1ab 100644
+index 04aa05e26..c7f2fd60a 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3165,6 +3165,7 @@ int ext4_walk_page_buffers(handle_t *handle,
@@ -2155,7 +2165,7 @@ index 04aa05e26897..c7f2fd60a1ab 100644
  int ext4_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
  		unsigned flags, struct iomap *iomap, struct iomap *srcmap);
 diff --git a/fs/ext4/file.c b/fs/ext4/file.c
-index 374b4bc25bd5..50d3c92709c8 100644
+index 374b4bc25..50d3c9270 100644
 --- a/fs/ext4/file.c
 +++ b/fs/ext4/file.c
 @@ -330,6 +330,21 @@ static ssize_t ext4_write_checks(struct kiocb *iocb, struct iov_iter *from)
@@ -2193,10 +2203,10 @@ index 374b4bc25bd5..50d3c92709c8 100644
  out:
  	inode_unlock(inode);
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index f31dd2821317..87dadc46cf47 100644
+index e96a65b8d..2d2db4207 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -3138,7 +3138,7 @@ static int ext4_dax_writepages(struct address_space *mapping,
+@@ -3149,7 +3149,7 @@ static int ext4_dax_writepages(struct address_space *mapping,
  	return ret;
  }
  
@@ -2205,7 +2215,7 @@ index f31dd2821317..87dadc46cf47 100644
  {
  	s64 free_clusters, dirty_clusters;
  	struct ext4_sb_info *sbi = EXT4_SB(sb);
-@@ -3510,6 +3510,15 @@ static bool ext4_inode_datasync_dirty(struct inode *inode)
+@@ -3521,6 +3521,15 @@ static bool ext4_inode_datasync_dirty(struct inode *inode)
  	return inode_state_read_once(inode) & I_DIRTY_DATASYNC;
  }
  
@@ -2221,7 +2231,7 @@ index f31dd2821317..87dadc46cf47 100644
  static void ext4_set_iomap(struct inode *inode, struct iomap *iomap,
  			   struct ext4_map_blocks *map, loff_t offset,
  			   loff_t length, unsigned int flags)
-@@ -3544,6 +3553,8 @@ static void ext4_set_iomap(struct inode *inode, struct iomap *iomap,
+@@ -3555,6 +3564,8 @@ static void ext4_set_iomap(struct inode *inode, struct iomap *iomap,
  	    !ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS))
  		iomap->flags |= IOMAP_F_MERGED;
  
@@ -2230,7 +2240,7 @@ index f31dd2821317..87dadc46cf47 100644
  	/*
  	 * Flags passed to ext4_map_blocks() for direct I/O writes can result
  	 * in m_flags having both EXT4_MAP_MAPPED and EXT4_MAP_UNWRITTEN bits
-@@ -3959,7 +3970,8 @@ const struct iomap_ops ext4_iomap_report_ops = {
+@@ -3970,7 +3981,8 @@ const struct iomap_ops ext4_iomap_report_ops = {
  };
  
  static int ext4_iomap_map_blocks(struct inode *inode, loff_t offset,
@@ -2240,7 +2250,7 @@ index f31dd2821317..87dadc46cf47 100644
  {
  	u8 blkbits = inode->i_blkbits;
  
-@@ -3971,7 +3983,10 @@ static int ext4_iomap_map_blocks(struct inode *inode, loff_t offset,
+@@ -3982,7 +3994,10 @@ static int ext4_iomap_map_blocks(struct inode *inode, loff_t offset,
  	map->m_len = min_t(loff_t, (offset + length - 1) >> blkbits,
  			   EXT4_MAX_LOGICAL_BLOCK) - map->m_lblk + 1;
  
@@ -2252,7 +2262,7 @@ index f31dd2821317..87dadc46cf47 100644
  }
  
  static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
-@@ -3988,7 +4003,7 @@ static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
+@@ -3999,7 +4014,7 @@ static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
  	if (WARN_ON_ONCE(ext4_has_inline_data(inode)))
  		return -ERANGE;
  
@@ -2261,7 +2271,7 @@ index f31dd2821317..87dadc46cf47 100644
  	if (ret < 0)
  		return ret;
  
-@@ -3996,6 +4011,113 @@ static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
+@@ -4007,6 +4022,113 @@ static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
  	return 0;
  }
  
@@ -2376,7 +2386,7 @@ index f31dd2821317..87dadc46cf47 100644
  			      ext4_iomap_buffered_read_begin);
  
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index fbd808f54054..22738ed3d3aa 100644
+index fbd808f54..22738ed3d 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -104,9 +104,13 @@ static const struct fs_parameter_spec ext4_param_specs[];
@@ -2397,9 +2407,144 @@ index fbd808f54054..22738ed3d3aa 100644
   * truncate:
   * sb_start_write -> i_mutex -> invalidate_lock (w) -> i_mmap_rwsem (w) ->
 
-From 5c83026214c990923a2ef4ce38c2c773e9ff86ad Mon Sep 17 00:00:00 2001
+From 10660a0ca7ed601df7f2708136ca529cb3492920 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:27 +0800
+Date: Fri, 9 Oct 2026 18:30:15 +0800
+Subject: [PATCH 24/41] ext4: rework handle credit accounting for unwritten
+ extent conversion
+
+While converting the buffered I/O path to iomap, we noticed that the
+writeback completion can hand over an ioend which was merged across an
+arbitrary number of extents because iomap_ioend_try_merge() doesn't
+limit the length of the merged ioends, while
+ext4_convert_unwritten_extents() converts all of them with the handle
+provided by the caller, and callers calculate the credits of that handle
+without knowing the exact number of extents. Converting more extents
+than that within one transaction can exhaust its credits.
+
+Prepare for the iomap path nevertheless by making the conversion loop
+check the remaining credits before each extent with
+ext4_journal_ensure_credits(), so that the transaction is extended, or
+restarted once it is full, as needed. Also estimate the credits with
+ext4_meta_trans_blocks(..., alloc_extents = 0), since no data blocks are
+allocated here, and manage an internally started transaction as a whole
+instead of starting and stopping one for each extent.
+
+The buffer_head writeback path is safe, as it passes a handle whose
+credits are reserved by ext4_meta_trans_blocks(inode, bpf, bpf, 0),
+which is enough to convert one extent per block of a folio, so the
+reservation is sufficient and the handle is never restarted there.
+
+This also helps the fallocate path, where ext4_alloc_file_blocks() sizes
+the handle for the conversion with ext4_chunk_trans_blocks() as well,
+i.e. for a single extent only, while a concurrent modification of the
+extent tree can make the conversion cover more extents than the handle
+has credits for.
+
+Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-15-yi.zhang@huaweicloud.com
+Signed-off-by: Theodore Ts'o <tytso@mit.edu>
+---
+ fs/ext4/extents.c | 53 ++++++++++++++++++++++++++++-------------------
+ 1 file changed, 32 insertions(+), 21 deletions(-)
+
+diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
+index 5409b4c07..30fa1ce09 100644
+--- a/fs/ext4/extents.c
++++ b/fs/ext4/extents.c
+@@ -5137,27 +5137,36 @@ int ext4_convert_unwritten_extents(handle_t *handle, struct inode *inode,
+ 	int ret = 0, ret2 = 0, ret3 = 0;
+ 	struct ext4_map_blocks map;
+ 	unsigned int blkbits = inode->i_blkbits;
+-	unsigned int credits = 0;
++	unsigned int credits;
++	bool internal_handle = !handle;
+ 
+ 	map.m_lblk = offset >> blkbits;
+ 	map.m_len = max_blocks = EXT4_MAX_BLOCKS(len, offset, blkbits);
+ 
+-	if (!handle) {
+-		/*
+-		 * credits to insert 1 extent into extent tree
+-		 */
+-		credits = ext4_chunk_trans_blocks(inode, max_blocks);
++	/* Credits to convert one extent in this range to written state. */
++	credits = ext4_meta_trans_blocks(inode, max_blocks, 1, 0);
++
++	if (internal_handle) {
++		handle = ext4_journal_start(inode, EXT4_HT_MAP_BLOCKS, credits);
++		if (IS_ERR(handle)) {
++			ret = PTR_ERR(handle);
++			goto out;
++		}
+ 	}
+ 
+ 	while (max_blocks) {
+-		if (credits) {
+-			handle = ext4_journal_start(inode, EXT4_HT_MAP_BLOCKS,
+-						    credits);
+-			if (IS_ERR(handle)) {
+-				ret = PTR_ERR(handle);
+-				break;
+-			}
+-		}
++		/*
++		 * The caller cannot know how many extents the range covers,
++		 * so make sure the transaction can take one more extent,
++		 * extending or restarting it once it is full.  The reserved
++		 * handle of the buffer_head writeback path is safe as it has
++		 * enough credits for the conversion, so it is not restarted
++		 * here.
++		 */
++		ret = ext4_journal_ensure_credits(handle, credits, 0);
++		if (ret < 0)
++			break;
++
+ 		/*
+ 		 * Do not cache any unrelated extents, as it does not hold the
+ 		 * i_rwsem or invalidate_lock, which could corrupt the extent
+@@ -5177,11 +5186,6 @@ int ext4_convert_unwritten_extents(handle_t *handle, struct inode *inode,
+ 		}
+ 
+ 		ret2 = ext4_mark_inode_dirty(handle, inode);
+-		if (credits) {
+-			ret3 = ext4_journal_stop(handle);
+-			if (unlikely(ret3))
+-				ret2 = ret3;
+-		}
+ 		ret = ret < 0 ? ret : ret2;
+ 		if (ret)
+ 			break;
+@@ -5189,6 +5193,13 @@ int ext4_convert_unwritten_extents(handle_t *handle, struct inode *inode,
+ 		map.m_lblk += map.m_len;
+ 		map.m_len = (max_blocks -= map.m_len);
+ 	}
++
++	if (internal_handle) {
++		ret3 = ext4_journal_stop(handle);
++		if (!ret)
++			ret = ret3;
++	}
++out:
+ 	/* Converted some or all blocks successfully? */
+ 	if (converted)
+ 		*converted = conv_blocks;
+@@ -5203,8 +5214,8 @@ int ext4_convert_unwritten_io_end_vec(handle_t *handle, ext4_io_end_t *io_end)
+ 
+ 	/*
+ 	 * This is somewhat ugly but the idea is clear: When transaction is
+-	 * reserved, everything goes into it. Otherwise we rather start several
+-	 * smaller transactions for conversion of each extent separately.
++	 * reserved, everything goes into it. Otherwise the conversion runs
++	 * its own transaction, extending or restarting it as it goes.
+ 	 */
+ 	if (handle) {
+ 		handle = ext4_journal_start_reserved(handle,
+
+From a2e096bf59634fe2364548d59a99085680040518 Mon Sep 17 00:00:00 2001
+From: Zhang Yi <yi.zhang@huawei.com>
+Date: Fri, 9 Oct 2026 18:30:16 +0800
 Subject: [PATCH 25/41] ext4: implement writeback path using iomap
 
 Add the iomap writeback path for ext4 buffered I/O. This introduces:
@@ -2463,17 +2608,18 @@ Key changes and considerations:
    task framework.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-16-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-16-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h    |   8 ++-
- fs/ext4/inode.c   | 145 +++++++++++++++++++++++++++++++++++++++++++++-
+ fs/ext4/inode.c   | 147 +++++++++++++++++++++++++++++++++++++++++++++-
  fs/ext4/page-io.c | 122 ++++++++++++++++++++++++++++++++++++++
  fs/ext4/super.c   |   5 +-
- 4 files changed, 276 insertions(+), 4 deletions(-)
+ 4 files changed, 278 insertions(+), 4 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index c7f2fd60a1ab..00164d7420fc 100644
+index c7f2fd60a..00164d742 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -1208,8 +1208,10 @@ struct ext4_inode_info {
@@ -2499,7 +2645,7 @@ index c7f2fd60a1ab..00164d7420fc 100644
  /* mmp.c */
  extern int ext4_multi_mount_protect(struct super_block *, ext4_fsblk_t);
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 87dadc46cf47..ebfa4469a1aa 100644
+index 2d2db4207..e9a8aef79 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -44,6 +44,7 @@
@@ -2510,7 +2656,7 @@ index 87dadc46cf47..ebfa4469a1aa 100644
  #include "xattr.h"
  #include "acl.h"
  #include "truncate.h"
-@@ -4136,10 +4137,152 @@ static void ext4_iomap_readahead(struct readahead_control *rac)
+@@ -4147,10 +4148,154 @@ static void ext4_iomap_readahead(struct readahead_control *rac)
  	iomap_bio_readahead(rac, &ext4_iomap_buffered_read_ops);
  }
  
@@ -2524,6 +2670,7 @@ index 87dadc46cf47..ebfa4469a1aa 100644
 +	struct ext4_map_blocks map;
 +	ext4_lblk_t index = offset >> inode->i_blkbits;
 +	unsigned int blk_len, blk_end;
++	int retries = 0;
 +	int ret;
 +
 +	ret = ext4_emergency_state(sb);
@@ -2558,7 +2705,8 @@ index 87dadc46cf47..ebfa4469a1aa 100644
 +		 * ext4_count_free_blocks() is non-zero, a commit
 +		 * should free up blocks.
 +		 */
-+		if (ret == -ENOSPC && journal && ext4_count_free_clusters(sb)) {
++		if (ret == -ENOSPC && journal && ext4_count_free_clusters(sb) &&
++		    ++retries <= 3) {
 +			jbd2_journal_force_commit_nested(journal);
 +			goto retry;
 +		}
@@ -2665,7 +2813,7 @@ index 87dadc46cf47..ebfa4469a1aa 100644
  
  /*
 diff --git a/fs/ext4/page-io.c b/fs/ext4/page-io.c
-index 0236b6b9785a..9b0e12b5463c 100644
+index 0236b6b97..9b0e12b54 100644
 --- a/fs/ext4/page-io.c
 +++ b/fs/ext4/page-io.c
 @@ -22,6 +22,7 @@
@@ -2802,7 +2950,7 @@ index 0236b6b9785a..9b0e12b5463c 100644
 +	spin_unlock_irqrestore(&ei->i_completed_io_lock, flags);
 +}
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 22738ed3d3aa..abfacb5b8ce7 100644
+index 22738ed3d..abfacb5b8 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -123,7 +123,10 @@ static const struct fs_parameter_spec ext4_param_specs[];
@@ -2818,9 +2966,9 @@ index 22738ed3d3aa..abfacb5b8ce7 100644
  
  static const struct fs_context_operations ext4_context_ops = {
 
-From d13be7c144f9df5fc5cb452043f4a2e275f55114 Mon Sep 17 00:00:00 2001
+From e055578dc19256e44a774eb04a24c8d22465a698 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:28 +0800
+Date: Fri, 9 Oct 2026 18:30:17 +0800
 Subject: [PATCH 26/41] ext4: implement mmap path using iomap
 
 Introduce ext4_iomap_page_mkwrite() to implement the mmap iomap path
@@ -2835,7 +2983,8 @@ The lock ordering documentation in super.c has been updated accordingly.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
-Link: https://patch.msgid.link/20260903123543.2302999-17-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-17-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 32 +++++++++++++++++++++++++++++++-
@@ -2843,10 +2992,10 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  2 files changed, 37 insertions(+), 3 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index ebfa4469a1aa..4b289f43a4a5 100644
+index e9a8aef79..62886ccf3 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4029,7 +4029,7 @@ static int ext4_iomap_buffered_do_write_begin(struct inode *inode,
+@@ -4040,7 +4040,7 @@ static int ext4_iomap_buffered_do_write_begin(struct inode *inode,
  		return -ERANGE;
  	if (WARN_ON_ONCE(!ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS)))
  		return -EINVAL;
@@ -2855,7 +3004,7 @@ index ebfa4469a1aa..4b289f43a4a5 100644
  		return -EINVAL;
  
  	map_flags = delalloc ? EXT4_GET_BLOCKS_DELALLOC_RESERVE :
-@@ -4087,6 +4087,14 @@ static int ext4_iomap_buffered_da_write_end(struct inode *inode, loff_t offset,
+@@ -4098,6 +4098,14 @@ static int ext4_iomap_buffered_da_write_end(struct inode *inode, loff_t offset,
  	if (iomap->type != IOMAP_DELALLOC || !(iomap->flags & IOMAP_F_NEW))
  		return 0;
  
@@ -2870,7 +3019,7 @@ index ebfa4469a1aa..4b289f43a4a5 100644
  	/* Nothing to do if we've written the entire delalloc extent */
  	start_byte = iomap_last_written_block(inode, offset, written);
  	end_byte = round_up(offset + length, i_blocksize(inode));
-@@ -7315,6 +7323,23 @@ static int ext4_block_page_mkwrite(struct inode *inode, struct folio *folio,
+@@ -7315,6 +7323,23 @@ out_error:
  	return ret;
  }
  
@@ -2907,7 +3056,7 @@ index ebfa4469a1aa..4b289f43a4a5 100644
  	 * On data journalling we skip straight to the transaction handle:
  	 * there's no delalloc; page truncated will be checked later; the
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index abfacb5b8ce7..23dbdcd598fa 100644
+index abfacb5b8..23dbdcd59 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -100,8 +100,12 @@ static const struct fs_parameter_spec ext4_param_specs[];
@@ -2926,17 +3075,17 @@ index abfacb5b8ce7..23dbdcd598fa 100644
   * buffered write path:
   * sb_start_write -> i_rwsem (w) -> mmap_lock
 
-From 92cd6a8e63caa0815197921f40fb6235d4bdfe7b Mon Sep 17 00:00:00 2001
+From 68738d77ce86cd4028e23ac2fbc45c56683bea7a Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:29 +0800
+Date: Fri, 9 Oct 2026 18:30:18 +0800
 Subject: [PATCH 27/41] ext4: implement partial block zero range path using
  iomap
 
 Introduce a new iomap_ops instance, ext4_iomap_zero_ops, along with
-ext4_iomap_block_zero_range() to implement block zeroing via the iomap
+ext4_block_iomap_zero_range() to implement block zeroing via the iomap
 infrastructure for ext4.
 
-ext4_iomap_block_zero_range() calls iomap_zero_range() with
+ext4_block_iomap_zero_range() calls iomap_zero_range() with
 ext4_iomap_zero_begin() as the callback. The callback locates the
 range and populates the iomap mapping. If the range is mapped,
 iomap_zero_iter() in the iomap core zeros the partial block
@@ -2981,7 +3130,7 @@ Other important constraints:
 
 Zeroing out under an active journal handle can cause deadlock, as the
 lock/handle ordering is inconsistent with the iomap writeback path.
-Therefore, ext4_iomap_block_zero_range() must not be called under an
+Therefore, ext4_block_iomap_zero_range() must not be called under an
 active handle. In addition, for post-EOF zeroing, the caller cannot
 rely on data=ordered mode to persist the zeroed data before
 i_disksize is updated.
@@ -2991,17 +3140,18 @@ to i_size until after the zeroed data has been written back.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-18-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-18-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 110 ++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 110 insertions(+)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 4b289f43a4a5..a645c715ef8d 100644
+index 62886ccf3..614b32737 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4108,6 +4108,67 @@ static int ext4_iomap_buffered_da_write_end(struct inode *inode, loff_t offset,
+@@ -4119,6 +4119,67 @@ static int ext4_iomap_buffered_da_write_end(struct inode *inode, loff_t offset,
  	return 0;
  }
  
@@ -3069,7 +3219,7 @@ index 4b289f43a4a5..a645c715ef8d 100644
  /*
   * Since we always allocate unwritten extents, there is no need for
   * iomap_end to clean up allocated blocks on a short write.
-@@ -4569,6 +4630,48 @@ static int ext4_block_journalled_zero_range(struct inode *inode, loff_t from,
+@@ -4582,6 +4643,48 @@ out_handle:
  	return err;
  }
  
@@ -3118,7 +3268,7 @@ index 4b289f43a4a5..a645c715ef8d 100644
  /*
   * Zeros out a mapping of length 'length' starting from file offset
   * 'from'.  The range to be zero'd must be contained with in one block.
-@@ -4595,6 +4698,9 @@ static int ext4_block_zero_range(struct inode *inode,
+@@ -4608,6 +4711,9 @@ static int ext4_block_zero_range(struct inode *inode,
  	} else if (ext4_should_journal_data(inode)) {
  		return ext4_block_journalled_zero_range(inode, from, length,
  							did_zero);
@@ -3128,21 +3278,21 @@ index 4b289f43a4a5..a645c715ef8d 100644
  	}
  	return ext4_block_do_zero_range(inode, from, length, did_zero,
  					zero_written);
-@@ -4655,6 +4761,10 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
- 	 * concurrent writeback that updates i_disksize. And if such a race
- 	 * occurs, it means the previous unaligned EOF block has already been
- 	 * zeroed (if needed) and persisted to disk.
+@@ -4656,6 +4762,10 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
+ 	 * truncating up or performing an append write, because there might be
+ 	 * exposing stale on-disk data which may caused by concurrent post-EOF
+ 	 * mmap write during folio writeback.
 +	 *
 +	 * TODO: In the iomap path, handle this by tracking the ordered range
 +	 * and updating i_disksize to i_size after the zeroed data has been
 +	 * written back.
  	 */
  	if (ext4_should_order_data(inode) &&
- 	    did_zero && zero_written && !IS_DAX(inode) &&
+ 	    did_zero && zero_written && !IS_DAX(inode)) {
 
-From 8cdd6123c732c039320edf5105eec25b95edb2ba Mon Sep 17 00:00:00 2001
+From 3c612a572094291a752fe983af2868cde634ba02 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:30 +0800
+Date: Fri, 9 Oct 2026 18:30:19 +0800
 Subject: [PATCH 28/41] ext4: drain writeback before removing extents on the
  iomap path
 
@@ -3200,14 +3350,15 @@ is needed.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
-Link: https://patch.msgid.link/20260903123543.2302999-19-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-19-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 9 ++++++++-
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index a645c715ef8d..0974ac623c08 100644
+index 614b32737..04ce1f74f 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -5028,7 +5028,14 @@ int ext4_punch_hole(struct file *file, loff_t offset, loff_t length)
@@ -3227,9 +3378,9 @@ index a645c715ef8d..0974ac623c08 100644
  						   end - 1);
  		if (ret)
 
-From 9baea35b95c29a07b8f2c813a29ebe473202ae16 Mon Sep 17 00:00:00 2001
+From 008f019ab559b90171b5ecf7d8f5f6f22cd35687 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:31 +0800
+Date: Fri, 9 Oct 2026 18:30:20 +0800
 Subject: [PATCH 29/41] ext4: add block mapping tracepoints for iomap buffered
  I/O path
 
@@ -3239,18 +3390,19 @@ and writeback operations to help debug the iomap buffered I/O path.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
-Link: https://patch.msgid.link/20260903123543.2302999-20-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-20-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c             |  6 +++++
- include/trace/events/ext4.h | 45 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 51 insertions(+)
+ include/trace/events/ext4.h | 47 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 0974ac623c08..5d1437f3e59a 100644
+index 04ce1f74f..8a77c5acb 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4008,6 +4008,8 @@ static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
+@@ -4019,6 +4019,8 @@ static int ext4_iomap_buffered_read_begin(struct inode *inode, loff_t offset,
  	if (ret < 0)
  		return ret;
  
@@ -3259,7 +3411,7 @@ index 0974ac623c08..5d1437f3e59a 100644
  	ext4_set_iomap(inode, iomap, &map, offset, length, flags);
  	return 0;
  }
-@@ -4041,6 +4043,8 @@ static int ext4_iomap_buffered_do_write_begin(struct inode *inode,
+@@ -4052,6 +4054,8 @@ retry:
  	if (ret < 0)
  		return ret;
  
@@ -3268,7 +3420,7 @@ index 0974ac623c08..5d1437f3e59a 100644
  	ext4_set_iomap(inode, iomap, &map, offset, length, flags);
  	return 0;
  }
-@@ -4157,6 +4161,7 @@ static int ext4_iomap_zero_begin(struct inode *inode,
+@@ -4168,6 +4172,7 @@ again:
  			goto again;
  	}
  
@@ -3276,7 +3428,7 @@ index 0974ac623c08..5d1437f3e59a 100644
  	ext4_set_iomap(inode, iomap, &map, offset, length, flags);
  	iomap->flags |= iomap_flags;
  
-@@ -4266,6 +4271,7 @@ static int ext4_iomap_map_writeback_range(struct iomap_writepage_ctx *wpc,
+@@ -4279,6 +4284,7 @@ retry:
  		return ret;
  	}
  
@@ -3285,10 +3437,10 @@ index 0974ac623c08..5d1437f3e59a 100644
  	return 0;
  }
 diff --git a/include/trace/events/ext4.h b/include/trace/events/ext4.h
-index 7028a28316fa..69596a216dcb 100644
+index 7028a2831..bcf80f518 100644
 --- a/include/trace/events/ext4.h
 +++ b/include/trace/events/ext4.h
-@@ -3157,6 +3157,51 @@ TRACE_EVENT(ext4_move_extent_exit,
+@@ -3157,6 +3157,53 @@ TRACE_EVENT(ext4_move_extent_exit,
  		  __entry->ret)
  );
  
@@ -3300,6 +3452,7 @@ index 7028a28316fa..69596a216dcb 100644
 +		__field(dev_t, dev)
 +		__field(u64, ino)
 +		__field(ext4_lblk_t, m_lblk)
++		__field(ext4_fsblk_t, pblk)
 +		__field(unsigned int, m_len)
 +		__field(unsigned int, m_flags)
 +		__field(u64, m_seq)
@@ -3311,6 +3464,7 @@ index 7028a28316fa..69596a216dcb 100644
 +		__entry->dev		= inode->i_sb->s_dev;
 +		__entry->ino		= inode->i_ino;
 +		__entry->m_lblk		= map->m_lblk;
++		__entry->pblk		= map->m_pblk;
 +		__entry->m_len		= map->m_len;
 +		__entry->m_flags	= map->m_flags;
 +		__entry->m_seq		= map->m_seq;
@@ -3319,9 +3473,9 @@ index 7028a28316fa..69596a216dcb 100644
 +		__entry->iomap_flags	= flags;
 +
 +	),
-+	TP_printk("dev %d:%d ino %llu m_lblk %u m_len %u m_flags %s m_seq %llu orig_off 0x%llx orig_len 0x%llx iomap_flags 0x%x",
++	TP_printk("dev %d:%d ino %llu m_lblk %u pblk %llu m_len %u m_flags %s m_seq %llu orig_off 0x%llx orig_len 0x%llx iomap_flags 0x%x",
 +		  MAJOR(__entry->dev), MINOR(__entry->dev),
-+		  __entry->ino, __entry->m_lblk, __entry->m_len,
++		  __entry->ino, __entry->m_lblk, __entry->pblk, __entry->m_len,
 +		  show_mflags(__entry->m_flags), __entry->m_seq,
 +		  __entry->offset, __entry->length, __entry->iomap_flags)
 +)
@@ -3341,9 +3495,9 @@ index 7028a28316fa..69596a216dcb 100644
  
  /* This part must be outside protection */
 
-From c6d61f8e3e4f75e341958f83d853b872168b4836 Mon Sep 17 00:00:00 2001
+From 7a40905e58f05671f366bd67ea55e55d5f59a35c Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:32 +0800
+Date: Fri, 9 Oct 2026 18:30:21 +0800
 Subject: [PATCH 30/41] ext4: disable online defrag when inode using iomap
  buffered I/O path
 
@@ -3355,14 +3509,15 @@ data consistency, both of which are incompatible with the iomap path.
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
 Reviewed-by: Ojaswin Mujoo <ojaswin@linux.ibm.com>
 Reviewed-by: Jan Kara <jack@suse.cz>
-Link: https://patch.msgid.link/20260903123543.2302999-21-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-21-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/move_extent.c | 11 +++++++++++
  1 file changed, 11 insertions(+)
 
 diff --git a/fs/ext4/move_extent.c b/fs/ext4/move_extent.c
-index 3329b7ad5dbd..948ef3f44df5 100644
+index 3329b7ad5..948ef3f44 100644
 --- a/fs/ext4/move_extent.c
 +++ b/fs/ext4/move_extent.c
 @@ -476,6 +476,17 @@ static int mext_check_validity(struct inode *orig_inode,
@@ -3384,9 +3539,9 @@ index 3329b7ad5dbd..948ef3f44df5 100644
  		ext4_debug("ext4 move extent: suid or sgid is set to donor file [ino:orig %llu, donor %llu]\n",
  			   orig_inode->i_ino, donor_inode->i_ino);
 
-From 7894caa160a917b5c69e6e11773106634f70fe28 Mon Sep 17 00:00:00 2001
+From 16852f1d3c39e15feeced92c6c99d59add2dd1d2 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:33 +0800
+Date: Fri, 9 Oct 2026 18:30:22 +0800
 Subject: [PATCH 31/41] ext4: add EXT4_STATE_DISKSIZE_GROW_PENDING state bit
  and helpers
 
@@ -3405,15 +3560,16 @@ updates with the writeback of the zeroed EOF block.
 
 Suggested-by: Jan Kara <jack@suse.cz>
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-22-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-22-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h  |  7 ++++++
- fs/ext4/inode.c | 64 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 71 insertions(+)
+ fs/ext4/inode.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 00164d7420fc..cc8b878bb71a 100644
+index 00164d742..cc8b878bb 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -2052,6 +2052,9 @@ enum {
@@ -3438,10 +3594,10 @@ index 00164d7420fc..cc8b878bb71a 100644
  
  #define EXT4_PARTIAL_ZERO_START	0x1
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 5d1437f3e59a..2b3354b9419e 100644
+index 8a77c5acb..ba49c8683 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -126,6 +126,70 @@ void ext4_inode_csum_set(struct inode *inode, struct ext4_inode *raw,
+@@ -126,6 +126,63 @@ void ext4_inode_csum_set(struct inode *inode, struct ext4_inode *raw,
  		raw->i_checksum_hi = cpu_to_le16(csum >> 16);
  }
  
@@ -3452,16 +3608,9 @@ index 5d1437f3e59a..2b3354b9419e 100644
 + */
 +void ext4_iomap_clear_disksize_pending(struct inode *inode)
 +{
-+	ext4_clear_inode_state(inode, EXT4_STATE_DISKSIZE_GROW_PENDING);
-+	/*
-+	 * Make sure clearing of EXT4_STATE_DISKSIZE_GROW_PENDING is
-+	 * visible before we send the wakeup. Pairs with the implicit
-+	 * barrier in prepare_to_wait() inside wait_on_bit() in
-+	 * ext4_iomap_wait_disksize_pending().
-+	 */
-+	smp_mb();
-+	wake_up_bit(ext4_inode_state_wait_word(inode),
-+		    ext4_inode_state_wait_bit(EXT4_STATE_DISKSIZE_GROW_PENDING));
++	clear_and_wake_up_bit(
++		ext4_inode_state_wait_bit(EXT4_STATE_DISKSIZE_GROW_PENDING),
++		ext4_inode_state_wait_word(inode));
 +}
 +
 +/*
@@ -3513,9 +3662,9 @@ index 5d1437f3e59a..2b3354b9419e 100644
  					      loff_t new_size)
  {
 
-From b9dc57ecc8a5ba34299e737d4954c1df54f16ea8 Mon Sep 17 00:00:00 2001
+From 53fe71a6bcad0f67b80046086c03422c42a92b78 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:34 +0800
+Date: Fri, 9 Oct 2026 18:30:23 +0800
 Subject: [PATCH 32/41] ext4: submit and wait for pending disksize-grow I/O on
  writeback
 
@@ -3547,16 +3696,17 @@ processed later, otherwise the bit will be set forever.
 EXT4_STATE_DISKSIZE_GROW_PENDING will be set after everthing is done.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-23-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-23-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/ext4.h    |  6 ++++++
- fs/ext4/inode.c   | 53 ++++++++++++++++++++++++++++++++++++++++++++++-
- fs/ext4/page-io.c | 40 +++++++++++++++++++++++++++++++++++
- 3 files changed, 98 insertions(+), 1 deletion(-)
+ fs/ext4/ext4.h    |  6 +++++
+ fs/ext4/inode.c   | 56 ++++++++++++++++++++++++++++++++++++++++++++++-
+ fs/ext4/page-io.c | 40 +++++++++++++++++++++++++++++++++
+ 3 files changed, 101 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index cc8b878bb71a..c5d3f1b04c9c 100644
+index cc8b878bb..c5d3f1b04 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3985,6 +3985,12 @@ extern int ext4_move_extents(struct file *o_filp, struct file *d_filp,
@@ -3573,10 +3723,10 @@ index cc8b878bb71a..c5d3f1b04c9c 100644
  extern void ext4_exit_pageio(void);
  extern ext4_io_end_t *ext4_init_io_end(struct inode *inode, gfp_t flags);
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 2b3354b9419e..f0cd218dca44 100644
+index ba49c8683..a271bb255 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4366,7 +4366,10 @@ static int ext4_iomap_writeback_submit(struct iomap_writepage_ctx *wpc,
+@@ -4372,7 +4372,10 @@ static int ext4_iomap_writeback_submit(struct iomap_writepage_ctx *wpc,
  				       int error)
  {
  	struct iomap_ioend *ioend = wpc->wb_ctx;
@@ -3588,7 +3738,7 @@ index 2b3354b9419e..f0cd218dca44 100644
  
  	/*
  	 * After I/O completion, a worker needs to be scheduled when:
-@@ -4379,6 +4382,21 @@ static int ext4_iomap_writeback_submit(struct iomap_writepage_ctx *wpc,
+@@ -4385,6 +4388,21 @@ static int ext4_iomap_writeback_submit(struct iomap_writepage_ctx *wpc,
  	    test_opt(ioend->io_inode->i_sb, DATA_ERR_ABORT))
  		ioend->io_bio.bi_end_io = ext4_iomap_end_bio;
  
@@ -3610,7 +3760,7 @@ index 2b3354b9419e..f0cd218dca44 100644
  	/*
  	 * ext4_iomap_end_bio() always defers endio processing, disable
  	 * generic BIO in task to avoid double deferral since we will use
-@@ -4398,6 +4416,33 @@ static const struct iomap_writeback_ops ext4_writeback_ops = {
+@@ -4404,6 +4422,36 @@ static const struct iomap_writeback_ops ext4_writeback_ops = {
  	.writeback_submit = ext4_iomap_writeback_submit,
  };
  
@@ -3631,7 +3781,10 @@ index 2b3354b9419e..f0cd218dca44 100644
 +		range_start = wbc->range_start;
 +
 +	plen = ext4_iomap_get_disksize_pending_range(inode, &pstart);
-+	if (!plen || range_start < pstart + plen)
++	if (!plen)
++		return;
++	if (round_down(range_start, mapping_min_folio_nrbytes(mapping)) <
++	    pstart + plen)
 +		return;
 +
 +	/* Keep the caller's sync mode to avoid stalling the background flusher. */
@@ -3644,7 +3797,7 @@ index 2b3354b9419e..f0cd218dca44 100644
  static int ext4_iomap_writepages(struct address_space *mapping,
  				 struct writeback_control *wbc)
  {
-@@ -4415,6 +4460,12 @@ static int ext4_iomap_writepages(struct address_space *mapping,
+@@ -4421,6 +4469,12 @@ static int ext4_iomap_writepages(struct address_space *mapping,
  	if (unlikely(ret))
  		return ret;
  
@@ -3658,7 +3811,7 @@ index 2b3354b9419e..f0cd218dca44 100644
  	trace_ext4_writepages(inode, wbc);
  	ret = iomap_writepages(&wpc);
 diff --git a/fs/ext4/page-io.c b/fs/ext4/page-io.c
-index 9b0e12b5463c..697e12a54a49 100644
+index 9b0e12b54..697e12a54 100644
 --- a/fs/ext4/page-io.c
 +++ b/fs/ext4/page-io.c
 @@ -549,6 +549,34 @@ void ext4_bio_write_folio(struct ext4_io_submit *io, struct folio *folio,
@@ -3725,9 +3878,9 @@ index 9b0e12b5463c..697e12a54a49 100644
  	if (list_empty(&ei->i_rsv_conversion_list))
  		queue_work(EXT4_SB(ioend->io_inode->i_sb)->rsv_conversion_wq,
 
-From 61bf54b10d4fdcb32ce0cd625dfc14e7f2c02359 Mon Sep 17 00:00:00 2001
+From 02a59b693ea2e37ac121546abbe685c1d8b697e0 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:35 +0800
+Date: Fri, 9 Oct 2026 18:30:24 +0800
 Subject: [PATCH 33/41] ext4: advance i_disksize to i_size upon disksize-grow
  I/O completion
 
@@ -3753,14 +3906,15 @@ will be set after everthing is done.
 
 Suggested-by: Jan Kara <jack@suse.cz>
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-24-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-24-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/page-io.c | 42 ++++++++++++++++++++++++++++++++++++------
  1 file changed, 36 insertions(+), 6 deletions(-)
 
 diff --git a/fs/ext4/page-io.c b/fs/ext4/page-io.c
-index 697e12a54a49..4f1176b9332f 100644
+index 697e12a54..4f1176b93 100644
 --- a/fs/ext4/page-io.c
 +++ b/fs/ext4/page-io.c
 @@ -578,9 +578,9 @@ static void ext4_iomap_wb_disksize_pending_wait(struct inode *inode,
@@ -3842,9 +3996,9 @@ index 697e12a54a49..4f1176b9332f 100644
  			goto out_journal;
  	}
 
-From dce8729e91d2b967574a94e2636adbbb97dea44f Mon Sep 17 00:00:00 2001
+From ee6539fc9eb0f156652c6a8710e5db1dca56ecc3 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:36 +0800
+Date: Fri, 9 Oct 2026 18:30:25 +0800
 Subject: [PATCH 34/41] ext4: defer i_disksize update while
  DISKSIZE_GROW_PENDING is set
 
@@ -3873,7 +4027,8 @@ done.
 
 Suggested-by: Jan Kara <jack@suse.cz>
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-25-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-25-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h    | 47 ++++++++++++++++++++++++++++++++++++++++++-----
@@ -3882,7 +4037,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  3 files changed, 48 insertions(+), 9 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index c5d3f1b04c9c..5bb13a0cfeb5 100644
+index c5d3f1b04..5bb13a0cf 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3601,30 +3601,67 @@ do {								\
@@ -3959,7 +4114,7 @@ index c5d3f1b04c9c..5bb13a0cfeb5 100644
  }
  
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 5409b4c07c3c..72fdae5c4ddd 100644
+index 30fa1ce09..74e50716f 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
 @@ -4561,7 +4561,7 @@ int ext4_ext_truncate(handle_t *handle, struct inode *inode)
@@ -3972,10 +4127,10 @@ index 5409b4c07c3c..72fdae5c4ddd 100644
  	if (err)
  		return err;
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index f0cd218dca44..b5d6b345ecc1 100644
+index a271bb255..e586d5eed 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -6639,8 +6639,10 @@ static void ext4_wait_for_tail_page_commit(struct inode *inode)
+@@ -6635,8 +6635,10 @@ static void ext4_wait_for_tail_page_commit(struct inode *inode)
   * Set i_size and i_disksize to 'newsize'.
   *
   * Both i_rwsem and i_data_sem are required here to avoid races between
@@ -3988,7 +4143,7 @@ index f0cd218dca44..b5d6b345ecc1 100644
   */
  static inline void ext4_set_inode_size(struct inode *inode, loff_t newsize)
  {
-@@ -6648,7 +6650,7 @@ static inline void ext4_set_inode_size(struct inode *inode, loff_t newsize)
+@@ -6644,7 +6646,7 @@ static inline void ext4_set_inode_size(struct inode *inode, loff_t newsize)
  
  	down_write(&EXT4_I(inode)->i_data_sem);
  	i_size_write(inode, newsize);
@@ -3998,9 +4153,9 @@ index f0cd218dca44..b5d6b345ecc1 100644
  }
  
 
-From 4b0d638453ade967e99883d20564c2b0e53dc290 Mon Sep 17 00:00:00 2001
+From 09e4d8701614d2c524d96a88c4ff694f42b9a180 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:37 +0800
+Date: Fri, 9 Oct 2026 18:30:26 +0800
 Subject: [PATCH 35/41] ext4: submit and wait for disksize-grow I/O in
  fallocate paths
 
@@ -4026,19 +4181,20 @@ guarantees the i_disksize update is persisted on the synchronous
 return.
 
 Note that EXT4_STATE_DISKSIZE_GROW_PENDING is not set for now, and it
-will be set after everthing is done.
+will be set after everything is done.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-26-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-26-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h    |  2 ++
- fs/ext4/extents.c | 49 ++++++++++++++++++++++++++++++++++++++++-------
- fs/ext4/inode.c   | 41 +++++++++++++++++++++++++++++++++++++++
- 3 files changed, 85 insertions(+), 7 deletions(-)
+ fs/ext4/extents.c | 50 ++++++++++++++++++++++++++++++++++++++++-------
+ fs/ext4/inode.c   | 41 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 86 insertions(+), 7 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 5bb13a0cfeb5..2fecf0bb5cf6 100644
+index 5bb13a0cf..2fecf0bb5 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3226,6 +3226,8 @@ void ext4_iomap_clear_disksize_pending(struct inode *inode);
@@ -4051,13 +4207,14 @@ index 5bb13a0cfeb5..2fecf0bb5cf6 100644
  
  #define EXT4_PARTIAL_ZERO_START	0x1
 diff --git a/fs/ext4/extents.c b/fs/ext4/extents.c
-index 72fdae5c4ddd..051313b2accc 100644
+index 74e50716f..7193429a0 100644
 --- a/fs/ext4/extents.c
 +++ b/fs/ext4/extents.c
-@@ -4876,6 +4876,16 @@ static long ext4_zero_range(struct file *file, loff_t offset,
+@@ -4857,6 +4857,17 @@ static long ext4_zero_range(struct file *file, loff_t offset,
+ 		if (ret)
  			return ret;
  	}
- 
++
 +	/*
 +	 * In SYNC mode, sync the pending zeroed EOF block to ensure the
 +	 * i_disksize update is persisted.
@@ -4068,10 +4225,10 @@ index 72fdae5c4ddd..051313b2accc 100644
 +			return ret;
 +	}
 +
- 	handle = ext4_journal_start(inode, EXT4_HT_MISC, 1);
- 	if (IS_ERR(handle)) {
- 		ret = PTR_ERR(handle);
-@@ -4928,10 +4938,20 @@ static long ext4_do_fallocate(struct file *file, loff_t offset,
+ 	/* Finish zeroing out if it doesn't contain partial block */
+ 	if (IS_ALIGNED(offset | end, blocksize))
+ 		return ret;
+@@ -4928,10 +4939,20 @@ static long ext4_do_fallocate(struct file *file, loff_t offset,
  	if (ret)
  		goto out;
  
@@ -4096,7 +4253,7 @@ index 72fdae5c4ddd..051313b2accc 100644
  	}
  out:
  	trace_ext4_fallocate_exit(inode, offset,
-@@ -5662,6 +5682,14 @@ static int ext4_collapse_range(struct file *file, loff_t offset, loff_t len)
+@@ -5673,6 +5694,14 @@ static int ext4_collapse_range(struct file *file, loff_t offset, loff_t len)
  	if (end >= inode->i_size)
  		return -EINVAL;
  
@@ -4111,7 +4268,7 @@ index 72fdae5c4ddd..051313b2accc 100644
  	/*
  	 * Write tail of the last page before removed range and data that
  	 * will be shifted since they will get removed from the page cache
-@@ -5711,7 +5739,7 @@ static int ext4_collapse_range(struct file *file, loff_t offset, loff_t len)
+@@ -5722,7 +5751,7 @@ static int ext4_collapse_range(struct file *file, loff_t offset, loff_t len)
  
  	new_size = inode->i_size - len;
  	i_size_write(inode, new_size);
@@ -4120,7 +4277,7 @@ index 72fdae5c4ddd..051313b2accc 100644
  
  	up_write(&EXT4_I(inode)->i_data_sem);
  	ret = ext4_mark_inode_dirty(handle, inode);
-@@ -5764,6 +5792,14 @@ static int ext4_insert_range(struct file *file, loff_t offset, loff_t len)
+@@ -5775,6 +5804,14 @@ static int ext4_insert_range(struct file *file, loff_t offset, loff_t len)
  	if (len > inode->i_sb->s_maxbytes - inode->i_size)
  		return -EFBIG;
  
@@ -4135,7 +4292,7 @@ index 72fdae5c4ddd..051313b2accc 100644
  	/*
  	 * Write out all dirty pages. Need to round down to align start offset
  	 * to page size boundary for page size > block size.
-@@ -5783,8 +5819,7 @@ static int ext4_insert_range(struct file *file, loff_t offset, loff_t len)
+@@ -5794,8 +5831,7 @@ static int ext4_insert_range(struct file *file, loff_t offset, loff_t len)
  	ext4_fc_mark_ineligible(sb, EXT4_FC_REASON_FALLOC_RANGE, handle);
  
  	/* Expand file to avoid data loss if there is error while shifting */
@@ -4146,10 +4303,10 @@ index 72fdae5c4ddd..051313b2accc 100644
  	if (ret)
  		goto out_handle;
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index b5d6b345ecc1..36fa65614e09 100644
+index e586d5eed..61ccb3c53 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4827,6 +4827,39 @@ static int ext4_block_zero_range(struct inode *inode,
+@@ -4836,6 +4836,39 @@ static int ext4_block_zero_range(struct inode *inode,
  					zero_written);
  }
  
@@ -4189,7 +4346,7 @@ index b5d6b345ecc1..36fa65614e09 100644
  /*
   * Zero out a mapping from file offset 'from' up to the end of the block
   * which corresponds to 'from' or to the given 'end' inside this block.
-@@ -4998,6 +5031,14 @@ int ext4_update_disksize_before_punch(struct inode *inode, loff_t offset,
+@@ -4994,6 +5027,14 @@ int ext4_update_disksize_before_punch(struct inode *inode, loff_t offset,
  	if (offset > size)
  		return 0;
  
@@ -4205,9 +4362,9 @@ index b5d6b345ecc1..36fa65614e09 100644
  		size = offset + len;
  	if (EXT4_I(inode)->i_disksize >= size)
 
-From d8938e95403ed7888b80cb39d7e7e047a493161e Mon Sep 17 00:00:00 2001
+From 2309d96c93ce5c4eb243757eb6b5805fb57d831f Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:38 +0800
+Date: Fri, 9 Oct 2026 18:30:27 +0800
 Subject: [PATCH 36/41] ext4: clear DISKSIZE_GROW_PENDING on truncate or error
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -4222,8 +4379,11 @@ eviction.
 In any of these cases, leaving the bit set would block subsequent
 writeback indefinitely. Therefore, we must clear it on all paths that
 invalidate the pending block before writeback completes:
- - ext4_iomap_discard_folio() on folio discard.
- - ext4_evict_inode() when an unlinked inode is destroyed.
+ - In ext4_iomap_discard_folio(), on folio discard.
+ - In ext4_evict_inode(), when an unlinked inode is destroyed (don't
+   bother with an inode that has nlink > 0, since it is only evicted
+   after its dirty pages have been written out, and also don't bother
+   with bad inodes, since they can never have the bit set).
 
 In ext4_truncate_down(), truncating past the pending zeroed EOF block
 also invalidates the pending disksize update, so the bit must be cleared
@@ -4238,7 +4398,8 @@ Note that EXT4_STATE_DISKSIZE_GROW_PENDING is not set for now, and it
 will be set after everthing is done.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-27-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-27-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c | 24 +++++++++++++++++++++++-
@@ -4246,10 +4407,10 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  2 files changed, 31 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 36fa65614e09..e5fdc839a71e 100644
+index 61ccb3c53..1fb020167 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -273,6 +273,8 @@ void ext4_evict_inode(struct inode *inode)
+@@ -266,6 +266,8 @@ void ext4_evict_inode(struct inode *inode)
  
  	if (ext4_should_order_data(inode))
  		ext4_begin_ordered_truncate(inode, 0);
@@ -4258,7 +4419,7 @@ index 36fa65614e09..e5fdc839a71e 100644
  	truncate_inode_pages_final(&inode->i_data);
  
  	/*
-@@ -4344,8 +4346,17 @@ static void ext4_iomap_discard_folio(struct folio *folio, loff_t pos)
+@@ -4350,8 +4352,17 @@ static void ext4_iomap_discard_folio(struct folio *folio, loff_t pos)
  {
  	struct inode *inode = folio->mapping->host;
  	loff_t length = folio_pos(folio) + folio_size(folio) - pos;
@@ -4276,7 +4437,7 @@ index 36fa65614e09..e5fdc839a71e 100644
  }
  
  static ssize_t ext4_iomap_writeback_range(struct iomap_writepage_ctx *wpc,
-@@ -6765,7 +6776,18 @@ static int ext4_truncate_down(struct inode *inode, loff_t oldsize,
+@@ -6761,7 +6772,18 @@ static int ext4_truncate_down(struct inode *inode, loff_t oldsize,
  	start_lblk = newsize > 0 ? (newsize - 1) >> inode->i_blkbits : 0;
  	ext4_fc_track_range(handle, inode, start_lblk, EXT_MAX_BLOCKS - 1);
  
@@ -4297,7 +4458,7 @@ index 36fa65614e09..e5fdc839a71e 100644
  	ret = ext4_mark_inode_dirty(handle, inode);
  	ext4_journal_stop(handle);
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 23dbdcd598fa..56bde3e439a5 100644
+index 23dbdcd59..56bde3e43 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -1497,6 +1497,14 @@ static void ext4_destroy_inode(struct inode *inode)
@@ -4316,9 +4477,9 @@ index 23dbdcd598fa..56bde3e439a5 100644
  
  static void ext4_shutdown(struct super_block *sb)
 
-From 7e6b2d5ae79a8060610fb20fc4690ece412403cb Mon Sep 17 00:00:00 2001
+From e766cff471218142abfb0fba2ad3b16bbecce833 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:39 +0800
+Date: Fri, 9 Oct 2026 18:30:28 +0800
 Subject: [PATCH 37/41] ext4: set DISKSIZE_GROW_PENDING after zeroing unaligned
  EOF block
 
@@ -4343,17 +4504,18 @@ setting the bit when the data has already been written back.
 
 Suggested-by: Jan Kara <jack@suse.cz>
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-28-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-28-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/inode.c | 85 ++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 73 insertions(+), 12 deletions(-)
+ fs/ext4/inode.c | 106 ++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 94 insertions(+), 12 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index e5fdc839a71e..61e761be63bc 100644
+index 1fb020167..7820e6d81 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4838,6 +4838,68 @@ static int ext4_block_zero_range(struct inode *inode,
+@@ -4847,6 +4847,89 @@ static int ext4_block_zero_range(struct inode *inode,
  					zero_written);
  }
  
@@ -4399,6 +4561,27 @@ index e5fdc839a71e..61e761be63bc 100644
 +	WARN_ON_ONCE(folio_test_writeback(folio));
 +
 +	/*
++	 * If the zeroed range does not overlap the existing on-disk tail
++	 * block, the zeroed data lies beyond the currently on-disk data
++	 * and will be written back before i_disksize is advanced past it,
++	 * so no stale data can be exposed.
++	 *
++	 * Checking i_disksize here (after folio_wait_writeback()) is
++	 * necessary and safe. If a delalloc writeback of this folio was
++	 * in-flight, it could be raced by a concurrent mmap write which
++	 * corrupts the tail block beyond i_size but the i_disksize is not
++	 * advanced. folio_wait_writeback() has waited for its completion
++	 * and the ioend has advanced i_disksize accordingly. If writeback
++	 * had not started, we don't need to mark any pending state because
++	 * any future writeback will carry the pagecache content that now
++	 * includes the zeroed data, so no stale data can appear on disk
++	 * even without the pending tracking.
++	 */
++	if (from >= round_up(READ_ONCE(EXT4_I(inode)->i_disksize),
++			     i_blocksize(inode)))
++		goto out;
++
++	/*
 +	 * Mark the inode as disksize-grow-pending. The zeroed block will
 +	 * be written out by the generic writepages cycle or any other
 +	 * syncing operation.
@@ -4407,13 +4590,13 @@ index e5fdc839a71e..61e761be63bc 100644
 +	 * because we only mark the pending state after zeroing the on-disk
 +	 * EOF block, and i_disksize can only be updated after the previous
 +	 * zeroed pending block has been written back or the dirty folio
-+	 * has been discared.
++	 * has been discarded.
 +	 */
 +	if (likely(folio_test_dirty(folio) &&
 +		   !ext4_test_inode_state(inode,
 +					  EXT4_STATE_DISKSIZE_GROW_PENDING)))
 +		ext4_set_inode_state(inode, EXT4_STATE_DISKSIZE_GROW_PENDING);
-+
++out:
 +	folio_unlock(folio);
 +	folio_put(folio);
 +	return 0;
@@ -4422,20 +4605,19 @@ index e5fdc839a71e..61e761be63bc 100644
  /*
   * Submit and wait for the pending zeroed EOF block range to complete
   * if the given range [@offset, @end) fully covers it.  Must be called
-@@ -4926,22 +4988,21 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
- 	 * concurrent writeback that updates i_disksize. And if such a race
- 	 * occurs, it means the previous unaligned EOF block has already been
- 	 * zeroed (if needed) and persisted to disk.
+@@ -4923,21 +5006,20 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
+ 	 * truncating up or performing an append write, because there might be
+ 	 * exposing stale on-disk data which may caused by concurrent post-EOF
+ 	 * mmap write during folio writeback.
 -	 *
 -	 * TODO: In the iomap path, handle this by tracking the ordered range
 -	 * and updating i_disksize to i_size after the zeroed data has been
 -	 * written back.
  	 */
 -	if (ext4_should_order_data(inode) &&
--	    did_zero && zero_written && !IS_DAX(inode) &&
-+	if (did_zero && zero_written && !IS_DAX(inode) &&
- 	    from < round_up(READ_ONCE(EXT4_I(inode)->i_disksize), blocksize)) {
+-	    did_zero && zero_written && !IS_DAX(inode)) {
 -		handle_t *handle;
++	if (did_zero && zero_written && !IS_DAX(inode)) {
 +		if (ext4_should_order_data(inode)) {
 +			handle_t *handle;
  
@@ -4457,9 +4639,9 @@ index e5fdc839a71e..61e761be63bc 100644
  			return err;
  	}
 
-From ec18ea1899e51f5a00abe4563d21b362e026cfd5 Mon Sep 17 00:00:00 2001
+From b7e23e0583541f96cd795f67a132397b44451d8f Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:35:40 +0800
+Date: Fri, 9 Oct 2026 18:30:29 +0800
 Subject: [PATCH 38/41] ext4: add tracepoints for DISKSIZE_GROW_PENDING set,
  clear, and wait
 
@@ -4469,34 +4651,45 @@ ext4_iomap_wait_disksize_pending() to track disksize-grow-pending
 state changes and waiting.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903123543.2302999-29-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103033.2920530-29-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
- fs/ext4/inode.c             |  6 +++++-
+ fs/ext4/inode.c             | 15 ++++++++++++---
  include/trace/events/ext4.h | 33 +++++++++++++++++++++++++++++++++
- 2 files changed, 38 insertions(+), 1 deletion(-)
+ 2 files changed, 45 insertions(+), 3 deletions(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 61e761be63bc..160eafff1df3 100644
+index 7820e6d81..cb2b089d4 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -133,6 +133,7 @@ void ext4_inode_csum_set(struct inode *inode, struct ext4_inode *raw,
+@@ -133,9 +133,12 @@ void ext4_inode_csum_set(struct inode *inode, struct ext4_inode *raw,
   */
  void ext4_iomap_clear_disksize_pending(struct inode *inode)
  {
+-	clear_and_wake_up_bit(
++	if (!test_and_clear_wake_up_bit(
+ 		ext4_inode_state_wait_bit(EXT4_STATE_DISKSIZE_GROW_PENDING),
+-		ext4_inode_state_wait_word(inode));
++		ext4_inode_state_wait_word(inode)))
++		return;
++
 +	trace_ext4_iomap_clear_disksize_pending(inode);
- 	ext4_clear_inode_state(inode, EXT4_STATE_DISKSIZE_GROW_PENDING);
- 	/*
- 	 * Make sure clearing of EXT4_STATE_DISKSIZE_GROW_PENDING is
-@@ -151,6 +152,7 @@ void ext4_iomap_clear_disksize_pending(struct inode *inode)
+ }
+ 
+ /*
+@@ -144,6 +147,10 @@ void ext4_iomap_clear_disksize_pending(struct inode *inode)
   */
  void ext4_iomap_wait_disksize_pending(struct inode *inode)
  {
-+	trace_ext4_iomap_wait_disksize_pending(inode);
++	/* Only emit the trace when the bit is actually set */
++	if (ext4_test_inode_state(inode, EXT4_STATE_DISKSIZE_GROW_PENDING))
++		trace_ext4_iomap_wait_disksize_pending(inode);
++
  	wait_on_bit(ext4_inode_state_wait_word(inode),
  		    ext4_inode_state_wait_bit(EXT4_STATE_DISKSIZE_GROW_PENDING),
  		    TASK_UNINTERRUPTIBLE);
-@@ -4892,8 +4894,10 @@ static int ext4_iomap_mark_disksize_pending(struct inode *inode, loff_t from)
+@@ -4922,8 +4929,10 @@ static int ext4_iomap_mark_disksize_pending(struct inode *inode, loff_t from)
  	 */
  	if (likely(folio_test_dirty(folio) &&
  		   !ext4_test_inode_state(inode,
@@ -4505,14 +4698,14 @@ index 61e761be63bc..160eafff1df3 100644
 +		trace_ext4_iomap_mark_disksize_pending(inode);
  		ext4_set_inode_state(inode, EXT4_STATE_DISKSIZE_GROW_PENDING);
 +	}
- 
+ out:
  	folio_unlock(folio);
  	folio_put(folio);
 diff --git a/include/trace/events/ext4.h b/include/trace/events/ext4.h
-index 69596a216dcb..6bd0849c2f09 100644
+index bcf80f518..d33456d06 100644
 --- a/include/trace/events/ext4.h
 +++ b/include/trace/events/ext4.h
-@@ -3202,6 +3202,39 @@ DEFINE_SET_IOMAP_EVENT(ext4_iomap_buffered_write_begin);
+@@ -3204,6 +3204,39 @@ DEFINE_SET_IOMAP_EVENT(ext4_iomap_buffered_write_begin);
  DEFINE_SET_IOMAP_EVENT(ext4_iomap_map_writeback_range);
  DEFINE_SET_IOMAP_EVENT(ext4_iomap_zero_begin);
  
@@ -4553,9 +4746,9 @@ index 69596a216dcb..6bd0849c2f09 100644
  
  /* This part must be outside protection */
 
-From b3ddc732eb4c07947f6b45df58964ea9e3bfc48f Mon Sep 17 00:00:00 2001
+From 1b15129d9af7723878d433d66b9a3fe2acffabc4 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:40:15 +0800
+Date: Fri, 9 Oct 2026 18:38:29 +0800
 Subject: [PATCH 39/41] ext4: add tracepoints for EOF block zeroing and
  disksize-grow I/O
 
@@ -4578,7 +4771,8 @@ Together with the previous mark/clear/wait tracepoints, these cover the
 full lifetime of the disksize-grow-pending state.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903124017.2325538-1-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103831.2978767-1-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/inode.c             |   3 +
@@ -4587,10 +4781,10 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  3 files changed, 142 insertions(+), 1 deletion(-)
 
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 160eafff1df3..4f7d7e797aae 100644
+index cb2b089d4..8cb655168 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -4406,6 +4406,8 @@ static int ext4_iomap_writeback_submit(struct iomap_writepage_ctx *wpc,
+@@ -4417,6 +4417,8 @@ static int ext4_iomap_writeback_submit(struct iomap_writepage_ctx *wpc,
  	    round_down(ioend->io_offset, blocksize) <= pstart &&
  	    round_up(ioend->io_offset + ioend->io_size, blocksize) >=
  			pstart + plen) {
@@ -4599,7 +4793,7 @@ index 160eafff1df3..4f7d7e797aae 100644
  		ioend->io_bio.bi_end_io = ext4_iomap_end_bio;
  		ioend->io_private = (void *)EXT4_IOMAP_IOEND_DISKSIZE_GROW_IO;
  	}
-@@ -5011,6 +5013,7 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
+@@ -5033,6 +5035,7 @@ int ext4_block_zero_eof(struct inode *inode, loff_t from, loff_t end)
  			return err;
  	}
  
@@ -4608,7 +4802,7 @@ index 160eafff1df3..4f7d7e797aae 100644
  }
  
 diff --git a/fs/ext4/page-io.c b/fs/ext4/page-io.c
-index 4f1176b9332f..734d856a6d47 100644
+index 4f1176b93..734d856a6 100644
 --- a/fs/ext4/page-io.c
 +++ b/fs/ext4/page-io.c
 @@ -31,6 +31,8 @@
@@ -4652,10 +4846,10 @@ index 4f1176b9332f..734d856a6d47 100644
  		if (test_opt(sb, DATA_ERR_ABORT) && !ext4_emergency_state(sb))
  			jbd2_journal_abort(EXT4_SB(sb)->s_journal, ret);
 diff --git a/include/trace/events/ext4.h b/include/trace/events/ext4.h
-index 6bd0849c2f09..74d09a2a58cc 100644
+index d33456d06..92048da9d 100644
 --- a/include/trace/events/ext4.h
 +++ b/include/trace/events/ext4.h
-@@ -3235,6 +3235,135 @@ DEFINE_EVENT(ext4_iomap_disksize_pending, ext4_iomap_wait_disksize_pending,
+@@ -3237,6 +3237,135 @@ DEFINE_EVENT(ext4_iomap_disksize_pending, ext4_iomap_wait_disksize_pending,
  	TP_ARGS(inode)
  );
  
@@ -4792,9 +4986,9 @@ index 6bd0849c2f09..74d09a2a58cc 100644
  
  /* This part must be outside protection */
 
-From 03616d672cbfae29ca08b706dff8512debfa4781 Mon Sep 17 00:00:00 2001
+From bdcbb0f19e921c7ea3241f55922032dff23d1d26 Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:40:16 +0800
+Date: Fri, 9 Oct 2026 18:38:30 +0800
 Subject: [PATCH 40/41] ext4: partially enable iomap for the buffered I/O path
  of regular files
 
@@ -4839,18 +5033,19 @@ Additionally:
    on the iomap path.
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903124017.2325538-2-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103831.2978767-2-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h      |   1 +
  fs/ext4/ext4_jbd2.c |   8 +++-
  fs/ext4/ialloc.c    |   1 +
- fs/ext4/inode.c     | 105 ++++++++++++++++++++++++++++++++++++++++++--
+ fs/ext4/inode.c     | 105 +++++++++++++++++++++++++++++++++++++++++++-
  fs/ext4/migrate.c   |   2 +
- 5 files changed, 112 insertions(+), 5 deletions(-)
+ 5 files changed, 113 insertions(+), 4 deletions(-)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 2fecf0bb5cf6..64eaf6c64ccd 100644
+index 2fecf0bb5..64eaf6c64 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -3170,6 +3170,7 @@ int ext4_walk_page_buffers(handle_t *handle,
@@ -4862,7 +5057,7 @@ index 2fecf0bb5cf6..64eaf6c64ccd 100644
  #define FALL_BACK_TO_NONDELALLOC 1
  #define EXT4_WRITE_DATA_INLINE	 2
 diff --git a/fs/ext4/ext4_jbd2.c b/fs/ext4/ext4_jbd2.c
-index 53ddedb52a6f..a4664ddecdcd 100644
+index 53ddedb52..a4664ddec 100644
 --- a/fs/ext4/ext4_jbd2.c
 +++ b/fs/ext4/ext4_jbd2.c
 @@ -17,8 +17,12 @@ int ext4_inode_journal_mode(struct inode *inode)
@@ -4881,10 +5076,10 @@ index 53ddedb52a6f..a4664ddecdcd 100644
  		return EXT4_INODE_JOURNAL_DATA_MODE;	/* journal data */
  	}
 diff --git a/fs/ext4/ialloc.c b/fs/ext4/ialloc.c
-index a5831fc536db..f97a2f4904eb 100644
+index a5831fc53..f97a2f490 100644
 --- a/fs/ext4/ialloc.c
 +++ b/fs/ext4/ialloc.c
-@@ -1346,6 +1346,7 @@ struct inode *__ext4_new_inode(struct mnt_idmap *idmap,
+@@ -1346,6 +1346,7 @@ got:
  		}
  	}
  
@@ -4893,10 +5088,10 @@ index a5831fc536db..f97a2f4904eb 100644
  
  	ext4_update_inode_fsync_trans(handle, inode, 1);
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 4f7d7e797aae..f1a2b22c1b7e 100644
+index 8cb655168..12106bcb0 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -1036,6 +1036,9 @@ static int _ext4_get_block(struct inode *inode, sector_t iblock,
+@@ -1039,6 +1039,9 @@ static int _ext4_get_block(struct inode *inode, sector_t iblock,
  
  	if (ext4_has_inline_data(inode))
  		return -ERANGE;
@@ -4906,7 +5101,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  
  	map.m_lblk = iblock;
  	map.m_len = bh->b_size >> inode->i_blkbits;
-@@ -2906,6 +2909,13 @@ static int ext4_do_writepages(struct mpage_da_data *mpd)
+@@ -2915,6 +2918,13 @@ static int ext4_do_writepages(struct mpage_da_data *mpd)
  	if (!mapping->nrpages || !mapping_tagged(mapping, PAGECACHE_TAG_DIRTY))
  		goto out_writepages;
  
@@ -4920,7 +5115,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  	/*
  	 * If the filesystem has aborted, it is read-only, so return
  	 * right away instead of dumping stack traces later on that
-@@ -4044,6 +4054,9 @@ static int ext4_iomap_map_blocks(struct inode *inode, loff_t offset,
+@@ -4053,6 +4063,9 @@ static int ext4_iomap_map_blocks(struct inode *inode, loff_t offset,
  {
  	u8 blkbits = inode->i_blkbits;
  
@@ -4930,7 +5125,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  	if ((offset >> blkbits) > EXT4_MAX_LOGICAL_BLOCK)
  		return -EINVAL;
  
-@@ -4482,11 +4495,18 @@ static int ext4_iomap_writepages(struct address_space *mapping,
+@@ -4496,6 +4509,15 @@ static int ext4_iomap_writepages(struct address_space *mapping,
  	ext4_iomap_wb_submit_zeroed_eof(inode, wbc);
  
  	alloc_ctx = ext4_writepages_down_read(sb);
@@ -4938,19 +5133,15 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
 +	 * Does ext4_change_inode_journal_flag() change the inode's
 +	 * buffered I/O path?
 +	 */
-+	if (!ext4_inode_buffered_iomap(inode))
-+		goto out;
++	if (!ext4_inode_buffered_iomap(inode)) {
++		ext4_writepages_up_read(sb, alloc_ctx);
++		return ret;
++	}
 +
  	trace_ext4_writepages(inode, wbc);
  	ret = iomap_writepages(&wpc);
  	trace_ext4_writepages_result(inode, wbc, ret, nr - wbc->nr_to_write);
-+out:
- 	ext4_writepages_up_read(sb, alloc_ctx);
--
- 	return ret;
- }
- 
-@@ -6054,6 +6074,81 @@ static int check_igot_inode(struct inode *inode, ext4_iget_flags flags,
+@@ -6076,6 +6098,81 @@ error:
  	return -EFSCORRUPTED;
  }
  
@@ -5032,7 +5223,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  void ext4_set_inode_mapping_order(struct inode *inode)
  {
  	struct super_block *sb = inode->i_sb;
-@@ -6368,6 +6463,8 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
+@@ -6390,6 +6487,8 @@ struct inode *__ext4_iget(struct super_block *sb, unsigned long ino,
  	if (ret)
  		goto bad_inode;
  
@@ -5041,7 +5232,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  	if (S_ISREG(inode->i_mode)) {
  		inode->i_op = &ext4_file_inode_operations;
  		inode->i_fop = &ext4_file_operations;
-@@ -7604,9 +7701,10 @@ int ext4_change_inode_journal_flag(struct inode *inode, int val)
+@@ -7626,9 +7725,10 @@ int ext4_change_inode_journal_flag(struct inode *inode, int val)
  	 * the inode's in-core data-journaling state flag now.
  	 */
  
@@ -5054,7 +5245,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  		err = jbd2_journal_flush(journal, 0);
  		if (err < 0) {
  			jbd2_journal_unlock_updates(journal);
-@@ -7615,6 +7713,7 @@ int ext4_change_inode_journal_flag(struct inode *inode, int val)
+@@ -7637,6 +7737,7 @@ int ext4_change_inode_journal_flag(struct inode *inode, int val)
  			return err;
  		}
  		ext4_clear_inode_flag(inode, EXT4_INODE_JOURNAL_DATA);
@@ -5063,7 +5254,7 @@ index 4f7d7e797aae..f1a2b22c1b7e 100644
  	ext4_set_aops(inode);
  	ext4_set_inode_mapping_order(inode);
 diff --git a/fs/ext4/migrate.c b/fs/ext4/migrate.c
-index 5d60ef10fe11..09931d3ba2c6 100644
+index 5d60ef10f..09931d3ba 100644
 --- a/fs/ext4/migrate.c
 +++ b/fs/ext4/migrate.c
 @@ -621,6 +621,8 @@ int ext4_ind_migrate(struct inode *inode)
@@ -5076,9 +5267,9 @@ index 5d60ef10fe11..09931d3ba2c6 100644
  	/*
  	 * In order to get correct extent info, force all delayed allocation
 
-From 35aefefd7aba0801bab635b11943f932626be3b2 Mon Sep 17 00:00:00 2001
+From 8c4f6e3376348fc3162eed86a05b933921c8f9ed Mon Sep 17 00:00:00 2001
 From: Zhang Yi <yi.zhang@huawei.com>
-Date: Thu, 3 Sep 2026 20:40:17 +0800
+Date: Fri, 9 Oct 2026 18:38:31 +0800
 Subject: [PATCH 41/41] ext4: introduce a mount option for iomap buffered I/O
  path
 
@@ -5093,7 +5284,8 @@ only take effect after the inode is re-initialized (i.e., after the last
 reference is dropped and the inode is re-read from disk).
 
 Signed-off-by: Zhang Yi <yi.zhang@huawei.com>
-Link: https://patch.msgid.link/20260903124017.2325538-3-yi.zhang@huaweicloud.com
+Tested-by: syzbot@syzkaller.appspotmail.com
+Link: https://patch.msgid.link/20261009103831.2978767-3-yi.zhang@huaweicloud.com
 Signed-off-by: Theodore Ts'o <tytso@mit.edu>
 ---
  fs/ext4/ext4.h  | 1 +
@@ -5102,7 +5294,7 @@ Signed-off-by: Theodore Ts'o <tytso@mit.edu>
  3 files changed, 14 insertions(+)
 
 diff --git a/fs/ext4/ext4.h b/fs/ext4/ext4.h
-index 64eaf6c64ccd..8d3af062a830 100644
+index 64eaf6c64..8d3af062a 100644
 --- a/fs/ext4/ext4.h
 +++ b/fs/ext4/ext4.h
 @@ -1321,6 +1321,7 @@ struct ext4_inode_info {
@@ -5114,10 +5306,10 @@ index 64eaf6c64ccd..8d3af062a830 100644
  #define clear_opt(sb, opt)		EXT4_SB(sb)->s_mount_opt &= \
  						~EXT4_MOUNT_##opt
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index f1a2b22c1b7e..69d7050f41ab 100644
+index 12106bcb0..6ede3644a 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
-@@ -6101,11 +6101,17 @@ static int check_igot_inode(struct inode *inode, ext4_iget_flags flags,
+@@ -6125,11 +6125,17 @@ error:
   * For extent-to-indirect block migration (via EXT4_IOC_SETFLAGS
   * clearing EXT4_EXTENTS_FL), this operation is directly rejected for
   * inodes using the iomap path.
@@ -5136,7 +5328,7 @@ index f1a2b22c1b7e..69d7050f41ab 100644
  		return;
  	if (ext4_test_inode_flag(inode, EXT4_INODE_EA_INODE))
 diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 56bde3e439a5..7d8aedfbbb87 100644
+index 56bde3e43..7d8aedfbb 100644
 --- a/fs/ext4/super.c
 +++ b/fs/ext4/super.c
 @@ -1747,6 +1747,7 @@ enum {
