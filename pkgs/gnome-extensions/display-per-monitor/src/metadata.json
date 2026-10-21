@@ -1,0 +1,7 @@
+{
+  "uuid": "display-per-monitor@local",
+  "name": "Display per Monitor",
+  "description": "Remembers display settings per monitor instead of per monitor set. When displays are plugged or unplugged mutter falls back to defaults for the whole setup (preferred mode, default scale, no VRR); this extension re-applies each monitor's own settings from what is currently set and from the configurations you have confirmed in Settings.",
+  "shell-version": ["50"],
+  "version-name": "1.0"
+}

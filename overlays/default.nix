@@ -59,6 +59,22 @@ in
 
   distrobox = final.callPackage (pkg /distrobox) { inherit patch; };
 
+  dash-to-panel-patched = final.callPackage (pkg /gnome-extensions/dash-to-panel-patched) {
+    inherit patch;
+  };
+
+  appindicator-tooltip = final.callPackage (pkg /gnome-extensions/appindicator-tooltip) {
+    inherit patch;
+  };
+
+  display-per-monitor = final.callPackage (pkg /gnome-extensions/display-per-monitor) { };
+
+  adjust-display-brightness-2 =
+    final.callPackage (pkg /gnome-extensions/adjust-display-brightness-2)
+      {
+        inherit patch;
+      };
+
   lsfg-vk = prev.lsfg-vk.overrideAttrs (prevAttrs: {
     src = final.fetchFromGitHub {
       owner = "PancakeTAS";

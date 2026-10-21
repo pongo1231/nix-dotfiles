@@ -1,0 +1,246 @@
+diff --git a/indicatorStatusIcon.js b/indicatorStatusIcon.js
+index 1b5798c..e9061fd 100644
+--- a/indicatorStatusIcon.js
++++ b/indicatorStatusIcon.js
+@@ -16,6 +16,7 @@
+ 
+ import Clutter from 'gi://Clutter';
+ import Gio from 'gi://Gio';
++import GLib from 'gi://GLib';
+ import GObject from 'gi://GObject';
+ import St from 'gi://St';
+ 
+@@ -32,6 +33,15 @@ import * as DBusMenu from './dbusMenu.js';
+ 
+ const DEFAULT_ICON_SIZE = Panel.PANEL_ICON_SIZE || 16;
+ 
++/* Tooltip timings mirror the Shell's own dash labels (js/ui/dash.js:
++ * DASH_ITEM_HOVER_TIMEOUT, DASH_ITEM_LABEL_SHOW_TIME, DASH_ITEM_LABEL_HIDE_TIME)
++ * and the label reuses the 'dash-label' style class, so it looks and feels
++ * exactly like a native Shell tooltip. */
++const TOOLTIP_HOVER_DELAY = 300;
++const TOOLTIP_SHOW_TIME = 150;
++const TOOLTIP_HIDE_TIME = 100;
++const TOOLTIP_MIN_GAP = 4;
++
+ function getClutterSettings() {
+     // When we will depend on GNOME 47 we can just use Clutter.Actor.get_context()
+     try {
+@@ -92,6 +102,11 @@ class IndicatorBaseStatusIcon extends PanelMenu.Button {
+         this._setIconActor(iconActor);
+         this._showIfReady();
+ 
++        this._tooltipLabel = new St.Label({style_class: 'dash-label'});
++        this._tooltipLabel.hide();
++        Main.layoutManager.addChrome(this._tooltipLabel);
++        this._tooltipShowId = 0;
++
+         this.set_style(IndicatorBaseStatusIcon.DEFAULT_STYLE);
+     }
+ 
+@@ -117,6 +132,14 @@ class IndicatorBaseStatusIcon extends PanelMenu.Button {
+     }
+ 
+     _onDestroy() {
++        this._cancelTooltipTimeout();
++
++        if (this._tooltipLabel) {
++            Main.layoutManager.removeChrome(this._tooltipLabel);
++            this._tooltipLabel.destroy();
++            this._tooltipLabel = null;
++        }
++
+         if (this._icon)
+             this._icon.destroy();
+ 
+@@ -145,11 +168,97 @@ class IndicatorBaseStatusIcon extends PanelMenu.Button {
+             this.opacity = 255;
+             if (this._icon)
+                 this._icon.remove_effect_by_name('desaturate');
++
++            this._scheduleTooltip();
+         } else {
+             this._updateEffects();
++            this._hideTooltip();
++        }
++    }
++
++    /* Text shown while hovering this icon; return null to disable the tooltip. */
++    get tooltipText() {
++        return null;
++    }
++
++    _scheduleTooltip() {
++        this._cancelTooltipTimeout();
++
++        if (!this.tooltipText)
++            return;
++
++        this._tooltipShowId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, TOOLTIP_HOVER_DELAY, () => {
++            this._tooltipShowId = 0;
++
++            if (this.hover)
++                this._showTooltip();
++
++            return GLib.SOURCE_REMOVE;
++        });
++    }
++
++    _cancelTooltipTimeout() {
++        if (this._tooltipShowId) {
++            GLib.source_remove(this._tooltipShowId);
++            this._tooltipShowId = 0;
+         }
+     }
+ 
++    /* Position/animation are lifted from DashItemContainer.showLabel()/hideLabel()
++     * in js/ui/dash.js; the only change is that the label drops below the icon
++     * when the panel sits at the top of its monitor, matching the Shell's own
++     * placement for a top bar. */
++    _showTooltip() {
++        const text = this.tooltipText;
++        const label = this._tooltipLabel;
++
++        if (!text || !label)
++            return;
++
++        label.set_text(text);
++        label.opacity = 0;
++        label.show();
++
++        const [stageX, stageY] = this.get_transformed_position();
++        const [itemWidth, itemHeight] = this.get_size();
++        const [labelWidth, labelHeight] = label.get_size();
++
++        const monitor = Main.layoutManager.findMonitorForActor(this);
++        const themeOffset = label.get_theme_node().get_length('-y-offset');
++        const gap = themeOffset > 0 ? themeOffset : TOOLTIP_MIN_GAP;
++        const panelAtTop = stageY + itemHeight / 2 < monitor.y + monitor.height / 2;
++
++        const minX = monitor.x + gap;
++        const maxX = Math.max(minX, monitor.x + monitor.width - labelWidth - gap);
++        const x = Math.clamp(Math.floor(stageX + (itemWidth - labelWidth) / 2), minX, maxX);
++
++        const y = panelAtTop
++            ? stageY + itemHeight + gap
++            : stageY - labelHeight - gap;
++
++        label.set_position(Math.round(x), Math.round(y));
++        label.ease({
++            opacity: 255,
++            duration: TOOLTIP_SHOW_TIME,
++            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
++        });
++    }
++
++    _hideTooltip() {
++        this._cancelTooltipTimeout();
++
++        const label = this._tooltipLabel;
++        if (!label || !label.visible)
++            return;
++
++        label.ease({
++            opacity: 0,
++            duration: TOOLTIP_HIDE_TIME,
++            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
++            onComplete: () => label.hide(),
++        });
++    }
++
+     _updateOpacity() {
+         const settings = SettingsManager.getDefaultGSettings();
+         const userValue = settings.get_user_value('icon-opacity');
+@@ -299,6 +408,10 @@ class IndicatorStatusIcon extends BaseStatusIcon {
+         return this._indicator.uniqueId;
+     }
+ 
++    get tooltipText() {
++        return this._indicator ? this._indicator.tooltip : null;
++    }
++
+     isReady() {
+         return this._indicator && this._indicator.isReady;
+     }
+@@ -601,6 +714,12 @@ class IndicatorTrayIcon extends BaseStatusIcon {
+         return super.vfunc_leave_event(event);
+     }
+ 
++    get tooltipText() {
++        // Legacy X11 tray icons carry no ToolTip property; the window title (or
++        // the WM class the icon was registered with) is the closest equivalent.
++        return this._icon?.title ?? this.accessible_name ?? null;
++    }
++
+     _updateIconSize() {
+         const settings = SettingsManager.getDefaultGSettings();
+         const {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
+diff --git a/appIndicator.js b/appIndicator.js
+index 809b8e6..d23acfd 100644
+--- a/appIndicator.js
++++ b/appIndicator.js
+@@ -610,6 +610,28 @@ export class AppIndicator extends Signals.EventEmitter {
+         return this._proxy.Title;
+     }
+ 
++    /* The SNI ToolTip property is (icon-name, icon-pixmaps, title, text), but the
++     * spec sets no precedence and some applications put junk in it (Steam sends
++     * title "r", text ":"), while others leave Title empty and describe
++     * themselves only in the ToolTip. So pick the most descriptive of the three
++     * candidates: the longest one that actually contains a letter or digit. */
++    get tooltip() {
++        const toolTip = this._proxy.ToolTip;
++        const candidates = [this.title, toolTip?.[2], toolTip?.[3]];
++
++        let best = null;
++
++        for (const candidate of candidates) {
++            if (typeof candidate !== 'string' || !/[0-9A-Za-z]/.test(candidate))
++                continue;
++
++            if (!best || candidate.length > best.length)
++                best = candidate;
++        }
++
++        return best;
++    }
++
+     get id() {
+         return this._proxy.Id;
+     }
+diff --git a/extension.js b/extension.js
+index 0dc10ce..ed829cb 100644
+--- a/extension.js
++++ b/extension.js
+@@ -69,6 +69,14 @@ export default class AppIndicatorExtension extends Extension.Extension {
+             this._statusNotifierWatcher = null;
+         }
+ 
++        // destroy() unowns the bus name without firing the lost-name callback, so
++        // the watchdog would keep believing it still owns the name and
++        // _maybeEnableAfterNameAvailable() would then return early forever. After
++        // any reload -- and lock/unlock cycles reload extensions -- no watcher
++        // would ever be created again and every tray icon would disappear.
++        if (this._watchDog)
++            this._watchDog.nameAcquired = false;
++
+         SettingsManager.destroy();
+     }
+ 
+diff --git a/interfaces-xml/StatusNotifierItem.xml b/interfaces-xml/StatusNotifierItem.xml
+index 9205bb7..b88c2c9 100644
+--- a/interfaces-xml/StatusNotifierItem.xml
++++ b/interfaces-xml/StatusNotifierItem.xml
+@@ -51,11 +51,10 @@
+     <!-- tooltip data -->
+ 
+     <!--(iiay) is an image-->
+-    <!-- We disable this as we don't support tooltip, so no need to go through it
++    <!-- (sa(iiay)ss) = (icon-name, icon-pixmaps, title, text) -->
+     <property name="ToolTip" type="(sa(iiay)ss)" access="read">
+         <annotation name="org.qtproject.QtDBus.QtTypeName" value="KDbusToolTipStruct"/>
+     </property>
+-    -->
+ 
+     <!-- interaction: the systemtray wants the application to do something -->
+     <method name="ContextMenu">

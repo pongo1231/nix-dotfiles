@@ -1,0 +1,966 @@
+diff --git a/audioMatch.js b/audioMatch.js
+new file mode 100644
+index 0000000..5f6c229
+--- /dev/null
++++ b/audioMatch.js
+@@ -0,0 +1,177 @@
++/*
++ * This file is part of the Dash-To-Panel extension for Gnome 3
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++// Stream <-> app attribution for the preview audio controls.
++//
++// Identity comes from `pw-dump`, volume/mute/mpris from Gvc and MPRIS. The two
++// representations of a playback stream are joined on the pulse stream index:
++// pipewire-pulse derives that index from the PipeWire object serial
++// (alloc_object() in module-protocol-pulse/manager.c), which pw-dump reports as
++// `object.serial`. Names are the only thing both sides share otherwise, and
++// they do not line up often enough: a Wine game advertises its *title* and
++// "wine-preloader", a Java game just "java".
++//
++// Which app a stream belongs to is resolved the way Plasma's task manager does
++// it (applets/taskmanager/qml/Task.qml + PulseAudio.qml), in this order:
++//
++//   1. portal app id -- a sandboxed app reports a pid from outside the
++//      namespace, so its pid is meaningless and the app id is authoritative;
++//   2. client pid, directly or through the process ancestors of either side.
++//      This is what makes Java runtimes, Wine/Proton, Steam's runtime
++//      wrappers and browser content processes work, none of which own the
++//      window they are playing for;
++//   3. stream name, but only while no task claimed that name through a pid,
++//      so a second instance of an app does not inherit the first one's
++//      streams (Plasma's pidMatches guard).
++//
++// Anything name-based is a last resort, never a first guess.
++
++const OUTPUT_CLASS = 'Stream/Output/Audio'
++
++// .desktop suffixes never appear on stream properties and do appear on shell
++// app ids, so both sides are reduced to the same shape.
++function _norm(value) {
++  return String(value || '')
++    .toLowerCase()
++    .replace(/\.desktop$/, '')
++}
++
++function _identities(props) {
++  // application.name only. application.process.binary is shared by construction
++  // -- every Wine process reports "wine-preloader", every JDK "java" -- so
++  // matching on it would attribute one app's streams to another app of the same
++  // kind, and would also defeat the pidMatchedNames guard below.
++  let identities = new Set()
++
++  let appName = _norm(props['application.name'])
++  if (appName) identities.add(appName)
++
++  return identities
++}
++
++/**
++ * @param {string} text output of `pw-dump`
++ * @returns {Map<number, object>|null} pulse stream index -> stream, or null when
++ *   the dump could not be parsed (pw-dump missing, killed, truncated)
++ */
++export function parsePipewireDump(text) {
++  let objects
++
++  try {
++    objects = JSON.parse(text)
++  } catch (e) {
++    return null
++  }
++
++  if (!Array.isArray(objects)) return null
++
++  let clients = new Map()
++  for (let object of objects) {
++    if (object.type === 'PipeWire:Interface:Client' && object.info?.props)
++      clients.set(object.id, object.info.props)
++  }
++
++  let nodes = new Map()
++  for (let object of objects) {
++    if (object.type !== 'PipeWire:Interface:Node') continue
++
++    let info = object.info
++    if (info?.props?.['media.class'] !== OUTPUT_CLASS) continue
++
++    let index = Number(info.props['object.serial'])
++    if (!Number.isSafeInteger(index)) continue
++
++    // libpipewire fills the application properties on the node too, but the
++    // client carries the pid and portal id, and pipewire-pulse does not always
++    // copy those down.
++    let props = { ...info.props, ...(clients.get(info.props['client.id']) || {}) }
++
++    nodes.set(index, {
++      index,
++      // Gvc reports Gvc.MixerStreamState.INVALID for these streams, so the
++      // PipeWire node state is the only usable "is it playing" signal.
++      playing: info.state === 'running',
++      pid: Number(props['application.process.id']) || 0,
++      appId: _norm(props['pipewire.access.portal.app_id']),
++      identities: _identities(props),
++    })
++  }
++
++  return nodes
++}
++
++/**
++ * @param {Map<number, object>} nodes from parsePipewireDump()
++ * @param {{appId: string, pids: number[], identities: Set<string>}} app
++ * @param {object} context
++ * @param {(pid: number) => Set<number>} context.ancestorsOf pid plus its
++ *   ancestors; resolved by the caller from /proc
++ * @param {Set<string>} context.pidMatchedNames app identities already claimed
++ *   by a pid match; shared across all callers
++ * @returns {object[]} streams owned by app (both playing and idle)
++ */
++export function findNodesForApp(nodes, app, { ancestorsOf, pidMatchedNames }) {
++  let cache = new Map()
++  let ancestorsFor = pid => {
++    if (!cache.has(pid)) cache.set(pid, ancestorsOf(pid))
++    return cache.get(pid)
++  }
++
++  let appPids = new Set((app.pids || []).filter(pid => pid > 0))
++  let identities = app.identities || new Set()
++
++  if (app.appId) {
++    let matched = [...nodes.values()].filter(node => node.appId === app.appId)
++    if (matched.length) return matched
++  }
++
++  if (appPids.size) {
++    let matched = [...nodes.values()].filter(node => {
++      // A sandboxed stream's pid belongs to the sandbox namespace.
++      if (!node.pid || node.appId) return false
++      if (appPids.has(node.pid)) return true
++
++      // The stream comes from a helper below the app's process: Wine's audio
++      // thread, a JVM started by a launcher, a browser's content process.
++      for (let ancestor of ancestorsFor(node.pid))
++        if (ancestor !== node.pid && appPids.has(ancestor)) return true
++
++      // The stream comes from a process the app itself was started from:
++      // Steam's own runtime playgrounding a game, a shell wrapper.
++      for (let pid of appPids)
++        if (ancestorsFor(pid).has(node.pid)) return true
++
++      return false
++    })
++
++    if (matched.length) {
++      for (let identity of identities) pidMatchedNames.add(identity)
++      return matched
++    }
++  }
++
++  // Another task already owns this name through a pid; do not steal its
++  // streams just because the names happen to match.
++  for (let identity of identities) if (pidMatchedNames.has(identity)) return []
++
++  return [...nodes.values()].filter(node => {
++    for (let identity of identities)
++      if (node.identities.has(identity)) return true
++
++    return false
++  })
++}
+diff --git a/panel.js b/panel.js
+index 93e9dd6..5633905 100644
+--- a/panel.js
++++ b/panel.js
+@@ -185,7 +185,12 @@ export const Panel = GObject.registerClass(
+         ;['activities', systemMenuInfo.name, 'dateMenu'].forEach((b) => {
+           let container = this.statusArea[b].container
+           let parent = container.get_parent()
+-          let siblings = parent.get_children()
++          // The container can already be detached -- e.g. when two Dash-to-Panel
++          // copies are toggled in the same session, GNOME's extension rebase runs
++          // them against each other and one steals the containers from the other.
++          // The matching restore path below already tolerates a null parent, so
++          // tolerate it here too instead of failing the whole panel startup.
++          let siblings = parent ? parent.get_children() : []
+           let index = siblings.indexOf(container)
+ 
+           container._dtpOriginalParent = parent
+diff --git a/panelManager.js b/panelManager.js
+index da60133..32b8865 100755
+--- a/panelManager.js
++++ b/panelManager.js
+@@ -198,13 +198,21 @@ export const PanelManager = class {
+       )
+     }
+ 
+-    LookingGlass.LookingGlass.prototype._oldResize =
+-      LookingGlass.LookingGlass.prototype._resize
+-    LookingGlass.LookingGlass.prototype._resize = _newLookingGlassResize
++    // Patch Looking Glass once and remember what we replaced. Two copies of this
++    // extension (or a re-entrant enable) share these prototype properties, and an
++    // unguarded restore used to write `undefined` back onto the prototype -- which
++    // permanently breaks Looking Glass for the rest of the session.
++    if (LookingGlass.LookingGlass.prototype._resize !== _newLookingGlassResize) {
++      LookingGlass.LookingGlass.prototype._oldResize =
++        LookingGlass.LookingGlass.prototype._resize
++      LookingGlass.LookingGlass.prototype._resize = _newLookingGlassResize
++    }
+ 
+-    LookingGlass.LookingGlass.prototype._oldOpen =
+-      LookingGlass.LookingGlass.prototype.open
+-    LookingGlass.LookingGlass.prototype.open = _newLookingGlassOpen
++    if (LookingGlass.LookingGlass.prototype.open !== _newLookingGlassOpen) {
++      LookingGlass.LookingGlass.prototype._oldOpen =
++        LookingGlass.LookingGlass.prototype.open
++      LookingGlass.LookingGlass.prototype.open = _newLookingGlassOpen
++    }
+ 
+     Main.messageTray._bannerBin.ease = (params) => {
+       if (params.y === 0) {
+@@ -409,13 +417,19 @@ export const PanelManager = class {
+     Main.overview._overview._controls._workspacesDisplay.setPrimaryWorkspaceVisible =
+       this._oldSetPrimaryWorkspaceVisible
+ 
+-    LookingGlass.LookingGlass.prototype._resize =
+-      LookingGlass.LookingGlass.prototype._oldResize
+-    delete LookingGlass.LookingGlass.prototype._oldResize
++    const lgProto = LookingGlass.LookingGlass.prototype
+ 
+-    LookingGlass.LookingGlass.prototype.open =
+-      LookingGlass.LookingGlass.prototype._oldOpen
+-    delete LookingGlass.LookingGlass.prototype._oldOpen
++    if (lgProto._resize === _newLookingGlassResize) {
++      if (typeof lgProto._oldResize === 'function')
++        lgProto._resize = lgProto._oldResize
++      delete lgProto._oldResize
++    }
++
++    if (lgProto.open === _newLookingGlassOpen) {
++      if (typeof lgProto._oldOpen === 'function')
++        lgProto.open = lgProto._oldOpen
++      delete lgProto._oldOpen
++    }
+ 
+     delete Main.messageTray._bannerBin.ease
+ 
+diff --git a/stylesheet.css b/stylesheet.css
+index ea60ee3..dcb0859 100644
+--- a/stylesheet.css
++++ b/stylesheet.css
+@@ -269,3 +269,51 @@
+ #uiGroup.br20 .dashtopanelPanel.dock .showdesktop-button-vertical {
+ 	border-radius: 0 0 20px 20px !important;
+ }
++
++/* audio controls + volume, shown under window previews of playing apps */
++.preview-audio-stack {
++	spacing: 6px;
++	padding: 8px 10px 10px 10px;
++	background-color: rgba(0, 0, 0, 0.55);
++}
++
++.preview-audio-controls {
++	spacing: 8px;
++}
++
++.preview-audio-row {
++	spacing: 8px;
++}
++
++.preview-audio-btn {
++	padding: 5px 14px;
++	border-radius: 99px;
++}
++
++.preview-audio-btn:hover {
++	background-color: rgba(255, 255, 255, 0.1);
++}
++
++.preview-audio-btn:active {
++	background-color: rgba(255, 255, 255, 0.18);
++}
++
++.preview-audio-mute {
++	padding: 5px 9px;
++	border-radius: 99px;
++}
++
++.preview-audio-mute:hover {
++	background-color: rgba(255, 255, 255, 0.1);
++}
++
++.preview-audio-mute:active {
++	background-color: rgba(255, 255, 255, 0.18);
++}
++
++.preview-audio-pct {
++	min-width: 2.8em;
++	font-size: 0.85em;
++	color: rgba(255, 255, 255, 0.85);
++	font-feature-settings: "tnum";
++}
+diff --git a/windowPreview.js b/windowPreview.js
+index dab6d7b..45d9803 100644
+--- a/windowPreview.js
++++ b/windowPreview.js
+@@ -23,7 +23,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js'
+ import Meta from 'gi://Meta'
+ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js'
+ import St from 'gi://St'
++import Gio from 'gi://Gio'
+ 
++import { Slider } from 'resource:///org/gnome/shell/ui/slider.js'
++import * as Volume from 'resource:///org/gnome/shell/ui/status/volume.js'
++
++import * as AudioMatch from './audioMatch.js'
+ import * as Taskbar from './taskbar.js'
+ import * as Utils from './utils.js'
+ import { SETTINGS, DESKTOPSETTINGS } from './extension.js'
+@@ -57,6 +62,322 @@ let scaleFactor = 1
+ let animationTime = 0
+ let aspectRatio = {}
+ 
++// --- Audio controls ---------------------------------------------------------
++// Playback streams are identified from `pw-dump` and controlled through Gvc
++// (volume, mute) plus MPRIS (transport). audioMatch.js resolves which app owns
++// a stream; this half joins the two stream representations and renders a
++// KDE-style volume slider in the preview.
++const AUDIO_ICON_SIZE = 16
++const AUDIO_CONTROL_ICON_SIZE = 16
++const AUDIO_DUMP_MIN_MS = 400
++// A running stream drops back to idle between one-shot sounds in games, and
++// pw-dump is only polled, so hold the row up for a moment after it stops.
++const AUDIO_HOLD_MS = 2500
++const AUDIO_POLL_MS = 1000
++
++let audioControl = null
++// pulse stream index -> Gvc.MixerStream (volume/mute handles)
++let audioStreamsByIndex = new Map()
++// pulse stream index -> stream identity from pw-dump
++let audioNodes = new Map()
++let audioDumpPending = false
++let audioDumpLast = 0
++let audioPollId = 0
++const audioRowUpdaters = new Set()
++// App identities that have been attributed a stream by pid; shared by every
++// caller of audioMatch.findNodesForApp().
++const audioPidMatchedNames = new Set()
++// pid -> {ancestors, time}, see _ancestorsOf()
++const audioAncestors = new Map()
++const AUDIO_ANCESTORS_TTL_MS = 5000
++const audioDecoder = new TextDecoder()
++
++function _ppid(pid) {
++  let contents
++
++  try {
++    ;[, contents] = Gio.File.new_for_path(`/proc/${pid}/stat`).load_contents(null)
++  } catch (e) {
++    return 0
++  }
++
++  // field 2 (comm) is parenthesised and may contain spaces and parentheses
++  let stat = audioDecoder.decode(contents)
++
++  return Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[1]) || 0
++}
++
++// A stream rarely comes from the process that owns the window: Wine's audio
++// runs inside a Wine helper, Java games play from a JVM a launcher forked,
++// browsers from a content process. Walking /proc finds the task either way.
++function _ancestorsOf(pid) {
++  let now = Date.now()
++  let cached = audioAncestors.get(pid)
++
++  if (cached && now - cached.time < AUDIO_ANCESTORS_TTL_MS) return cached.pids
++
++  let pids = new Set()
++  let current = pid
++
++  for (let depth = 0; depth < 16 && current > 1 && !pids.has(current); depth++) {
++    pids.add(current)
++    current = _ppid(current)
++  }
++
++  if (current > 1) pids.add(current)
++
++  if (audioAncestors.size > 256) audioAncestors.clear()
++  audioAncestors.set(pid, { pids, time: now })
++
++  return pids
++}
++
++function _holdAudioVisibility(nodes) {
++  let now = Date.now()
++
++  for (let node of nodes.values()) {
++    let previous = audioNodes.get(node.index)
++    let lastPlaying = node.playing ? now : (previous && previous.lastPlaying) || 0
++
++    node.lastPlaying = lastPlaying
++    node.playing = node.playing || now - lastPlaying < AUDIO_HOLD_MS
++  }
++
++  return nodes
++}
++
++function _refreshAudioNodes() {
++  let now = Date.now()
++
++  if (audioDumpPending || now - audioDumpLast < AUDIO_DUMP_MIN_MS) return
++
++  audioDumpPending = true
++  audioDumpLast = now
++
++  let proc
++  try {
++    proc = Gio.Subprocess.new(
++      ['pw-dump'],
++      Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
++    )
++  } catch (e) {
++    audioDumpPending = false
++    return
++  }
++
++  proc.communicate_utf8_async(null, null, (p, res) => {
++    audioDumpPending = false
++
++    let stdout
++    try {
++      ;[, stdout] = p.communicate_utf8_finish(res)
++    } catch (e) {
++      return
++    }
++
++    let nodes = AudioMatch.parsePipewireDump(stdout)
++    if (!nodes) return
++
++    audioNodes = _holdAudioVisibility(nodes)
++    refreshAudioStreams()
++  })
++}
++
++// Gvc only reports stream-added/stream-removed; a stream that starts or stops
++// playing keeps its index, so the preview would stay stale between events.
++function _startAudioPoll() {
++  if (audioPollId) return
++
++  audioPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, AUDIO_POLL_MS, () => {
++    _refreshAudioNodes()
++    return GLib.SOURCE_CONTINUE
++  })
++}
++
++function _stopAudioPoll() {
++  if (!audioPollId) return
++
++  GLib.source_remove(audioPollId)
++  audioPollId = 0
++}
++
++function _collectAudioStreams() {
++  audioStreamsByIndex = new Map()
++
++  if (!audioControl) return
++
++  // Gvc numbers sink inputs by their pulse index, which pipewire-pulse derives
++  // from the PipeWire object serial -- the number pw-dump reports as
++  // `object.serial`, so both listings join on it exactly.
++  for (let stream of audioControl.get_sink_inputs())
++    audioStreamsByIndex.set(stream.get_index(), stream)
++}
++
++function _appAudioIdentity(app) {
++  let pids = []
++  let identities = new Set()
++
++  let appId = String(app.get_id() || '')
++    .toLowerCase()
++    .replace(/\.desktop$/, '')
++  let name = String(app.get_name() || '').toLowerCase()
++
++  if (name) identities.add(name)
++  if (appId) identities.add(appId)
++
++  try {
++    for (let window of app.get_windows()) {
++      let pid = window.get_pid()
++      if (pid > 0) pids.push(pid)
++
++      let wmClass = String(window.get_wm_class() || '').toLowerCase()
++      if (wmClass) {
++        identities.add(wmClass)
++        if (wmClass.endsWith('.exe')) identities.add(wmClass.slice(0, -4))
++      }
++    }
++  } catch (e) {}
++
++  return { appId, pids, identities }
++}
++
++function getAudioControl() {
++  if (!audioControl) {
++    audioControl = Volume.getMixerControl()
++    audioControl.connect('stream-added', () => refreshAudioStreams())
++    audioControl.connect('stream-removed', () => refreshAudioStreams())
++    _collectAudioStreams()
++  }
++
++  return audioControl
++}
++
++function refreshAudioStreams() {
++  _collectAudioStreams()
++
++  for (let updater of [...audioRowUpdaters]) updater()
++}
++
++function getStreamsForApp(app) {
++  getAudioControl()
++
++  if (!app || !audioNodes.size) return []
++
++  let nodes = AudioMatch.findNodesForApp(audioNodes, _appAudioIdentity(app), {
++    ancestorsOf: _ancestorsOf,
++    pidMatchedNames: audioPidMatchedNames,
++  })
++
++  return nodes
++    .filter((node) => node.playing)
++    .map((node) => audioStreamsByIndex.get(node.index))
++    .filter((stream) => !!stream)
++}
++
++// --- MPRIS: playback controls for the app's active media player -------------
++const mprisPlayers = new Map()
++let mprisRequestPending = false
++let mprisLastRequest = 0
++const MPRIS_MIN_MS = 500
++
++function _mprisKey(busName) {
++  return busName
++    .replace(/^org\.mpris\.MediaPlayer2\./, '')
++    .replace(/\.instance.*$/, '')
++    .toLowerCase()
++}
++
++function _refreshMpris() {
++  let now = Date.now()
++
++  if (mprisRequestPending || now - mprisLastRequest < MPRIS_MIN_MS) return
++
++  mprisRequestPending = true
++  mprisLastRequest = now
++
++  Gio.DBus.session.call(
++    'org.freedesktop.DBus',
++    '/org/freedesktop/DBus',
++    'org.freedesktop.DBus',
++    'ListNames',
++    null,
++    null,
++    Gio.DBusCallFlags.NONE,
++    -1,
++    null,
++    (connection, res) => {
++      mprisRequestPending = false
++
++      let names
++      try {
++        names = connection.call_finish(res).deep_unpack()[0]
++      } catch (e) {
++        return
++      }
++
++      for (let name of names) {
++        if (!name.startsWith('org.mpris.MediaPlayer2.') || mprisPlayers.has(name))
++          continue
++
++        mprisPlayers.set(name, null)
++
++        Gio.DBusProxy.new(
++          Gio.DBus.session,
++          Gio.DBusProxyFlags.NONE,
++          null,
++          name,
++          '/org/mpris/MediaPlayer2',
++          'org.mpris.MediaPlayer2.Player',
++          null,
++          (source, result) => {
++            try {
++              let proxy = Gio.DBusProxy.new_finish(result)
++              mprisPlayers.set(name, proxy)
++              proxy.connect('g-properties-changed', () => refreshAudioStreams())
++            } catch (e) {
++              mprisPlayers.delete(name)
++            }
++
++            refreshAudioStreams()
++          },
++        )
++      }
++
++      for (let name of [...mprisPlayers.keys()])
++        if (!names.includes(name)) mprisPlayers.delete(name)
++
++      refreshAudioStreams()
++    },
++  )
++}
++
++function _playerForApp(app) {
++  let identities = app ? _appAudioIdentity(app).identities : new Set()
++
++  for (let [busName, proxy] of mprisPlayers) {
++    if (proxy && identities.has(_mprisKey(busName))) return proxy
++  }
++
++  return null
++}
++
++function _playbackStatus(proxy) {
++  try {
++    let status = proxy.get_cached_property('PlaybackStatus')
++    return status ? status.unpack() : null
++  } catch (e) {
++    return null
++  }
++}
++
++function _mprisCall(proxy, method) {
++  try {
++    proxy.call(method, null, Gio.DBusCallFlags.NONE, -1, null, () => {})
++  } catch (e) {
++    logError(e, 'DTP mpris')
++  }
++}
++
+ export const PreviewMenu = GObject.registerClass(
+   {
+     Signals: { 'open-state-changed': {} },
+@@ -938,7 +1259,102 @@ export const Preview = GObject.registerClass(
+         box.insert_child_at_index(headerBox, isTopHeader ? 0 : 1)
+       }
+ 
++      // audio stack (prototype): playback controls + volume, shown only while
++      // the app is playing audio. Overlaid at the bottom of the preview.
++      this._audioControls = new St.BoxLayout({
++        style_class: 'preview-audio-controls',
++        x_align: Clutter.ActorAlign.CENTER,
++      })
++      this._audioPlayIcon = new St.Icon({
++        icon_name: 'media-playback-start-symbolic',
++        icon_size: AUDIO_CONTROL_ICON_SIZE * scaleFactor,
++      })
++      this._audioPlayButton = new St.Button({
++        style_class: 'preview-audio-btn',
++        can_focus: true,
++        reactive: true,
++        track_hover: true,
++      })
++      this._audioPlayButton.add_child(this._audioPlayIcon)
++      this._audioPlayButton.connect('clicked', () =>
++        this._onAudioPlayerAction('PlayPause'),
++      )
++
++      this._audioControls.add_child(
++        this._makeAudioButton('media-skip-backward-symbolic', () =>
++          this._onAudioPlayerAction('Previous'),
++        ),
++      )
++      this._audioControls.add_child(this._audioPlayButton)
++      this._audioControls.add_child(
++        this._makeAudioButton('media-skip-forward-symbolic', () =>
++          this._onAudioPlayerAction('Next'),
++        ),
++      )
++      this._audioControls.visible = false
++
++      this._audioVolumeRow = new St.BoxLayout({
++        style_class: 'preview-audio-row',
++        x_expand: true,
++      })
++      this._audioMuteButton = new St.Button({
++        style_class: 'preview-audio-mute',
++        can_focus: true,
++        reactive: true,
++        track_hover: true,
++      })
++      this._audioIcon = new St.Icon({
++        icon_name: 'audio-volume-high-symbolic',
++        icon_size: AUDIO_ICON_SIZE * scaleFactor,
++      })
++      this._audioMuteButton.add_child(this._audioIcon)
++
++      this._audioSlider = new Slider(0)
++      this._audioSlider.x_expand = true
++
++      this._audioLabel = new St.Label({
++        style_class: 'preview-audio-pct',
++        text: '100%',
++        y_align: Clutter.ActorAlign.CENTER,
++      })
++
++      this._audioVolumeRow.add_child(this._audioMuteButton)
++      this._audioVolumeRow.add_child(this._audioSlider)
++      this._audioVolumeRow.add_child(this._audioLabel)
++
++      this._audioStack = new St.BoxLayout({
++        style_class: 'preview-audio-stack',
++        x_expand: true,
++        x_align: Clutter.ActorAlign.FILL,
++        orientation: Clutter.Orientation.VERTICAL,
++      })
++      this._audioStack.add_child(this._audioControls)
++      this._audioStack.add_child(this._audioVolumeRow)
++      this._audioStack.visible = false
++
++      this._audioStream = null
++      this._audioStreams = []
++      this._audioStreamIds = []
++      this._audioSyncing = false
++      this._audioPlayer = null
++
++      this._audioSlider.connect('notify::value', () =>
++        this._onAudioSliderChanged(),
++      )
++      this._audioMuteButton.connect('clicked', () =>
++        this._onAudioMuteClicked(),
++      )
++
++      this._audioRowUpdater = () => this._updateAudioRow()
++      audioRowUpdaters.add(this._audioRowUpdater)
++      _startAudioPoll()
++
++      this._audioPlaceId = this.connect('notify::allocation', () =>
++        this._placeAudioStack(),
++      )
++
+       this.add_child(box)
++      this.add_child(this._audioStack)
+       this.add_child(this._closeButtonBin)
+ 
+       closeButton.connect('clicked', () => this._onCloseBtnClick())
+@@ -1023,6 +1439,7 @@ export const Preview = GObject.registerClass(
+         window.can_close() &&
+         !Utils.checkIfWindowHasTransient(window)
+       this._updateHeader()
++      this._updateAudioRow()
+     }
+ 
+     animateOut() {
+@@ -1051,6 +1468,176 @@ export const Preview = GObject.registerClass(
+       return [binWidth, binHeight]
+     }
+ 
++    _makeAudioButton(iconName, onClick) {
++      let button = new St.Button({
++        style_class: 'preview-audio-btn',
++        can_focus: true,
++        reactive: true,
++        track_hover: true,
++      })
++
++      button.add_child(
++        new St.Icon({
++          icon_name: iconName,
++          icon_size: AUDIO_CONTROL_ICON_SIZE * scaleFactor,
++        }),
++      )
++      button.connect('clicked', onClick)
++
++      return button
++    }
++
++    // Clutter's BinLayout centres children regardless of y_align, so the stack is
++    // pinned to the bottom by translating through half the leftover slack.
++    _placeAudioStack() {
++      if (!this._audioStack) return
++
++      let previewHeight = this.get_height()
++      let stackHeight = this._audioStack.get_height()
++
++      if (previewHeight > 0 && stackHeight > 0)
++        this._audioStack.translation_y = (previewHeight - stackHeight) / 2
++    }
++
++    _onAudioPlayerAction(method) {
++      if (this._audioPlayer) _mprisCall(this._audioPlayer, method)
++    }
++
++    _updateAudioRow() {
++      if (!this._audioStack) return
++
++      try {
++        this._updateAudioRowInternal()
++      } catch (e) {
++        logError(e, 'DTP audio row')
++      }
++    }
++
++    _updateAudioRowInternal() {
++      _refreshAudioNodes()
++      _refreshMpris()
++
++      let app = this._previewMenu.currentAppIcon?.app
++      let streams = getStreamsForApp(app)
++      let stream = streams.length ? streams[0] : null
++
++      // Plasma applies mute and volume to every stream of a task: Wine games
++      // commonly open several (music, effects, voice).
++      this._audioStreams = streams
++
++      if (stream != this._audioStream) {
++        let oldStream = this._audioStream
++        this._audioStreamIds.forEach((id) => oldStream.disconnect(id))
++        this._audioStreamIds = []
++        this._audioStream = stream
++
++        if (stream) {
++          this._audioStreamIds.push(
++            stream.connect('notify::volume', () => this._syncAudioSlider()),
++            stream.connect('notify::is-muted', () => this._syncAudioSlider()),
++          )
++        }
++      }
++
++      this._audioPlayer = _playerForApp(app)
++
++      this._audioStack.visible = !!stream
++      this._audioControls.visible = !!stream && !!this._audioPlayer
++
++      if (stream) {
++        this._syncAudioSlider()
++        this._updateAudioVisuals()
++      }
++
++      if (this._audioPlayer)
++        this._audioPlayIcon.icon_name =
++          _playbackStatus(this._audioPlayer) === 'Playing'
++            ? 'media-playback-pause-symbolic'
++            : 'media-playback-start-symbolic'
++
++      this._placeAudioStack()
++    }
++
++    _syncAudioSlider() {
++      if (!this._audioStream || this._audioSyncing) return
++
++      this._audioSyncing = true
++      let max = audioControl.get_vol_max_norm()
++      this._audioSlider.value = this._audioStream.is_muted
++        ? 0
++        : this._audioStream.volume / max
++      this._audioSyncing = false
++
++      this._updateAudioVisuals()
++    }
++
++    _onAudioSliderChanged() {
++      if (this._audioSyncing || !this._audioStream) return
++
++      // set_volume() emits notify::volume synchronously; without this guard the
++      // stream handler re-enters and writes back into the slider mid-drag,
++      // which repaints a slider that may already be detaching.
++      this._audioSyncing = true
++      try {
++        let max = audioControl.get_vol_max_norm()
++        let volume = this._audioSlider.value * max
++        let mute = volume < 1
++
++        for (let stream of this._audioStreams) {
++          let prevMuted = stream.is_muted
++          let changed = stream.set_volume(mute ? 0 : volume)
++
++          if (mute != prevMuted) {
++            stream.change_is_muted(mute)
++            changed = true
++          }
++
++          if (changed) stream.push_volume()
++        }
++      } finally {
++        this._audioSyncing = false
++      }
++
++      this._updateAudioVisuals()
++    }
++
++    _onAudioMuteClicked() {
++      if (!this._audioStreams.length) return
++
++      let muted = this._audioStreams.every((stream) => stream.is_muted)
++
++      for (let stream of this._audioStreams) {
++        if (!muted && stream.volume === 0) {
++          stream.volume = 0.5 * audioControl.get_vol_max_norm()
++          stream.push_volume()
++        }
++
++        stream.change_is_muted(!muted)
++      }
++
++      this._syncAudioSlider()
++      this._updateAudioVisuals()
++    }
++
++    _updateAudioVisuals() {
++      if (!this._audioStream) return
++
++      // Read the slider rather than the stream: set_volume() only reaches the
++      // stream object once the server acknowledges, so reading it here repaints
++      // the previous level right after a drag or a mute toggle.
++      let level = this._audioSlider.value
++      let index = level <= 0 ? 0 : Math.ceil(3 * level)
++
++      this._audioIcon.icon_name = [
++        'audio-volume-muted-symbolic',
++        'audio-volume-low-symbolic',
++        'audio-volume-medium-symbolic',
++        'audio-volume-high-symbolic',
++      ][Math.min(Math.max(index, 0), 3)]
++
++      this._audioLabel.text = `${Math.round(level * 100)}%`
++    }
++
+     setFocus(focused) {
+       this._hideOrShowCloseButton(!focused)
+       setStyle(
+@@ -1076,6 +1663,22 @@ export const Preview = GObject.registerClass(
+         this._waitWindowId = 0
+       }
+ 
++      if (this._audioStream) {
++        let stream = this._audioStream
++        this._audioStreamIds.forEach((id) => stream.disconnect(id))
++        this._audioStreamIds = []
++        this._audioStream = null
++        this._audioStreams = []
++      }
++
++      if (this._audioPlaceId) {
++        this.disconnect(this._audioPlaceId)
++        this._audioPlaceId = 0
++      }
++
++      audioRowUpdaters.delete(this._audioRowUpdater)
++      if (!audioRowUpdaters.size) _stopAudioPoll()
++
+       this._removeWindowSignals()
+     }
+ 

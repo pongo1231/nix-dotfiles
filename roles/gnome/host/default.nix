@@ -16,6 +16,17 @@
 
   environment.systemPackages = with pkgs; [
     gnome-tweaks
+
+    gnomeExtensions.caffeine
+    gnomeExtensions.clipboard-indicator
+    gnomeExtensions.desktop-icons-ng-ding
     gnomeExtensions.gsconnect
+    gnomeExtensions.removable-drive-menu
+    gnomeExtensions.vitals
+
+    adjust-display-brightness-2
+    appindicator-tooltip
+    dash-to-panel-patched
+    display-per-monitor
   ];
 }

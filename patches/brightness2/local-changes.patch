@@ -1,0 +1,923 @@
+diff --git a/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml b/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml
+index 95dcfdd..d7f8e00 100644
+--- a/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml
++++ b/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml
+@@ -27,10 +27,19 @@
+       <default>true</default>
+       <summary>Show OSD when brightness changes</summary>
+     </key>
++    <key type="b" name="software-dimming">
++      <default>true</default>
++      <summary>Dim monitors that have no hardware brightness control</summary>
++      <description>Monitors that ddcutil cannot control, for example because
++      I2C access is unavailable, get a brightness slider that darkens the
++      rendered image instead of the backlight. No device access is needed.</description>
++    </key>
+     <key type="i" name="button-location">
+       <range min="0" max="1"/>
+-      <default>0</default>
++      <default>1</default>
+       <summary>Control location: 0 top bar, 1 Quick Settings</summary>
++      <description>Default is Quick Settings, so the extension appears as a
++      button inside the Quick Settings popup instead of the top bar.</description>
+     </key>
+     <key type="b" name="show-log-button">
+       <default>true</default>
+diff --git a/src/services/Settings.js b/src/services/Settings.js
+index 57ff249..43e743c 100644
+--- a/src/services/Settings.js
++++ b/src/services/Settings.js
+@@ -21,6 +21,7 @@ export const SETTINGS_KEYS = Object.freeze({
+     SHOW_PANEL_LABEL: 'show-panel-label',
+     SHOW_VALUE_LABEL: 'show-value-label',
+     SLIDER_LAYOUT: 'slider-layout',
++    SOFTWARE_DIMMING: 'software-dimming',
+     VERBOSE_DEBUGGING: 'verbose-debugging',
+ });
+ 
+diff --git a/src/services/display/Display.js b/src/services/display/Display.js
+index 225d5eb..1c72f15 100644
+--- a/src/services/display/Display.js
++++ b/src/services/display/Display.js
+@@ -8,10 +8,20 @@ import {clamp} from '../NumberUtils.js';
+ export const DISPLAY_KIND = Object.freeze({
+     EXTERNAL: 'external',
+     INTERNAL: 'internal',
++    SOFTWARE: 'software',
+ });
+ 
+ export const INTERNAL_DISPLAY_ID = 'internal';
+ 
++/** Prefix of the identifier of a display controlled by software dimming. */
++export const SOFTWARE_DISPLAY_PREFIX = 'software:';
++
++/**
++ * Brightness of a software-dimmed display never drops below this ratio, so a
++ * fully dark overlay cannot make the screen unreadable.
++ */
++export const SOFTWARE_BRIGHTNESS_MIN_RATIO = 0.05;
++
+ export const DISPLAY_QUERY_STATUS = Object.freeze({
+     OK: 'ok',
+     MISSING_BINARY: 'missing-binary',
+diff --git a/src/services/display/DisplayFeatureCoordinator.js b/src/services/display/DisplayFeatureCoordinator.js
+index fdbdb9c..90c4df9 100644
+--- a/src/services/display/DisplayFeatureCoordinator.js
++++ b/src/services/display/DisplayFeatureCoordinator.js
+@@ -8,7 +8,9 @@ import {clamp} from '../NumberUtils.js';
+ import {SETTINGS_KEYS} from '../Settings.js';
+ import {
+     DISPLAY_FEATURES,
++    DISPLAY_KIND,
+     INTERNAL_DISPLAY_ID,
++    SOFTWARE_BRIGHTNESS_MIN_RATIO,
+     hasReadableFeatureRange,
+     sanitizeFeatureValue,
+ } from './Display.js';
+@@ -33,6 +35,7 @@ export class DisplayFeatureCoordinator {
+     #settings;
+     #ddcClient;
+     #brightnessManager;
++    #softwareDimming;
+     #displays = null;
+ 
+     /**
+@@ -40,11 +43,13 @@ export class DisplayFeatureCoordinator {
+      * @param {Gio.Settings} params.settings - Extension settings.
+      * @param {import('../ddc/DdcClient.js').DdcClient} params.ddcClient - Writes external displays.
+      * @param {object} params.brightnessManager - `Main.brightnessManager`.
++     * @param {import('./SoftwareDimming.js').SoftwareDimming} [params.softwareDimming] - Dims monitors without hardware brightness.
+      */
+-    constructor({settings, ddcClient, brightnessManager}) {
++    constructor({settings, ddcClient, brightnessManager, softwareDimming = null}) {
+         this.#settings = settings;
+         this.#ddcClient = ddcClient;
+         this.#brightnessManager = brightnessManager;
++        this.#softwareDimming = softwareDimming;
+     }
+ 
+     /**
+@@ -172,6 +177,25 @@ export class DisplayFeatureCoordinator {
+ 
+     #writeFeature(display, featureId, value) {
+         const feature = display.features[featureId];
++
++        if (display.kind === DISPLAY_KIND.SOFTWARE) {
++            // Never dim a monitor all the way to black; the screen has to stay
++            // usable and the overlay cannot be undone by a hardware key.
++            const ratio = Math.max(
++                value / feature.max,
++                SOFTWARE_BRIGHTNESS_MIN_RATIO,
++            );
++            const safeValue = Math.round(ratio * feature.max);
++            feature.current = safeValue;
++            this.#softwareDimming?.setBrightness(display.id, ratio);
++            return {
++                display,
++                featureId,
++                ratio: safeValue / feature.max,
++                ok: true,
++            };
++        }
++
+         const safeValue = sanitizeFeatureValue(
+             featureId,
+             value,
+diff --git a/src/services/display/MonitorLayout.js b/src/services/display/MonitorLayout.js
+new file mode 100644
+index 0000000..37f34e9
+--- /dev/null
++++ b/src/services/display/MonitorLayout.js
+@@ -0,0 +1,70 @@
++/**
++ * @fileoverview Logical monitors as the compositor orders them, with the
++ * connectors they are made of.
++ *
++ * `Meta.MonitorManager.get_monitors()` lists physical monitors, and its order
++ * is unrelated to the logical monitor index that `Main.layoutManager.monitors`
++ * and the brightness overlay use. Mutter's DisplayConfig exposes both in one
++ * structure, so the mapping comes from there instead of from position.
++ *
++ * The call must be asynchronous: the service lives in this process, so a
++ * synchronous call from the Shell would wait on itself.
++ */
++
++import Gio from 'gi://Gio';
++
++const BUS_NAME = 'org.gnome.Mutter.DisplayConfig';
++const OBJECT_PATH = '/org/gnome/Mutter/DisplayConfig';
++const INTERFACE = 'org.gnome.Mutter.DisplayConfig';
++const TIMEOUT_MS = 2000;
++
++/**
++ * Connectors of every logical monitor, in monitor index order.
++ *
++ * @param {[number, Array, Array]} currentState - Unpacked GetCurrentState reply.
++ * @returns {string[][]} Connectors per logical monitor.
++ */
++export function parseLogicalMonitorConnectors(currentState) {
++    const [, , logicalMonitors] = currentState;
++    return logicalMonitors.map((logicalMonitor) => {
++        const monitors = logicalMonitor[5];
++        return monitors.map((monitor) => monitor[0]);
++    });
++}
++
++/**
++ * Read the logical monitor layout from the compositor.
++ *
++ * @returns {Promise<string[][]|null>} Connectors per logical monitor, or null
++ *     when the compositor could not answer.
++ */
++export function getLogicalMonitorConnectors() {
++    return new Promise((resolve) => {
++        try {
++            Gio.DBus.session.call(
++                BUS_NAME,
++                OBJECT_PATH,
++                INTERFACE,
++                'GetCurrentState',
++                null,
++                null,
++                Gio.DBusCallFlags.NONE,
++                TIMEOUT_MS,
++                null,
++                (source, result) => {
++                    try {
++                        resolve(
++                            parseLogicalMonitorConnectors(
++                                source.call_finish(result).deep_unpack(),
++                            ),
++                        );
++                    } catch {
++                        resolve(null);
++                    }
++                },
++            );
++        } catch {
++            resolve(null);
++        }
++    });
++}
+diff --git a/src/services/display/SoftwareDimming.js b/src/services/display/SoftwareDimming.js
+new file mode 100644
+index 0000000..c948f77
+--- /dev/null
++++ b/src/services/display/SoftwareDimming.js
+@@ -0,0 +1,177 @@
++/**
++ * @fileoverview Per-monitor software dimming: a black layer above the Shell's
++ * UI group darkens one output, for monitors that expose no hardware brightness
++ * (no DDC/CI access, or no backlight).
++ *
++ * This is the fallback KDE provides through KWin. It dims the rendered image,
++ * not the backlight, and it needs no device permissions.
++ */
++
++import St from 'gi://St';
++import * as Main from 'resource:///org/gnome/shell/ui/main.js';
++
++import {
++    SOFTWARE_BRIGHTNESS_MIN_RATIO,
++    SOFTWARE_DISPLAY_PREFIX,
++} from './Display.js';
++import {clamp} from '../NumberUtils.js';
++import {softwareDisplayId} from './SoftwareDisplays.js';
++
++export class SoftwareDimming {
++    #monitors = [];
++    #logger;
++    #entries = new Map();
++
++    /**
++     * @param {object} params - Dependencies.
++     * @param {import('../Log.js').Logger} [params.logger] - Troubleshooting log.
++     */
++    constructor({logger = null} = {}) {
++        this.#logger = logger;
++    }
++
++    /**
++     * Describe the monitors that are connected now. The controller resolves
++     * them asynchronously, so this is a push rather than a callback.
++     *
++     * @param {import('./SoftwareDisplays.js').MonitorInfo[]} monitors - Current logical monitors.
++     */
++    setMonitors(monitors) {
++        this.#monitors = monitors;
++        this.#reconcile();
++    }
++
++    /** Follow monitor changes and cover the monitors that need dimming. */
++    enable() {
++        Main.layoutManager.connectObject(
++            'monitors-changed',
++            () => this.#reconcile(),
++            this,
++        );
++        // The dim layers sit above the screen shield's group; hide them while
++        // the session is locked so the lock screen keeps its own brightness.
++        Main.sessionMode.connectObject(
++            'updated',
++            () => this.#reconcile(),
++            this,
++        );
++        // Rows and popups are added above the dim layer; keep dimming them.
++        Main.uiGroup.connectObject(
++            'child-added',
++            () => this.#raiseAll(),
++            this,
++        );
++        this.#reconcile();
++    }
++
++    destroy() {
++        Main.layoutManager.disconnectObject(this);
++        Main.sessionMode.disconnectObject(this);
++        Main.uiGroup.disconnectObject(this);
++        for (const {actor} of this.#entries.values()) {
++            actor.destroy();
++        }
++        this.#entries.clear();
++    }
++
++    /**
++     * Current ratio of a software display; 1 (no dimming) when unknown.
++     *
++     * @param {string} displayId - A display identifier from {@link softwareDisplayId}.
++     * @returns {number} Brightness ratio, 0 to 1.
++     */
++    getRatio(displayId) {
++        return this.#entries.get(displayId)?.ratio ?? 1;
++    }
++
++    /**
++     * Set a monitor's dimming. The overlay multiplies the image, which is what
++     * a brightness factor does, so ratio 0.5 halves the rendered luminance.
++     *
++     * @param {string} displayId - A display identifier from {@link softwareDisplayId}.
++     * @param {number} ratio - Brightness ratio, 0 to 1.
++     */
++    setBrightness(displayId, ratio) {
++        const entry = this.#entries.get(displayId);
++        if (!entry) {
++            this.#logger?.warn(`no software dim layer for ${displayId}`);
++            return;
++        }
++        entry.ratio = clamp(ratio, SOFTWARE_BRIGHTNESS_MIN_RATIO, 1);
++        this.#apply(entry);
++    }
++
++    /**
++     * Keep dimming only for the given displays. Everything else returns to
++     * full brightness, which is how a monitor leaves the fallback.
++     *
++     * @param {Set<string>} displayIds - Identifiers that keep their ratios.
++     */
++    retain(displayIds) {
++        for (const [displayId, entry] of this.#entries) {
++            if (!displayIds.has(displayId) && entry.ratio !== 1) {
++                entry.ratio = 1;
++                this.#apply(entry);
++            }
++        }
++    }
++
++    /** Create, move and remove layers so they cover the current monitors. */
++    #reconcile() {
++        const monitors = this.#monitors;
++        const active = new Set();
++        for (const monitor of monitors) {
++            if (monitor.isBuiltin) {
++                continue;
++            }
++            const displayId = softwareDisplayId(monitor);
++            active.add(displayId);
++            const entry = this.#entries.get(displayId) ?? this.#create(displayId);
++            const geometry = Main.layoutManager.monitors[monitor.index];
++            if (geometry) {
++                entry.actor.set_position(geometry.x, geometry.y);
++                entry.actor.set_size(geometry.width, geometry.height);
++            }
++            this.#apply(entry);
++        }
++        for (const [displayId, entry] of this.#entries) {
++            if (!active.has(displayId)) {
++                entry.actor.destroy();
++                this.#entries.delete(displayId);
++            }
++        }
++        this.#raiseAll();
++    }
++
++    #create(displayId) {
++        const actor = new St.Widget({
++            name: `brightness-software-dim-${displayId.slice(
++                SOFTWARE_DISPLAY_PREFIX.length,
++            )}`,
++            reactive: false,
++            can_focus: false,
++            visible: false,
++        });
++        Main.uiGroup.add_child(actor);
++        const entry = {actor, ratio: 1};
++        this.#entries.set(displayId, entry);
++        return entry;
++    }
++
++    #apply(entry) {
++        const dim = 1 - entry.ratio;
++        entry.actor.set_style(
++            `background-color: rgba(0, 0, 0, ${dim.toFixed(3)});`,
++        );
++        entry.actor.visible = dim > 0.001 && !Main.sessionMode.isLocked;
++    }
++
++    /** Keep the layers above windows, menus and Shell actors on that monitor. */
++    #raiseAll() {
++        for (const {actor} of this.#entries.values()) {
++            if (actor.get_parent() === Main.uiGroup) {
++                Main.uiGroup.set_child_above_sibling(actor, null);
++            }
++        }
++    }
++}
+diff --git a/src/services/display/SoftwareDisplays.js b/src/services/display/SoftwareDisplays.js
+new file mode 100644
+index 0000000..e3c0586
+--- /dev/null
++++ b/src/services/display/SoftwareDisplays.js
+@@ -0,0 +1,151 @@
++/**
++ * @fileoverview Maps connected outputs to the software-dimming fallback: a
++ * monitor with no hardware brightness path still gets a brightness row that
++ * darkens its image instead of its backlight.
++ */
++
++import {
++    DISPLAY_FEATURES,
++    DISPLAY_KIND,
++    SOFTWARE_BRIGHTNESS_MIN_RATIO,
++    SOFTWARE_DISPLAY_PREFIX,
++} from './Display.js';
++import {clamp} from '../NumberUtils.js';
++
++/**
++ * @typedef {object} MonitorInfo
++ * @property {number} index - Monitor index used by the Shell layout.
++ * @property {string|null} connector - The connector when the logical monitor has exactly one.
++ * @property {string[]} connectors - Every connector the logical monitor is made of.
++ * @property {string|null} vendor - EDID manufacturer code such as `SAM`, if known.
++ * @property {string|null} product - Model name reported by the monitor, if known.
++ * @property {boolean} isBuiltin - Whether the monitor is a built-in panel.
++ */
++
++/**
++ * The connector without the card prefix, so DDC results (`card0-DP-1`) and
++ * Shell monitors (`DP-1`) compare equal. HDMI-A-1 is shortened like the labels
++ * do, keeping both sides consistent.
++ *
++ * @param {string|null} connector - Raw connector name.
++ * @returns {string|null} Comparable connector name, or null.
++ */
++export function connectorName(connector) {
++    if (!connector) {
++        return null;
++    }
++    return connector.replace(/^card\d+-/, '').replace(/^HDMI-A-/, 'HDMI-');
++}
++
++/**
++ * Stable identifier of a monitor's software-dimming rows. The connector keeps
++ * it stable when monitors are reordered; the index is the fallback.
++ *
++ * @param {MonitorInfo} monitor - Monitor to name.
++ * @returns {string} Identifier prefixed with {@link SOFTWARE_DISPLAY_PREFIX}.
++ */
++export function softwareDisplayId(monitor) {
++    const name = connectorName(monitor.connector) ?? `monitor-${monitor.index}`;
++    return `${SOFTWARE_DISPLAY_PREFIX}${name}`;
++}
++
++/**
++ * Describe one logical monitor from its connectors.
++ *
++ * The connectors come from the compositor's logical monitor list, which is
++ * ordered like the Shell's monitor indices; identity comes from the physical
++ * monitor that owns the connector, so no positional pairing is involved.
++ *
++ * @param {object} params - Logical monitor data.
++ * @param {number} params.index - Logical monitor index.
++ * @param {string[]} params.connectors - Connectors the logical monitor is made of.
++ * @param {(connector: string) => ({vendor: string|null, product: string|null, isBuiltin: boolean}|null)} [params.lookup] - Physical monitor lookup.
++ * @returns {MonitorInfo} Monitor record.
++ */
++export function monitorInfoFromConnectors({index, connectors, lookup = null}) {
++    const identity =
++        connectors
++            .map((connector) => lookup?.(connector) ?? null)
++            .find((candidate) => candidate !== null) ?? null;
++    return {
++        index,
++        connector: connectors.length === 1 ? connectors[0] : null,
++        connectors,
++        vendor: identity?.vendor ?? null,
++        product: identity?.product ?? null,
++        isBuiltin: identity?.isBuiltin === true,
++    };
++}
++
++/**
++ * Drop hardware displays whose connector is no longer connected. Displays
++ * without a connector name cannot be verified and are kept.
++ *
++ * @param {import('./Display.js').DisplayInfo[]} displays - Displays from the last scan.
++ * @param {MonitorInfo[]} monitors - Currently connected monitors.
++ * @returns {import('./Display.js').DisplayInfo[]} Displays still attached.
++ */
++export function filterHardwareDisplays(displays, monitors) {
++    const connected = new Set(
++        monitors
++            .flatMap((monitor) => monitor.connectors ?? [])
++            .map((connector) => connectorName(connector))
++            .filter((name) => name !== null),
++    );
++    return displays.filter((display) => {
++        const name = connectorName(display.connector);
++        return name === null || connected.has(name);
++    });
++}
++
++/**
++ * Monitors that no hardware brightness path controls. Built-in panels are
++ * skipped because they have their own backlight control, and displays that
++ * ddcutil listed with a readable brightness are already hardware-controlled.
++ *
++ * @param {object} params - Mapping inputs.
++ * @param {MonitorInfo[]} params.monitors - Monitors to consider.
++ * @param {import('./Display.js').DisplayInfo[]} params.hardwareDisplays - Displays with hardware brightness control.
++ * @param {(displayId: string) => number} params.getRatio - Current software ratio of a display, 0 to 1.
++ * @returns {import('./Display.js').DisplayInfo[]} Software display records.
++ */
++export function buildSoftwareDisplays({
++    monitors,
++    hardwareDisplays,
++    getRatio,
++}) {
++    const controlled = new Set(
++        hardwareDisplays
++            .map((display) => connectorName(display.connector))
++            .filter((name) => name !== null),
++    );
++    const displays = [];
++    for (const monitor of monitors) {
++        if (monitor.isBuiltin) {
++            continue;
++        }
++        const names = (monitor.connectors ?? [])
++            .map((connector) => connectorName(connector))
++            .filter((name) => name !== null);
++        if (names.some((name) => controlled.has(name))) {
++            continue;
++        }
++        const id = softwareDisplayId(monitor);
++        const ratio = clamp(getRatio(id), SOFTWARE_BRIGHTNESS_MIN_RATIO, 1);
++        displays.push({
++            id,
++            kind: DISPLAY_KIND.SOFTWARE,
++            monitorIndex: monitor.index,
++            manufacturer: monitor.vendor,
++            name: monitor.product,
++            connector: monitor.connector,
++            features: {
++                [DISPLAY_FEATURES.BRIGHTNESS]: {
++                    current: Math.round(ratio * 100),
++                    max: 100,
++                },
++            },
++        });
++    }
++    return displays;
++}
+diff --git a/src/ui/BrightnessMenuController.js b/src/ui/BrightnessMenuController.js
+index f4110b9..27f8654 100644
+--- a/src/ui/BrightnessMenuController.js
++++ b/src/ui/BrightnessMenuController.js
+@@ -17,6 +17,13 @@ import {
+     DISPLAY_QUERY_STATUS,
+ } from '../services/display/Display.js';
+ import {DisplayFeatureCoordinator} from '../services/display/DisplayFeatureCoordinator.js';
++import {SoftwareDimming} from '../services/display/SoftwareDimming.js';
++import {getLogicalMonitorConnectors} from '../services/display/MonitorLayout.js';
++import {
++    buildSoftwareDisplays,
++    filterHardwareDisplays,
++    monitorInfoFromConnectors,
++} from '../services/display/SoftwareDisplays.js';
+ import {BrightnessOsd} from './BrightnessOsd.js';
+ import {TroubleshootingDialogManager} from './dialog/TroubleshootingDialogManager.js';
+ import BrightnessMenuView from './menu/BrightnessMenuView.js';
+@@ -36,6 +43,7 @@ const RENDER_KEYS = [
+ /** Settings that change which displays or features a scan finds. */
+ const RESCAN_KEYS = [
+     SETTINGS_KEYS.SHOW_INTERNAL_SLIDER,
++    SETTINGS_KEYS.SOFTWARE_DIMMING,
+     SETTINGS_KEYS.BRIGHTNESS_CONTROL_METHOD,
+     SETTINGS_KEYS.SLIDER_LAYOUT,
+     SETTINGS_KEYS.DISABLE_DISPLAY_STATE_CHECK,
+@@ -50,6 +58,8 @@ export default class BrightnessMenuController {
+     #logger;
+     #extension;
+     #coordinator;
++    #softwareDimming;
++    #menu;
+     #menuView;
+     #menuActions;
+     #osd;
+@@ -63,6 +73,14 @@ export default class BrightnessMenuController {
+ 
+     #loadCancellable = null;
+     #topologyRefreshId = 0;
++    /** Displays the last completed DDC scan found, before topology filtering. */
++    #lastScanDisplays = [];
++    /** Logical monitors from the last compositor read, or null without one. */
++    #monitorLayout = null;
++    /** Incremented on every hardware or layout change, so a stale scan is detected. */
++    #topologyGeneration = 0;
++    /** Generation covered by the last completed scan. */
++    #scannedGeneration = 0;
+ 
+     /**
+      * @param {object} params - Dependencies.
+@@ -79,11 +97,15 @@ export default class BrightnessMenuController {
+         this.#ddcClient = ddcClient;
+         this.#logger = logger;
+         this.#extension = extension;
++        this.#softwareDimming = new SoftwareDimming({logger});
++        this.#softwareDimming.enable();
+         this.#coordinator = new DisplayFeatureCoordinator({
+             settings,
+             ddcClient,
+             brightnessManager: Main.brightnessManager,
++            softwareDimming: this.#softwareDimming,
+         });
++        this.#menu = menu;
+         this.#menuView = new BrightnessMenuView({
+             menu,
+             extensionPath: extension.path,
+@@ -156,9 +178,27 @@ export default class BrightnessMenuController {
+             () => this.#onInternalBrightnessChanged(),
+             this,
+         );
++        // The compositor's monitor list changes first, on connect and on
++        // disconnect; the Shell layout follows once a configuration is applied.
++        global.backend
++            .get_monitor_manager()
++            .connectObject(
++                'monitors-changed',
++                () => this.#onTopologyChanged(),
++                this,
++            );
+         Main.layoutManager.connectObject(
+             'monitors-changed',
+-            () => this.#queueTopologyRefresh(),
++            () => this.#onTopologyChanged(),
++            this,
++        );
++        this.#menu.connectObject(
++            'open-state-changed',
++            (_menu, open) => {
++                if (open) {
++                    this.#refreshIfStale();
++                }
++            },
+             this,
+         );
+         host.connectObject(
+@@ -169,6 +209,15 @@ export default class BrightnessMenuController {
+ 
+         this.#menuView.showLoading();
+         this.#queueTopologyRefresh();
++        // The first scan needs the layout for the software fallback; read it
++        // now, without waiting for a monitor change.
++        void this.#refreshMonitors({apply: false});
++
++        settings.connectObject(
++            `changed::${SETTINGS_KEYS.SOFTWARE_DIMMING}`,
++            () => this.#softwareDimming.retain(new Set()),
++            this,
++        );
+     }
+ 
+     destroy() {
+@@ -180,11 +229,15 @@ export default class BrightnessMenuController {
+             this.#loadCancellable = null;
+         }
+         this.#menuActions.destroy();
++        this.#softwareDimming.destroy();
++        this.#softwareDimming = null;
+ 
+         this.#settings.disconnectObject(this);
+         this.#ddcClient.disconnectObject(this);
+         Main.brightnessManager.disconnectObject(this);
+         Main.layoutManager.disconnectObject(this);
++        global.backend.get_monitor_manager().disconnectObject(this);
++        this.#menu.disconnectObject(this);
+         this.#host.disconnectObject(this);
+ 
+         this.#optionalControls.destroy();
+@@ -264,6 +317,62 @@ export default class BrightnessMenuController {
+         return Clutter.EVENT_STOP;
+     }
+ 
++    /**
++     * A monitor was connected or disconnected. Count it, then rescan once the
++     * changes settle; the compositor reports several changes per hotplug.
++     */
++    #onTopologyChanged() {
++        this.#topologyGeneration++;
++        // The compositor already knows the new monitor, so show or drop its
++        // rows now instead of waiting for a DDC scan that can take seconds.
++        void this.#refreshMonitors({apply: this.#coordinator.displays !== null});
++        this.#queueTopologyRefresh();
++    }
++
++    /**
++     * Read the logical monitor layout and, when asked, rebuild the rows from it
++     * at once, even while the menu is open: a monitor that just appeared or
++     * vanished is exactly what the user is looking at.
++     *
++     * @param {object} options - What to do with the result.
++     * @param {boolean} options.apply - Rebuild and render when rows exist.
++     * @param {boolean} [options.filterHardware] - Drop displays whose connector is gone.
++     */
++    async #refreshMonitors({apply, filterHardware = true}) {
++        const generation = this.#topologyGeneration;
++        const monitors = await this.#readMonitors();
++        if (monitors === null || generation !== this.#topologyGeneration) {
++            return;
++        }
++        this.#monitorLayout = monitors;
++        this.#softwareDimming.setMonitors(monitors);
++        if (apply && this.#coordinator.displays !== null) {
++            const before = this.#displaySignature(this.#coordinator.displays);
++            this.#applyDisplays({filterHardware: filterHardware});
++            if (this.#displaySignature(this.#coordinator.displays) !== before) {
++                this.#renderMenu();
++            }
++        }
++    }
++
++    /**
++     * Identity of a display list, used to skip renders that would destroy rows
++     * (and cancel feedback) without showing anything new.
++     *
++     * @param {import('../services/display/Display.js').DisplayInfo[]|null} displays - Displays to describe.
++     * @returns {string} Joined display identifiers.
++     */
++    #displaySignature(displays) {
++        return (displays ?? []).map((display) => display.id).join('\n');
++    }
++
++    /** Rescan when a topology change happened after the last completed scan. */
++    #refreshIfStale() {
++        if (this.#scannedGeneration !== this.#topologyGeneration) {
++            this.requestRefresh();
++        }
++    }
++
+     #queueTopologyRefresh() {
+         this.#removeTopologyRefresh();
+         this.#topologyRefreshId = GLib.timeout_add(
+@@ -286,9 +395,15 @@ export default class BrightnessMenuController {
+ 
+     async #loadDisplays() {
+         this.#osd.cancelPending();
+-        this.#coordinator.replaceExternalDisplays(null);
+-        this.#menuView.showLoading();
++        // A rescan keeps the rows it already shows; only the first load has
++        // nothing else to display, and a hotplug must not blank the menu.
++        if (this.#coordinator.displays === null) {
++            this.#coordinator.replaceExternalDisplays(null);
++            this.#menuView.showLoading();
++        }
+ 
++        // A change that lands while this scan runs leaves it stale.
++        const generation = this.#topologyGeneration;
+         const requestedFeatures = this.#optionalControls.getRequestedFeatures();
+         const cancellable = new Gio.Cancellable();
+         this.#loadCancellable = cancellable;
+@@ -315,7 +430,6 @@ export default class BrightnessMenuController {
+         }
+         this.#loadCancellable = null;
+ 
+-        this.#coordinator.replaceExternalDisplays(result.displays);
+         this.#detection = {
+             detectStatus: result.detectStatus,
+             detectErrorText: result.detectErrorText,
+@@ -323,10 +437,109 @@ export default class BrightnessMenuController {
+         this.#logger.info(
+             `display scan found ${result.displays.length} external display(s), status ${result.detectStatus}`,
+         );
++        // Feature support does not depend on the monitor layout, so record it
++        // before the asynchronous layout read: switching a control off must
++        // not wait for the compositor round trip.
+         this.#optionalControls.applyScan(result, requestedFeatures);
+-        // Only the loading row is showing. It takes no input, so it can be
+-        // replaced even while the menu is open.
++        this.#applyScanResult(result.displays);
++        // Rows built for a rescan can be replaced even while the menu is open;
++        // they existed before the scan started.
+         this.#renderMenu();
++
++        this.#scannedGeneration = generation;
++        if (this.#topologyGeneration !== generation) {
++            this.requestRefresh();
++        }
++    }
++
++    /**
++     * Connected logical monitors, in Shell index order, with their connectors.
++     *
++     * @returns {Promise<import('../services/display/SoftwareDisplays.js').MonitorInfo[]|null>} Monitors, or null when the layout cannot be read.
++     */
++    async #readMonitors() {
++        const connectors = await getLogicalMonitorConnectors();
++        if (connectors === null) {
++            this.#logger.warn('could not read the logical monitor layout');
++            return null;
++        }
++        const monitorManager = global.backend.get_monitor_manager();
++        return connectors.map((list, index) =>
++            monitorInfoFromConnectors({
++                index,
++                connectors: list,
++                lookup: (connector) => {
++                    const monitor =
++                        monitorManager.get_monitor_for_connector(connector);
++                    if (!monitor) {
++                        return null;
++                    }
++                    return {
++                        vendor: monitor.get_vendor(),
++                        product: monitor.get_product(),
++                        isBuiltin: monitor.is_builtin(),
++                    };
++                },
++            }),
++        );
++    }
++
++    /**
++     * Rebuild the cache from the last scan plus the monitors that are connected
++     * now. No process is started, so this is safe to run on every topology
++     * change. Displays whose connector is gone are dropped here, between the
++     * hotplug and the scan that follows it.
++     */
++    #applyDisplays({filterHardware = true} = {}) {
++        const monitors = this.#monitorLayout ?? [];
++        const hardware = filterHardware
++            ? filterHardwareDisplays(this.#lastScanDisplays, monitors)
++            : this.#lastScanDisplays;
++        this.#coordinator.replaceExternalDisplays(
++            this.#withSoftwareDisplays(hardware, monitors),
++        );
++    }
++
++    /**
++     * Apply a completed scan. Its display list is authoritative, so it is used
++     * as-is; the topology filter only covers the period before the next scan.
++     *
++     * @param {import('../services/display/Display.js').DisplayInfo[]} displays - Scan result.
++     */
++    #applyScanResult(displays) {
++        this.#lastScanDisplays = displays;
++        this.#applyDisplays({filterHardware: false});
++        // Without a layout the software fallback cannot be mapped; read it and
++        // apply the rows as soon as it arrives.
++        if (this.#monitorLayout === null) {
++            void this.#refreshMonitors({apply: true, filterHardware: false});
++        }
++    }
++
++    /**
++     * Append a software-dimming row for every monitor that no hardware
++     * brightness path controls, so every output stays adjustable.
++     *
++     * @param {import('../services/display/Display.js').DisplayInfo[]} externalDisplays - Hardware-controlled displays.
++     * @param {import('../services/display/SoftwareDisplays.js').MonitorInfo[]} monitors - Connected monitors.
++     * @returns {import('../services/display/Display.js').DisplayInfo[]} Hardware displays followed by software ones.
++     */
++    #withSoftwareDisplays(externalDisplays, monitors) {
++        const software = this.#settings.get_boolean(
++            SETTINGS_KEYS.SOFTWARE_DIMMING,
++        )
++            ? buildSoftwareDisplays({
++                  monitors,
++                  hardwareDisplays: externalDisplays,
++                  getRatio: (displayId) =>
++                      this.#softwareDimming.getRatio(displayId),
++              })
++            : [];
++        // Dimming left over from a monitor that now has hardware brightness.
++        this.#softwareDimming.retain(
++            new Set(software.map((display) => display.id)),
++        );
++        return [...externalDisplays, ...software];
+     }
+ 
+     /** Rebuild the rows from cached displays once the menu is closed. */
+diff --git a/src/ui/menu/DisplayLabel.js b/src/ui/menu/DisplayLabel.js
+index a45edac..18341df 100644
+--- a/src/ui/menu/DisplayLabel.js
++++ b/src/ui/menu/DisplayLabel.js
+@@ -1,5 +1,6 @@
+ import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+ import {DISPLAY_KIND} from '../../services/display/Display.js';
++import {connectorName} from '../../services/display/SoftwareDisplays.js';
+ 
+ /**
+  * Brands for common EDID manufacturer codes (PNP IDs). Codes not listed here
+@@ -61,6 +62,23 @@ export function getDisplayLabels(display) {
+     if (display.kind === DISPLAY_KIND.INTERNAL) {
+         return {label: _('Internal'), accessibleLabel: _('Internal')};
+     }
++    if (display.kind === DISPLAY_KIND.SOFTWARE) {
++        const location =
++            connectorName(display.connector) ??
++            _('Monitor %s').format(
++                (display.monitorIndex ?? 0) + 1,
++            );
++        const brand = getBrand(display);
++        const model = display.name?.replace(/\s+/g, ' ') ?? brand;
++        const base = brand ? `${brand} · ${location}` : location;
++        return {
++            label: _('%s (software)').format(base),
++            accessibleLabel: model
++                ? // Translators: A monitor name, its connector, and why it is listed.
++                  _('%1$s (%2$s, software dimming)').format(model, location)
++                : _('%1$s (software dimming)').format(location),
++        };
++    }
+ 
+     const brand = getBrand(display);
+     const location = getLocation(display);
+diff --git a/src/ui/prefs/RowDefinitions.js b/src/ui/prefs/RowDefinitions.js
+index 31e550d..1fc78fd 100644
+--- a/src/ui/prefs/RowDefinitions.js
++++ b/src/ui/prefs/RowDefinitions.js
+@@ -61,6 +61,14 @@ function createControlRows(_) {
+                 'Control the built-in display alongside external monitors.',
+             ),
+         },
++        {
++            kind: 'switch',
++            key: SETTINGS_KEYS.SOFTWARE_DIMMING,
++            title: _('Software Dimming'),
++            subtitle: _(
++                'Dim monitors that cannot be controlled over DDC/CI by darkening their image instead of the backlight. This needs no I2C access.',
++            ),
++        },
+         {
+             kind: 'switch',
+             key: SETTINGS_KEYS.SHOW_CONTRAST_SLIDER,
