@@ -51,7 +51,7 @@ lib.mkMerge [
         https = true;
 
         config = {
-          adminpassFile = config.sops.secrets."nextcloud/adminPassword".path;
+          #adminpassFile = config.sops.secrets."nextcloud/adminPassword".path;
           dbtype = "pgsql";
         };
 
