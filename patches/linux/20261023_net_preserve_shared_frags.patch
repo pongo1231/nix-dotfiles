@@ -1,0 +1,98 @@
+net: preserve SKBFL_SHARED_FRAG when skb_zerocopy() references frags
+
+skb_zerocopy() attaches the source skb's page frags by reference
+(nfnetlink_queue COPY_PACKET and other callers), but unlike every other
+frag-referencing helper (__pskb_copy_fclone(), skb_split(), GSO, GRO,
+tcp_fragment(), xfrm_iptfs) it does not carry SKBFL_SHARED_FRAG over to
+the destination skb.  Pages spliced from the page cache thus arrive in a
+new skb with no annotation, and consumers that must not write them in
+place (esp4/esp6 input, checksum helpers) cannot detect them.
+
+Propagate the annotation while the frags are referenced.
+
+Also make esp4/esp6 output avoid in-place encryption when the skb
+carries shared frags, closing the same in-place write from the
+encryption side (splice() -> UDP -> xfrm policy).  The shared case uses
+the existing copied-trailer path -- which materialises references and
+clears SKBFL_MANAGED_FRAG_REFS -- or skb_cow_data() when the frag array
+cannot take the trailer; both leave the payload private before crypto
+writes it.
+
+No cost on normal paths: one flag word update on the zerocopy builders,
+and one extra shinfo test on the ESP output fast path.
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index eb9fcc4..a6bd991 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3966,6 +3966,14 @@ skb_zerocopy(struct sk_buff *to, struct sk_buff *from, int len, int hlen)
+ 	}
+ 	skb_shinfo(to)->nr_frags = j;
+ 
++	/* The frags were taken by reference, so they may point into the page
++	 * cache (sendfile()/splice()) or into memory the producer cannot
++	 * write.  Carry the annotation over so that in-place writers copy
++	 * instead of corrupting the backing pages.
++	 */
++	if (j)
++		skb_shinfo(to)->flags |= skb_shinfo(from)->flags & SKBFL_SHARED_FRAG;
++
+ 	if (i > 0 && from->unreadable)
+ 		to->unreadable = 1;
+ 
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index ae70156..ed279d3 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -427,14 +427,20 @@ int esp_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
+ 		goto cow;
+ 
+ 	if (!skb_cloned(skb)) {
+-		if (tailen <= skb_tailroom(skb)) {
++		/* In-place encryption must not write into frags that belong
++		 * to the page cache (sendfile()/splice()) or to memory the
++		 * sender cannot write; use a copying path instead.
++		 */
++		if (tailen <= skb_tailroom(skb) &&
++		    !skb_has_shared_frag(skb)) {
+ 			nfrags = 1;
+ 			trailer = skb;
+ 			tail = skb_tail_pointer(trailer);
+ 
+ 			goto skip_cow;
+-		} else if ((skb_shinfo(skb)->nr_frags < MAX_SKB_FRAGS)
+-			   && !skb_has_frag_list(skb)) {
++		}
++		if ((skb_shinfo(skb)->nr_frags < MAX_SKB_FRAGS) &&
++		    !skb_has_frag_list(skb)) {
+ 			int allocsize;
+ 			struct sock *sk = skb->sk;
+ 			struct page_frag *pfrag = &x->xfrag;
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index d654f0f..ad9a22f 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -457,14 +457,20 @@ int esp6_output_head(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
+ 		goto cow;
+ 
+ 	if (!skb_cloned(skb)) {
+-		if (tailen <= skb_tailroom(skb)) {
++		/* In-place encryption must not write into frags that belong
++		 * to the page cache (sendfile()/splice()) or to memory the
++		 * sender cannot write; use a copying path instead.
++		 */
++		if (tailen <= skb_tailroom(skb) &&
++		    !skb_has_shared_frag(skb)) {
+ 			nfrags = 1;
+ 			trailer = skb;
+ 			tail = skb_tail_pointer(trailer);
+ 
+ 			goto skip_cow;
+-		} else if ((skb_shinfo(skb)->nr_frags < MAX_SKB_FRAGS)
+-			   && !skb_has_frag_list(skb)) {
++		}
++		if ((skb_shinfo(skb)->nr_frags < MAX_SKB_FRAGS) &&
++		    !skb_has_frag_list(skb)) {
+ 			int allocsize;
+ 			struct sock *sk = skb->sk;
+ 			struct page_frag *pfrag = &x->xfrag;

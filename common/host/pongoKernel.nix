@@ -215,6 +215,10 @@ in
           name = "ext4: dev branch (whole branch)";
           patch = patch /linux/20261020_tytso_ext4_dev.patch;
         }
+        {
+          name = "net: preserve shared-frag annotation, keep ESP out of shared frags";
+          patch = patch /linux/20261023_net_preserve_shared_frags.patch;
+        }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         {
