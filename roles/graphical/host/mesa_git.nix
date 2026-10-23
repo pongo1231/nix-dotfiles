@@ -28,14 +28,14 @@
       ];
     }).overrideAttrs
       (prev: {
-        version = "26.3-git";
+        version = "27.0-git";
 
         src = pkgs.fetchFromGitLab {
           domain = "gitlab.freedesktop.org";
           owner = "mesa";
           repo = "mesa";
-          rev = "af117f38e4f54a91c77888ad5beda6eca3ec1da4";
-          hash = "sha256-MrfmKg6sQBH47gV8F+HCuLxzJdYfvTjPYSxRPPHNOpc=";
+          rev = "715f68e0135997bb9cff20be39997f7c760a55a5";
+          hash = "sha256-Tu3EUW0o8f09nuD76JYvTMbxB6JHahFrPqtTHeTehiA=";
         };
 
         venusProtocolSrc = pkgs.fetchFromGitLab {
@@ -51,7 +51,7 @@
             url = "https://gitlab.com/evlaV/mesa/-/commit/e682bb001fc4e85ab191c1557692ebad5a4ee8af.patch";
             hash = "sha256-E5GItsdehLHxkgSUPQgfZxv67/+YVoTyMDr1738hq9Y=";
           })
-          (patch /mesa/26/vendor-venus-protocol.patch)
+          (patch /mesa/27/vendor-venus-protocol.patch)
         ];
 
         postPatch = (prev.postPatch or "") + ''
@@ -73,6 +73,17 @@
             + lib.concatStringsSep "," (
               builtins.filter (x: x != "anti-lag") (
                 lib.splitString "," (lib.removePrefix "-Dvulkan-layers=" flag)
+              )
+            )
+          else if lib.hasPrefix "-Dtools=" flag then
+            # mesa 27 counts panfrost in -Dtools as an enabled panfrost
+            # target, which builds the Rust kraid compiler; its xml-rs
+            # crate cannot be fetched under --wrap-mode=nodownload. No
+            # Mali hardware here, so drop the panfrost tools.
+            "-Dtools="
+            + lib.concatStringsSep "," (
+              builtins.filter (x: x != "panfrost") (
+                lib.splitString "," (lib.removePrefix "-Dtools=" flag)
               )
             )
           else
