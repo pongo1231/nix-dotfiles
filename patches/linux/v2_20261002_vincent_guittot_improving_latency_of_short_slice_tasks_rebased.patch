@@ -223,15 +223,6 @@ diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
 index e56c3c9..a0ff6af 100644
 --- a/kernel/sched/ext/ext.c
 +++ b/kernel/sched/ext/ext.c
-@@ -3823,7 +3823,7 @@ void scx_tick(struct rq *rq)
- 	update_other_load_avgs(rq);
- }
- 
--static void task_tick_scx(struct rq *rq, struct task_struct *curr, int queued)
-+static void task_tick_scx(struct rq *rq, struct task_struct *curr, struct rq_flags *rf, int queued)
- {
- 	struct scx_sched *sch = scx_task_sched(curr);
- 
 diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
 index ca30338..798887e 100644
 --- a/kernel/sched/fair.c
@@ -306,29 +297,6 @@ index ca30338..798887e 100644
  /*
   * Entity is eligible once it received less service than it ought to have,
   * eg. lag >= 0.
-@@ -1071,6 +1130,22 @@ static inline bool min_vruntime_update(struct sched_entity *se, bool exit)
- RB_DECLARE_CALLBACKS_MULTI(static, min_vruntime_cb, struct sched_entity,
- 		     run_node, min_vruntime_copy, min_vruntime_update);
- 
-+/*
-+ * Entity's slice is in the range [100us:100ms].
-+ */
-+static unsigned long get_rq_min_slice(struct rq *rq)
-+{
-+	return READ_ONCE(rq->min_slice);
-+}
-+
-+static void __update_rq_min_slice(struct rq *rq)
-+{
-+	unsigned long min = cfs_rq_min_slice(&rq->cfs);
-+
-+	if (min != get_rq_min_slice(rq))
-+		WRITE_ONCE(rq->min_slice, min);
-+}
-+
- /*
-  * Enqueue an entity into the rb-tree:
-  */
 @@ -8132,10 +8207,13 @@ static int choose_sched_idle_rq(struct rq *rq, struct task_struct *p)
  	return sched_idle_rq(rq) && !task_has_idle_policy(p);
  }
@@ -353,16 +321,6 @@ index ca30338..798887e 100644
  	struct sched_entity *se = &p->se;
  	struct cfs_rq *cfs_rq = &rq->cfs;
  	unsigned long weight;
-@@ -8253,6 +8331,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
- 	if (p->in_iowait)
- 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
- 
-+	if (task_wake)
-+		decay_entity_lag(cfs_rq, se, flags);
-+
- 	/*
- 	 * XXX comment on the curr thing
- 	 */
 @@ -8271,6 +8352,8 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
  		__enqueue_entity(cfs_rq, se);
  	}
@@ -658,15 +616,6 @@ index ca30338..798887e 100644
  		 * This ensures that an idle core is always given priority over
  		 * (partially) busy core.
  		 *
-@@ -9286,7 +9425,7 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
- 		}
- 	}
- 
--	i = select_idle_cpu(p, sd, has_idle_core, target);
-+	i = select_idle_cpu(p, sd, has_idle_core, &target);
- 	if ((unsigned)i < nr_cpumask_bits)
- 		return i;
- 
 @@ -9549,29 +9688,37 @@ unsigned long sched_cpu_util(int cpu)
  }
  
@@ -1568,17 +1517,6 @@ index ca30338..798887e 100644
  
  	for_each_domain(cpu, tmp) {
  		/*
-@@ -9982,8 +10417,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags)
- 		return sched_balance_find_dst_cpu(sd, p, cpu, prev_cpu, sd_flag);
- 
- 	/* Fast path */
--	if (wake_flags & WF_TTWU)
--		return select_idle_sibling(p, prev_cpu, new_cpu);
-+	if (want_sibling)
-+		new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
- 
- 	return new_cpu;
- }
 @@ -10268,8 +10703,10 @@ static void wakeup_preempt_fair(struct rq *rq, struct task_struct *p, int wake_f
  preempt:
  	cancel_protect_slice(se);
@@ -1629,14 +1567,6 @@ index ca30338..798887e 100644
  
  	task_tick_core(rq, curr);
  }
-@@ -15699,6 +16147,7 @@ static void set_next_task_fair(struct rq *rq, struct task_struct *p, bool first)
- 	bool on_rq = se->on_rq;
- 
- 	clear_buddies(cfs_rq, se);
-+	fair_remove_pushable_task(rq, p);
- 
- 	if (on_rq)
- 		__dequeue_entity(cfs_rq, se);
 @@ -15752,6 +16201,7 @@ void init_cfs_rq(struct cfs_rq *cfs_rq)
  {
  	cfs_rq->tasks_timeline = RB_ROOT_CACHED;

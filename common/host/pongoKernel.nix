@@ -83,8 +83,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "f47d223627f80cb7a1eb14c585fe6cb35de5e984";
-                        hash = "sha256-c8nnJcR4TjleIHb/3RS1clICIo0UXV8f5INUwCVeYUc=";
+                        rev = "734bef548a96e8774d6eef5dfa2026c6edc4e80b";
+                        hash = "sha256-cGFhYRUlA1rrNm8JEUsVTm4TNCwp+CElwiTeqjExX7Y=";
                       };
                     };
                 };
@@ -133,12 +133,12 @@ in
           patch = patch /linux/20261020_mm-queue_mm-new_wholesale.patch;
         }
         {
-          name = "nouveau detach fix";
-          patch = patch /linux/nouveau-detach-fix.patch;
+          name = "mm: mm-new queue re-anchors for the newer base";
+          patch = patch /linux/20261023_mm-queue_reanchors.patch;
         }
         {
-          name = "sched/fair: randomize equally shallow idle CPU picks (rebased)";
-          patch = patch /linux/20260917_christian_loehle_sched_fair_randomize_equally_shallow_idle_cpu_picks_rebased.patch;
+          name = "nouveau detach fix";
+          patch = patch /linux/nouveau-detach-fix.patch;
         }
         {
           name = "sched: topology-aware cache scheduling";
@@ -176,10 +176,6 @@ in
           patch = patch /linux/20260901_usama_arif_zstd_use_x86_feature_infrastructure_for_bmi2_dispatch.patch;
         }
         {
-          name = "crypto: zstd: avoid initializing the workspace twice";
-          patch = patch /linux/20260825_usama_arif_crypto_zstd_avoid_initializing_the_workspace_twice.patch;
-        }
-        {
           name = "lib/lz4: stop forking upstream LZ4, vendor it";
           patch = patch /linux/v1_20260925_michal_wilczynski_lib_lz4_stop_forking_upstream_lz4_vendor_it.patch;
         }
@@ -188,12 +184,12 @@ in
           patch = patch /linux/20260916_joanne_koong_fuse_enable_large_folios.patch;
         }
         {
-          name = "kbuild: kbuild-next-speedups (build speedups v4 + deps)";
-          patch = patch /linux/20261012_kbuild_kbuild-next-speedups.patch;
-        }
-        {
           name = "sched: improving latency of short slice tasks (rebased)";
           patch = patch /linux/v2_20261002_vincent_guittot_improving_latency_of_short_slice_tasks_rebased.patch;
+        }
+        {
+          name = "sched: short slice re-anchors for the newer base";
+          patch = patch /linux/20261023_vincent_short_slice_reanchors.patch;
         }
         {
           name = "mm/mglru: frequency guided promotion (MGLRU-FG)";
@@ -219,10 +215,6 @@ in
           name = "ext4: dev branch (whole branch)";
           patch = patch /linux/20261020_tytso_ext4_dev.patch;
         }
-        {
-          name = "btrfs: 7.4 updates (whole branch)";
-          patch = patch /linux/20261015_david_sterba_btrfs_7_4_pull.patch;
-        }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
         {
@@ -231,42 +223,6 @@ in
           extraConfig = ''
             X86_64_VERSION 3
           '';
-        }
-        {
-          name = "x86/fpu: check for missing AVX and AVX-512 xstate bits";
-          patch = patch /linux/0001-x86-fpu-check-missing-avx.patch;
-        }
-        {
-          name = "um: check for missing AVX and AVX-512 xstate bits";
-          patch = patch /linux/0002-um-check-missing-avx.patch;
-        }
-        {
-          name = "crypto: x86 - stop using cpu_has_xfeatures()";
-          patch = patch /linux/0003-crypto-x86-stop-using-cpu_has_xfeatures.patch;
-        }
-        {
-          name = "lib/crypto: x86 - stop using cpu_has_xfeatures()";
-          patch = patch /linux/0004-lib-crypto-x86-stop-using-cpu_has_xfeatures.patch;
-        }
-        {
-          name = "lib/crc: x86 - stop using cpu_has_xfeatures()";
-          patch = patch /linux/0005-lib-crc-x86-stop-using-cpu_has_xfeatures.patch;
-        }
-        {
-          name = "x86/fpu: remove cpu_has_xfeatures()";
-          patch = patch /linux/0006-x86-fpu-remove-cpu_has_xfeatures.patch;
-        }
-        {
-          name = "xor: remove redundant X86_FEATURE_OSXSAVE check";
-          patch = patch /linux/0007-xor-remove-redundant-osxsave-check.patch;
-        }
-        {
-          name = "xor: add AVX-512 optimized xor_gen()";
-          patch = patch /linux/0008-xor-add-avx512-xor_gen.patch;
-        }
-        {
-          name = "x86/sev: RMPOPT + SEV MSR sysfs";
-          patch = patch /linux/20260922_tip_x86_sev_branch.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "aarch64-linux") [

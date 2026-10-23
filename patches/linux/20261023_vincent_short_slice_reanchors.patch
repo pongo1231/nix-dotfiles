@@ -1,0 +1,78 @@
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index 23430eb..98ff679 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -1069,6 +1069,22 @@ RB_DECLARE_CALLBACKS(static, min_vruntime_cb,
+ 		     RB_AUG(slice, min_slice, min),
+ 		     RB_AUG(slice, max_slice, max));
+ 
++/*
++ * Entity's slice is in the range [100us:100ms].
++ */
++static unsigned long get_rq_min_slice(struct rq *rq)
++{
++	return READ_ONCE(rq->min_slice);
++}
++
++static void __update_rq_min_slice(struct rq *rq)
++{
++	unsigned long min = cfs_rq_min_slice(&rq->cfs);
++
++	if (min != get_rq_min_slice(rq))
++		WRITE_ONCE(rq->min_slice, min);
++}
++
+ /*
+  * Enqueue an entity into the rb-tree:
+  */
+@@ -8458,6 +8474,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+ 	if (p->in_iowait)
+ 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
+ 
++	if (task_wake)
++		decay_entity_lag(cfs_rq, se, flags);
++
+ 	curr = (cfs_rq->curr == se);
+ 	/*
+ 	 * This can actually happen with CFS_BANDWIDTH, a task can be throttled
+@@ -9591,7 +9610,7 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
+ 		}
+ 	}
+ 
+-	i = select_idle_cpu(p, sd, has_idle_core, target);
++	i = select_idle_cpu(p, sd, has_idle_core, &target);
+ 	if ((unsigned int)i < nr_cpumask_bits) {
+ 		target = i;
+ 		goto select_smt_priority;
+@@ -10594,8 +10613,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int select_flags)
+ 	}
+ 
+ 	/* Fast path */
+-	if (wake_flags & WF_TTWU)
+-		return select_idle_sibling(p, prev_cpu, new_cpu);
++	if (want_sibling)
++		new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
+ 
+ 	return new_cpu;
+ }
+@@ -16733,6 +16752,7 @@ static void set_next_task_fair(struct rq *rq, struct task_struct *p, enum snt_e
+ 		goto repick;
+ 
+ 	clear_buddies(cfs_rq, se);
++	fair_remove_pushable_task(rq, p);
+ 
+ 	if (on_rq)
+ 		__dequeue_entity(cfs_rq, se);
+diff --git a/kernel/sched/ext/ext.c b/kernel/sched/ext/ext.c
+index 9bae826..dc046ba 100644
+--- a/kernel/sched/ext/ext.c
++++ b/kernel/sched/ext/ext.c
+@@ -4323,7 +4323,7 @@ void scx_tick(struct rq *rq)
+ 	update_other_load_avgs(rq);
+ }
+ 
+-static void task_tick_scx(struct rq *rq, struct task_struct *donor, int queued)
++static void task_tick_scx(struct rq *rq, struct task_struct *donor, struct rq_flags *rf, int queued)
+ {
+ 	struct scx_sched *sch = scx_task_sched(donor);
+ 
