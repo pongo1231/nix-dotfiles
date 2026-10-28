@@ -82,9 +82,7 @@
             # Mali hardware here, so drop the panfrost tools.
             "-Dtools="
             + lib.concatStringsSep "," (
-              builtins.filter (x: x != "panfrost") (
-                lib.splitString "," (lib.removePrefix "-Dtools=" flag)
-              )
+              builtins.filter (x: x != "panfrost") (lib.splitString "," (lib.removePrefix "-Dtools=" flag))
             )
           else
             flag
