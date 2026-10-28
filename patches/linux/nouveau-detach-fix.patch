@@ -1,7 +1,35 @@
+PROVENANCE UNVERIFIED - this file carries no upstream provenance.
+===================================================================
+Audited 2026-10-12, re-audited 2026-10-20. No upstream artifact matching this change could
+be found. Checks that do hold, each with a working control:
+ - patchwork.kernel.org subject search: no record ([] result).
+ - elixir.bootlin.com A/ident for the three symbols on v7.3 and v7.2.9: no hit
+   (control: nouveau_ttm_fini = 5 hits).
+ - grep of the current drm-misc-next and the nouveau drm-next tips: no hit (control =
+   5 matches), and no commit in the local torvalds history introduces them.
+ - web search for the symbol names and for the change's own description: nothing.
+ - lore.kernel.org full-text search, with controls confirming the index works: nothing.
+ - CachyOS/kernel-patches and babiulep/my-kernel-patches: absent.
+Not evidence: marc.info, which splits the search token on '_' and ORs the parts, so it
+cannot demonstrate absence for these identifiers.
+The three symbols it introduces (nouveau_ttm_fini_hw, nouveau_ttm_evict_manager,
+nouveau_drm_release) exist in no reachable upstream tree. Of the six recorded
+'index <pre>' blobs, five do not match this base's files (only nouveau_ttm.h does), and
+one of them (517ff2c3, nouveau_drv.h) is not an object in any reachable upstream, so this
+cannot be a single upstream commit. That signature means a regenerated or hand-written
+diff; it is equally consistent with a locally authored change or one taken from an
+unobtainable vendor branch. It applies cleanly to the pinned 7.3.0 tree (and to the
+earlier 7.3-rc7 one) and is internally coherent (splits nouveau_ttm_fini() into
+fini_hw/fini, runs manager teardown from a new drm_driver.release, moves client teardown
+before nouveau_accel_fini, adds a fence guard in nouveau_channel_idle()).
+Action: if the origin is established, or if this is known to be locally authored, replace
+this note with the real provenance. It predates the 2026-10-12 patch-stack audit.
+
 diff --git a/drivers/gpu/drm/nouveau/nouveau_chan.c b/drivers/gpu/drm/nouveau/nouveau_chan.c
+index 598513f60449..b0b10fce90b5 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_chan.c
 +++ b/drivers/gpu/drm/nouveau/nouveau_chan.c
-@@ -70,6 +70,9 @@
+@@ -70,6 +70,9 @@ nouveau_channel_idle(struct nouveau_channel *chan)
  		struct nouveau_fence *fence = NULL;
  		int ret;
  
@@ -12,9 +40,10 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_chan.c b/drivers/gpu/drm/nouveau/no
  		if (!ret) {
  			ret = nouveau_fence_wait(fence, false, false);
 diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nouveau_drm.c
+index 517ff2c31dce..cae8f72a3e86 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_drm.c
 +++ b/drivers/gpu/drm/nouveau/nouveau_drm.c
-@@ -598,17 +598,11 @@
+@@ -597,17 +597,11 @@ nouveau_drm_device_fini(struct nouveau_drm *drm)
  		nouveau_display_fini(dev, false, false);
  	nouveau_display_destroy(dev);
  
@@ -36,7 +65,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nou
  	 */
  	mutex_lock(&drm->clients_lock);
  	list_for_each_entry_safe(cli, temp_cli, &drm->clients, head) {
-@@ -622,6 +616,12 @@
+@@ -621,6 +615,12 @@ nouveau_drm_device_fini(struct nouveau_drm *drm)
  	}
  	mutex_unlock(&drm->clients_lock);
  
@@ -49,7 +78,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nou
  	nouveau_cli_fini(&drm->client);
  	destroy_workqueue(drm->sched_wq);
  	mutex_destroy(&drm->clients_lock);
-@@ -703,6 +703,7 @@
+@@ -702,6 +702,7 @@ nouveau_drm_device_init(struct nouveau_drm *drm)
  	nouveau_accel_fini(drm);
  	nouveau_bios_takedown(dev);
  fail_bios:
@@ -57,7 +86,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nou
  	nouveau_ttm_fini(drm);
  fail_ttm:
  	nouveau_vga_fini(drm);
-@@ -715,16 +716,16 @@
+@@ -714,16 +715,16 @@ nouveau_drm_device_init(struct nouveau_drm *drm)
  static void
  nouveau_drm_device_del(struct nouveau_drm *drm)
  {
@@ -68,10 +97,10 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nou
  	nvif_device_dtor(&drm->device);
  	nvif_client_dtor(&drm->_client);
  	nvif_parent_dtor(&drm->parent);
-+	mutex_destroy(&drm->client_mutex);
- 
--	mutex_destroy(&drm->client_mutex);
+-
+ 	mutex_destroy(&drm->client_mutex);
 -	kfree(drm);
++
 +	if (drm->dev && !IS_ERR(drm->dev))
 +		drm_dev_put(drm->dev);
 +	else
@@ -79,7 +108,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nou
  }
  
  static struct nouveau_drm *
-@@ -1380,6 +1381,15 @@
+@@ -1360,6 +1361,15 @@ nouveau_driver_fops = {
  	.fop_flags = FOP_UNSIGNED_OFFSET,
  };
  
@@ -92,21 +121,22 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drm.c b/drivers/gpu/drm/nouveau/nou
 +	kfree(drm);
 +}
 +
- #ifdef CONFIG_DEBUG_FS
- #define NOUVEAU_DEBUGFS_OPS .debugfs_init = nouveau_drm_debugfs_init,
- #else
-@@ -1389,6 +1399,7 @@
- #define NOUVEAU_DRIVER_OPS                                              \
- 	.open = nouveau_drm_open,                                       \
- 	.postclose = nouveau_drm_postclose,                             \
-+	.release = nouveau_drm_release,                                 \
-                                                                         \
- 	NOUVEAU_DEBUGFS_OPS						\
-                                                                         \
+ static struct drm_driver
+ driver_stub = {
+ 	.driver_features = DRIVER_GEM |
+@@ -1369,6 +1379,7 @@ driver_stub = {
+ 			   DRIVER_RENDER,
+ 	.open = nouveau_drm_open,
+ 	.postclose = nouveau_drm_postclose,
++	.release = nouveau_drm_release,
+ 
+ #if defined(CONFIG_DEBUG_FS)
+ 	.debugfs_init = nouveau_drm_debugfs_init,
 diff --git a/drivers/gpu/drm/nouveau/nouveau_drv.h b/drivers/gpu/drm/nouveau/nouveau_drv.h
+index 1c2523e2f92e..06ecd9e46f43 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_drv.h
 +++ b/drivers/gpu/drm/nouveau/nouveau_drv.h
-@@ -243,6 +243,7 @@
+@@ -241,6 +241,7 @@ struct nouveau_drm {
  		struct nouveau_channel *chan;
  		struct nvif_object copy;
  		int mtrr;
@@ -115,9 +145,10 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_drv.h b/drivers/gpu/drm/nouveau/nou
  		int type_host[2];
  		int type_ncoh[2];
 diff --git a/drivers/gpu/drm/nouveau/nouveau_gem.c b/drivers/gpu/drm/nouveau/nouveau_gem.c
+index 20dba02d6175..5f61f7e8ec8f 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_gem.c
 +++ b/drivers/gpu/drm/nouveau/nouveau_gem.c
-@@ -84,6 +84,7 @@
+@@ -84,6 +84,7 @@ nouveau_gem_object_del(struct drm_gem_object *gem)
  	ret = pm_runtime_get_sync(dev);
  	if (WARN_ON(ret < 0 && ret != -EACCES)) {
  		pm_runtime_put_autosuspend(dev);
@@ -126,18 +157,20 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_gem.c b/drivers/gpu/drm/nouveau/nou
  	}
  
 diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nouveau_ttm.c
+index ad01f922aa86..5820d163ea9c 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_ttm.c
 +++ b/drivers/gpu/drm/nouveau/nouveau_ttm.c
-@@ -208,13 +208,21 @@
+@@ -199,14 +199,22 @@ nouveau_ttm_init_vram(struct nouveau_drm *drm)
+ 	}
  }
  
- static void
++static void
 +nouveau_ttm_evict_manager(struct nouveau_drm *drm, struct ttm_resource_manager *man)
 +{
 +	ttm_resource_manager_evict_all(&drm->ttm.bdev, man);
 +}
 +
-+static void
+ static void
  nouveau_ttm_fini_vram(struct nouveau_drm *drm)
  {
  	struct ttm_resource_manager *man = ttm_manager_type(&drm->ttm.bdev, TTM_PL_VRAM);
@@ -153,7 +186,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nou
  		ttm_resource_manager_cleanup(man);
  		ttm_set_driver_manager(&drm->ttm.bdev, TTM_PL_VRAM, NULL);
  		kfree(man);
-@@ -254,12 +262,14 @@
+@@ -246,12 +255,14 @@ nouveau_ttm_fini_gtt(struct nouveau_drm *drm)
  {
  	struct ttm_resource_manager *man = ttm_manager_type(&drm->ttm.bdev, TTM_PL_TT);
  
@@ -171,7 +204,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nou
  		ttm_resource_manager_cleanup(man);
  		ttm_set_driver_manager(&drm->ttm.bdev, TTM_PL_TT, NULL);
  		kfree(man);
-@@ -275,6 +285,8 @@
+@@ -267,6 +278,8 @@ nouveau_ttm_init(struct nouveau_drm *drm)
  	struct drm_device *dev = drm->dev;
  	int typei, ret;
  
@@ -180,7 +213,7 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nou
  	ret = nouveau_ttm_init_host(drm, 0);
  	if (ret)
  		return ret;
-@@ -356,18 +368,34 @@
+@@ -348,18 +361,34 @@ nouveau_ttm_init(struct nouveau_drm *drm)
  }
  
  void
@@ -220,9 +253,10 @@ diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.c b/drivers/gpu/drm/nouveau/nou
 +	drm->ttm.bdev.funcs = NULL;
  }
 diff --git a/drivers/gpu/drm/nouveau/nouveau_ttm.h b/drivers/gpu/drm/nouveau/nouveau_ttm.h
+index 2f0efda7ccdb..9b24bd078212 100644
 --- a/drivers/gpu/drm/nouveau/nouveau_ttm.h
 +++ b/drivers/gpu/drm/nouveau/nouveau_ttm.h
-@@ -16,6 +16,7 @@
+@@ -16,6 +16,7 @@ struct ttm_tt *nouveau_sgdma_create_ttm(struct ttm_buffer_object *bo,
  					u32 page_flags);
  
  int  nouveau_ttm_init(struct nouveau_drm *drm);
