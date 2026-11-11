@@ -57,6 +57,11 @@ in
 
   reasonix = final.callPackage (pkg /reasonix) { };
 
+  uutils-findutils = prev.uutils-findutils.overrideAttrs (prevAttrs: {
+    nativeBuildInputs = (prevAttrs.nativeBuildInputs or [ ]) ++ [ final.pkg-config ];
+    buildInputs = (prevAttrs.buildInputs or [ ]) ++ [ final.oniguruma ];
+  });
+
   distrobox = final.callPackage (pkg /distrobox) { inherit patch; };
 
   dash-to-panel-patched = final.callPackage (pkg /gnome-extensions/dash-to-panel-patched) {
