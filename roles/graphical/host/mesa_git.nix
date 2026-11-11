@@ -34,16 +34,16 @@
           domain = "gitlab.freedesktop.org";
           owner = "mesa";
           repo = "mesa";
-          rev = "715f68e0135997bb9cff20be39997f7c760a55a5";
-          hash = "sha256-Tu3EUW0o8f09nuD76JYvTMbxB6JHahFrPqtTHeTehiA=";
+          rev = "1c87c60187064c60a10378fa79e20debf0941f97";
+          hash = "sha256-9SKb819Ctz/NLOOpEBGoseQwEdfaYjQN9t1GK2JEwo4=";
         };
 
         venusProtocolSrc = pkgs.fetchFromGitLab {
           domain = "gitlab.freedesktop.org";
           owner = "virgl";
           repo = "venus-protocol";
-          rev = "ca19b6358d7cc491bc3e4de76f04c6700876a8fa";
-          hash = "sha256-epSb26uLAbHYBDr+ju6rzFu4ozD/LUpRuou6hA/BFRM=";
+          rev = "02c03c815fd07f2237d7f1161bbafcf6a829373c";
+          hash = "sha256-H4PNhoUD8lLx6x5xewMrnn3G59yvD2zrEYhxUJpuvnE=";
         };
 
         patches = prev.patches ++ [
@@ -84,6 +84,12 @@
             + lib.concatStringsSep "," (
               builtins.filter (x: x != "panfrost") (lib.splitString "," (lib.removePrefix "-Dtools=" flag))
             )
+          else if lib.hasPrefix "-Damdgpu-virtio=" flag then
+            # mesa 27 replaced the boolean amdgpu-virtio option with the
+            # amd-options array. Keep LLVM (the default) and add virtio
+            # when the old nixpkgs flag asked for it.
+            "-Damd-options=use-llvm"
+            + lib.optionalString (flag == "-Damdgpu-virtio=true") ",virtio"
           else
             flag
         ) prev.mesonFlags;
