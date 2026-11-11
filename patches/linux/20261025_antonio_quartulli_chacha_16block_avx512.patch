@@ -1,0 +1,810 @@
+diff --git a/lib/crypto/.kunitconfig b/lib/crypto/.kunitconfig
+index 6f218cd..6d83bad 100644
+--- a/lib/crypto/.kunitconfig
++++ b/lib/crypto/.kunitconfig
+@@ -7,6 +7,7 @@ CONFIG_CRYPTO_LIB_AES_CCM_KUNIT_TEST=y
+ CONFIG_CRYPTO_LIB_AES_GCM_KUNIT_TEST=y
+ CONFIG_CRYPTO_LIB_BLAKE2B_KUNIT_TEST=y
+ CONFIG_CRYPTO_LIB_BLAKE2S_KUNIT_TEST=y
++CONFIG_CRYPTO_LIB_CHACHA_KUNIT_TEST=y
+ CONFIG_CRYPTO_LIB_CHACHA20POLY1305_KUNIT_TEST=y
+ CONFIG_CRYPTO_LIB_CURVE25519_KUNIT_TEST=y
+ CONFIG_CRYPTO_LIB_GHASH_KUNIT_TEST=y
+diff --git a/lib/crypto/tests/Kconfig b/lib/crypto/tests/Kconfig
+index 67026ef..5a86a02 100644
+--- a/lib/crypto/tests/Kconfig
++++ b/lib/crypto/tests/Kconfig
+@@ -45,6 +45,14 @@ config CRYPTO_LIB_BLAKE2S_KUNIT_TEST
+ 	help
+ 	  KUnit tests for the BLAKE2s cryptographic hash function.
+ 
++config CRYPTO_LIB_CHACHA_KUNIT_TEST
++	tristate "KUnit tests for ChaCha" if !KUNIT_ALL_TESTS
++	depends on KUNIT && CRYPTO_LIB_CHACHA
++	default KUNIT_ALL_TESTS
++	select CRYPTO_LIB_BENCHMARK_VISIBLE
++	help
++	  KUnit tests for the ChaCha stream cipher.
++
+ config CRYPTO_LIB_CHACHA20POLY1305_KUNIT_TEST
+ 	tristate "KUnit tests for ChaCha20Poly1305" if !KUNIT_ALL_TESTS
+ 	depends on KUNIT && CRYPTO_LIB_CHACHA20POLY1305
+diff --git a/lib/crypto/tests/Makefile b/lib/crypto/tests/Makefile
+index f639d76..40c9624 100644
+--- a/lib/crypto/tests/Makefile
++++ b/lib/crypto/tests/Makefile
+@@ -5,6 +5,7 @@ obj-$(CONFIG_CRYPTO_LIB_AES_CCM_KUNIT_TEST) += aes_ccm_kunit.o
+ obj-$(CONFIG_CRYPTO_LIB_AES_GCM_KUNIT_TEST) += aes_gcm_kunit.o
+ obj-$(CONFIG_CRYPTO_LIB_BLAKE2B_KUNIT_TEST) += blake2b_kunit.o
+ obj-$(CONFIG_CRYPTO_LIB_BLAKE2S_KUNIT_TEST) += blake2s_kunit.o
++obj-$(CONFIG_CRYPTO_LIB_CHACHA_KUNIT_TEST) += chacha_kunit.o
+ obj-$(CONFIG_CRYPTO_LIB_CHACHA20POLY1305_KUNIT_TEST) += chacha20poly1305_kunit.o
+ obj-$(CONFIG_CRYPTO_LIB_CURVE25519_KUNIT_TEST) += curve25519_kunit.o
+ obj-$(CONFIG_CRYPTO_LIB_GHASH_KUNIT_TEST) += ghash_kunit.o
+diff --git a/lib/crypto/tests/chacha_kunit.c b/lib/crypto/tests/chacha_kunit.c
+new file mode 100644
+index 0000000..fb36905
+--- /dev/null
++++ b/lib/crypto/tests/chacha_kunit.c
+@@ -0,0 +1,269 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * KUnit tests and benchmark for the ChaCha stream cipher library.
++ *
++ * The (possibly architecture-optimized) chacha_crypt() is compared against a
++ * reference built on top of chacha_block_generic(), for all lengths in a
++ * range covering the multi-block SIMD code paths, random buffer alignments,
++ * random block counters (including counters that wrap around) and both 20 and
++ * 12 rounds. Both are checked against the RFC 7539 test vector.
++ */
++#include <crypto/chacha.h>
++#include <kunit/test.h>
++#include <linux/timekeeping.h>
++#include <linux/unaligned.h>
++#include "test-utils.h"
++
++/* three 4 KiB chunks, as processed by some SIMD code, plus a partial one */
++#define CHACHA_TEST_MAX_LEN	(3 * SZ_4K + 200)
++#define CHACHA_TEST_MAX_OFFSET	64
++
++static void chacha_ref(struct chacha_state *state, u8 *dst, const u8 *src,
++		       size_t len, int nrounds)
++{
++	u8 stream[CHACHA_BLOCK_SIZE];
++
++	while (len) {
++		size_t n = min_t(size_t, len, CHACHA_BLOCK_SIZE);
++
++		chacha_block_generic(state, stream, nrounds);
++		for (size_t i = 0; i < n; i++)
++			dst[i] = src[i] ^ stream[i];
++		len -= n;
++		src += n;
++		dst += n;
++	}
++}
++
++static void rand_state(struct chacha_state *state)
++{
++	u32 key[CHACHA_KEY_WORDS];
++	u8 iv[CHACHA_IV_SIZE];
++
++	rand_bytes((u8 *)key, sizeof(key));
++	rand_bytes(iv, sizeof(iv));
++	chacha_init(state, key, iv);
++	/* Exercise 32-bit counter wraparound from time to time. */
++	if (rand32() % 8 == 0)
++		state->x[12] = 0xffffffff - rand32() % 32;
++}
++
++struct chacha_test_bufs {
++	u8 *src_guarded;	/* ends right before an unmapped page */
++	u8 *dst_guarded;
++	u8 *ref;
++	u8 *orig;
++};
++
++#define CHACHA_TEST_BUF_LEN	(CHACHA_TEST_MAX_LEN + CHACHA_TEST_MAX_OFFSET)
++#define CHACHA_TEST_POISON	0xa5
++
++static void chacha_test_one(struct kunit *test, struct chacha_test_bufs *b,
++			    size_t len, int nrounds, bool split, bool at_guard)
++{
++	struct chacha_state st, st_ref;
++	bool inplace = rand_bool();
++	size_t src_off, dst_off;
++	u8 *src, *dst;
++
++	if (at_guard) {
++		src_off = CHACHA_TEST_BUF_LEN - len;
++		dst_off = src_off;
++	} else {
++		src_off = rand_offset(CHACHA_TEST_MAX_OFFSET);
++		dst_off = rand_offset(CHACHA_TEST_MAX_OFFSET);
++	}
++	src = b->src_guarded + src_off;
++	dst = inplace ? src : b->dst_guarded + dst_off;
++
++	rand_state(&st);
++	st_ref = st;
++
++	rand_bytes(b->orig, len);
++	memcpy(src, b->orig, len);
++	/* detect writes outside the destination */
++	if (!inplace)
++		memset(b->dst_guarded, CHACHA_TEST_POISON, CHACHA_TEST_BUF_LEN);
++
++	chacha_ref(&st_ref, b->ref, b->orig, len, nrounds);
++
++	if (split) {
++		/* Continuing the stream only works at block boundaries. */
++		size_t done = 0;
++
++		while (done < len) {
++			size_t n = len - done;
++
++			/* zero-length calls included */
++			if (rand_bool()) {
++				size_t part = rand_length(len - done);
++
++				n = min(n, round_up(part, CHACHA_BLOCK_SIZE));
++			}
++			chacha_crypt(&st, dst + done, src + done, n, nrounds);
++			done += n;
++		}
++	} else {
++		chacha_crypt(&st, dst, src, len, nrounds);
++	}
++
++	KUNIT_ASSERT_MEMEQ_MSG(test, dst, b->ref, len,
++			       "len=%zu nrounds=%d inplace=%d split=%d src_off=%zu dst_off=%zu",
++			       len, nrounds, inplace, split, src_off, dst_off);
++	if (!inplace) {
++		KUNIT_ASSERT_MEMEQ_MSG(test, src, b->orig, len,
++				       "source modified, len=%zu", len);
++		KUNIT_ASSERT_NULL_MSG(test,
++				      memchr_inv(b->dst_guarded,
++						 CHACHA_TEST_POISON, dst_off),
++				      "write before dst, len=%zu", len);
++		KUNIT_ASSERT_NULL_MSG(test,
++				      memchr_inv(dst + len, CHACHA_TEST_POISON,
++						 CHACHA_TEST_BUF_LEN - dst_off -
++						 len),
++				      "write after dst, len=%zu", len);
++	}
++	KUNIT_ASSERT_MEMEQ_MSG(test, &st, &st_ref, sizeof(st),
++			       "state mismatch, len=%zu nrounds=%d", len,
++			       nrounds);
++}
++
++static void chacha_alloc_bufs(struct kunit *test, struct chacha_test_bufs *b)
++{
++	b->src_guarded = alloc_guarded_buf(test, CHACHA_TEST_BUF_LEN);
++	b->dst_guarded = alloc_guarded_buf(test, CHACHA_TEST_BUF_LEN);
++	b->ref = alloc_buf(test, CHACHA_TEST_MAX_LEN);
++	b->orig = alloc_buf(test, CHACHA_TEST_MAX_LEN);
++}
++
++/*
++ * Every length from 0 to 4100, with 20 and 12 rounds, ending right before an
++ * unmapped page and at a random offset.
++ */
++static void test_chacha_all_lengths(struct kunit *test)
++{
++	struct chacha_test_bufs b;
++
++	chacha_alloc_bufs(test, &b);
++	for (size_t len = 0; len <= 4100; len++) {
++		chacha_test_one(test, &b, len, 20, false, true);
++		chacha_test_one(test, &b, len, 12, false, false);
++	}
++}
++
++/* Random lengths up to the maximum, including multi-call usage. */
++static void test_chacha_random(struct kunit *test)
++{
++	struct chacha_test_bufs b;
++
++	chacha_alloc_bufs(test, &b);
++	for (int i = 0; i < 4000; i++) {
++		size_t len = rand_length(CHACHA_TEST_MAX_LEN);
++
++		chacha_test_one(test, &b, len, rand_bool() ? 20 : 12,
++				rand_bool(), rand_bool());
++	}
++}
++
++/* Known answer test: RFC 7539 section 2.4.2, also anchoring the reference. */
++static void test_chacha_rfc7539(struct kunit *test)
++{
++	static const u8 key[CHACHA_KEY_SIZE] = {
++		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
++		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
++		0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
++	};
++	static const u8 iv[CHACHA_IV_SIZE] = {
++		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++		0x00, 0x00, 0x00, 0x4a, 0x00, 0x00, 0x00, 0x00,
++	};
++	static const u8 pt[] =
++		"Ladies and Gentlemen of the class of '99: If I could offer you "
++		"only one tip for the future, sunscreen would be it.";
++	static const u8 ct[sizeof(pt) - 1] = {
++		0x6e, 0x2e, 0x35, 0x9a, 0x25, 0x68, 0xf9, 0x80,
++		0x41, 0xba, 0x07, 0x28, 0xdd, 0x0d, 0x69, 0x81,
++		0xe9, 0x7e, 0x7a, 0xec, 0x1d, 0x43, 0x60, 0xc2,
++		0x0a, 0x27, 0xaf, 0xcc, 0xfd, 0x9f, 0xae, 0x0b,
++		0xf9, 0x1b, 0x65, 0xc5, 0x52, 0x47, 0x33, 0xab,
++		0x8f, 0x59, 0x3d, 0xab, 0xcd, 0x62, 0xb3, 0x57,
++		0x16, 0x39, 0xd6, 0x24, 0xe6, 0x51, 0x52, 0xab,
++		0x8f, 0x53, 0x0c, 0x35, 0x9f, 0x08, 0x61, 0xd8,
++		0x07, 0xca, 0x0d, 0xbf, 0x50, 0x0d, 0x6a, 0x61,
++		0x56, 0xa3, 0x8e, 0x08, 0x8a, 0x22, 0xb6, 0x5e,
++		0x52, 0xbc, 0x51, 0x4d, 0x16, 0xcc, 0xf8, 0x06,
++		0x81, 0x8c, 0xe9, 0x1a, 0xb7, 0x79, 0x37, 0x36,
++		0x5a, 0xf9, 0x0b, 0xbf, 0x74, 0xa3, 0x5b, 0xe6,
++		0xb4, 0x0b, 0x8e, 0xed, 0xf2, 0x78, 0x5e, 0x42,
++		0x87, 0x4d,
++	};
++	struct chacha_state st;
++	u32 k[CHACHA_KEY_WORDS];
++	u8 out[sizeof(ct)];
++
++	for (int i = 0; i < CHACHA_KEY_WORDS; i++)
++		k[i] = get_unaligned_le32(key + 4 * i);
++
++	chacha_init(&st, k, iv);
++	chacha_crypt(&st, out, pt, sizeof(out), 20);
++	KUNIT_ASSERT_MEMEQ(test, out, ct, sizeof(ct));
++
++	chacha_init(&st, k, iv);
++	chacha_ref(&st, out, pt, sizeof(out), 20);
++	KUNIT_ASSERT_MEMEQ(test, out, ct, sizeof(ct));
++}
++
++static void benchmark_chacha(struct kunit *test)
++{
++	static const size_t lens_to_test[] = {
++		64, 256, 512, 1024, 1420, 2048, 4096, 8920, 16384,
++	};
++	const size_t max_len = 16384;
++	u8 *data = alloc_buf(test, max_len);
++	u32 key[CHACHA_KEY_WORDS] = {};
++	u8 iv[CHACHA_IV_SIZE] = {};
++	struct chacha_state st;
++
++	if (!IS_ENABLED(CONFIG_CRYPTO_LIB_BENCHMARK))
++		kunit_skip(test, "not enabled");
++
++	/* Warm-up */
++	chacha_init(&st, key, iv);
++	memset(data, 0, max_len);
++	for (size_t i = 0; i < 10000000; i += max_len)
++		chacha_crypt(&st, data, data, max_len, 20);
++
++	for (size_t i = 0; i < ARRAY_SIZE(lens_to_test); i++) {
++		size_t len = lens_to_test[i];
++		/* The '+ 64' tries to account for per-call overhead. */
++		size_t num_iters = 10000000 / (len + 64);
++		u64 t;
++
++		preempt_disable();
++		t = ktime_get_ns();
++		for (size_t j = 0; j < num_iters; j++)
++			chacha_crypt(&st, data, data, len, 20);
++		t = ktime_get_ns() - t;
++		preempt_enable();
++		kunit_info(test, "len=%zu: %llu MB/s", len,
++			   div64_u64((u64)len * num_iters * 1000, t ?: 1));
++	}
++}
++
++static struct kunit_case chacha_test_cases[] = {
++	KUNIT_CASE(test_chacha_rfc7539),
++	KUNIT_CASE(test_chacha_all_lengths),
++	KUNIT_CASE(test_chacha_random),
++	KUNIT_CASE(benchmark_chacha),
++	{},
++};
++
++static struct kunit_suite chacha_test_suite = {
++	.name = "chacha",
++	.test_cases = chacha_test_cases,
++};
++kunit_test_suite(chacha_test_suite);
++
++MODULE_DESCRIPTION("KUnit tests and benchmark for ChaCha");
++MODULE_LICENSE("GPL");
+diff --git a/lib/crypto/x86/chacha-avx512vl-x86_64.S b/lib/crypto/x86/chacha-avx512vl-x86_64.S
+index 259383e..adf1759 100644
+--- a/lib/crypto/x86/chacha-avx512vl-x86_64.S
++++ b/lib/crypto/x86/chacha-avx512vl-x86_64.S
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0+ */
+ /*
+- * ChaCha 256-bit cipher algorithm, x64 AVX-512VL functions
++ * ChaCha 256-bit cipher algorithm, x64 AVX-512VL and AVX-512F (zmm) functions
+  *
+  * Copyright (C) 2018 Martin Willi
+  */
+@@ -22,6 +22,13 @@ CTR4BL:	.octa 0x00000000000000000000000000000002
+ CTR8BL:	.octa 0x00000003000000020000000100000000
+ 	.octa 0x00000007000000060000000500000004
+ 
++.section	.rodata.cst64.CTR16BL, "aM", @progbits, 64
++.align 64
++CTR16BL:.octa 0x00000003000000020000000100000000
++	.octa 0x00000007000000060000000500000004
++	.octa 0x0000000b0000000a0000000900000008
++	.octa 0x0000000f0000000e0000000d0000000c
++
+ .text
+ 
+ SYM_FUNC_START(chacha_2block_xor_avx512vl)
+@@ -834,3 +841,407 @@ SYM_FUNC_START(chacha_8block_xor_avx512vl)
+ 	jmp		.Ldone8
+ 
+ SYM_FUNC_END(chacha_8block_xor_avx512vl)
++
++SYM_FUNC_START(chacha_16block_xor_avx512)
++	# %rdi: Input state matrix, s
++	# %rsi: up to 16 data blocks output, o
++	# %rdx: up to 16 data blocks input, i
++	# %rcx: input/output length in bytes
++	# %r8d: nrounds
++
++	# This function encrypts sixteen consecutive ChaCha blocks by loading
++	# the state matrix in 512-bit AVX-512 registers sixteen times. It is
++	# the same algorithm as the eight block AVX-512VL variant, but using
++	# zmm registers to double the number of blocks processed in parallel.
++
++	vzeroupper
++
++	# x0..15[0-15] = s[0..15]
++	vpbroadcastd	0x00(%rdi),%zmm0
++	vpbroadcastd	0x04(%rdi),%zmm1
++	vpbroadcastd	0x08(%rdi),%zmm2
++	vpbroadcastd	0x0c(%rdi),%zmm3
++	vpbroadcastd	0x10(%rdi),%zmm4
++	vpbroadcastd	0x14(%rdi),%zmm5
++	vpbroadcastd	0x18(%rdi),%zmm6
++	vpbroadcastd	0x1c(%rdi),%zmm7
++	vpbroadcastd	0x20(%rdi),%zmm8
++	vpbroadcastd	0x24(%rdi),%zmm9
++	vpbroadcastd	0x28(%rdi),%zmm10
++	vpbroadcastd	0x2c(%rdi),%zmm11
++	vpbroadcastd	0x30(%rdi),%zmm12
++	vpbroadcastd	0x34(%rdi),%zmm13
++	vpbroadcastd	0x38(%rdi),%zmm14
++	vpbroadcastd	0x3c(%rdi),%zmm15
++
++	# x12 += counter values 0-15
++	vpaddd		CTR16BL(%rip),%zmm12,%zmm12
++
++	vmovdqa64	%zmm0,%zmm16
++	vmovdqa64	%zmm1,%zmm17
++	vmovdqa64	%zmm2,%zmm18
++	vmovdqa64	%zmm3,%zmm19
++	vmovdqa64	%zmm4,%zmm20
++	vmovdqa64	%zmm5,%zmm21
++	vmovdqa64	%zmm6,%zmm22
++	vmovdqa64	%zmm7,%zmm23
++	vmovdqa64	%zmm8,%zmm24
++	vmovdqa64	%zmm9,%zmm25
++	vmovdqa64	%zmm10,%zmm26
++	vmovdqa64	%zmm11,%zmm27
++	vmovdqa64	%zmm12,%zmm28
++	vmovdqa64	%zmm13,%zmm29
++	vmovdqa64	%zmm14,%zmm30
++	vmovdqa64	%zmm15,%zmm31
++
++.Ldoubleround16:
++	# x0 += x4, x12 = rotl32(x12 ^ x0, 16)
++	vpaddd		%zmm0,%zmm4,%zmm0
++	vpxord		%zmm0,%zmm12,%zmm12
++	vprold		$16,%zmm12,%zmm12
++	# x1 += x5, x13 = rotl32(x13 ^ x1, 16)
++	vpaddd		%zmm1,%zmm5,%zmm1
++	vpxord		%zmm1,%zmm13,%zmm13
++	vprold		$16,%zmm13,%zmm13
++	# x2 += x6, x14 = rotl32(x14 ^ x2, 16)
++	vpaddd		%zmm2,%zmm6,%zmm2
++	vpxord		%zmm2,%zmm14,%zmm14
++	vprold		$16,%zmm14,%zmm14
++	# x3 += x7, x15 = rotl32(x15 ^ x3, 16)
++	vpaddd		%zmm3,%zmm7,%zmm3
++	vpxord		%zmm3,%zmm15,%zmm15
++	vprold		$16,%zmm15,%zmm15
++
++	# x8 += x12, x4 = rotl32(x4 ^ x8, 12)
++	vpaddd		%zmm12,%zmm8,%zmm8
++	vpxord		%zmm8,%zmm4,%zmm4
++	vprold		$12,%zmm4,%zmm4
++	# x9 += x13, x5 = rotl32(x5 ^ x9, 12)
++	vpaddd		%zmm13,%zmm9,%zmm9
++	vpxord		%zmm9,%zmm5,%zmm5
++	vprold		$12,%zmm5,%zmm5
++	# x10 += x14, x6 = rotl32(x6 ^ x10, 12)
++	vpaddd		%zmm14,%zmm10,%zmm10
++	vpxord		%zmm10,%zmm6,%zmm6
++	vprold		$12,%zmm6,%zmm6
++	# x11 += x15, x7 = rotl32(x7 ^ x11, 12)
++	vpaddd		%zmm15,%zmm11,%zmm11
++	vpxord		%zmm11,%zmm7,%zmm7
++	vprold		$12,%zmm7,%zmm7
++
++	# x0 += x4, x12 = rotl32(x12 ^ x0, 8)
++	vpaddd		%zmm0,%zmm4,%zmm0
++	vpxord		%zmm0,%zmm12,%zmm12
++	vprold		$8,%zmm12,%zmm12
++	# x1 += x5, x13 = rotl32(x13 ^ x1, 8)
++	vpaddd		%zmm1,%zmm5,%zmm1
++	vpxord		%zmm1,%zmm13,%zmm13
++	vprold		$8,%zmm13,%zmm13
++	# x2 += x6, x14 = rotl32(x14 ^ x2, 8)
++	vpaddd		%zmm2,%zmm6,%zmm2
++	vpxord		%zmm2,%zmm14,%zmm14
++	vprold		$8,%zmm14,%zmm14
++	# x3 += x7, x15 = rotl32(x15 ^ x3, 8)
++	vpaddd		%zmm3,%zmm7,%zmm3
++	vpxord		%zmm3,%zmm15,%zmm15
++	vprold		$8,%zmm15,%zmm15
++
++	# x8 += x12, x4 = rotl32(x4 ^ x8, 7)
++	vpaddd		%zmm12,%zmm8,%zmm8
++	vpxord		%zmm8,%zmm4,%zmm4
++	vprold		$7,%zmm4,%zmm4
++	# x9 += x13, x5 = rotl32(x5 ^ x9, 7)
++	vpaddd		%zmm13,%zmm9,%zmm9
++	vpxord		%zmm9,%zmm5,%zmm5
++	vprold		$7,%zmm5,%zmm5
++	# x10 += x14, x6 = rotl32(x6 ^ x10, 7)
++	vpaddd		%zmm14,%zmm10,%zmm10
++	vpxord		%zmm10,%zmm6,%zmm6
++	vprold		$7,%zmm6,%zmm6
++	# x11 += x15, x7 = rotl32(x7 ^ x11, 7)
++	vpaddd		%zmm15,%zmm11,%zmm11
++	vpxord		%zmm11,%zmm7,%zmm7
++	vprold		$7,%zmm7,%zmm7
++
++	# x0 += x5, x15 = rotl32(x15 ^ x0, 16)
++	vpaddd		%zmm0,%zmm5,%zmm0
++	vpxord		%zmm0,%zmm15,%zmm15
++	vprold		$16,%zmm15,%zmm15
++	# x1 += x6, x12 = rotl32(x12 ^ x1, 16)
++	vpaddd		%zmm1,%zmm6,%zmm1
++	vpxord		%zmm1,%zmm12,%zmm12
++	vprold		$16,%zmm12,%zmm12
++	# x2 += x7, x13 = rotl32(x13 ^ x2, 16)
++	vpaddd		%zmm2,%zmm7,%zmm2
++	vpxord		%zmm2,%zmm13,%zmm13
++	vprold		$16,%zmm13,%zmm13
++	# x3 += x4, x14 = rotl32(x14 ^ x3, 16)
++	vpaddd		%zmm3,%zmm4,%zmm3
++	vpxord		%zmm3,%zmm14,%zmm14
++	vprold		$16,%zmm14,%zmm14
++
++	# x10 += x15, x5 = rotl32(x5 ^ x10, 12)
++	vpaddd		%zmm15,%zmm10,%zmm10
++	vpxord		%zmm10,%zmm5,%zmm5
++	vprold		$12,%zmm5,%zmm5
++	# x11 += x12, x6 = rotl32(x6 ^ x11, 12)
++	vpaddd		%zmm12,%zmm11,%zmm11
++	vpxord		%zmm11,%zmm6,%zmm6
++	vprold		$12,%zmm6,%zmm6
++	# x8 += x13, x7 = rotl32(x7 ^ x8, 12)
++	vpaddd		%zmm13,%zmm8,%zmm8
++	vpxord		%zmm8,%zmm7,%zmm7
++	vprold		$12,%zmm7,%zmm7
++	# x9 += x14, x4 = rotl32(x4 ^ x9, 12)
++	vpaddd		%zmm14,%zmm9,%zmm9
++	vpxord		%zmm9,%zmm4,%zmm4
++	vprold		$12,%zmm4,%zmm4
++
++	# x0 += x5, x15 = rotl32(x15 ^ x0, 8)
++	vpaddd		%zmm0,%zmm5,%zmm0
++	vpxord		%zmm0,%zmm15,%zmm15
++	vprold		$8,%zmm15,%zmm15
++	# x1 += x6, x12 = rotl32(x12 ^ x1, 8)
++	vpaddd		%zmm1,%zmm6,%zmm1
++	vpxord		%zmm1,%zmm12,%zmm12
++	vprold		$8,%zmm12,%zmm12
++	# x2 += x7, x13 = rotl32(x13 ^ x2, 8)
++	vpaddd		%zmm2,%zmm7,%zmm2
++	vpxord		%zmm2,%zmm13,%zmm13
++	vprold		$8,%zmm13,%zmm13
++	# x3 += x4, x14 = rotl32(x14 ^ x3, 8)
++	vpaddd		%zmm3,%zmm4,%zmm3
++	vpxord		%zmm3,%zmm14,%zmm14
++	vprold		$8,%zmm14,%zmm14
++
++	# x10 += x15, x5 = rotl32(x5 ^ x10, 7)
++	vpaddd		%zmm15,%zmm10,%zmm10
++	vpxord		%zmm10,%zmm5,%zmm5
++	vprold		$7,%zmm5,%zmm5
++	# x11 += x12, x6 = rotl32(x6 ^ x11, 7)
++	vpaddd		%zmm12,%zmm11,%zmm11
++	vpxord		%zmm11,%zmm6,%zmm6
++	vprold		$7,%zmm6,%zmm6
++	# x8 += x13, x7 = rotl32(x7 ^ x8, 7)
++	vpaddd		%zmm13,%zmm8,%zmm8
++	vpxord		%zmm8,%zmm7,%zmm7
++	vprold		$7,%zmm7,%zmm7
++	# x9 += x14, x4 = rotl32(x4 ^ x9, 7)
++	vpaddd		%zmm14,%zmm9,%zmm9
++	vpxord		%zmm9,%zmm4,%zmm4
++	vprold		$7,%zmm4,%zmm4
++
++	sub		$2,%r8d
++	jnz		.Ldoubleround16
++
++	# x0..15[0-15] += s[0..15]
++	vpaddd		%zmm16,%zmm0,%zmm0
++	vpaddd		%zmm17,%zmm1,%zmm1
++	vpaddd		%zmm18,%zmm2,%zmm2
++	vpaddd		%zmm19,%zmm3,%zmm3
++	vpaddd		%zmm20,%zmm4,%zmm4
++	vpaddd		%zmm21,%zmm5,%zmm5
++	vpaddd		%zmm22,%zmm6,%zmm6
++	vpaddd		%zmm23,%zmm7,%zmm7
++	vpaddd		%zmm24,%zmm8,%zmm8
++	vpaddd		%zmm25,%zmm9,%zmm9
++	vpaddd		%zmm26,%zmm10,%zmm10
++	vpaddd		%zmm27,%zmm11,%zmm11
++	vpaddd		%zmm28,%zmm12,%zmm12
++	vpaddd		%zmm29,%zmm13,%zmm13
++	vpaddd		%zmm30,%zmm14,%zmm14
++	vpaddd		%zmm31,%zmm15,%zmm15
++
++	# interleave 32-bit words in state n, n+1
++	vpunpckldq	%zmm1,%zmm0,%zmm16
++	vpunpckhdq	%zmm1,%zmm0,%zmm17
++	vpunpckldq	%zmm3,%zmm2,%zmm18
++	vpunpckhdq	%zmm3,%zmm2,%zmm19
++	vpunpckldq	%zmm5,%zmm4,%zmm20
++	vpunpckhdq	%zmm5,%zmm4,%zmm21
++	vpunpckldq	%zmm7,%zmm6,%zmm22
++	vpunpckhdq	%zmm7,%zmm6,%zmm23
++	vpunpckldq	%zmm9,%zmm8,%zmm24
++	vpunpckhdq	%zmm9,%zmm8,%zmm25
++	vpunpckldq	%zmm11,%zmm10,%zmm26
++	vpunpckhdq	%zmm11,%zmm10,%zmm27
++	vpunpckldq	%zmm13,%zmm12,%zmm28
++	vpunpckhdq	%zmm13,%zmm12,%zmm29
++	vpunpckldq	%zmm15,%zmm14,%zmm30
++	vpunpckhdq	%zmm15,%zmm14,%zmm31
++
++	# interleave 64-bit words in state n, n+2; afterwards, 128-bit lane l
++	# of register 4*g+j holds words 4*g..4*g+3 of block 4*l+j
++	vpunpcklqdq	%zmm18,%zmm16,%zmm0
++	vpunpckhqdq	%zmm18,%zmm16,%zmm1
++	vpunpcklqdq	%zmm19,%zmm17,%zmm2
++	vpunpckhqdq	%zmm19,%zmm17,%zmm3
++	vpunpcklqdq	%zmm22,%zmm20,%zmm4
++	vpunpckhqdq	%zmm22,%zmm20,%zmm5
++	vpunpcklqdq	%zmm23,%zmm21,%zmm6
++	vpunpckhqdq	%zmm23,%zmm21,%zmm7
++	vpunpcklqdq	%zmm26,%zmm24,%zmm8
++	vpunpckhqdq	%zmm26,%zmm24,%zmm9
++	vpunpcklqdq	%zmm27,%zmm25,%zmm10
++	vpunpckhqdq	%zmm27,%zmm25,%zmm11
++	vpunpcklqdq	%zmm30,%zmm28,%zmm12
++	vpunpckhqdq	%zmm30,%zmm28,%zmm13
++	vpunpcklqdq	%zmm31,%zmm29,%zmm14
++	vpunpckhqdq	%zmm31,%zmm29,%zmm15
++
++	# transpose 128-bit lanes across registers j, j+4, j+8, j+12, so that
++	# register k holds the full keystream block k
++	vshufi32x4	$0x44,%zmm4,%zmm0,%zmm16
++	vshufi32x4	$0xee,%zmm4,%zmm0,%zmm17
++	vshufi32x4	$0x44,%zmm12,%zmm8,%zmm18
++	vshufi32x4	$0xee,%zmm12,%zmm8,%zmm19
++	vshufi32x4	$0x88,%zmm18,%zmm16,%zmm0
++	vshufi32x4	$0xdd,%zmm18,%zmm16,%zmm4
++	vshufi32x4	$0x88,%zmm19,%zmm17,%zmm8
++	vshufi32x4	$0xdd,%zmm19,%zmm17,%zmm12
++	vshufi32x4	$0x44,%zmm5,%zmm1,%zmm20
++	vshufi32x4	$0xee,%zmm5,%zmm1,%zmm21
++	vshufi32x4	$0x44,%zmm13,%zmm9,%zmm22
++	vshufi32x4	$0xee,%zmm13,%zmm9,%zmm23
++	vshufi32x4	$0x88,%zmm22,%zmm20,%zmm1
++	vshufi32x4	$0xdd,%zmm22,%zmm20,%zmm5
++	vshufi32x4	$0x88,%zmm23,%zmm21,%zmm9
++	vshufi32x4	$0xdd,%zmm23,%zmm21,%zmm13
++	vshufi32x4	$0x44,%zmm6,%zmm2,%zmm24
++	vshufi32x4	$0xee,%zmm6,%zmm2,%zmm25
++	vshufi32x4	$0x44,%zmm14,%zmm10,%zmm26
++	vshufi32x4	$0xee,%zmm14,%zmm10,%zmm27
++	vshufi32x4	$0x88,%zmm26,%zmm24,%zmm2
++	vshufi32x4	$0xdd,%zmm26,%zmm24,%zmm6
++	vshufi32x4	$0x88,%zmm27,%zmm25,%zmm10
++	vshufi32x4	$0xdd,%zmm27,%zmm25,%zmm14
++	vshufi32x4	$0x44,%zmm7,%zmm3,%zmm28
++	vshufi32x4	$0xee,%zmm7,%zmm3,%zmm29
++	vshufi32x4	$0x44,%zmm15,%zmm11,%zmm30
++	vshufi32x4	$0xee,%zmm15,%zmm11,%zmm31
++	vshufi32x4	$0x88,%zmm30,%zmm28,%zmm3
++	vshufi32x4	$0xdd,%zmm30,%zmm28,%zmm7
++	vshufi32x4	$0x88,%zmm31,%zmm29,%zmm11
++	vshufi32x4	$0xdd,%zmm31,%zmm29,%zmm15
++
++	# xor/write blocks, jump to partial block handling with the block in
++	# zmm0 if the length ends before the end of the block
++	cmp		$0x0040,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0000(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0000(%rsi)
++
++	vmovdqa64	%zmm1,%zmm0
++	cmp		$0x0080,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0040(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0040(%rsi)
++
++	vmovdqa64	%zmm2,%zmm0
++	cmp		$0x00c0,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0080(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0080(%rsi)
++
++	vmovdqa64	%zmm3,%zmm0
++	cmp		$0x0100,%rcx
++	jl		.Lxorpart16
++	vpxord		0x00c0(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x00c0(%rsi)
++
++	vmovdqa64	%zmm4,%zmm0
++	cmp		$0x0140,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0100(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0100(%rsi)
++
++	vmovdqa64	%zmm5,%zmm0
++	cmp		$0x0180,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0140(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0140(%rsi)
++
++	vmovdqa64	%zmm6,%zmm0
++	cmp		$0x01c0,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0180(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0180(%rsi)
++
++	vmovdqa64	%zmm7,%zmm0
++	cmp		$0x0200,%rcx
++	jl		.Lxorpart16
++	vpxord		0x01c0(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x01c0(%rsi)
++
++	vmovdqa64	%zmm8,%zmm0
++	cmp		$0x0240,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0200(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0200(%rsi)
++
++	vmovdqa64	%zmm9,%zmm0
++	cmp		$0x0280,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0240(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0240(%rsi)
++
++	vmovdqa64	%zmm10,%zmm0
++	cmp		$0x02c0,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0280(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0280(%rsi)
++
++	vmovdqa64	%zmm11,%zmm0
++	cmp		$0x0300,%rcx
++	jl		.Lxorpart16
++	vpxord		0x02c0(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x02c0(%rsi)
++
++	vmovdqa64	%zmm12,%zmm0
++	cmp		$0x0340,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0300(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0300(%rsi)
++
++	vmovdqa64	%zmm13,%zmm0
++	cmp		$0x0380,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0340(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0340(%rsi)
++
++	vmovdqa64	%zmm14,%zmm0
++	cmp		$0x03c0,%rcx
++	jl		.Lxorpart16
++	vpxord		0x0380(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x0380(%rsi)
++
++	vmovdqa64	%zmm15,%zmm0
++	cmp		$0x0400,%rcx
++	jl		.Lxorpart16
++	vpxord		0x03c0(%rdx),%zmm0,%zmm0
++	vmovdqu64	%zmm0,0x03c0(%rsi)
++
++.Ldone16:
++	vzeroupper
++	RET
++
++.Lxorpart16:
++	# xor remaining bytes from partial register into output
++	mov		%rcx,%rax
++	and		$0x3f,%rcx
++	jz		.Ldone16
++	mov		%rax,%r9
++	and		$~0x3f,%r9
++
++	mov		$1,%rax
++	shld		%cl,%rax,%rax
++	sub		$1,%rax
++	kmovq		%rax,%k1
++
++	vmovdqu8	(%rdx,%r9),%zmm1{%k1}{z}
++	vpxord		%zmm0,%zmm1,%zmm1
++	vmovdqu8	%zmm1,(%rsi,%r9){%k1}
++
++	jmp		.Ldone16
++
++SYM_FUNC_END(chacha_16block_xor_avx512)
+diff --git a/lib/crypto/x86/chacha.h b/lib/crypto/x86/chacha.h
+index e97f1f2..0718574 100644
+--- a/lib/crypto/x86/chacha.h
++++ b/lib/crypto/x86/chacha.h
+@@ -38,10 +38,14 @@ asmlinkage void chacha_4block_xor_avx512vl(const struct chacha_state *state,
+ asmlinkage void chacha_8block_xor_avx512vl(const struct chacha_state *state,
+ 					   u8 *dst, const u8 *src, size_t len,
+ 					   int nrounds);
++asmlinkage void chacha_16block_xor_avx512(const struct chacha_state *state,
++					  u8 *dst, const u8 *src, size_t len,
++					  int nrounds);
+ 
+ static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_simd);
+ static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx2);
+ static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx512vl);
++static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx512);
+ 
+ static size_t chacha_advance(size_t len, size_t maxblocks)
+ {
+@@ -52,6 +56,23 @@ static size_t chacha_advance(size_t len, size_t maxblocks)
+ static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
+ 			  size_t bytes, int nrounds)
+ {
++	if (static_branch_likely(&chacha_use_avx512)) {
++		while (bytes >= CHACHA_BLOCK_SIZE * 16) {
++			chacha_16block_xor_avx512(state, dst, src, bytes,
++						  nrounds);
++			bytes -= CHACHA_BLOCK_SIZE * 16;
++			src += CHACHA_BLOCK_SIZE * 16;
++			dst += CHACHA_BLOCK_SIZE * 16;
++			state->x[12] += 16;
++		}
++		if (bytes > CHACHA_BLOCK_SIZE * 8) {
++			chacha_16block_xor_avx512(state, dst, src, bytes,
++						  nrounds);
++			state->x[12] += chacha_advance(bytes, 16);
++			return;
++		}
++	}
++
+ 	if (static_branch_likely(&chacha_use_avx512vl)) {
+ 		while (bytes >= CHACHA_BLOCK_SIZE * 8) {
+ 			chacha_8block_xor_avx512vl(state, dst, src, bytes,
+@@ -169,7 +190,13 @@ static void chacha_mod_init_arch(void)
+ 		static_branch_enable(&chacha_use_avx2);
+ 
+ 		if (boot_cpu_has(X86_FEATURE_AVX512VL) &&
+-		    boot_cpu_has(X86_FEATURE_AVX512BW)) /* kmovq */
++		    boot_cpu_has(X86_FEATURE_AVX512BW)) { /* kmovq */
+ 			static_branch_enable(&chacha_use_avx512vl);
++
++			/* zmm registers downclock CPUs preferring ymm ones */
++			if (!boot_cpu_has(X86_FEATURE_PREFER_YMM) &&
++			    cpu_has_xfeatures(XFEATURE_MASK_AVX512, NULL))
++				static_branch_enable(&chacha_use_avx512);
++		}
+ 	}
+ }

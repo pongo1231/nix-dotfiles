@@ -1,0 +1,58 @@
+--- a/drivers/block/zram/backend_lz4.c
++++ b/drivers/block/zram/backend_lz4.c
+@@ -34,7 +34,7 @@
+ 	if (!params->dict || !params->dict_sz)
+ 		return 0;
+ 
+-	dict_stream = vzalloc(sizeof(*dict_stream));
++	dict_stream = vzalloc(LZ4_MEM_COMPRESS);
+ 	if (!dict_stream)
+ 		return -ENOMEM;
+ 
+@@ -55,8 +55,6 @@
+ 
+ static int lz4_create(struct zcomp_params *params, struct zcomp_ctx *ctx)
+ {
+-	BUILD_BUG_ON(sizeof(LZ4_stream_t) != LZ4_MEM_COMPRESS);
+-
+ 	ctx->context = vmalloc(LZ4_MEM_COMPRESS);
+ 	if (!ctx->context)
+ 		return -ENOMEM;
+@@ -75,7 +73,7 @@
+ 					ctx->context);
+ 	} else {
+ 		/* Cstrm needs to be reset */
+-		memcpy(ctx->context, params->drv_data, sizeof(LZ4_stream_t));
++		memcpy(ctx->context, params->drv_data, LZ4_MEM_COMPRESS);
+ 		ret = LZ4_compress_fast_continue(ctx->context, req->src,
+ 						 req->dst, req->src_len,
+ 						 req->dst_len, params->level);
+--- a/drivers/block/zram/backend_lz4hc.c
++++ b/drivers/block/zram/backend_lz4hc.c
+@@ -40,7 +40,7 @@
+ 	if (!params->dict || !params->dict_sz)
+ 		return 0;
+ 
+-	dict_stream = vzalloc(sizeof(*dict_stream));
++	dict_stream = vzalloc(LZ4HC_MEM_COMPRESS);
+ 	if (!dict_stream)
+ 		return -ENOMEM;
+ 
+@@ -62,8 +62,6 @@
+ 
+ static int lz4hc_create(struct zcomp_params *params, struct zcomp_ctx *ctx)
+ {
+-	BUILD_BUG_ON(sizeof(LZ4_streamHC_t) != LZ4HC_MEM_COMPRESS);
+-
+ 	ctx->context = vmalloc(LZ4HC_MEM_COMPRESS);
+ 	if (!ctx->context)
+ 		return -ENOMEM;
+@@ -82,7 +80,7 @@
+ 				      ctx->context);
+ 	} else {
+ 		/* Cstrm needs to be reset */
+-		memcpy(ctx->context, params->drv_data, sizeof(LZ4_streamHC_t));
++		memcpy(ctx->context, params->drv_data, LZ4HC_MEM_COMPRESS);
+ 		ret = LZ4_compress_HC_continue(ctx->context, req->src, req->dst,
+ 					       req->src_len, req->dst_len);
+ 	}

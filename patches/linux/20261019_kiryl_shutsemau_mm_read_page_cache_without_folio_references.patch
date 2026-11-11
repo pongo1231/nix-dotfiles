@@ -1,10 +1,10 @@
 diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
-index 4fec31f..526929c 100644
+index 3641abb90..9cc58882c 100644
 --- a/fs/fuse/dev.c
 +++ b/fs/fuse/dev.c
-@@ -1152,6 +1152,10 @@ static int fuse_try_move_folio(struct fuse_copy_state *cs, struct folio **foliop
- 
- 	newfolio = page_folio(buf->page);
+@@ -1173,6 +1173,10 @@ static int fuse_try_move_folio(struct fuse_copy_state *cs, struct folio **foliop
+ 	if (!pipe_buf_try_steal(cs->pipe, buf))
+ 		goto out_fallback;
  
 +	/* A lockless page cache read may still be copying from it */
 +	if (folio_test_rcu_free(newfolio))
@@ -14,7 +14,7 @@ index 4fec31f..526929c 100644
  	folio_clear_mappedtodisk(newfolio);
  
 diff --git a/fs/splice.c b/fs/splice.c
-index bc243ab..96f3126 100644
+index e6d43329e..d0caec242 100644
 --- a/fs/splice.c
 +++ b/fs/splice.c
 @@ -55,56 +55,6 @@ static noinline void pipe_clear_nowait(struct file *file)
@@ -74,7 +74,7 @@ index bc243ab..96f3126 100644
  static void page_cache_pipe_buf_release(struct pipe_inode_info *pipe,
  					struct pipe_buffer *buf)
  {
-@@ -155,7 +105,6 @@ error:
+@@ -155,7 +105,6 @@ static int page_cache_pipe_buf_confirm(struct pipe_inode_info *pipe,
  const struct pipe_buf_operations page_cache_pipe_buf_ops = {
  	.confirm	= page_cache_pipe_buf_confirm,
  	.release	= page_cache_pipe_buf_release,
@@ -83,7 +83,7 @@ index bc243ab..96f3126 100644
  };
  
 diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 33da728..34971a1 100644
+index 33da72818..34971a1a4 100644
 --- a/include/linux/mmzone.h
 +++ b/include/linux/mmzone.h
 @@ -209,6 +209,7 @@ enum zone_stat_item {
@@ -95,7 +95,7 @@ index 33da728..34971a1 100644
  	NR_UNACCEPTED,
  #endif
 diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
-index f6625dc..54a0f4f 100644
+index f6625dc04..ffcbbd4d9 100644
 --- a/include/linux/page-flags.h
 +++ b/include/linux/page-flags.h
 @@ -107,6 +107,9 @@ enum pageflags {
@@ -108,27 +108,24 @@ index f6625dc..54a0f4f 100644
  #ifdef CONFIG_MMU
  	PG_mlocked,		/* Page is vma mlocked */
  #endif
-@@ -604,6 +607,27 @@ FOLIO_FLAG(dropbehind, FOLIO_HEAD_PAGE)
+@@ -604,6 +607,24 @@ FOLIO_FLAG(dropbehind, FOLIO_HEAD_PAGE)
  	FOLIO_TEST_CLEAR_FLAG(dropbehind, FOLIO_HEAD_PAGE)
  	__FOLIO_SET_FLAG(dropbehind, FOLIO_HEAD_PAGE)
  
 +/*
 + * A lockless lookup that sees PG_rcu_free and then still finds the folio
 + * where it looked may read it until rcu_read_unlock().  Set under a
-+ * reference.  Cleared by the free, or when the folio's inode is evicted:
-+ * no lockless lookup can reach it then.  Not for hugetlb or
++ * reference, cleared only by the free.  Not for hugetlb or
 + * free_pages_nolock().
 + */
 +#ifdef CONFIG_PAGE_RCU_FREE
 +FOLIO_TEST_FLAG(rcu_free, FOLIO_HEAD_PAGE)
 +	FOLIO_TEST_SET_FLAG(rcu_free, FOLIO_HEAD_PAGE)
-+	FOLIO_CLEAR_FLAG(rcu_free, FOLIO_HEAD_PAGE)
 +	__FOLIO_CLEAR_FLAG(rcu_free, FOLIO_HEAD_PAGE)
 +#define __PG_RCU_FREE (1UL << PG_rcu_free)
 +#else
 +FOLIO_TEST_FLAG_FALSE(rcu_free)
 +	FOLIO_TEST_SET_FLAG_FALSE(rcu_free)
-+	FOLIO_CLEAR_FLAG_NOOP(rcu_free)
 +	__FOLIO_CLEAR_FLAG_NOOP(rcu_free)
 +#define __PG_RCU_FREE 0
 +#endif
@@ -137,7 +134,7 @@ index f6625dc..54a0f4f 100644
  /*
   * Must use a macro here due to header dependency issues. page_zone() is not
 diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
-index 73af18a..48afd4e 100644
+index 73af18a37..48afd4e6f 100644
 --- a/include/linux/pagemap.h
 +++ b/include/linux/pagemap.h
 @@ -209,6 +209,7 @@ enum mapping_flags {
@@ -167,7 +164,7 @@ index 73af18a..48afd4e 100644
  {
  	set_bit(AS_EXITING, &mapping->flags);
 diff --git a/include/linux/swap.h b/include/linux/swap.h
-index 4f68670..e2bf58e 100644
+index 4f686709d..e2bf58eb8 100644
 --- a/include/linux/swap.h
 +++ b/include/linux/swap.h
 @@ -313,7 +313,7 @@ extern unsigned long totalreserve_pages;
@@ -180,7 +177,7 @@ index 4f68670..e2bf58e 100644
  
  enum lru_cache_drained {
 diff --git a/include/linux/vm_event_item.h b/include/linux/vm_event_item.h
-index 2628ccd..c1a63f0 100644
+index 2628ccda0..c1a63f070 100644
 --- a/include/linux/vm_event_item.h
 +++ b/include/linux/vm_event_item.h
 @@ -36,6 +36,8 @@ enum vm_event_item { PGPGIN, PGPGOUT, PSWPIN, PSWPOUT,
@@ -193,7 +190,7 @@ index 2628ccd..c1a63f0 100644
  		PGLAZYFREED,
  		PGREUSE,
 diff --git a/include/trace/events/mmflags.h b/include/trace/events/mmflags.h
-index 3c153b3..a5b4978 100644
+index 3c153b3ad..a5b4978e4 100644
 --- a/include/trace/events/mmflags.h
 +++ b/include/trace/events/mmflags.h
 @@ -117,6 +117,12 @@ TRACE_DEFINE_ENUM(___GFP_LAST_BIT);
@@ -218,15 +215,17 @@ index 3c153b3..a5b4978 100644
  IF_HAVE_PG_HWPOISON(hwpoison)						\
  IF_HAVE_PG_IDLE(idle)							\
 diff --git a/mm/Kconfig b/mm/Kconfig
-index acefc99..7ebf1b1 100644
+index afff1b25b..3aa662da9 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
-@@ -717,6 +717,21 @@ config PCP_BATCH_SCALE_MAX
+@@ -713,6 +713,24 @@ config PCP_BATCH_SCALE_MAX
  	  latency.  This option sets the upper limit of scale factor to limit
  	  the maximum latency.
  
 +config PAGE_RCU_FREE
-+	def_bool 64BIT
++	def_bool y
++	depends on 64BIT
++	depends on !PREEMPT_RT
 +	help
 +	  Reads from the page cache can copy from folios that are read
 +	  again and again without taking a reference on them, so small
@@ -235,7 +234,8 @@ index acefc99..7ebf1b1 100644
 +	  folios becomes reusable only after an RCU grace period.
 +
 +	  64-bit only: it takes a page flag, and those are scarce on
-+	  32-bit.
++	  32-bit.  Not on PREEMPT_RT, where expedited grace periods are
++	  normal ones, so freeing the waiting pages on demand would stall.
 +
 +	  Writing 0 to lockless_page_cache_read in debugfs turns these
 +	  reads off.
@@ -243,8 +243,27 @@ index acefc99..7ebf1b1 100644
  config PHYS_ADDR_T_64BIT
  	def_bool 64BIT
  
+diff --git a/mm/compaction.c b/mm/compaction.c
+index f1b2060eb..f6ae70432 100644
+--- a/mm/compaction.c
++++ b/mm/compaction.c
+@@ -2760,6 +2760,14 @@ compact_zone(struct compact_control *cc, struct capture_control *capc)
+ 				block_start_pfn(cc->migrate_pfn, cc->order);
+ 
+ 			if (last_migrated_pfn < current_block_start) {
++				/*
++				 * Folios migrated away from lockless readers
++				 * are freed after a grace period.  Async
++				 * compaction does not wait for it.
++				 */
++				if (cc->mode != MIGRATE_ASYNC &&
++				    zone_rcu_free_waiting(cc->zone))
++					rcu_free_drain();
+ 				lru_add_drain_cpu_zone(cc->zone);
+ 				/* No more flushing until we migrate again */
+ 				last_migrated_pfn = 0;
 diff --git a/mm/filemap.c b/mm/filemap.c
-index 49e8270..97d08fe 100644
+index 51bd2ee1a..7e28e652f 100644
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
 @@ -49,6 +49,7 @@
@@ -255,27 +274,7 @@ index 49e8270..97d08fe 100644
  #include <linux/pgalloc.h>
  
  #include <asm/tlbflush.h>
-@@ -139,6 +140,9 @@ static void page_cache_delete(struct address_space *mapping,
- 	nr = folio_nr_pages(folio);
- 
- 	VM_BUG_ON_FOLIO(!folio_test_locked(folio), folio);
-+	/* No lockless reader can be in an evicted inode */
-+	if (folio_test_rcu_free(folio) && mapping_exiting(mapping))
-+		folio_clear_rcu_free(folio);
- 
- 	xas_store(&xas, shadow);
- 	xas_init_marks(&xas);
-@@ -307,6 +311,9 @@ static void page_cache_delete_batch(struct address_space *mapping,
- 		}
- 
- 		WARN_ON_ONCE(!folio_test_locked(folio));
-+		/* No lockless reader can be in an evicted inode */
-+		if (folio_test_rcu_free(folio) && mapping_exiting(mapping))
-+			folio_clear_rcu_free(folio);
- 
- 		folio->mapping = NULL;
- 		/* Leave folio->index set: truncation lookup relies on it */
-@@ -2778,6 +2785,101 @@ static inline bool pos_same_folio(loff_t pos1, loff_t pos2, struct folio *folio)
+@@ -2789,6 +2790,101 @@ static inline bool pos_same_folio(loff_t pos1, loff_t pos2, struct folio *folio)
  	return (pos1 >> shift == pos2 >> shift);
  }
  
@@ -377,7 +376,7 @@ index 49e8270..97d08fe 100644
  static void filemap_end_dropbehind_read(struct folio *folio)
  {
  	if (!folio_test_dropbehind(folio))
-@@ -2790,6 +2892,216 @@ static void filemap_end_dropbehind_read(struct folio *folio)
+@@ -2801,6 +2897,225 @@ static void filemap_end_dropbehind_read(struct folio *folio)
  	}
  }
  
@@ -395,8 +394,15 @@ index 49e8270..97d08fe 100644
 +	/* shmem does no readahead: there the bit is PG_reclaim */
 +	if (folio_test_readahead(folio) && !folio_test_swapbacked(folio))
 +		return false;
++	/* A split clears PG_head before it puts the new folios in their slots */
++	if (!folio_test_large(folio) && folio->index != index)
++		return false;
 +	/* memory_failure() waits only for readers that got past this */
-+	if (folio_contain_hwpoisoned_page(folio))
++	if (folio_test_hwpoison(folio))
++		return false;
++	/* Not folio_test_has_hwpoisoned(): it asserts PG_head, a split clears it */
++	if (folio_test_large(folio) &&
++	    test_bit(PG_has_hwpoisoned, &folio->_flags_1))
 +		return false;
 +
 +	/*
@@ -461,11 +467,13 @@ index 49e8270..97d08fe 100644
 +		pgoff_t index, size_t offset, size_t bytes)
 +{
 +	pgoff_t end = index + DIV_ROUND_UP(offset + bytes, PAGE_SIZE);
++	unsigned int order;
 +	pgoff_t next;
 +
 +	if (end - index > 1 && folio_test_large(folio)) {
-+		/* Read without a reference: it only picks the page to check */
-+		next = folio_next_index(folio);
++		/* A split can change it under us: it only picks the page to check */
++		order = min(folio_large_order(folio), MAX_PAGECACHE_ORDER);
++		next = folio->index + (1UL << order);
 +		if (next > index && next < end)
 +			end = next;
 +		xas_set(xas, end - 1);
@@ -594,7 +602,12 @@ index 49e8270..97d08fe 100644
  /**
   * filemap_read - Read data from the page cache.
   * @iocb: The iocb to read.
-@@ -2815,6 +3127,7 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+@@ -2821,11 +3136,11 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 	struct file_ra_state *ra = &filp->f_ra;
+ 	struct address_space *mapping = filp->f_mapping;
+ 	struct inode *inode = mapping->host;
+-	struct folio_batch fbatch;
+ 	int i, error = 0;
  	bool writably_mapped;
  	loff_t isize, end_offset;
  	loff_t last_pos = ra->prev_pos;
@@ -602,22 +615,33 @@ index 49e8270..97d08fe 100644
  
  	if (unlikely(iocb->ki_pos < 0))
  		return -EINVAL;
-@@ -2826,6 +3139,14 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
- 	iov_iter_truncate(iter, inode->i_sb->s_maxbytes - iocb->ki_pos);
- 	folio_batch_init(&fbatch);
+@@ -2835,9 +3150,24 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 		return 0;
  
+ 	iov_iter_truncate(iter, inode->i_sb->s_maxbytes - iocb->ki_pos);
+-	folio_batch_init(&fbatch);
++
 +	fast_read = filemap_read_rcu(iocb, iter, last_pos);
 +	if (fast_read) {
 +		already_read += fast_read;
 +		last_pos = iocb->ki_pos;
-+		if (!iov_iter_count(iter))
-+			goto out;
++		if (!iov_iter_count(iter)) {
++			file_accessed(filp);
++			/* Readahead of a random file ignores it: skip the shared store */
++			if (!(filp->f_mode & FMODE_RANDOM))
++				ra->prev_pos = last_pos;
++			return already_read;
++		}
 +	}
-+
+ 
  	do {
++		struct folio_batch fbatch;
++
++		folio_batch_init(&fbatch);
  		cond_resched();
  
-@@ -2863,14 +3184,6 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 		/*
+@@ -2874,14 +3204,6 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
  		 */
  		writably_mapped = mapping_writably_mapped(mapping);
  
@@ -632,7 +656,7 @@ index 49e8270..97d08fe 100644
  		for (i = 0; i < folio_batch_count(&fbatch); i++) {
  			struct folio *folio = fbatch.folios[i];
  			size_t fsize = folio_size(folio);
-@@ -2881,8 +3194,7 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+@@ -2892,8 +3214,7 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
  
  			if (end_offset < folio_pos(folio))
  				break;
@@ -642,21 +666,16 @@ index 49e8270..97d08fe 100644
  			/*
  			 * If users can be writing to this folio using arbitrary
  			 * virtual addresses, take care of potential aliasing
-@@ -2912,8 +3224,11 @@ put_folios:
- 		folio_batch_init(&fbatch);
+@@ -2920,7 +3241,6 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
+ 			filemap_end_dropbehind_read(folio);
+ 			folio_put(folio);
+ 		}
+-		folio_batch_init(&fbatch);
  	} while (iov_iter_count(iter) && iocb->ki_pos < isize && !error);
  
-+out:
  	file_accessed(filp);
--	ra->prev_pos = last_pos;
-+	/* Readers sharing the file would bounce the line for nothing */
-+	if (ra->prev_pos != last_pos)
-+		ra->prev_pos = last_pos;
- 	return already_read ? already_read : error;
- }
- EXPORT_SYMBOL_GPL(filemap_read);
 diff --git a/mm/folio.c b/mm/folio.c
-index 9b9a5fe..83a2f6f 100644
+index 9b9a5fe56..83a2f6f36 100644
 --- a/mm/folio.c
 +++ b/mm/folio.c
 @@ -361,15 +361,24 @@ static void __lru_cache_activate_folio(struct folio *folio)
@@ -714,10 +733,10 @@ index 9b9a5fe..83a2f6f 100644
  EXPORT_SYMBOL(folio_mark_accessed);
  
 diff --git a/mm/huge_memory.c b/mm/huge_memory.c
-index 1e2b644..1df4638 100644
+index 604b51b75..851d3fe7b 100644
 --- a/mm/huge_memory.c
 +++ b/mm/huge_memory.c
-@@ -3749,6 +3749,7 @@ static void __split_folio_to_order(struct folio *folio, int old_order,
+@@ -3810,6 +3810,7 @@ static void __split_folio_to_order(struct folio *folio, int old_order,
  #endif
  				 (1L << PG_dirty) |
  				 (1L << PG_dropbehind) |
@@ -726,10 +745,10 @@ index 1e2b644..1df4638 100644
  
  		new_folio->mapping = folio->mapping;
 diff --git a/mm/internal.h b/mm/internal.h
-index d497c35..41108f4 100644
+index e3f92883b..73f62251e 100644
 --- a/mm/internal.h
 +++ b/mm/internal.h
-@@ -1240,6 +1240,9 @@ struct migration_target_control {
+@@ -1274,6 +1274,9 @@ struct migration_target_control {
   */
  size_t splice_folio_into_pipe(struct pipe_inode_info *pipe,
  			      struct folio *folio, loff_t fpos, size_t size);
@@ -740,10 +759,10 @@ index d497c35..41108f4 100644
  static inline bool vma_is_single_threaded_private(struct vm_area_struct *vma)
  {
 diff --git a/mm/memory-failure.c b/mm/memory-failure.c
-index 0c96eb5..28270f0 100644
+index b705f9f97..288afb9f8 100644
 --- a/mm/memory-failure.c
 +++ b/mm/memory-failure.c
-@@ -211,6 +211,10 @@ static bool page_handle_poison(struct page *page, bool hugepage_or_freepage, boo
+@@ -251,6 +251,10 @@ static bool page_handle_poison(struct page *page, bool hugepage_or_freepage, boo
  			return false;
  	}
  
@@ -754,18 +773,16 @@ index 0c96eb5..28270f0 100644
  	SetPageHWPoison(page);
  	if (release)
  		put_page(page);
-@@ -1560,6 +1564,21 @@ static int get_hwpoison_page(struct page *p, unsigned long flags)
- 	return ret;
+@@ -1454,6 +1458,19 @@ static int __get_hwpoison_page(struct page *page, unsigned long flags)
+ 	return 0;
  }
  
 +/* A page waiting for a grace period is not in the buddy yet: free it */
 +static void mf_free_rcu_pages(struct page *p)
 +{
-+	if (!IS_ENABLED(CONFIG_PAGE_RCU_FREE))
++	if (!zone_rcu_free_waiting(page_zone(p)))
 +		return;
 +	if (page_count(p))
-+		return;
-+	if (!zone_page_state_snapshot(page_zone(p), NR_FREE_RCU_PAGES))
 +		return;
 +	if (is_free_buddy_page(p))
 +		return;
@@ -773,10 +790,18 @@ index 0c96eb5..28270f0 100644
 +	rcu_free_sync();
 +}
 +
- /*
-  * The caller must guarantee the folio isn't large folio, except hugetlb.
-  * try_to_unmap() can't handle it.
-@@ -2435,6 +2454,7 @@ try_again:
+ #define GET_PAGE_MAX_RETRY_NUM 3
+ 
+ static int get_any_page(struct page *p, unsigned long flags)
+@@ -1478,6 +1495,7 @@ static int get_any_page(struct page *p, unsigned long flags)
+ 	}
+ 
+ try_again:
++	mf_free_rcu_pages(p);
+ 	if (!count_increased) {
+ 		ret = __get_hwpoison_page(p, flags);
+ 		if (!ret) {
+@@ -2475,6 +2493,7 @@ int memory_failure(unsigned long pfn, int flags)
  	if (res != -ENOENT)
  		goto unlock_mutex;
  
@@ -784,7 +809,21 @@ index 0c96eb5..28270f0 100644
  	if (TestSetPageHWPoison(p)) {
  		res = -EHWPOISON;
  		if (flags & MF_ACTION_REQUIRED)
-@@ -2607,6 +2627,13 @@ try_again:
+@@ -2482,6 +2501,13 @@ int memory_failure(unsigned long pfn, int flags)
+ 		if (flags & MF_COUNT_INCREASED)
+ 			put_page(p);
+ 		action_result(pfn, MF_MSG_ALREADY_POISONED, MF_FAILED);
++		/*
++		 * The memory_failure() that set PG_hwpoison may have failed
++		 * without waiting for lockless readers, and the caller may
++		 * unmap the page once this returns 0.
++		 */
++		if (!res && folio_test_rcu_free(page_folio(p)))
++			synchronize_rcu();
+ 		goto unlock_mutex;
+ 	}
+ 
+@@ -2647,6 +2673,13 @@ int memory_failure(unsigned long pfn, int flags)
  
  identify_page_state:
  	res = identify_page_state(pfn, p, page_flags);
@@ -798,19 +837,11 @@ index 0c96eb5..28270f0 100644
  	mutex_unlock(&mf_mutex);
  	return res;
  unlock_page:
-@@ -2998,6 +3025,7 @@ int soft_offline_page(unsigned long pfn, int flags)
- 
- retry:
- 	get_online_mems();
-+	mf_free_rcu_pages(page);
- 	ret = get_hwpoison_page(page, flags | MF_SOFT_OFFLINE);
- 	put_online_mems();
- 
 diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 3076f68..7ed28fb 100644
+index c9cc42e54..2b0619cf9 100644
 --- a/mm/memory_hotplug.c
 +++ b/mm/memory_hotplug.c
-@@ -1976,6 +1976,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
+@@ -1980,6 +1980,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
  		.nid = NUMA_NO_NODE,
  	};
  	unsigned long flags;
@@ -818,7 +849,7 @@ index 3076f68..7ed28fb 100644
  	char *reason;
  	int ret;
  	unsigned long normal_pages = 0;
-@@ -2059,6 +2060,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
+@@ -2063,6 +2064,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
  
  	do {
  		pfn = start_pfn;
@@ -826,7 +857,7 @@ index 3076f68..7ed28fb 100644
  		do {
  			/*
  			 * Historically we always checked for any signal and
-@@ -2080,6 +2082,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
+@@ -2084,6 +2086,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
  				 * out
  				 */
  				do_migrate_range(pfn, end_pfn);
@@ -834,22 +865,21 @@ index 3076f68..7ed28fb 100644
  			}
  		} while (!ret);
  
-@@ -2101,6 +2104,10 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
+@@ -2105,6 +2108,9 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages,
  
  		ret = test_pages_isolated(start_pfn, end_pfn,
  					  PB_ISOLATE_MODE_MEM_OFFLINE);
 +		/* What this pass migrated can wait for a grace period */
-+		if (ret && migrated &&
-+		    zone_page_state_snapshot(zone, NR_FREE_RCU_PAGES))
++		if (ret && migrated && zone_rcu_free_waiting(zone))
 +			rcu_free_sync();
  
  	} while (ret);
  
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 2daf358..7f9f922 100644
+index eb4f02617..624d328f9 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -1298,6 +1298,199 @@ static inline void pgalloc_tag_sub_pages(struct alloc_tag *tag, unsigned int nr)
+@@ -1298,6 +1298,206 @@ static inline void pgalloc_tag_sub_pages(struct alloc_tag *tag, unsigned int nr)
  
  #endif /* CONFIG_MEM_ALLOC_PROFILING */
  
@@ -895,7 +925,7 @@ index 2daf358..7f9f922 100644
 +	r->nr_pending = 0;
 +}
 +
-+static unsigned long rcu_free_pages(struct list_head *list)
++static unsigned long rcu_free_pages(struct list_head *list, bool direct)
 +{
 +	struct folio_batch fbatch;
 +	struct folio *folio, *next;
@@ -906,7 +936,11 @@ index 2daf358..7f9f922 100644
 +		nr += folio_nr_pages(folio);
 +		mod_zone_page_state(folio_zone(folio), NR_FREE_RCU_PAGES,
 +				    -folio_nr_pages(folio));
-+		if (!folio_batch_add(&fbatch, folio)) {
++		if (direct) {
++			__free_pages_ok(&folio->page, folio_order(folio),
++					FPI_NONE);
++			cond_resched();
++		} else if (!folio_batch_add(&fbatch, folio)) {
 +			free_unref_folios(&fbatch);
 +			cond_resched_tasks_rcu_qs();
 +		}
@@ -916,14 +950,17 @@ index 2daf358..7f9f922 100644
 +	return nr;
 +}
 +
-+/* Free what rcu_free_take() took: the grace period starts after that */
-+static unsigned long rcu_free_flush(struct list_head *list)
++/*
++ * Free what rcu_free_take() took: the grace period starts after that.
++ * @direct frees to the buddy lists instead of this CPU's pcp lists.
++ */
++static unsigned long rcu_free_flush(struct list_head *list, bool direct)
 +{
 +	if (list_empty(list))
 +		return 0;
 +
 +	synchronize_rcu_expedited();
-+	return rcu_free_pages(list);
++	return rcu_free_pages(list, direct);
 +}
 +
 +static void rcu_free_workfn(struct work_struct *work)
@@ -938,7 +975,7 @@ index 2daf358..7f9f922 100644
 +	rcu_free_start(r);
 +	spin_unlock_irq(&r->lock);
 +
-+	rcu_free_pages(&done);
++	rcu_free_pages(&done, false);
 +}
 +
 +static void rcu_free_expedite_workfn(struct work_struct *work)
@@ -951,7 +988,7 @@ index 2daf358..7f9f922 100644
 +	rcu_free_take(r, &list);
 +	spin_unlock_irq(&r->lock);
 +
-+	if (rcu_free_flush(&list))
++	if (rcu_free_flush(&list, false))
 +		count_vm_event(PGFREE_RCU_EXPEDITE);
 +}
 +
@@ -986,10 +1023,11 @@ index 2daf358..7f9f922 100644
 +}
 +
 +/*
-+ * Free what every CPU's lists hold.  A concurrent drain holds the lock
-+ * until it has freed what it took.
++ * Free what every CPU's lists hold, straight to the buddy lists: the
++ * callers want to allocate the pages next.  A concurrent drain holds the
++ * lock until it has freed what it took.
 + */
-+static void rcu_free_drain(void)
++void rcu_free_drain(void)
 +{
 +	static DEFINE_MUTEX(lock);
 +	LIST_HEAD(list);
@@ -1003,8 +1041,11 @@ index 2daf358..7f9f922 100644
 +		rcu_free_take(r, &list);
 +		spin_unlock_irq(&r->lock);
 +	}
-+	if (rcu_free_flush(&list))
++	if (rcu_free_flush(&list, true))
 +		count_vm_event(PGFREE_RCU_DRAIN);
++	/* An expedite in flight holds pages it took off the lists */
++	for_each_possible_cpu(cpu)
++		flush_work(&per_cpu_ptr(&rcu_free_pcpu, cpu)->expedite);
 +	mutex_unlock(&lock);
 +}
 +
@@ -1017,12 +1058,8 @@ index 2daf358..7f9f922 100644
 +		return;
 +
 +	rcu_free_drain();
-+	for_each_possible_cpu(cpu) {
-+		struct rcu_free_pcpu *r = per_cpu_ptr(&rcu_free_pcpu, cpu);
-+
-+		flush_work(&r->rwork.work);
-+		flush_work(&r->expedite);
-+	}
++	for_each_possible_cpu(cpu)
++		flush_work(&per_cpu_ptr(&rcu_free_pcpu, cpu)->rwork.work);
 +}
 +
 +static void __init rcu_free_init(void)
@@ -1049,7 +1086,7 @@ index 2daf358..7f9f922 100644
  static __always_inline bool __free_pages_prepare(struct page *page,
  		unsigned int order, fpi_t fpi_flags)
  {
-@@ -1312,6 +1505,19 @@ static __always_inline bool __free_pages_prepare(struct page *page,
+@@ -1312,6 +1512,19 @@ static __always_inline bool __free_pages_prepare(struct page *page,
  
  	VM_BUG_ON_PAGE(PageTail(page), page);
  
@@ -1069,14 +1106,15 @@ index 2daf358..7f9f922 100644
  	trace_mm_page_free(page, order);
  	kmsan_free_page(page, order);
  
-@@ -4607,6 +4813,52 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
+@@ -4612,6 +4825,58 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
  	return !!__gfp_pfmemalloc_flags(gfp_mask);
  }
  
 +/*
-+ * Reclaim is about to give up: if the pages waiting for a grace period
-+ * would bring an eligible zone above its min watermark, free them and
-+ * retry.  Not for a dying task, which frees memory by exiting.
++ * Reclaim is about to give up: if the pages waiting for a grace period,
++ * with what reclaim can still free, would bring an eligible zone above its
++ * min watermark, free them and retry.  Not for a dying task, which frees
++ * memory by exiting.
 + */
 +static bool rcu_free_wait(gfp_t gfp_mask, unsigned int order,
 +			  struct alloc_context *ac, int alloc_flags,
@@ -1105,9 +1143,14 @@ index 2daf358..7f9f922 100644
 +		if (!waiting)
 +			continue;
 +
-+		available = waiting +
++		available = waiting + zone_reclaimable_pages(zone) +
 +			    zone_page_state_snapshot(zone, NR_FREE_PAGES);
-+		if (__zone_watermark_ok(zone, order, min_wmark_pages(zone),
++		/*
++		 * Count pages only: for order > 0 __zone_watermark_ok() also
++		 * wants a free block of that order, and the waiting pages are
++		 * not free yet.
++		 */
++		if (__zone_watermark_ok(zone, 0, min_wmark_pages(zone),
 +					ac->highest_zoneidx, alloc_flags,
 +					available)) {
 +			(*rcu_free_waits)++;
@@ -1122,7 +1165,7 @@ index 2daf358..7f9f922 100644
  /*
   * Checks whether it makes sense to retry the reclaim to make a forward progress
   * for the given allocation request.
-@@ -4620,7 +4872,8 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
+@@ -4625,7 +4890,8 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
  static inline bool
  should_reclaim_retry(gfp_t gfp_mask, unsigned order,
  		     struct alloc_context *ac, int alloc_flags,
@@ -1132,7 +1175,7 @@ index 2daf358..7f9f922 100644
  {
  	struct zone *zone;
  	struct zoneref *z;
-@@ -4634,10 +4887,12 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
+@@ -4639,10 +4905,12 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
  	 * for compaction without freeing anything.
  	 */
  	if (did_some_progress && order <= PAGE_ALLOC_COSTLY_ORDER &&
@@ -1147,7 +1190,7 @@ index 2daf358..7f9f922 100644
  
  	if (*no_progress_loops > MAX_RECLAIM_RETRIES)
  		goto out;
-@@ -4690,6 +4945,10 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
+@@ -4695,6 +4963,10 @@ should_reclaim_retry(gfp_t gfp_mask, unsigned order,
  	else
  		cond_resched();
  out:
@@ -1158,7 +1201,7 @@ index 2daf358..7f9f922 100644
  	/* Before OOM, exhaust highatomic_reserve */
  	if (!ret)
  		return unreserve_highatomic_pageblock(ac, true);
-@@ -4779,6 +5038,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+@@ -4784,6 +5056,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
  	enum compact_result compact_result;
  	int compaction_retries;
  	int no_progress_loops;
@@ -1166,7 +1209,7 @@ index 2daf358..7f9f922 100644
  	unsigned int cpuset_mems_cookie;
  	unsigned int zonelist_iter_cookie;
  	int reserve_flags;
-@@ -4815,6 +5075,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+@@ -4820,6 +5093,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
  restart:
  	compaction_retries = 0;
  	no_progress_loops = 0;
@@ -1174,16 +1217,17 @@ index 2daf358..7f9f922 100644
  	compact_result = COMPACT_SKIPPED;
  	compact_priority = DEF_COMPACT_PRIORITY;
  	cpuset_mems_cookie = read_mems_allowed_begin();
-@@ -5012,7 +5273,7 @@ retry:
+@@ -5017,7 +5291,8 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
  		goto restart;
  
  	if (should_reclaim_retry(gfp_mask, order, ac, alloc_flags,
 -				 did_some_progress > 0, &no_progress_loops))
-+				 did_some_progress > 0, &no_progress_loops, &rcu_free_waits))
++				 did_some_progress > 0, &no_progress_loops,
++				 &rcu_free_waits))
  		goto retry;
  
  	/*
-@@ -5060,6 +5321,7 @@ retry:
+@@ -5065,6 +5340,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
  	/* Retry as long as the OOM killer is making progress */
  	if (did_some_progress) {
  		no_progress_loops = 0;
@@ -1191,7 +1235,7 @@ index 2daf358..7f9f922 100644
  		goto retry;
  	}
  
-@@ -6410,6 +6672,8 @@ void __init setup_per_cpu_pageset(void)
+@@ -6415,6 +6691,8 @@ void __init setup_per_cpu_pageset(void)
  	for_each_online_pgdat(pgdat)
  		pgdat->per_cpu_nodestats =
  			alloc_percpu(struct per_cpu_nodestat);
@@ -1200,13 +1244,13 @@ index 2daf358..7f9f922 100644
  }
  
  __meminit void zone_pcp_init(struct zone *zone)
-@@ -7389,7 +7653,16 @@ int alloc_contig_frozen_range_noprof(unsigned long start, unsigned long end,
+@@ -7394,7 +7672,16 @@ int alloc_contig_frozen_range_noprof(unsigned long start, unsigned long end,
  	outer_start = find_large_buddy(start);
  
  	/* Make sure the range is really isolated. */
 -	if (test_pages_isolated(outer_start, end, mode)) {
 +	ret = test_pages_isolated(outer_start, end, mode);
-+	if (ret && zone_page_state_snapshot(cc.zone, NR_FREE_RCU_PAGES)) {
++	if (ret && zone_rcu_free_waiting(cc.zone)) {
 +		rcu_free_sync();
 +
 +		/* A freed folio can merge with a free buddy below start */
@@ -1219,22 +1263,30 @@ index 2daf358..7f9f922 100644
  		goto done;
  	}
 diff --git a/mm/page_alloc.h b/mm/page_alloc.h
-index e238ee9..f7b2286 100644
+index 7097ea180..33928b0a1 100644
 --- a/mm/page_alloc.h
 +++ b/mm/page_alloc.h
-@@ -237,6 +237,7 @@ struct page *__alloc_frozen_pages_noprof(gfp_t gfp, unsigned int order, int nid,
+@@ -239,6 +239,15 @@ struct page *__alloc_frozen_pages_noprof(gfp_t gfp, unsigned int order, int nid,
  	alloc_hooks(__alloc_frozen_pages_noprof(__VA_ARGS__))
  void free_frozen_pages(struct page *page, unsigned int order);
  void free_unref_folios(struct folio_batch *fbatch);
++void rcu_free_drain(void);
 +void rcu_free_sync(void);
++
++/* Whether @zone has pages waiting for a grace period */
++static inline bool zone_rcu_free_waiting(struct zone *zone)
++{
++	return IS_ENABLED(CONFIG_PAGE_RCU_FREE) &&
++	       zone_page_state_snapshot(zone, NR_FREE_RCU_PAGES);
++}
  
  #ifdef CONFIG_NUMA
  struct page *alloc_frozen_pages_noprof(gfp_t, unsigned int order);
 diff --git a/mm/shmem.c b/mm/shmem.c
-index ed1fbce..d394421 100644
+index b8399bb71..0b7909300 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
-@@ -3511,10 +3511,18 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
+@@ -3555,10 +3555,18 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
  	struct file *file = iocb->ki_filp;
  	struct inode *inode = file_inode(file);
  	struct address_space *mapping = inode->i_mapping;
@@ -1254,7 +1306,7 @@ index ed1fbce..d394421 100644
  
  	for (;;) {
  		struct folio *folio = NULL;
-@@ -3580,11 +3588,7 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
+@@ -3624,11 +3632,7 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
  					flush_dcache_page(page);
  			}
  
@@ -1267,7 +1319,7 @@ index ed1fbce..d394421 100644
  			/*
  			 * Ok, we have the page, and it's up-to-date, so
  			 * now we can copy it to user space...
-@@ -3612,6 +3616,7 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
+@@ -3656,6 +3660,7 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
  
  		retval += ret;
  		iocb->ki_pos += ret;
@@ -1275,21 +1327,19 @@ index ed1fbce..d394421 100644
  
  		if (!iov_iter_count(to))
  			break;
-@@ -3621,8 +3626,11 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
+@@ -3665,8 +3670,9 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
  		}
  		cond_resched();
  	}
 -
 +out:
  	file_accessed(file);
-+	/* Readers sharing the file would bounce the line for nothing */
-+	if (file->f_ra.prev_pos != last_pos)
-+		file->f_ra.prev_pos = last_pos;
++	file->f_ra.prev_pos = last_pos;
  	return retval ? retval : error;
  }
  
 diff --git a/mm/show_mem.c b/mm/show_mem.c
-index b938cbc..0d3bddb 100644
+index b938cbcd7..0d3bddbda 100644
 --- a/mm/show_mem.c
 +++ b/mm/show_mem.c
 @@ -204,7 +204,7 @@ static void show_free_areas(unsigned int filter, const nodemask_t *nodemask,
@@ -1330,7 +1380,7 @@ index b938cbc..0d3bddb 100644
  		for (i = 0; i < MAX_NR_ZONES; i++)
  			printk(KERN_CONT " %ld", zone->lowmem_reserve[i]);
 diff --git a/mm/vmstat.c b/mm/vmstat.c
-index a3e809c..6a1ac5e 100644
+index c6beac6be..43370b900 100644
 --- a/mm/vmstat.c
 +++ b/mm/vmstat.c
 @@ -1212,6 +1212,7 @@ const char * const vmstat_text[] = {

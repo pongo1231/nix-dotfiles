@@ -1,0 +1,24 @@
+mm/vmalloc: keep drain_vmap_work off vmap metadata cache lines
+
+Ported from the mm-new queue (wholesale commit 549). The work item's
+pending bit is updated by freeing CPUs while allocation/free paths read
+vmap metadata nearby; align it to a cache line to avoid false sharing.
+
+Adapted to the 7.4 base layout.  Applies to d135ab4.
+diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+--- a/mm/vmalloc.c
++++ b/mm/vmalloc.c
+@@ -1089,7 +1089,12 @@
+ static void reclaim_and_purge_vmap_areas(void);
+ static BLOCKING_NOTIFIER_HEAD(vmap_notify_list);
+ static void drain_vmap_area_work(struct work_struct *work);
+-static DECLARE_WORK(drain_vmap_work, drain_vmap_area_work);
++/*
++ * Keep the work item, whose pending bit is updated by freeing CPUs,
++ * away from vmap metadata read by allocation and free paths.
++ */
++static __cacheline_aligned_in_smp
++DECLARE_WORK(drain_vmap_work, drain_vmap_area_work);
+ 
+ static __cacheline_aligned_in_smp atomic_long_t vmap_lazy_nr;
+ 

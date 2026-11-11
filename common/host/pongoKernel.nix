@@ -33,6 +33,11 @@ in
       (final: prev: {
         linuxPackages_pongo =
           let
+            llvmBuild =
+              if cfg.crossCompile != null then
+                inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
+              else
+                inputs.nixpkgs-kernel.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
             pkgs' =
               if cfg.crossCompile != null then
                 inputs.nixpkgs-kernel.legacyPackages.${cfg.crossCompile.host}.pkgsCross.${cfg.crossCompile.target}
@@ -43,17 +48,7 @@ in
             final': prev': {
               kernel =
                 let
-                  llvm =
-                    if cfg.crossCompile != null then
-                      inputs.nixpkgs-kernel.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
-                    else
-                      inputs.nixpkgs-kernel.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
                   llvmTarget = pkgs'.llvmPackages_latest;
-                  llvmBuild =
-                    if cfg.crossCompile != null then
-                      inputs.nixpkgs.legacyPackages.${cfg.crossCompile.host}.llvmPackages_latest
-                    else
-                      inputs.nixpkgs-kernel.legacyPackages.${pkgs.stdenv.hostPlatform.system}.llvmPackages_latest;
                 in
                 prev'.kernel.override {
                   inherit (llvmTarget) stdenv;
@@ -75,16 +70,16 @@ in
 
                   argsOverride =
                     let
-                      version = "7.3-git";
+                      version = "7.4-git";
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.3.0";
+                      modDirVersion = "7.4.0-rc2";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "734bef548a96e8774d6eef5dfa2026c6edc4e80b";
-                        hash = "sha256-cGFhYRUlA1rrNm8JEUsVTm4TNCwp+CElwiTeqjExX7Y=";
+                        rev = "b3dfbde62cf1981c4638939c159dfd087b7a72e9";
+                        hash = "sha256-RoRRXwOy26sdzSrvlxfw/vle0Y1cejiZIHRvNTDMAjI=";
                       };
                     };
                 };
@@ -101,7 +96,6 @@ in
           name = "base";
           patch = null;
           extraConfig = ''
-            LTO_CLANG_FULL y
             CFI y
             UBSAN y
             UBSAN_TRAP y
@@ -109,13 +103,10 @@ in
             UBSAN_BOOL n
             UBSAN_ENUM n
             BTRFS_EXPERIMENTAL y
-            AD4130 n
-            BINFMT_MISC_BPF y
+            DEBUG_INFO_BTF_INLINE n
+            ANDROID_BINDER_IPC_RUST y
             DRM_GUD n
-          ''
-          + lib.optionalString (pkgs.stdenv.hostPlatform.system == "aarch64-linux") ''
-            CORESIGHT n
-            CORESIGHT_SOURCE_ETM4X n
+            AD4130 n
           '';
         }
         {
@@ -127,14 +118,6 @@ in
           extraConfig = ''
             CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
-        }
-        {
-          name = "mm: the whole mm-new queue (wholesale)";
-          patch = patch /linux/20261020_mm-queue_mm-new_wholesale.patch;
-        }
-        {
-          name = "mm: mm-new queue re-anchors for the newer base";
-          patch = patch /linux/20261023_mm-queue_reanchors.patch;
         }
         {
           name = "nouveau detach fix";
@@ -152,36 +135,12 @@ in
           patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
         }
         {
-          name = "iommu/amd: PerfOpt IOMMU performance optimization support";
-          patch = patch /linux/v2_20260908_mario_limonciello_iommu_performance_optimization_support.patch;
-        }
-        {
-          name = "iommu/amd: Make PerfOpt compulsory";
-          patch = patch /linux/20261012_mario_limonciello_iommu_amd_make_perfopt_compulsory.patch;
-        }
-        {
-          name = "batch lookups in follow_page_mask()";
-          patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
-        }
-        {
-          name = "mm/slub: refill prefilled sheaves from the barn";
-          patch = patch /linux/20260921_hao_li_mm_slub_refill_prefilled_sheaves_from_the_barn.patch;
-        }
-        {
-          name = "mm/memory_hotplug: make shrink_zone_span() more robust";
-          patch = patch /linux/20260920_david_hildenbrand_mm_memory_hotplug_make_shrink_zone_span_more_robust.patch;
-        }
-        {
           name = "zstd: use x86 feature infrastructure for BMI2 dispatch";
           patch = patch /linux/20260901_usama_arif_zstd_use_x86_feature_infrastructure_for_bmi2_dispatch.patch;
         }
         {
           name = "lib/lz4: stop forking upstream LZ4, vendor it";
           patch = patch /linux/v1_20260925_michal_wilczynski_lib_lz4_stop_forking_upstream_lz4_vendor_it.patch;
-        }
-        {
-          name = "fuse: enable large folios";
-          patch = patch /linux/20260916_joanne_koong_fuse_enable_large_folios.patch;
         }
         {
           name = "sched: improving latency of short slice tasks (rebased)";
@@ -200,24 +159,38 @@ in
           patch = patch /linux/20261009_sergey_senozhatsky_zram_redesign_zcomp_and_rework_backends_rebased.patch;
         }
         {
+          name = "zram: adapt LZ4 backends to opaque stream types";
+          patch = patch /linux/20261109_zram_lz4_opaque_compat.patch;
+        }
+        {
           name = "mm/zswap: batch the writeback IO";
           patch = patch /linux/20261007_alexandre_ghiti_mm_zswap_batch_the_writeback_io.patch;
         }
         {
-          name = "assoc_array fixes";
-          patch = patch /linux/20261012_torvalds_assoc-array-fixes.patch;
+          name = "mm/vmalloc: keep drain_vmap_work off vmap metadata cache lines";
+          patch = patch /linux/20261027_mm_vmalloc_drain_work_cacheline.patch;
         }
+        {
+          name = "net: preserve shared-frag annotation, keep ESP out of shared frags";
+          patch = patch /linux/20261023_net_preserve_shared_frags.patch;
+        }
+        /*
+          {
+            name = "android: restore the legacy C binder driver";
+            patch = patch /linux/20261026_binder_restore_legacy_c_driver.patch;
+          }
+        */
         {
           name = "mm: read the page cache without folio references (RFC v1)";
           patch = patch /linux/20261019_kiryl_shutsemau_mm_read_page_cache_without_folio_references.patch;
         }
         {
-          name = "ext4: dev branch (whole branch)";
-          patch = patch /linux/20261020_tytso_ext4_dev.patch;
+          name = "batch lookups in follow_page_mask()";
+          patch = patch /linux/v3_20260810_riel_batch_lookups_in_follow_page_mask.patch;
         }
         {
-          name = "net: preserve shared-frag annotation, keep ESP out of shared frags";
-          patch = patch /linux/20261023_net_preserve_shared_frags.patch;
+          name = "lib/crypto: x86/chacha: 16-block AVX-512";
+          patch = patch /linux/20261025_antonio_quartulli_chacha_16block_avx512.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
