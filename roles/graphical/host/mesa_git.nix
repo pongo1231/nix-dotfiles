@@ -88,8 +88,7 @@
             # mesa 27 replaced the boolean amdgpu-virtio option with the
             # amd-options array. Keep LLVM (the default) and add virtio
             # when the old nixpkgs flag asked for it.
-            "-Damd-options=use-llvm"
-            + lib.optionalString (flag == "-Damdgpu-virtio=true") ",virtio"
+            "-Damd-options=use-llvm" + lib.optionalString (flag == "-Damdgpu-virtio=true") ",virtio"
           else
             flag
         ) prev.mesonFlags;
