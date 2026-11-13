@@ -144,9 +144,6 @@
         extraOptions = [ "-c 1" ];
       };
     };
-
-    # jovian's steam module defaults this to true; keep it off since scx-loader is enabled
-    scx.enable = false;
   };
 
   environment.systemPackages = with pkgs; [ jovianPackages.steamdeck-firmware ];
