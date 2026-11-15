@@ -78,8 +78,8 @@ in
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "b3dfbde62cf1981c4638939c159dfd087b7a72e9";
-                        hash = "sha256-RoRRXwOy26sdzSrvlxfw/vle0Y1cejiZIHRvNTDMAjI=";
+                        rev = "23c62304dde29abe92013d85910d03a77dada35d";
+                        hash = "sha256-OcN4i6QwG1KFu4ZkqNs1jHt3dF9AB5v5axMyEl9YmSM=";
                       };
                     };
                 };
@@ -133,6 +133,10 @@ in
         {
           name = "drm/sched fair policy fixups";
           patch = patch /linux/20260814_tvrtko_ursulin_drm_sched_fair_policy_fixups.patch;
+        }
+        {
+          name = "iommu/amd: clear PerfOpt before disabling IOMMU";
+          patch = patch /linux/20261112_iommu_amd_clear_perfopt_before_disable.patch;
         }
         {
           name = "zstd: use x86 feature infrastructure for BMI2 dispatch";

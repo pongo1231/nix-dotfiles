@@ -1,0 +1,39 @@
+iommu/amd: Clear PerfOpt before disabling the IOMMU
+
+amd_iommu_perfopt_set() reads MMIO_EXT_FEATURES to check whether the
+IOMMU supports PerfOpt. The suspend path calls it from iommu_disable()
+after CONTROL_IOMMU_EN has already been cleared, so the feature check
+now performs an MMIO access against a disabled IOMMU.
+
+Move the PerfOpt clear before the IOMMU disable sequence so the check
+and the register write happen while the IOMMU is still accessible.
+The activation state is still preserved for resume.
+
+Fixes: b32ecac779bb ("iommu/amd: Enable PerfOpt automatically for integrated GPUs")
+--- a/drivers/iommu/amd/init.c
++++ b/drivers/iommu/amd/init.c
+@@ -470,6 +470,13 @@
+ 	if (!iommu->mmio_base)
+ 		return;
+ 
++	/*
++	 * Clear PerfOpt before disabling the IOMMU. amd_iommu_perfopt_set()
++	 * reads MMIO_EXT_FEATURES, so the IOMMU must still be enabled.
++	 */
++	amd_iommu_perfopt_set(iommu, false);
++	iommu->perfopt_enabled = perfopt_enabled;
++
+ 	/* Disable command buffer */
+ 	iommu_feature_disable(iommu, CONTROL_CMDBUF_EN);
+ 
+@@ -490,10 +497,6 @@
+ 
+ 	/* Clear IRTE cache disabling bit */
+ 	iommu_feature_disable(iommu, CONTROL_IRTCACHEDIS);
+-
+-	/* Clear hardware while preserving the activation state for resume. */
+-	amd_iommu_perfopt_set(iommu, false);
+-	iommu->perfopt_enabled = perfopt_enabled;
+ }
+ 
+ /*
