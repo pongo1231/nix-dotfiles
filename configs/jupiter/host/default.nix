@@ -40,7 +40,6 @@
     kernelParams = [
       "mitigations=off"
       "rcu_nocbs=0-N"
-      "pcie_aspm.policy=powersupersave"
     ];
 
     extraModulePackages = with config.boot.kernelPackages; [

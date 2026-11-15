@@ -47,7 +47,6 @@ withSecrets "pongo" { store = "zephyr.yaml"; } {
 
     kernelParams = [
       "rcu_nocbs=0-N"
-      "pcie_aspm.policy=powersupersave"
       "amdgpu.dcdebugmask=0x410"
     ];
 
