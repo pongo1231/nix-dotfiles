@@ -1,3 +1,95 @@
+diff --git a/README.md b/README.md
+index 7d83796..f1acc56 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# Adjust Display Brightness 2
++# Adjust Display Brightness
+ 
+ Control your external monitors' brightness directly from GNOME Shell using
+ DDC/CI. Adjust one display or all of them together, with optional controls for
+@@ -12,9 +12,11 @@ contrast, RGB levels, and your built-in display.
+ ## Features
+ 
+ - Brightness sliders for individual displays and all displays together.
+-- Controls in the top bar or GNOME Quick Settings.
++- Controls in GNOME Quick Settings by default, or in the top bar.
+ - Mouse-wheel adjustments and configurable keyboard shortcuts.
+ - Optional built-in display control.
++- Software dimming for monitors without DDC/CI access, so every output stays
++  adjustable without I2C permissions.
+ - Contrast and RGB sliders for monitors that support them.
+ - Show or hide display names, percentage labels, and brightness popups.
+ 
+diff --git a/docs/architecture.md b/docs/architecture.md
+index fec3a27..dd6eb96 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -11,6 +11,7 @@ Shell's brightness manager.
+ | Startup, placement, shortcuts      | [BrightnessRuntime](../src/runtime/BrightnessRuntime.js)                          |
+ | Scans and UI coordination          | [BrightnessMenuController](../src/ui/BrightnessMenuController.js)                 |
+ | Display cache and writes           | [DisplayFeatureCoordinator](../src/services/display/DisplayFeatureCoordinator.js) |
++| Software dimming fallback          | [SoftwareDimming](../src/services/display/SoftwareDimming.js) and [SoftwareDisplays](../src/services/display/SoftwareDisplays.js) |
+ | DDC/CI discovery and parsing       | [services/ddc/](../src/services/ddc/)                                             |
+ | Subprocess lifetime                | [ProcessRunner](../src/services/ProcessRunner.js)                                 |
+ | Menu and slider widgets            | [ui/menu/](../src/ui/menu/) and [ui/slider/](../src/ui/slider/)                   |
+@@ -26,6 +27,15 @@ in [Display.js](../src/services/display/Display.js).
+ ## Runtime behavior
+ 
+ - New scans cancel previous ones. Cancelled results must not update state or UI.
++- Logical monitors come from Mutter's DisplayConfig, which pairs each monitor
++  index with the connectors it is made of; `Meta.MonitorManager` lists physical
++  monitors in an unrelated order, so the two lists are never paired by position.
++- Monitor connect and disconnect are watched on the compositor's monitor manager
++  and on the Shell layout. The rows are rebuilt from the compositor immediately,
++  without starting a process; a debounced DDC rescan follows, and it keeps the
++  current rows on screen instead of replacing them with a loading placeholder.
++  Only a display set that actually changed is rendered, so untouched rows and
++  pending on-screen feedback survive a layout read.
+ - DDC commands run one at a time; queued writes keep the latest value per display feature.
+   Subprocess results wait for child exit, including cancellation and timeout.
+ - Cache updates synchronize sliders without writing back. Brightness writes have
+@@ -34,6 +44,9 @@ in [Display.js](../src/services/display/Display.js).
+   can be replaced immediately.
+ - Missing feature replies are inconclusive. Automatically disable a newly enabled
+   optional control only after conclusive unsupported responses.
++- Monitors that no hardware brightness path controls get a software dimming row:
++  a black layer over that output, matched to ddcutil's connector names. It never
++  dims below 5 percent, and disabling the setting restores full brightness.
+ - Each owner cancels pending work and releases its signals, sources, and actors
+   during teardown. Feedback is also cancelled when brightness values or the menu
+   are replaced.
+diff --git a/docs/troubleshooting.md b/docs/troubleshooting.md
+index dbf240e..04a8c1a 100644
+--- a/docs/troubleshooting.md
++++ b/docs/troubleshooting.md
+@@ -10,6 +10,10 @@
+ 
+ Contrast/RGB controls require readable values for those features; brightness support alone is insufficient.
+ 
++Monitors that remain undetected still get a **software dimming** row, which darkens that output instead of
++its backlight and needs no I2C access. Turn **Software Dimming** off in settings if you only want hardware
++control; the slider then disappears for those monitors.
++
+ ## Slow discovery or desktop stutter
+ 
+ Compare terminal discovery; if it also stutters, monitor communication or the graphics driver may be responsible:
+diff --git a/src/metadata.json b/src/metadata.json
+index d30d4e9..0fd6ca9 100644
+--- a/src/metadata.json
++++ b/src/metadata.json
+@@ -1,9 +1,9 @@
+ {
+     "description": "Control external monitor brightness via DDC/CI. Requires ddcutil and user access to I2C devices. You can copy logs and setup instructions to the clipboard.",
+     "gettext-domain": "gnome-extension-brightness",
+-    "name": "Adjust Display Brightness 2",
++    "name": "Adjust Display Brightness",
+     "settings-schema": "org.gnome.shell.extensions.gnome-extension-brightness",
+-    "shell-version": ["50"],
++    "shell-version": ["50", "51"],
+     "url": "https://gitlab.com/bruno.englert/gnome-extension-brightness",
+     "uuid": "gnome-extension-brightness2@bruno.englert.gitlab.com",
+     "version": 9
 diff --git a/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml b/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml
 index 95dcfdd..d7f8e00 100644
 --- a/src/schemas/org.gnome.shell.extensions.gnome-extension-brightness.gschema.xml
@@ -540,7 +632,7 @@ index 0000000..e3c0586
 +    return displays;
 +}
 diff --git a/src/ui/BrightnessMenuController.js b/src/ui/BrightnessMenuController.js
-index f4110b9..27f8654 100644
+index f4110b9..fa9998c 100644
 --- a/src/ui/BrightnessMenuController.js
 +++ b/src/ui/BrightnessMenuController.js
 @@ -17,6 +17,13 @@ import {
@@ -565,16 +657,18 @@ index f4110b9..27f8654 100644
      SETTINGS_KEYS.BRIGHTNESS_CONTROL_METHOD,
      SETTINGS_KEYS.SLIDER_LAYOUT,
      SETTINGS_KEYS.DISABLE_DISPLAY_STATE_CHECK,
-@@ -50,6 +58,8 @@ export default class BrightnessMenuController {
+@@ -50,6 +58,10 @@ export default class BrightnessMenuController {
      #logger;
      #extension;
      #coordinator;
 +    #softwareDimming;
++    #monitorManager;
++    #destroyed = false;
 +    #menu;
      #menuView;
      #menuActions;
      #osd;
-@@ -63,6 +73,14 @@ export default class BrightnessMenuController {
+@@ -63,6 +75,14 @@ export default class BrightnessMenuController {
  
      #loadCancellable = null;
      #topologyRefreshId = 0;
@@ -589,7 +683,7 @@ index f4110b9..27f8654 100644
  
      /**
       * @param {object} params - Dependencies.
-@@ -79,11 +97,15 @@ export default class BrightnessMenuController {
+@@ -79,11 +99,15 @@ export default class BrightnessMenuController {
          this.#ddcClient = ddcClient;
          this.#logger = logger;
          this.#extension = extension;
@@ -605,19 +699,18 @@ index f4110b9..27f8654 100644
          this.#menuView = new BrightnessMenuView({
              menu,
              extensionPath: extension.path,
-@@ -156,9 +178,27 @@ export default class BrightnessMenuController {
+@@ -156,9 +180,26 @@ export default class BrightnessMenuController {
              () => this.#onInternalBrightnessChanged(),
              this,
          );
 +        // The compositor's monitor list changes first, on connect and on
 +        // disconnect; the Shell layout follows once a configuration is applied.
-+        global.backend
-+            .get_monitor_manager()
-+            .connectObject(
-+                'monitors-changed',
-+                () => this.#onTopologyChanged(),
-+                this,
-+            );
++        this.#monitorManager = global.backend.get_monitor_manager();
++        this.#monitorManager.connectObject(
++            'monitors-changed',
++            () => this.#onTopologyChanged(),
++            this,
++        );
          Main.layoutManager.connectObject(
              'monitors-changed',
 -            () => this.#queueTopologyRefresh(),
@@ -634,7 +727,7 @@ index f4110b9..27f8654 100644
              this,
          );
          host.connectObject(
-@@ -169,6 +209,15 @@ export default class BrightnessMenuController {
+@@ -169,9 +210,19 @@ export default class BrightnessMenuController {
  
          this.#menuView.showLoading();
          this.#queueTopologyRefresh();
@@ -650,7 +743,11 @@ index f4110b9..27f8654 100644
      }
  
      destroy() {
-@@ -180,11 +229,15 @@ export default class BrightnessMenuController {
++        this.#destroyed = true;
+         this.#osd.cancelPending();
+         this.#osd = null;
+         this.#removeTopologyRefresh();
+@@ -180,11 +231,16 @@ export default class BrightnessMenuController {
              this.#loadCancellable = null;
          }
          this.#menuActions.destroy();
@@ -661,12 +758,13 @@ index f4110b9..27f8654 100644
          this.#ddcClient.disconnectObject(this);
          Main.brightnessManager.disconnectObject(this);
          Main.layoutManager.disconnectObject(this);
-+        global.backend.get_monitor_manager().disconnectObject(this);
++        this.#monitorManager?.disconnectObject(this);
++        this.#monitorManager = null;
 +        this.#menu.disconnectObject(this);
          this.#host.disconnectObject(this);
  
          this.#optionalControls.destroy();
-@@ -264,6 +317,62 @@ export default class BrightnessMenuController {
+@@ -264,6 +320,66 @@ export default class BrightnessMenuController {
          return Clutter.EVENT_STOP;
      }
  
@@ -694,7 +792,11 @@ index f4110b9..27f8654 100644
 +    async #refreshMonitors({apply, filterHardware = true}) {
 +        const generation = this.#topologyGeneration;
 +        const monitors = await this.#readMonitors();
-+        if (monitors === null || generation !== this.#topologyGeneration) {
++        if (
++            this.#destroyed ||
++            monitors === null ||
++            generation !== this.#topologyGeneration
++        ) {
 +            return;
 +        }
 +        this.#monitorLayout = monitors;
@@ -729,7 +831,7 @@ index f4110b9..27f8654 100644
      #queueTopologyRefresh() {
          this.#removeTopologyRefresh();
          this.#topologyRefreshId = GLib.timeout_add(
-@@ -286,9 +395,15 @@ export default class BrightnessMenuController {
+@@ -286,9 +402,15 @@ export default class BrightnessMenuController {
  
      async #loadDisplays() {
          this.#osd.cancelPending();
@@ -747,7 +849,7 @@ index f4110b9..27f8654 100644
          const requestedFeatures = this.#optionalControls.getRequestedFeatures();
          const cancellable = new Gio.Cancellable();
          this.#loadCancellable = cancellable;
-@@ -315,7 +430,6 @@ export default class BrightnessMenuController {
+@@ -315,7 +437,6 @@ export default class BrightnessMenuController {
          }
          this.#loadCancellable = null;
  
@@ -755,7 +857,7 @@ index f4110b9..27f8654 100644
          this.#detection = {
              detectStatus: result.detectStatus,
              detectErrorText: result.detectErrorText,
-@@ -323,10 +437,109 @@ export default class BrightnessMenuController {
+@@ -323,10 +444,112 @@ export default class BrightnessMenuController {
          this.#logger.info(
              `display scan found ${result.displays.length} external display(s), status ${result.detectStatus}`,
          );
@@ -782,12 +884,15 @@ index f4110b9..27f8654 100644
 +     * @returns {Promise<import('../services/display/SoftwareDisplays.js').MonitorInfo[]|null>} Monitors, or null when the layout cannot be read.
 +     */
 +    async #readMonitors() {
++        if (this.#destroyed) {
++            return null;
++        }
 +        const connectors = await getLogicalMonitorConnectors();
 +        if (connectors === null) {
 +            this.#logger.warn('could not read the logical monitor layout');
 +            return null;
 +        }
-+        const monitorManager = global.backend.get_monitor_manager();
++        const monitorManager = this.#monitorManager;
 +        return connectors.map((list, index) =>
 +            monitorInfoFromConnectors({
 +                index,
@@ -867,6 +972,114 @@ index f4110b9..27f8654 100644
      }
  
      /** Rebuild the rows from cached displays once the menu is closed. */
+diff --git a/src/ui/dialog/SelectableText.js b/src/ui/dialog/SelectableText.js
+index cf3477b..cabba1e 100644
+--- a/src/ui/dialog/SelectableText.js
++++ b/src/ui/dialog/SelectableText.js
+@@ -3,14 +3,34 @@ import Clutter from 'gi://Clutter';
+ import GObject from 'gi://GObject';
+ import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+ 
++/**
++ * Keys that delete text when Clutter.Text processes them.
++ *
++ * @param {number} key - Clutter key symbol.
++ * @returns {boolean} Whether the key edits text.
++ */
++function isEditingKey(key) {
++    if (key === Clutter.KEY_Delete || key === Clutter.KEY_BackSpace) {
++        return true;
++    }
++    // Printable ASCII: typing would insert it if the text were editable, and
++    // newer Clutter.Text versions insert even when it is not.
++    return key >= 0x20 && key <= 0x7e;
++}
++
++/**
++ * Entry-level guard. Shell 50 delivers key presses to the entry, so stopping
++ * them here keeps the text intact; select-all and copy still work.
++ */
+ const ReadOnlyEntry = GObject.registerClass(
+     class ReadOnlyEntry extends St.Entry {
+         vfunc_key_press_event(event) {
+-            // Clutter.Text skips keyboard selection when non-editable. Keep
+-            // select-all available, and only allow St.Entry's copy handler:
+-            // its other shortcuts mutate text regardless of editable (Shell 50).
+             const key = event.get_key_symbol();
+-            if (event.get_state() & Clutter.ModifierType.CONTROL_MASK) {
++            const state = event.get_state();
++            const control = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
++            const shift = (state & Clutter.ModifierType.SHIFT_MASK) !== 0;
++
++            if (control) {
+                 if (key === Clutter.KEY_a || key === Clutter.KEY_A) {
+                     this.clutter_text.set_selection(0, -1);
+                     return Clutter.EVENT_STOP;
+@@ -18,12 +38,56 @@ const ReadOnlyEntry = GObject.registerClass(
+                 if (key === Clutter.KEY_c || key === Clutter.KEY_C) {
+                     return super.vfunc_key_press_event(event);
+                 }
++                return Clutter.EVENT_STOP;
++            }
++            if (shift && key === Clutter.KEY_Insert) {
++                return Clutter.EVENT_STOP;
++            }
++            if (isEditingKey(key)) {
++                return Clutter.EVENT_STOP;
+             }
+             return Clutter.EVENT_PROPAGATE;
+         }
+     },
+ );
+ 
++/**
++ * Text-level guard. Shell 51 delivers key presses straight to the focused text
++ * actor, bypassing the entry, so the same rules are applied there.
++ *
++ * @param {Clutter.Text} textActor - The entry's text actor.
++ */
++function blockEditingShortcuts(textActor) {
++    textActor.connect('captured-event', (_actor, event) => {
++        if (event.type() !== Clutter.EventType.KEY_PRESS) {
++            return Clutter.EVENT_PROPAGATE;
++        }
++        const key = event.get_key_symbol();
++        const state = event.get_state();
++        const control = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
++        const shift = (state & Clutter.ModifierType.SHIFT_MASK) !== 0;
++
++        if (control) {
++            if (key === Clutter.KEY_a || key === Clutter.KEY_A) {
++                textActor.set_selection(0, -1);
++                return Clutter.EVENT_STOP;
++            }
++            if (key === Clutter.KEY_c || key === Clutter.KEY_C) {
++                // Let Clutter.Text copy the selection.
++                return Clutter.EVENT_PROPAGATE;
++            }
++            return Clutter.EVENT_STOP;
++        }
++        if (shift && key === Clutter.KEY_Insert) {
++            return Clutter.EVENT_STOP;
++        }
++        if (isEditingKey(key)) {
++            return Clutter.EVENT_STOP;
++        }
++        return Clutter.EVENT_PROPAGATE;
++    });
++}
++
+ /**
+  * Creates a read-only St.Entry whose contents can be selected and copied.
+  *
+@@ -60,6 +124,7 @@ function createSelectableText({
+     textActor.cursor_visible = true;
+     textActor.single_line_mode = false;
+     textActor.line_wrap = lineWrap;
++    blockEditingShortcuts(textActor);
+ 
+     return entry;
+ }
 diff --git a/src/ui/menu/DisplayLabel.js b/src/ui/menu/DisplayLabel.js
 index a45edac..18341df 100644
 --- a/src/ui/menu/DisplayLabel.js
@@ -921,3 +1134,582 @@ index 31e550d..1fc78fd 100644
          {
              kind: 'switch',
              key: SETTINGS_KEYS.SHOW_CONTRAST_SLIDER,
+diff --git a/tests/DisplayFeatureCoordinator.test.js b/tests/DisplayFeatureCoordinator.test.js
+index 55c46ca..a0eb03d 100644
+--- a/tests/DisplayFeatureCoordinator.test.js
++++ b/tests/DisplayFeatureCoordinator.test.js
+@@ -23,6 +23,7 @@ function createHarness({
+     displays = [],
+     scale = null,
+     includeInternal = false,
++    softwareDimming = null,
+ } = {}) {
+     const settings = {
+         allowZero: false,
+@@ -44,6 +45,7 @@ function createHarness({
+             setDisplayFeature: (...write) => ddcWrites.push(write),
+         },
+         brightnessManager,
++        softwareDimming,
+     });
+     coordinator.replaceExternalDisplays(displays);
+     return {coordinator, settings, ddcWrites, brightnessManager};
+@@ -331,3 +333,78 @@ await test('mean brightness is zero without readable displays', () => {
+     assertEqual(coordinator.getBrightnessRatio(), 0);
+     assertDeepEqual(coordinator.adjustAllBrightness(0.1).updates, []);
+ });
++
++function softwareDisplay(monitorIndex = 1) {
++    return {
++        id: `software:DP-${monitorIndex}`,
++        kind: DISPLAY_KIND.SOFTWARE,
++        monitorIndex,
++        name: null,
++        connector: `DP-${monitorIndex}`,
++        features: {[BRIGHTNESS]: {current: 100, max: 100}},
++    };
++}
++
++function createDimService() {
++    const ratios = new Map();
++    return {
++        ratios,
++        setBrightness(displayId, ratio) {
++            ratios.set(displayId, ratio);
++        },
++    };
++}
++
++await test('software displays dim instead of writing to ddcutil', () => {
++    const display = softwareDisplay();
++    const softwareDimming = createDimService();
++    const {coordinator, ddcWrites} = createHarness({
++        displays: [display],
++        softwareDimming,
++    });
++
++    const result = coordinator.setFeatureValue(
++        display.id,
++        BRIGHTNESS,
++        30,
++    );
++
++    assertEqual(result.updates.length, 1);
++    assertEqual(result.updates[0].ratio, 0.3);
++    assertEqual(result.updates[0].ok, true);
++    assertEqual(display.features[BRIGHTNESS].current, 30);
++    assertEqual(softwareDimming.ratios.get(display.id), 0.3);
++    assertDeepEqual(ddcWrites, [], 'software display reached ddcutil');
++});
++
++await test('software dimming stays visible at the bottom of the range', () => {
++    const display = softwareDisplay();
++    const softwareDimming = createDimService();
++    const {coordinator} = createHarness({
++        displays: [display],
++        softwareDimming,
++    });
++
++    const result = coordinator.setFeatureValue(display.id, BRIGHTNESS, 0);
++
++    assertEqual(result.updates[0].ratio, 0.05, 'software floor');
++    assertEqual(display.features[BRIGHTNESS].current, 5);
++    assertEqual(softwareDimming.ratios.get(display.id), 0.05);
++});
++
++await test('bulk brightness reaches hardware and software displays alike', () => {
++    const hardwareDisplay = external('7', {current: 50, max: 100});
++    const display = softwareDisplay(2);
++    const softwareDimming = createDimService();
++    const {coordinator, ddcWrites} = createHarness({
++        displays: [hardwareDisplay, display],
++        softwareDimming,
++    });
++
++    const result = coordinator.setAllBrightness(0.4);
++
++    assertEqual(result.updates.length, 2);
++    assertDeepEqual(ddcWrites, [['7', BRIGHTNESS, 40]]);
++    assertEqual(softwareDimming.ratios.get(display.id), 0.4);
++    assertEqual(Math.round(coordinator.getBrightnessRatio() * 100) / 100, 0.4);
++});
+diff --git a/tests/SettingsSchema.test.js b/tests/SettingsSchema.test.js
+index 48a32b5..1ea728a 100644
+--- a/tests/SettingsSchema.test.js
++++ b/tests/SettingsSchema.test.js
+@@ -1,5 +1,6 @@
+ import GLib from 'gi://GLib';
+ import {
++    BUTTON_LOCATIONS,
+     OPTIONAL_CONTROL_STATUS,
+     SETTINGS_KEYS,
+     SETTING_RANGES,
+@@ -78,7 +79,11 @@ await test('settings constants, metadata, and schema stay in sync', () => {
+         `invalid schema path: ${settingsPath}`,
+     );
+     assertEqual(metadata['settings-schema'], schemaId, 'metadata schema id');
+-    assertDeepEqual(metadata['shell-version'], ['50'], 'GNOME Shell target');
++    assertDeepEqual(
++        metadata['shell-version'],
++        ['50', '51'],
++        'GNOME Shell targets',
++    );
+     const shortcutUi = new TextDecoder().decode(
+         GLib.file_get_contents(
+             GLib.filename_from_uri(
+@@ -196,3 +201,15 @@ await test('optional control status choices match the shared status contract', (
+         assertDeepEqual(actual, expected, `choices for ${key}`);
+     }
+ });
++
++await test('the indicator starts in GNOME Quick Settings', () => {
++    const block = getKeyBlock(SETTINGS_KEYS.BUTTON_LOCATION);
++    assert(block, `schema key missing: ${SETTINGS_KEYS.BUTTON_LOCATION}`);
++    const match = /<default>([^<]+)<\/default>/.exec(block.body);
++    assert(match, 'button-location has no default');
++    assertEqual(
++        Number(match[1]),
++        BUTTON_LOCATIONS.QUICK_SETTINGS,
++        'button-location default',
++    );
++});
+diff --git a/tests/SoftwareDisplays.test.js b/tests/SoftwareDisplays.test.js
+new file mode 100644
+index 0000000..338678d
+--- /dev/null
++++ b/tests/SoftwareDisplays.test.js
+@@ -0,0 +1,201 @@
++import {
++    DISPLAY_KIND,
++    SOFTWARE_BRIGHTNESS_MIN_RATIO,
++    SOFTWARE_DISPLAY_PREFIX,
++} from '../src/services/display/Display.js';
++import {
++    buildSoftwareDisplays,
++    connectorName,
++    filterHardwareDisplays,
++    monitorInfoFromConnectors,
++} from '../src/services/display/SoftwareDisplays.js';
++import {parseLogicalMonitorConnectors} from '../src/services/display/MonitorLayout.js';
++import {assertDeepEqual, assertEqual, test} from './TestUtils.js';
++
++function hardware(connector) {
++    return {
++        id: '7',
++        kind: DISPLAY_KIND.EXTERNAL,
++        name: null,
++        connector,
++        features: {brightness: {current: 40, max: 80}},
++    };
++}
++
++function monitor(index, connector, isBuiltin = false, vendor = null, product = null) {
++    return {
++        index,
++        connector,
++        connectors: connector === null ? [] : [connector],
++        vendor,
++        product,
++        isBuiltin,
++    };
++}
++
++await test('connector names compare across ddcutil and the compositor', () => {
++    assertEqual(connectorName('card0-DP-1'), 'DP-1');
++    assertEqual(connectorName('card1-HDMI-A-2'), 'HDMI-2');
++    assertEqual(connectorName('DP-3'), 'DP-3');
++    assertEqual(connectorName(null), null);
++});
++
++await test('only monitors without hardware brightness get software rows', () => {
++    const monitors = [
++        monitor(0, 'eDP-1', true),
++        monitor(1, 'DP-1'),
++        monitor(2, 'HDMI-1', false, 'GSM', 'LG HDR 4K'),
++    ];
++    const displays = buildSoftwareDisplays({
++        monitors,
++        hardwareDisplays: [hardware('card0-DP-1')],
++        getRatio: () => 1,
++    });
++
++    assertDeepEqual(
++        displays.map((display) => display.connector),
++        ['HDMI-1'],
++        'built-in and hardware-controlled monitors are skipped',
++    );
++    assertEqual(displays[0].kind, DISPLAY_KIND.SOFTWARE);
++    assertEqual(displays[0].id, `${SOFTWARE_DISPLAY_PREFIX}HDMI-1`);
++    assertEqual(displays[0].monitorIndex, 2);
++    assertEqual(displays[0].manufacturer, 'GSM');
++    assertEqual(displays[0].name, 'LG HDR 4K');
++    assertDeepEqual(displays[0].features.brightness, {
++        current: 100,
++        max: 100,
++    });
++});
++
++await test('software rows carry the current ratio and never reach zero', () => {
++    const monitors = [monitor(1, 'DP-1')];
++
++    const kept = buildSoftwareDisplays({
++        monitors,
++        hardwareDisplays: [],
++        getRatio: () => 0.4,
++    });
++    assertEqual(kept[0].features.brightness.current, 40);
++
++    const floored = buildSoftwareDisplays({
++        monitors,
++        hardwareDisplays: [],
++        getRatio: () => 0,
++    });
++    assertEqual(
++        floored[0].features.brightness.current,
++        Math.round(SOFTWARE_BRIGHTNESS_MIN_RATIO * 100),
++        'a monitor without hardware brightness stays visible',
++    );
++});
++
++await test('monitors without a connector still get distinct rows', () => {
++    const displays = buildSoftwareDisplays({
++        monitors: [monitor(0, null), monitor(1, null)],
++        hardwareDisplays: [],
++        getRatio: () => 1,
++    });
++
++    assertDeepEqual(
++        displays.map((display) => display.id),
++        [`${SOFTWARE_DISPLAY_PREFIX}monitor-0`, `${SOFTWARE_DISPLAY_PREFIX}monitor-1`],
++    );
++});
++
++await test('logical monitors keep the compositor index and their connectors', () => {
++    const logical = [
++        // x, y, scale, transform, primary, monitors[connector, vendor, product, serial, width, height, props]
++        [1920, 0, 1.25, 0, false, [['DP-1', 'SAM', 'Odyssey G50F', 'x', 2560, 1440, {}]]],
++        [0, 0, 1.5, 0, true, [['eDP-1', 'CSW', 'MND508ZB1-1', 'y', 2880, 1920, {}]]],
++    ];
++    const connectors = parseLogicalMonitorConnectors([14, [], logical]);
++    assertDeepEqual(connectors, [['DP-1'], ['eDP-1']]);
++
++    const identities = new Map([
++        ['DP-1', {vendor: 'SAM', product: 'Odyssey G50F', isBuiltin: false}],
++        ['eDP-1', {vendor: 'CSW', product: 'MND508ZB1-1', isBuiltin: true}],
++    ]);
++    const monitors = connectors.map((list, index) =>
++        monitorInfoFromConnectors({
++            index,
++            connectors: list,
++            lookup: (connector) => identities.get(connector) ?? null,
++        }),
++    );
++
++    assertDeepEqual(monitors, [
++        {
++            index: 0,
++            connector: 'DP-1',
++            connectors: ['DP-1'],
++            vendor: 'SAM',
++            product: 'Odyssey G50F',
++            isBuiltin: false,
++        },
++        {
++            index: 1,
++            connector: 'eDP-1',
++            connectors: ['eDP-1'],
++            vendor: 'CSW',
++            product: 'MND508ZB1-1',
++            isBuiltin: true,
++        },
++    ]);
++});
++
++await test('mirrored monitors share one logical index and no single connector', () => {
++    const monitorInfo = monitorInfoFromConnectors({
++        index: 0,
++        connectors: ['DP-1', 'HDMI-1'],
++        lookup: (connector) =>
++            connector === 'DP-1'
++                ? {vendor: 'DEL', product: 'U2723QE', isBuiltin: false}
++                : null,
++    });
++
++    assertEqual(monitorInfo.connector, null);
++    assertDeepEqual(monitorInfo.connectors, ['DP-1', 'HDMI-1']);
++    assertEqual(monitorInfo.vendor, 'DEL');
++    assertEqual(monitorInfo.isBuiltin, false);
++});
++
++await test('an unknown connector is treated as unidentified', () => {
++    const monitorInfo = monitorInfoFromConnectors({
++        index: 2,
++        connectors: ['DP-9'],
++        lookup: () => null,
++    });
++
++    assertDeepEqual(monitorInfo, {
++        index: 2,
++        connector: 'DP-9',
++        connectors: ['DP-9'],
++        vendor: null,
++        product: null,
++        isBuiltin: false,
++    });
++});
++
++await test('hardware rows follow the connectors that are connected now', () => {
++    const attached = hardware('card0-DP-1');
++    const unplugged = {...hardware('card0-HDMI-A-1'), id: '8'};
++    const unknown = {...hardware(null), id: '9'};
++
++    const monitors = [monitor(0, 'DP-1')];
++    const kept = filterHardwareDisplays(
++        [attached, unplugged, unknown],
++        monitors,
++    );
++    assertDeepEqual(
++        kept.map((display) => display.id),
++        ['7', '9'],
++        'disconnected connector dropped, unknown connector kept',
++    );
++
++    assertDeepEqual(
++        filterHardwareDisplays([attached], []).length,
++        0,
++        'nothing stays attached without monitors',
++    );
++});
+diff --git a/tests/run-prefs.sh b/tests/run-prefs.sh
+index 99d8917..9db8dff 100755
+--- a/tests/run-prefs.sh
++++ b/tests/run-prefs.sh
+@@ -9,7 +9,7 @@ cleanup() {
+         kill "$BROADWAY_PID" 2>/dev/null || true
+         wait "$BROADWAY_PID" 2>/dev/null || true
+     fi
+-    rm -rf "$WORK_DIR"
++    rm -rf "$WORK_DIR" 2>/dev/null || true
+ }
+ trap cleanup EXIT
+ 
+diff --git a/tests/run-shell.sh b/tests/run-shell.sh
+index ff087cf..372b96d 100755
+--- a/tests/run-shell.sh
++++ b/tests/run-shell.sh
+@@ -4,7 +4,9 @@ set -euo pipefail
+ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ 
+ WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/brightness-shell-tests.XXXXXX")"
+-trap 'rm -rf "$WORK_DIR"' EXIT
++# Teardown can still be writing into the runtime directory; a failed cleanup
++# must not turn a passing suite into a failure.
++trap 'rm -rf "$WORK_DIR" 2>/dev/null || true' EXIT
+ STAGE_DIR="$WORK_DIR/stage"
+ ARCHIVE="$WORK_DIR/ui-fixture.shell-extension.zip"
+ LOG="$WORK_DIR/shell.log"
+@@ -48,7 +50,12 @@ if (( status != 0 )); then
+     echo "Error: isolated Shell UI tests exited with status $status." >&2
+     exit "$status"
+ fi
+-if grep -Eq 'JS ERROR|CRITICAL' "$LOG"; then
++# A packaged Shell may lack its background images; loading one then logs a
++# critical that says nothing about the extension under test. Everything after
++# the shutdown marker is process teardown with the compositor already gone.
++if sed '/Shutting down GNOME Shell/q' "$LOG" |
++    grep -E 'JS ERROR|CRITICAL' |
++    grep -qv 'Failed to load animation'; then
+     echo 'Error: isolated Shell reported a JavaScript error or critical.' >&2
+     exit 1
+ fi
+diff --git a/tests/shell/ui.js b/tests/shell/ui.js
+index a28406f..af5a549 100644
+--- a/tests/shell/ui.js
++++ b/tests/shell/ui.js
+@@ -106,6 +106,12 @@ export async function run() {
+         load('ui/menu/DisplayLabel.js'),
+     ]);
+     const settings = extension.getSettings();
++    // The DDC tests assert exact row sets for hardware-controlled monitors;
++    // software dimming would add a row for the headless monitor.
++    const restoreSoftwareDimming = saveSettings(settings, [
++        SETTINGS_KEYS.SOFTWARE_DIMMING,
++    ]);
++    settings.set_boolean(SETTINGS_KEYS.SOFTWARE_DIMMING, false);
+     const hostParams = (ddcClient, logger) => ({
+         settings,
+         ddcClient,
+@@ -398,6 +404,38 @@ export async function run() {
+             {label: 'DP-3', accessibleLabel: 'DP-3'},
+             'no identity at all',
+         );
++        assertDeepEqual(
++            getDisplayLabels({
++                id: 'software:DP-1',
++                kind: DISPLAY_KIND.SOFTWARE,
++                monitorIndex: 1,
++                manufacturer: 'SAM',
++                name: 'Odyssey G50F',
++                connector: 'DP-1',
++                features: {},
++            }),
++            {
++                label: 'Samsung · DP-1 (software)',
++                accessibleLabel: 'Odyssey G50F (DP-1, software dimming)',
++            },
++            'software dimming row names the monitor',
++        );
++        assertDeepEqual(
++            getDisplayLabels({
++                id: 'software:monitor-2',
++                kind: DISPLAY_KIND.SOFTWARE,
++                monitorIndex: 2,
++                manufacturer: null,
++                name: null,
++                connector: null,
++                features: {},
++            }),
++            {
++                label: 'Monitor 3 (software)',
++                accessibleLabel: 'Monitor 3 (software dimming)',
++            },
++            'software dimming row without connector or EDID',
++        );
+     });
+ 
+     await test('individual, aggregate and relative input share coordinator results', () => {
+@@ -1288,6 +1326,134 @@ export async function run() {
+         }
+     });
+ 
++    await test('monitor hotplug triggers a rescan', async () => {
++        const restoreSettings = saveSettings(settings, [
++            SETTINGS_KEYS.SOFTWARE_DIMMING,
++            SETTINGS_KEYS.SHOW_INTERNAL_SLIDER,
++            SETTINGS_KEYS.SHOW_OSD,
++        ]);
++        settings.set_boolean(SETTINGS_KEYS.SOFTWARE_DIMMING, false);
++        settings.set_boolean(SETTINGS_KEYS.SHOW_INTERNAL_SLIDER, false);
++        settings.set_boolean(SETTINGS_KEYS.SHOW_OSD, false);
++        const ddcClient = new FakeDdcClient();
++        const {queries} = ddcClient;
++        const panel = new ScreenBrightnessPanelMenu(
++            hostParams(ddcClient, new Logger()),
++        );
++        Main.panel.addToStatusArea('brightness-hotplug-test', panel);
++        const scanResult = {
++            displays: [
++                external('7', 'Hotplug monitor', {
++                    brightness: {current: 40, max: 100},
++                }),
++            ],
++            detectStatus: DISPLAY_QUERY_STATUS.OK,
++            detectErrorText: null,
++        };
++        try {
++            panel.controller.requestRefresh();
++            queries[0].deferred.resolve(scanResult);
++            await waitUntil(
++                () => panel.menu.numMenuItems > 0,
++                'initial scan rows',
++            );
++
++            // The compositor reports connect and disconnect before the Shell
++            // layout does; either one must start a new scan.
++            global.backend.get_monitor_manager().emit('monitors-changed');
++            await Scripting.waitLeisure();
++            assert(
++                !panel.menu
++                    ._getMenuItems()
++                    .some(
++                        (row) =>
++                            row.label?.text ===
++                            extension.gettext('Loading displays...'),
++                    ),
++                'hotplug replaced the rows with a loading placeholder',
++            );
++            await waitUntil(
++                () => queries.length === 2,
++                'rescan after hotplug',
++                400,
++            );
++            queries[1].deferred.resolve(scanResult);
++            await Scripting.waitLeisure();
++        } finally {
++            panel.destroy();
++            restoreSettings();
++        }
++    });
++
++    await test('monitors without hardware brightness get a software dim row', async () => {
++        const restoreSettings = saveSettings(settings, [
++            SETTINGS_KEYS.SOFTWARE_DIMMING,
++            SETTINGS_KEYS.SHOW_DISPLAY_NAME,
++            SETTINGS_KEYS.SHOW_INTERNAL_SLIDER,
++            SETTINGS_KEYS.SHOW_OSD,
++            SETTINGS_KEYS.SLIDER_LAYOUT,
++        ]);
++        settings.set_boolean(SETTINGS_KEYS.SOFTWARE_DIMMING, true);
++        settings.set_boolean(SETTINGS_KEYS.SHOW_INTERNAL_SLIDER, false);
++        settings.set_boolean(SETTINGS_KEYS.SHOW_OSD, false);
++        settings.set_boolean(SETTINGS_KEYS.SHOW_DISPLAY_NAME, false);
++        settings.set_int(
++            SETTINGS_KEYS.SLIDER_LAYOUT,
++            SLIDER_LAYOUTS.ALL_AND_EACH,
++        );
++        const ddcClient = new FakeDdcClient();
++        const {queries} = ddcClient;
++        const panel = new ScreenBrightnessPanelMenu(
++            hostParams(ddcClient, new Logger()),
++        );
++        Main.panel.addToStatusArea('brightness-software-dim-test', panel);
++        const softwareRow = () =>
++            panel.menu
++                ._getMenuItems()
++                .find(
++                    (row) =>
++                        row instanceof LabeledSliderItem &&
++                        row.accessible_name.includes('software dimming'),
++                );
++        const dimActor = () =>
++            Main.uiGroup
++                .get_children()
++                .find((child) =>
++                    child.name?.startsWith('brightness-software-dim-'),
++                );
++        try {
++            panel.controller.requestRefresh();
++            queries[0].deferred.resolve({
++                displays: [],
++                detectStatus: DISPLAY_QUERY_STATUS.OK,
++                detectErrorText: null,
++            });
++            await waitUntil(
++                () => softwareRow() !== undefined,
++                'software dim row',
++            );
++            assertEqual(queries.length, 1, 'software row started a scan');
++
++            const row = softwareRow();
++            row.slider.value = 0.4;
++            await waitUntil(
++                () => dimActor()?.style.includes('rgba(0, 0, 0, 0.600)'),
++                'dim overlay',
++            );
++            assert(dimActor().visible, 'dim overlay stayed hidden');
++            assertEqual(
++                Main.layoutManager.monitors.length,
++                1,
++                'overlay created for another monitor',
++            );
++        } finally {
++            panel.destroy();
++            restoreSettings();
++        }
++        assertEqual(dimActor(), undefined, 'dim overlay survived teardown');
++    });
++
+     await runDialogTests({load, settings});
++    restoreSoftwareDimming();
+     print('SHELL_UI_TESTS_PASS');
+ }

@@ -18,13 +18,13 @@
     gnome-tweaks
 
     gnomeExtensions.caffeine
-    gnomeExtensions.clipboard-indicator
+    clipboard-indicator
     gnomeExtensions.desktop-icons-ng-ding
     gnomeExtensions.gsconnect
     gnomeExtensions.removable-drive-menu
     gnomeExtensions.vitals
 
-    adjust-display-brightness-2
+    adjust-display-brightness
     appindicator-tooltip
     dash-to-panel-patched
     display-per-monitor

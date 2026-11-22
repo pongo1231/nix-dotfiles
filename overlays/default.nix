@@ -72,13 +72,12 @@ in
     inherit patch;
   };
 
+  clipboard-indicator = final.callPackage (pkg /gnome-extensions/clipboard-indicator) { };
   display-per-monitor = final.callPackage (pkg /gnome-extensions/display-per-monitor) { };
 
-  adjust-display-brightness-2 =
-    final.callPackage (pkg /gnome-extensions/adjust-display-brightness-2)
-      {
-        inherit patch;
-      };
+  adjust-display-brightness = final.callPackage (pkg /gnome-extensions/adjust-display-brightness) {
+    inherit patch;
+  };
 
   lsfg-vk = prev.lsfg-vk.overrideAttrs (prevAttrs: {
     src = final.fetchFromGitHub {

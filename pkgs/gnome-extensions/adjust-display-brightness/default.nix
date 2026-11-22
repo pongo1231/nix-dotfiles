@@ -6,7 +6,7 @@
   patch,
 }:
 stdenv.mkDerivation {
-  pname = "gnome-shell-extension-adjust-display-brightness-2";
+  pname = "gnome-shell-extension-adjust-display-brightness";
   version = "9";
 
   src = fetchzip {
