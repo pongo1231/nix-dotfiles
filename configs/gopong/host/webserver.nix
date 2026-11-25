@@ -89,17 +89,21 @@ in
                     '';
                   };
 
-                  "hotel".locations = {
-                    "/".proxyPass = "http://localhost:8081";
-                    "/hotel-socket" = {
-                      proxyPass = "http://localhost:8181";
-                      proxyWebsockets = true;
-                      extraConfig = ''
-                        proxy_read_timeout 3600s;
-                        proxy_send_timeout 3600s;
-                        proxy_buffering off;
-                      '';
+                  "hotel" = {
+                    http2 = false;
+                    locations = {
+                      "/".proxyPass = "http://localhost:8081";
+                      "/hotel-socket" = {
+                        proxyPass = "http://localhost:8181";
+                        proxyWebsockets = true;
+                        extraConfig = ''
+                          proxy_read_timeout 3600s;
+                          proxy_send_timeout 3600s;
+                          proxy_buffering off;
+                        '';
+                      };
                     };
+
                   };
 
                   "fastdl" = {
