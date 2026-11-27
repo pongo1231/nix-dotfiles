@@ -50,8 +50,8 @@
         src = pkgs.fetchFromGitHub {
           owner = "firlin123";
           repo = "steamdeck-dkms";
-          rev = "dbbc4e398be5a8219f209222056a1d70ec9cea32";
-          hash = "sha256-uRsfwIFxoJ291aNRoSepehwQUmvNeLnjt86xj3PoEvU=";
+          rev = "99737c4a54e3140c7148014980c0905d0868d7ba";
+          hash = "sha256-h5/jLFwWyPjSLq6v8qzL2kPMwX8BgZwU9uPrOKjM29Q=";
         };
 
         sourceRoot = "source";

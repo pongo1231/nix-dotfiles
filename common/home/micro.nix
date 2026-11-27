@@ -14,7 +14,7 @@
   xdg.configFile."micro/plug/detectindent".source = pkgs.fetchFromGitHub {
     owner = "dmaluka";
     repo = "micro-detectindent";
-    rev = "2c725615920a1686c1c46a321c1973a65eea480b";
-    sha256 = "sha256-XSNsfrw1xdfwnJfFI3n2DC7a6MK0X0GyB27m5+8HMl8=";
+    rev = "0ffe2b84976dcc14525fb784a26eb05f72b1665b";
+    sha256 = "sha256-APu4FfrnWCUhs+aBnOFuxt9UK2b7XPeqH2Xbt5SLWkE=";
   };
 }

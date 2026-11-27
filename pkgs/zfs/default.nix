@@ -12,7 +12,7 @@
   (
     final: prev:
     let
-      rev = "645b83307918085ab2f0e12618809e348635b34f";
+      rev = "3b6d727ddd8d6d005774605964f044f364ee6456";
     in
     {
       name = builtins.replaceStrings [ prev.version ] [ final.version ] prev.name;
@@ -22,7 +22,7 @@
         owner = "openzfs";
         repo = "zfs";
         inherit rev;
-        hash = "sha256-hVATgJt9uvRiifphzzHfW3oCjqxz4O3yFujV4YMXEUA=";
+        hash = "sha256-lGy5eCR7MsSopKsmWEdhlY5xg/zH6pT2sdmkQRV+rQ0=";
       };
 
       meta = prev.meta // {
