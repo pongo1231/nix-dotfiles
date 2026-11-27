@@ -1,0 +1,29 @@
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -8440,6 +8440,7 @@ static void
+ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
+ {
+ 	int rq_h_nr_queued = rq->cfs.h_nr_queued;
++	int task_new = !(flags & ENQUEUE_WAKEUP);
+ 	int task_wake = flags & ENQUEUE_WAKEUP;
+ 	struct sched_entity *se = &p->se;
+ 	struct cfs_rq *cfs_rq = &rq->cfs;
+diff --git a/mm/internal.h b/mm/internal.h
+--- a/mm/internal.h
++++ b/mm/internal.h
+@@ -1277,5 +1277,5 @@
+-size_t splice_folio_into_pipe(struct pipe_inode_info *pipe,
+-			      struct folio *folio, loff_t fpos, size_t size);
++ssize_t splice_folio_into_pipe(struct pipe_inode_info *pipe,
++			       struct folio *folio, loff_t fpos, size_t size);
+ void filemap_read_accessed(struct folio *folio, loff_t pos, loff_t last_pos);
+ size_t filemap_read_rcu(struct kiocb *iocb, struct iov_iter *iter,
+ 			loff_t last_pos);
+diff --git a/mm/folio.c b/mm/folio.c
+--- a/mm/folio.c
++++ b/mm/folio.c
+@@ -565,3 +565,2 @@ static void lru_lazyfree(struct lruvec *lruvec, struct folio *folio)
+ 
+-	lru_gen_clear_refs(folio);
+ 	lruvec_del_folio(lruvec, folio);

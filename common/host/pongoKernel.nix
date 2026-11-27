@@ -74,12 +74,12 @@ in
                     in
                     {
                       inherit version;
-                      modDirVersion = "7.4.0-rc2";
+                      modDirVersion = "7.4.0-rc4";
                       src = pkgs.fetchFromGitHub {
                         owner = "torvalds";
                         repo = "linux";
-                        rev = "23c62304dde29abe92013d85910d03a77dada35d";
-                        hash = "sha256-OcN4i6QwG1KFu4ZkqNs1jHt3dF9AB5v5axMyEl9YmSM=";
+                        rev = "9437ee8b6cf607e883b36e44bd755968daaebd48";
+                        hash = "sha256-z3TOT5SsMgGX/FI8rRAH8K6iWJqeCh9tfI92bjZU5hk=";
                       };
                     };
                 };
@@ -107,16 +107,6 @@ in
             ANDROID_BINDER_IPC_RUST y
             DRM_GUD n
             AD4130 n
-          '';
-        }
-        {
-          name = "O3";
-          patch = pkgs.fetchpatch {
-            url = "https://github.com/CachyOS/linux/commit/12d17b523d3a3e2c59bf125f5ea6f2efbd585ff3.patch";
-            hash = "sha256-IBMUlm2U9wMxpHviCXbFXzRawhl1KH8EOIQoajo7CJ0=";
-          };
-          extraConfig = ''
-            CC_OPTIMIZE_FOR_PERFORMANCE_O3 y
           '';
         }
         {
@@ -195,6 +185,10 @@ in
         {
           name = "lib/crypto: x86/chacha: 16-block AVX-512";
           patch = patch /linux/20261025_antonio_quartulli_chacha_16block_avx512.patch;
+        }
+        {
+          name = "kernel build fixes for 7.4-rc4";
+          patch = patch /linux/20261127_kernel_rc4_build_fixes.patch;
         }
       ]
       ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
