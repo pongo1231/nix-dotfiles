@@ -18,7 +18,7 @@ withSecrets "pongo" { } { "base/userPassword" = { }; }
     ./vaultwarden.nix
     #./discourse.nix
     #./gitlab.nix
-    ./hastebin.nix
+    #./hastebin.nix
     ./picsur.nix
     ./findmydevice.nix
     ./mollysocket.nix

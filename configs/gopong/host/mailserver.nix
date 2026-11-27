@@ -60,4 +60,6 @@ withSecrets "pongo"
 
     x509.useACMEHost = config.mailserver.fqdn;
   };
+
+  services.knot-resolver.enable = true;
 }
